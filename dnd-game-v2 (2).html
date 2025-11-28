@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🐉 Cronache del Destino</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=MedievalSharp&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --parchment: #f4e4bc;
+            --parchment-dark: #d4c4a0;
+            --ink: #2c1810;
+            --ink-light: #5c4030;
+            --gold: #c9a227;
+            --gold-dark: #8b6914;
+            --blood: #8b0000;
+            --emerald: #2e8b57;
+            --sapphire: #1e3a5f;
+            --shadow: rgba(0,0,0,0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Crimson Text', Georgia, serif;
+            background: linear-gradient(135deg, #1a0f0a 0%, #2c1810 50%, #1a0f0a 100%);
+            min-height: 100vh;
+            min-height: 100dvh;
+            color: var(--ink);
+            overflow-x: hidden;
+        }
+
+        /* ==================== SCREENS ==================== */
+        .screen {
+            display: none;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ==================== HOMEPAGE ==================== */
+        #home-screen {
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: 
+                radial-gradient(ellipse at center, rgba(201, 162, 39, 0.1) 0%, transparent 70%),
+                linear-gradient(135deg, #1a0f0a 0%, #2c1810 50%, #1a0f0a 100%);
+        }
+
+        .home-container {
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .home-logo {
+            font-size: 5em;
+            margin-bottom: 10px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .home-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2.5em;
+            color: var(--gold);
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+            margin-bottom: 5px;
+        }
+
+        .home-subtitle {
+            font-family: 'MedievalSharp', cursive;
+            font-size: 1.1em;
+            color: var(--parchment-dark);
+            margin-bottom: 40px;
+        }
+
+        .home-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .home-btn {
+            padding: 18px 30px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.2em;
+            background: linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+            border: 3px solid var(--gold-dark);
+            border-radius: 12px;
+            color: var(--ink);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px var(--shadow);
+        }
+
+        .home-btn:hover, .home-btn:active {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px var(--shadow);
+            border-color: var(--gold);
+        }
+
+        .home-btn.primary {
+            background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+            color: white;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .home-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .home-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid var(--gold-dark);
+        }
+
+        .home-section-title {
+            font-family: 'Cinzel', serif;
+            color: var(--gold);
+            margin-bottom: 15px;
+        }
+
+        /* ==================== GAME SCREEN ==================== */
+        #game-screen {
+            background: linear-gradient(180deg, rgba(244, 228, 188, 0.95), rgba(212, 196, 160, 0.92));
+        }
+
+        /* Top Bar */
+        .game-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: linear-gradient(180deg, var(--ink), #1a0f0a);
+            border-bottom: 2px solid var(--gold);
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .topbar-left, .topbar-right {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .topbar-center {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        .topbar-btn {
+            padding: 8px 12px;
+            font-size: 1.1em;
+            background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+            border: 2px solid var(--gold);
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .topbar-btn:hover, .topbar-btn:active {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(201, 162, 39, 0.5);
+        }
+
+        .topbar-btn.danger {
+            background: linear-gradient(180deg, var(--blood), #5c0000);
+            border-color: var(--blood);
+        }
+
+        .topbar-btn span.label {
+            font-family: 'Cinzel', serif;
+            font-size: 0.75em;
+        }
+
+        @media (max-width: 500px) {
+            .topbar-btn span.label {
+                display: none;
+            }
+        }
+
+        /* Character Mini Stats */
+        .mini-stats {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .mini-stat {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.9em;
+            color: var(--parchment);
+            font-family: 'Cinzel', serif;
+        }
+
+        .mini-stat-bar {
+            width: 50px;
+            height: 8px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .mini-stat-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .mini-stat-fill.health { background: linear-gradient(90deg, #dc143c, #ff6b6b); }
+        .mini-stat-fill.mana { background: linear-gradient(90deg, #4169e1, #87ceeb); }
+
+        /* Story Area - MAIN FOCUS */
+        .story-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .story-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 10px;
+        }
+
+        .story-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .story-scroll::-webkit-scrollbar-track {
+            background: var(--parchment-dark);
+        }
+
+        .story-scroll::-webkit-scrollbar-thumb {
+            background: var(--gold-dark);
+            border-radius: 4px;
+        }
+
+        .story-entry {
+            margin-bottom: 20px;
+            animation: fadeIn 0.4s ease;
+            line-height: 1.8;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .story-entry.narrator {
+            font-size: 1.2em;
+            padding: 18px 22px;
+            background: rgba(201, 162, 39, 0.12);
+            border-left: 4px solid var(--gold);
+            border-radius: 0 12px 12px 0;
+            line-height: 1.7;
+        }
+
+        .story-entry.narrator p {
+            margin: 0 0 14px 0;
+        }
+
+        .story-entry.narrator p:last-child {
+            margin-bottom: 0;
+        }
+
+        .story-entry.narrator em {
+            color: var(--ink-light);
+            font-style: italic;
+        }
+
+        .story-entry.player {
+            font-size: 1.1em;
+            padding: 12px 20px;
+            background: rgba(30, 58, 95, 0.15);
+            border-left: 4px solid var(--sapphire);
+            border-radius: 0 12px 12px 0;
+            font-weight: 500;
+        }
+
+        .story-entry.player p {
+            margin: 0;
+        }
+
+        .story-entry.dice-roll {
+            font-size: 1em;
+            padding: 10px 15px;
+            background: rgba(139, 0, 0, 0.12);
+            border-left: 4px solid var(--blood);
+            border-radius: 0 12px 12px 0;
+            font-family: 'Cinzel', serif;
+        }
+
+        .story-entry.system {
+            font-size: 0.95em;
+            padding: 10px 15px;
+            background: rgba(46, 139, 87, 0.12);
+            border-left: 4px solid var(--emerald);
+            border-radius: 0 12px 12px 0;
+            font-style: italic;
+        }
+
+        /* Choices */
+        .choices-area {
+            padding: 15px 20px;
+            background: rgba(0,0,0,0.05);
+            border-top: 1px solid var(--gold-dark);
+        }
+
+        .choice-btn {
+            width: 100%;
+            padding: 14px 20px;
+            margin-bottom: 10px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1.1em;
+            background: linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+            border: 2px solid var(--gold-dark);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            color: var(--ink);
+        }
+
+        .choice-btn:last-child {
+            margin-bottom: 0;
+        }
+
+        .choice-btn:hover, .choice-btn:active {
+            background: linear-gradient(180deg, #fff8e8, var(--parchment));
+            transform: translateX(5px);
+            border-color: var(--gold);
+        }
+
+        .choice-dc {
+            float: right;
+            font-size: 0.8em;
+            padding: 3px 10px;
+            background: var(--gold-dark);
+            color: white;
+            border-radius: 10px;
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            padding: 10px 15px;
+            background: rgba(0,0,0,0.03);
+            border-top: 1px solid var(--gold-dark);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .quick-btn {
+            padding: 8px 14px;
+            font-family: 'Crimson Text', serif;
+            font-size: 0.95em;
+            background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(240,230,210,0.9));
+            border: 1px solid var(--gold-dark);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--ink);
+        }
+
+        .quick-btn:hover, .quick-btn:active {
+            background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+            color: white;
+            transform: scale(1.05);
+        }
+
+        /* Suggestions (optional, not forced) */
+        .suggestions-area {
+            padding: 12px 15px;
+            background: rgba(201, 162, 39, 0.08);
+            border-top: 1px solid var(--gold-dark);
+        }
+
+        .suggestions-label {
+            font-size: 0.85em;
+            color: var(--ink-light);
+            margin-bottom: 8px;
+            font-style: italic;
+        }
+
+        .suggestions-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .suggestion-btn {
+            padding: 10px 16px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1em;
+            background: linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+            border: 2px solid var(--gold-dark);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--ink);
+            text-align: left;
+            flex: 1 1 auto;
+            min-width: 150px;
+        }
+
+        .suggestion-btn:hover, .suggestion-btn:active {
+            background: linear-gradient(180deg, #fff8e8, var(--parchment));
+            border-color: var(--gold);
+            transform: translateY(-2px);
+        }
+
+        .suggestion-btn .suggestion-type {
+            font-size: 0.8em;
+            color: var(--gold-dark);
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        /* Input Area Enhanced */
+        .input-area {
+            padding: 15px 20px;
+            background: rgba(0,0,0,0.08);
+            border-top: 2px solid var(--gold-dark);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-input {
+            flex: 1;
+            padding: 14px 18px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1.15em;
+            border: 2px solid var(--gold-dark);
+            border-radius: 10px;
+            background: white;
+            color: var(--ink);
+        }
+
+        .action-input:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 15px rgba(201, 162, 39, 0.3);
+        }
+
+        .action-input::placeholder {
+            color: var(--ink-light);
+            font-style: italic;
+        }
+
+        .input-hints {
+            margin-top: 8px;
+            font-size: 0.8em;
+            color: var(--ink-light);
+            text-align: center;
+            font-style: italic;
+        }
+
+        .send-btn {
+            padding: 14px 25px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.2em;
+            background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .send-btn:hover, .send-btn:active {
+            transform: scale(1.05);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* NPC Dialogue styling */
+        .story-entry.dialogue {
+            font-size: 1.15em;
+            padding: 15px 20px;
+            background: rgba(139, 69, 19, 0.1);
+            border-left: 4px solid #8B4513;
+            border-radius: 0 12px 12px 0;
+        }
+
+        .story-entry .npc-name {
+            font-family: 'Cinzel', serif;
+            font-weight: bold;
+            color: var(--gold-dark);
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .story-entry .dialogue-text {
+            font-style: italic;
+            color: var(--ink);
+        }
+
+        .story-entry .player-speech {
+            color: var(--sapphire);
+            font-weight: 500;
+        }
+
+        /* ==================== MODALS ==================== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+            border: 3px solid var(--gold);
+            border-radius: 15px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            animation: modalIn 0.3s ease;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-dark));
+            color: white;
+            font-family: 'Cinzel', serif;
+            font-size: 1.3em;
+        }
+
+        .modal-close {
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 5px 10px;
+            border: none;
+            background: none;
+            color: white;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        /* ==================== SPECIFIC MODALS ==================== */
+
+        /* Dice Modal */
+        .dice-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .dice-btn {
+            aspect-ratio: 1;
+            font-family: 'Cinzel', serif;
+            font-size: 1.5em;
+            font-weight: bold;
+            border: 3px solid var(--ink);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dice-btn:hover, .dice-btn:active {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .dice-btn.d20 { background: linear-gradient(135deg, #dc143c, #8b0000); color: white; }
+        .dice-btn.d12 { background: linear-gradient(135deg, #4169e1, #1e3a5f); color: white; }
+        .dice-btn.d10 { background: linear-gradient(135deg, #9932cc, #4b0082); color: white; }
+        .dice-btn.d8 { background: linear-gradient(135deg, #ffd700, #b8860b); color: var(--ink); }
+        .dice-btn.d6 { background: linear-gradient(135deg, #3cb371, #2e8b57); color: white; }
+        .dice-btn.d4 { background: linear-gradient(135deg, #ff8c00, #ff4500); color: white; }
+
+        .dice-label {
+            font-size: 0.5em;
+            opacity: 0.8;
+        }
+
+        .dice-result {
+            text-align: center;
+            padding: 20px;
+            margin-top: 15px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 10px;
+            font-family: 'Cinzel', serif;
+            font-size: 2em;
+            color: var(--gold-dark);
+        }
+
+        /* Inventory Modal */
+        .currency-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .currency-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 15px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 20px;
+            font-family: 'Cinzel', serif;
+            font-weight: bold;
+        }
+
+        .inv-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .inv-slot {
+            aspect-ratio: 1;
+            background: rgba(0,0,0,0.15);
+            border: 2px solid var(--ink-light);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .inv-slot:hover {
+            background: rgba(201, 162, 39, 0.2);
+            border-color: var(--gold);
+        }
+
+        .inv-slot .count {
+            position: absolute;
+            bottom: 2px;
+            right: 5px;
+            font-size: 0.4em;
+            font-weight: bold;
+        }
+
+        .equip-row {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .equip-slot {
+            width: 70px;
+            height: 70px;
+            background: rgba(201, 162, 39, 0.2);
+            border: 2px solid var(--gold);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8em;
+        }
+
+        .equip-label {
+            font-size: 0.35em;
+            font-family: 'Cinzel', serif;
+            color: var(--ink-light);
+        }
+
+        /* Character Modal */
+        .char-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .char-portrait {
+            font-size: 4em;
+            margin-bottom: 10px;
+        }
+
+        .char-name {
+            font-family: 'Cinzel', serif;
+            font-size: 1.5em;
+        }
+
+        .char-class {
+            color: var(--ink-light);
+            font-style: italic;
+        }
+
+        .stats-section {
+            margin-bottom: 20px;
+        }
+
+        .stat-row {
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+            font-size: 0.9em;
+        }
+
+        .stat-bar {
+            height: 20px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .stat-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        .stat-fill.health { background: linear-gradient(90deg, #8b0000, #dc143c); }
+        .stat-fill.mana { background: linear-gradient(90deg, #1e3a5f, #4169e1); }
+        .stat-fill.stamina { background: linear-gradient(90deg, #2e8b57, #3cb371); }
+        .stat-fill.exp { background: linear-gradient(90deg, #8b6914, #ffd700); }
+
+        .attrs-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .attr-box {
+            text-align: center;
+            padding: 10px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 8px;
+            border: 1px solid var(--gold-dark);
+        }
+
+        .attr-name {
+            font-size: 0.8em;
+            color: var(--ink-light);
+        }
+
+        .attr-value {
+            font-family: 'Cinzel', serif;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .attr-mod {
+            font-size: 0.9em;
+            color: var(--gold-dark);
+        }
+
+        /* Skills Section */
+        .skills-section h3 {
+            font-family: 'Cinzel', serif;
+            margin-bottom: 10px;
+            color: var(--ink);
+        }
+
+        .skill-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+
+        .skill-bonus { color: var(--emerald); font-weight: bold; }
+        .skill-malus { color: var(--blood); font-weight: bold; }
+
+        /* Stories/Save Modals */
+        .story-card, .save-slot {
+            padding: 15px;
+            background: rgba(255,255,255,0.5);
+            border: 2px solid var(--gold-dark);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .story-card:hover, .save-slot:hover,
+        .story-card.selected, .save-slot.selected {
+            border-color: var(--gold);
+            background: rgba(201, 162, 39, 0.2);
+        }
+
+        .story-card-title, .save-slot-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .story-card-desc, .save-slot-info {
+            font-size: 0.9em;
+            color: var(--ink-light);
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            font-family: 'Cinzel', serif;
+            margin-bottom: 5px;
+            color: var(--ink);
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 12px 15px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1em;
+            border: 2px solid var(--gold-dark);
+            border-radius: 8px;
+            background: white;
+            color: var(--ink);
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            font-family: 'Cinzel', serif;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn.primary {
+            background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+            color: white;
+        }
+
+        .btn.secondary {
+            background: linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+            border: 2px solid var(--gold-dark);
+            color: var(--ink);
+        }
+
+        .btn.danger {
+            background: linear-gradient(180deg, var(--blood), #5c0000);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Character Creation */
+        .creation-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .creation-option {
+            padding: 12px;
+            text-align: center;
+            background: rgba(0,0,0,0.1);
+            border: 2px solid var(--gold-dark);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .creation-option:hover, .creation-option.selected {
+            border-color: var(--gold);
+            background: rgba(201, 162, 39, 0.2);
+        }
+
+        .creation-icon {
+            font-size: 2em;
+        }
+
+        .creation-name {
+            font-family: 'Cinzel', serif;
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: var(--ink);
+            color: var(--parchment);
+            border-radius: 10px;
+            border-left: 4px solid var(--gold);
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(50px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .notification.success { border-left-color: var(--emerald); }
+        .notification.error { border-left-color: var(--blood); }
+
+        /* Loading */
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        /* Settings */
+        .settings-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 10px;
+        }
+
+        .settings-section h3 {
+            font-family: 'Cinzel', serif;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <!-- ==================== HOME SCREEN ==================== -->
+    <div id="home-screen" class="screen active">
+        <div class="home-container">
+            <div class="home-logo">🐉</div>
+            <h1 class="home-title">Cronache del Destino</h1>
+            <p class="home-subtitle">Un'Avventura Narrativa con IA</p>
+
+            <div class="home-menu">
+                <button class="home-btn primary" id="btn-continue" disabled>▶️ Continua</button>
+                <button class="home-btn" id="btn-new-game">🆕 Nuova Partita</button>
+                <button class="home-btn" id="btn-load-game">📂 Carica Partita</button>
+                <button class="home-btn" id="btn-stories">📜 Gestisci Storie</button>
+                <button class="home-btn" id="btn-settings">⚙️ Impostazioni</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== GAME SCREEN ==================== -->
+    <div id="game-screen" class="screen">
+        <!-- Top Bar -->
+        <div class="game-topbar">
+            <div class="topbar-left">
+                <button class="topbar-btn danger" id="btn-exit">🚪</button>
+                <button class="topbar-btn" id="btn-save-quick">💾</button>
+            </div>
+
+            <div class="topbar-center">
+                <div class="mini-stats">
+                    <div class="mini-stat">
+                        ❤️
+                        <div class="mini-stat-bar">
+                            <div class="mini-stat-fill health" id="mini-health" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="mini-stat">
+                        💙
+                        <div class="mini-stat-bar">
+                            <div class="mini-stat-fill mana" id="mini-mana" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <button class="topbar-btn" id="btn-dice">🎲</button>
+                <button class="topbar-btn" id="btn-inventory">🎒</button>
+                <button class="topbar-btn" id="btn-character">👤</button>
+            </div>
+        </div>
+
+        <!-- Story Area -->
+        <div class="story-area">
+            <div class="story-scroll" id="story-scroll">
+                <!-- Story entries appear here -->
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions" id="quick-actions">
+                <button class="quick-btn" data-action="talk">💬 Parla</button>
+                <button class="quick-btn" data-action="look">👁️ Osserva</button>
+                <button class="quick-btn" data-action="interact">✋ Interagisci</button>
+                <button class="quick-btn" data-action="ask">❓ Chiedi</button>
+                <button class="quick-btn" data-action="fight">⚔️ Combatti</button>
+                <button class="quick-btn" data-action="sneak">🤫 Furtivo</button>
+            </div>
+
+            <!-- Suggestions (not forced choices) -->
+            <div class="suggestions-area" id="suggestions-area" style="display: none;">
+                <div class="suggestions-label">💡 Suggerimenti (o scrivi quello che vuoi):</div>
+                <div class="suggestions-list" id="suggestions-list"></div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-row">
+                    <input type="text" class="action-input" id="action-input" placeholder="Scrivi cosa fai, dici o chiedi...">
+                    <button class="send-btn" id="btn-send">➤</button>
+                </div>
+                <div class="input-hints">
+                    Esempi: "Chiedo al mercante il suo nome" • "Esamino la stanza" • "Dico: Salve, straniero!"
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- Dice Modal -->
+    <div class="modal-overlay" id="modal-dice">
+        <div class="modal">
+            <div class="modal-header">
+                🎲 Lancia i Dadi
+                <button class="modal-close" data-close="modal-dice">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="dice-grid">
+                    <button class="dice-btn d20" data-sides="20"><span>D20</span><span class="dice-label">Fato</span></button>
+                    <button class="dice-btn d12" data-sides="12"><span>D12</span><span class="dice-label">Danno</span></button>
+                    <button class="dice-btn d10" data-sides="10"><span>D10</span><span class="dice-label">%</span></button>
+                    <button class="dice-btn d8" data-sides="8"><span>D8</span><span class="dice-label">Arma</span></button>
+                    <button class="dice-btn d6" data-sides="6"><span>D6</span><span class="dice-label">Base</span></button>
+                    <button class="dice-btn d4" data-sides="4"><span>D4</span><span class="dice-label">Min</span></button>
+                </div>
+                <div class="dice-result" id="dice-result">Scegli un dado</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Modal -->
+    <div class="modal-overlay" id="modal-inventory">
+        <div class="modal">
+            <div class="modal-header">
+                🎒 Inventario
+                <button class="modal-close" data-close="modal-inventory">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="currency-row">
+                    <div class="currency-item">🥇 <span id="inv-gold">0</span></div>
+                    <div class="currency-item">🥈 <span id="inv-silver">0</span></div>
+                    <div class="currency-item">🥉 <span id="inv-copper">0</span></div>
+                </div>
+                <div class="inv-grid" id="inv-grid"></div>
+                <h4 style="font-family: 'Cinzel', serif; margin: 15px 0 10px;">Equipaggiato</h4>
+                <div class="equip-row">
+                    <div class="equip-slot" id="equip-weapon">⚔️<span class="equip-label">Arma</span></div>
+                    <div class="equip-slot" id="equip-armor">🛡️<span class="equip-label">Armatura</span></div>
+                    <div class="equip-slot" id="equip-accessory">💍<span class="equip-label">Accessorio</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Character Modal -->
+    <div class="modal-overlay" id="modal-character">
+        <div class="modal">
+            <div class="modal-header">
+                👤 Personaggio
+                <button class="modal-close" data-close="modal-character">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="char-header">
+                    <div class="char-portrait" id="char-portrait">🧙</div>
+                    <div class="char-name" id="char-name">Eroe</div>
+                    <div class="char-class" id="char-class">Avventuriero Lv. 1</div>
+                </div>
+
+                <div class="stats-section">
+                    <div class="stat-row">
+                        <div class="stat-label"><span>❤️ Salute</span><span id="stat-health-text">100/100</span></div>
+                        <div class="stat-bar"><div class="stat-fill health" id="stat-health" style="width: 100%"></div></div>
+                    </div>
+                    <div class="stat-row">
+                        <div class="stat-label"><span>💙 Mana</span><span id="stat-mana-text">50/50</span></div>
+                        <div class="stat-bar"><div class="stat-fill mana" id="stat-mana" style="width: 100%"></div></div>
+                    </div>
+                    <div class="stat-row">
+                        <div class="stat-label"><span>💚 Stamina</span><span id="stat-stamina-text">100/100</span></div>
+                        <div class="stat-bar"><div class="stat-fill stamina" id="stat-stamina" style="width: 100%"></div></div>
+                    </div>
+                    <div class="stat-row">
+                        <div class="stat-label"><span>⭐ Esperienza</span><span id="stat-exp-text">0/100</span></div>
+                        <div class="stat-bar"><div class="stat-fill exp" id="stat-exp" style="width: 0%"></div></div>
+                    </div>
+                </div>
+
+                <div class="attrs-grid" id="attrs-grid"></div>
+
+                <div class="skills-section" style="margin-top: 20px;">
+                    <h3>📚 Abilità</h3>
+                    <div id="skills-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stories Modal -->
+    <div class="modal-overlay" id="modal-stories">
+        <div class="modal">
+            <div class="modal-header">
+                📜 Storie
+                <button class="modal-close" data-close="modal-stories">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="stories-list"></div>
+                <div class="btn-row">
+                    <button class="btn primary" id="btn-create-story">➕ Nuova</button>
+                    <button class="btn secondary" id="btn-edit-story" disabled>✏️ Modifica</button>
+                    <button class="btn danger" id="btn-delete-story" disabled>🗑️</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Story Editor Modal -->
+    <div class="modal-overlay" id="modal-story-editor">
+        <div class="modal">
+            <div class="modal-header">
+                ✏️ Editor Storia
+                <button class="modal-close" data-close="modal-story-editor">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Titolo</label>
+                    <input type="text" class="form-input" id="edit-story-title" placeholder="Nome della storia...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Ambientazione</label>
+                    <select class="form-select" id="edit-story-setting">
+                        <option value="medieval">🏰 Medievale Fantasy</option>
+                        <option value="dark">🌑 Dark Fantasy</option>
+                        <option value="steampunk">⚙️ Steampunk</option>
+                        <option value="oriental">🏯 Orientale</option>
+                        <option value="nordic">❄️ Nordico</option>
+                        <option value="pirate">🏴‍☠️ Piratesco</option>
+                        <option value="horror">👻 Horror</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Difficoltà</label>
+                    <select class="form-select" id="edit-story-difficulty">
+                        <option value="easy">🟢 Facile</option>
+                        <option value="normal">🟡 Normale</option>
+                        <option value="hard">🔴 Difficile</option>
+                        <option value="nightmare">💀 Incubo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Descrizione Mondo</label>
+                    <textarea class="form-textarea" id="edit-story-desc" placeholder="Descrivi l'ambientazione..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Personalità Narratore IA</label>
+                    <textarea class="form-textarea" id="edit-story-personality" placeholder="Come deve narrare l'IA?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Profondità Gioco</label>
+                    <textarea class="form-textarea" id="edit-story-depth" placeholder="Meccaniche speciali, karma, NPC..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Prologo</label>
+                    <textarea class="form-textarea" id="edit-story-prologue" placeholder="L'inizio della storia..."></textarea>
+                </div>
+                <div class="btn-row">
+                    <button class="btn primary" id="btn-save-story">💾 Salva</button>
+                    <button class="btn secondary" data-close="modal-story-editor">Annulla</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Character Creation Modal -->
+    <div class="modal-overlay" id="modal-new-game">
+        <div class="modal">
+            <div class="modal-header">
+                🆕 Nuova Partita
+                <button class="modal-close" data-close="modal-new-game">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Scegli Storia</label>
+                    <select class="form-select" id="new-game-story"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nome Personaggio</label>
+                    <input type="text" class="form-input" id="new-game-name" placeholder="Il tuo nome...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Razza</label>
+                    <div class="creation-grid" id="race-grid"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Classe</label>
+                    <div class="creation-grid" id="class-grid"></div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn primary" id="btn-start-game">⚔️ Inizia Avventura</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save/Load Modal -->
+    <div class="modal-overlay" id="modal-saves">
+        <div class="modal">
+            <div class="modal-header">
+                💾 Salvataggi
+                <button class="modal-close" data-close="modal-saves">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="saves-list"></div>
+                <div class="btn-row">
+                    <button class="btn primary" id="btn-save-to-slot">💾 Salva</button>
+                    <button class="btn secondary" id="btn-load-from-slot">📂 Carica</button>
+                    <button class="btn danger" id="btn-delete-slot">🗑️</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="modal-settings">
+        <div class="modal">
+            <div class="modal-header">
+                ⚙️ Impostazioni
+                <button class="modal-close" data-close="modal-settings">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>🔑 API Keys</h3>
+                    <div class="form-group">
+                        <label class="form-label">Groq (Llama 3.1 8B)</label>
+                        <input type="password" class="form-input" id="set-groq-key" placeholder="gsk_...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">OpenRouter (Gemma 3 27B)</label>
+                        <input type="password" class="form-input" id="set-openrouter-key" placeholder="sk-or-...">
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>🤖 Modello IA</h3>
+                    <div class="form-group">
+                        <select class="form-select" id="set-model">
+                            <option value="groq">Groq - Llama 3.1 8B (Veloce)</option>
+                            <option value="openrouter">OpenRouter - Gemma 3 27B</option>
+                            <option value="auto">Auto</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>🎮 Gioco</h3>
+                    <div class="form-group">
+                        <label class="form-label">Lunghezza Risposte</label>
+                        <select class="form-select" id="set-length">
+                            <option value="short">Breve</option>
+                            <option value="medium" selected>Media</option>
+                            <option value="long">Lunga</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" id="set-autoroll" checked> Tiri automatici</label>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn primary" id="btn-save-settings">💾 Salva</button>
+                    <button class="btn danger" id="btn-reset-all">⚠️ Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== GAME STATE ====================
+        const G = {
+            currentStory: null,
+            character: null,
+            storyLog: [],
+            history: [],
+            settings: {
+                groqKey: '', openrouterKey: '', model: 'groq', length: 'medium', autoRoll: true
+            },
+            stories: [],
+            saves: Array(6).fill(null),
+            selectedStory: null,
+            selectedSave: null,
+            selectedRace: null,
+            selectedClass: null,
+            editingStory: null,
+            isPlaying: false,
+            isProcessing: false
+        };
+
+        const RACES = {
+            human: { name: 'Umano', icon: '🧑', bonuses: { all: 1 } },
+            elf: { name: 'Elfo', icon: '🧝', bonuses: { dex: 2, int: 1 } },
+            dwarf: { name: 'Nano', icon: '🧔', bonuses: { con: 2, str: 1 } },
+            orc: { name: 'Orco', icon: '👹', bonuses: { str: 3 }, maluses: { cha: -1 } },
+            halfling: { name: 'Halfling', icon: '🧒', bonuses: { dex: 2, cha: 1 } },
+            tiefling: { name: 'Tiefling', icon: '😈', bonuses: { cha: 2, int: 1 } }
+        };
+
+        const CLASSES = {
+            warrior: { name: 'Guerriero', icon: '⚔️', stat: 'str', hp: 12, mp: 2, skills: ['Colpo Possente', 'Parata'] },
+            mage: { name: 'Mago', icon: '🧙', stat: 'int', hp: 6, mp: 12, skills: ['Dardo Arcano', 'Scudo Magico'] },
+            rogue: { name: 'Ladro', icon: '🗡️', stat: 'dex', hp: 8, mp: 4, skills: ['Attacco Furtivo', 'Scassinare'] },
+            cleric: { name: 'Chierico', icon: '✝️', stat: 'wis', hp: 8, mp: 8, skills: ['Cura', 'Benedizione'] },
+            ranger: { name: 'Ranger', icon: '🏹', stat: 'dex', hp: 10, mp: 4, skills: ['Tiro Preciso', 'Tracce'] },
+            bard: { name: 'Bardo', icon: '🎸', stat: 'cha', hp: 8, mp: 6, skills: ['Ispirazione', 'Fascino'] }
+        };
+
+        const ITEMS = {
+            potion_health: { name: 'Pozione Cura', icon: '🧪', type: 'consumable', effect: { health: 30 } },
+            potion_mana: { name: 'Pozione Mana', icon: '🔮', type: 'consumable', effect: { mana: 25 } },
+            bread: { name: 'Pane', icon: '🍞', type: 'consumable', effect: { stamina: 20 } },
+            torch: { name: 'Torcia', icon: '🔥', type: 'misc' },
+            rope: { name: 'Corda', icon: '🪢', type: 'misc' }
+        };
+
+        // ==================== UTILITIES ====================
+        const $ = id => document.getElementById(id);
+        const $$ = sel => document.querySelectorAll(sel);
+
+        function notify(msg, type = 'info') {
+            const n = document.createElement('div');
+            n.className = `notification ${type}`;
+            n.textContent = msg;
+            document.body.appendChild(n);
+            setTimeout(() => n.remove(), 3000);
+        }
+
+        function mod(val) { return Math.floor((val - 10) / 2); }
+
+        function roll(sides) { return Math.floor(Math.random() * sides) + 1; }
+
+        function save() {
+            localStorage.setItem('dnd_v2', JSON.stringify({
+                stories: G.stories, saves: G.saves, settings: G.settings
+            }));
+        }
+
+        function load() {
+            const d = localStorage.getItem('dnd_v2');
+            if (d) {
+                const p = JSON.parse(d);
+                G.stories = p.stories || [];
+                G.saves = p.saves || Array(6).fill(null);
+                G.settings = { ...G.settings, ...p.settings };
+            }
+            if (G.stories.length === 0) {
+                G.stories = [
+                    { 
+                        id: 1, 
+                        title: 'La Cripta dei Sussurri', 
+                        setting: 'dark', 
+                        difficulty: 'normal', 
+                        desc: 'Un mondo gotico dove la nebbia avvolge antichi cimiteri e cripte dimenticate nascondono segreti terribili. Il villaggio di Ravenhollow vive nella paura di ciò che si cela sotto terra.', 
+                        personality: 'Narratore misterioso e atmosferico. Crea tensione e suspense. Usa descrizioni cupe ma evocative.', 
+                        depth: 'Gli NPC hanno paure e segreti. Le scelte morali hanno conseguenze. La morte è sempre vicina.',
+                        prologue: 'La nebbia si alza lenta dal cimitero mentre attraversi i cancelli arrugginiti di Ravenhollow. Il villaggio sembra deserto, le finestre delle case sprangate. Solo la locanda "Il Corvo Stanco" mostra segni di vita: una luce fioca filtra dalle imposte e il suono di voci sommesse raggiunge le tue orecchie.'
+                    },
+                    { 
+                        id: 2, 
+                        title: 'Il Torneo dei Campioni', 
+                        setting: 'medieval', 
+                        difficulty: 'easy', 
+                        desc: 'Il glorioso Regno di Valdoria ospita il più grande torneo del continente. Cavalieri, mercenari e avventurieri si sfidano per onore, gloria e la mano della Principessa Elara.', 
+                        personality: 'Narratore epico e cavalleresco. Enfatizza onore, coraggio e rivalità. I combattimenti sono spettacolari.', 
+                        depth: 'Ogni avversario ha una storia e motivazioni. Le alleanze contano. La politica di corte nasconde intrighi.',
+                        prologue: 'Le bandiere colorate sventolano nel vento mentre ti avvicini alle porte della capitale. Il rombo della folla riempie l\'aria: il Torneo dei Campioni sta per iniziare. Davanti all\'ingresso, un araldo in livrea reale sta registrando i partecipanti, mentre guerrieri di ogni tipo si aggirano mostrando le loro armi.'
+                    },
+                    { 
+                        id: 3, 
+                        title: 'Nebbie di Akashan', 
+                        setting: 'oriental', 
+                        difficulty: 'hard', 
+                        desc: 'Nelle terre mistiche di Akashan, dove draghi orientali sorvolano montagne sacre e spiriti kitsune abitano foreste di bambù, un\'antica profezia sta per compiersi.', 
+                        personality: 'Narratore contemplativo e poetico. Usa metafore naturali. Bilancia azione e riflessione. Rispetta la filosofia orientale.', 
+                        depth: 'L\'equilibrio tra luce e ombra guida il destino. Ogni scelta influenza il karma. I maestri insegnano con enigmi.',
+                        prologue: 'I fiori di ciliegio danzano nel vento della sera mentre sali i gradini del Tempio della Luna Velata. Il tuo maestro ti ha convocato con urgenza, cosa insolita per un uomo che predica la pazienza. Lo trovi nel giardino di meditazione, lo sguardo fisso sulla luna rossa che sorge all\'orizzonte.'
+                    }
+                ];
+                save();
+            }
+        }
+
+        // ==================== SCREENS ====================
+        function showScreen(id) {
+            $$('.screen').forEach(s => s.classList.remove('active'));
+            $(id).classList.add('active');
+        }
+
+        function openModal(id) {
+            $(id).classList.add('active');
+        }
+
+        function closeModal(id) {
+            $(id).classList.remove('active');
+        }
+
+        function closeAllModals() {
+            $$('.modal-overlay').forEach(m => m.classList.remove('active'));
+        }
+
+        // ==================== HOME ====================
+        function updateHome() {
+            $('btn-continue').disabled = !G.isPlaying;
+        }
+
+        // ==================== CHARACTER ====================
+        function createCharacter(name, race, cls) {
+            const r = RACES[race], c = CLASSES[cls];
+            const attrs = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+            
+            if (r.bonuses) {
+                if (r.bonuses.all) Object.keys(attrs).forEach(k => attrs[k] += r.bonuses.all);
+                else Object.entries(r.bonuses).forEach(([k,v]) => { if(attrs[k]) attrs[k] += v; });
+            }
+            if (r.maluses) Object.entries(r.maluses).forEach(([k,v]) => { if(attrs[k]) attrs[k] += v; });
+
+            const conMod = mod(attrs.con);
+            
+            G.character = {
+                name, race, class: cls, level: 1,
+                health: { cur: c.hp + conMod, max: c.hp + conMod },
+                mana: { cur: c.mp + Math.max(0, mod(attrs.int)), max: c.mp + Math.max(0, mod(attrs.int)) },
+                stamina: { cur: 100, max: 100 },
+                exp: { cur: 0, need: 100 },
+                attrs,
+                skills: {},
+                inventory: [
+                    { id: 'potion_health', count: 2 },
+                    { id: 'bread', count: 3 },
+                    { id: 'torch', count: 5 }
+                ],
+                equipment: { weapon: null, armor: null, accessory: null },
+                gold: 10, silver: 50, copper: 0
+            };
+            
+            c.skills.forEach(s => G.character.skills[s] = mod(attrs[c.stat]));
+        }
+
+        function updateCharacterUI() {
+            if (!G.character) return;
+            const c = G.character;
+            const r = RACES[c.race], cl = CLASSES[c.class];
+
+            // Mini stats in topbar
+            $('mini-health').style.width = `${(c.health.cur / c.health.max) * 100}%`;
+            $('mini-mana').style.width = `${(c.mana.cur / c.mana.max) * 100}%`;
+
+            // Character modal
+            $('char-portrait').textContent = cl.icon;
+            $('char-name').textContent = c.name;
+            $('char-class').textContent = `${r.name} ${cl.name} Lv. ${c.level}`;
+
+            $('stat-health').style.width = `${(c.health.cur / c.health.max) * 100}%`;
+            $('stat-health-text').textContent = `${c.health.cur}/${c.health.max}`;
+            $('stat-mana').style.width = `${(c.mana.cur / c.mana.max) * 100}%`;
+            $('stat-mana-text').textContent = `${c.mana.cur}/${c.mana.max}`;
+            $('stat-stamina').style.width = `${(c.stamina.cur / c.stamina.max) * 100}%`;
+            $('stat-stamina-text').textContent = `${c.stamina.cur}/${c.stamina.max}`;
+            $('stat-exp').style.width = `${(c.exp.cur / c.exp.need) * 100}%`;
+            $('stat-exp-text').textContent = `${c.exp.cur}/${c.exp.need}`;
+
+            // Attributes
+            const attrsHtml = ['str','dex','con','int','wis','cha'].map(a => `
+                <div class="attr-box">
+                    <div class="attr-name">${a.toUpperCase()}</div>
+                    <div class="attr-value">${c.attrs[a]}</div>
+                    <div class="attr-mod">${mod(c.attrs[a]) >= 0 ? '+' : ''}${mod(c.attrs[a])}</div>
+                </div>
+            `).join('');
+            $('attrs-grid').innerHTML = attrsHtml;
+
+            // Skills
+            const skillsHtml = Object.entries(c.skills).map(([name, val]) => `
+                <div class="skill-item">
+                    <span>${name}</span>
+                    <span class="${val >= 0 ? 'skill-bonus' : 'skill-malus'}">${val >= 0 ? '+' : ''}${val}</span>
+                </div>
+            `).join('');
+            $('skills-list').innerHTML = skillsHtml || '<div class="skill-item">Nessuna abilità</div>';
+
+            // Inventory modal
+            $('inv-gold').textContent = c.gold;
+            $('inv-silver').textContent = c.silver;
+            $('inv-copper').textContent = c.copper;
+
+            let invHtml = '';
+            for (let i = 0; i < 16; i++) {
+                const item = c.inventory[i];
+                if (item) {
+                    const data = ITEMS[item.id] || { icon: '❓', name: item.id };
+                    invHtml += `<div class="inv-slot" data-idx="${i}" title="${data.name}">${data.icon}${item.count > 1 ? `<span class="count">x${item.count}</span>` : ''}</div>`;
+                } else {
+                    invHtml += `<div class="inv-slot"></div>`;
+                }
+            }
+            $('inv-grid').innerHTML = invHtml;
+        }
+
+        // ==================== STORIES ====================
+        function updateStoriesUI() {
+            const html = G.stories.map((s, i) => `
+                <div class="story-card ${G.selectedStory === i ? 'selected' : ''}" data-idx="${i}">
+                    <div class="story-card-title">${s.title}</div>
+                    <div class="story-card-desc">${s.desc?.substring(0, 80) || ''}...</div>
+                </div>
+            `).join('');
+            $('stories-list').innerHTML = html || '<p>Nessuna storia. Creane una!</p>';
+
+            $('btn-edit-story').disabled = G.selectedStory === null;
+            $('btn-delete-story').disabled = G.selectedStory === null;
+
+            // New game story select
+            $('new-game-story').innerHTML = G.stories.map((s, i) => 
+                `<option value="${i}">${s.title}</option>`
+            ).join('');
+        }
+
+        function openStoryEditor(story = null) {
+            G.editingStory = story;
+            $('edit-story-title').value = story?.title || '';
+            $('edit-story-setting').value = story?.setting || 'medieval';
+            $('edit-story-difficulty').value = story?.difficulty || 'normal';
+            $('edit-story-desc').value = story?.desc || '';
+            $('edit-story-personality').value = story?.personality || '';
+            $('edit-story-depth').value = story?.depth || '';
+            $('edit-story-prologue').value = story?.prologue || '';
+            openModal('modal-story-editor');
+        }
+
+        function saveStoryFromEditor() {
+            const story = {
+                id: G.editingStory?.id || Date.now(),
+                title: $('edit-story-title').value || 'Nuova Storia',
+                setting: $('edit-story-setting').value,
+                difficulty: $('edit-story-difficulty').value,
+                desc: $('edit-story-desc').value,
+                personality: $('edit-story-personality').value,
+                depth: $('edit-story-depth').value,
+                prologue: $('edit-story-prologue').value
+            };
+
+            if (G.editingStory) {
+                const idx = G.stories.findIndex(s => s.id === G.editingStory.id);
+                if (idx !== -1) G.stories[idx] = story;
+            } else {
+                G.stories.push(story);
+            }
+
+            save();
+            closeModal('modal-story-editor');
+            updateStoriesUI();
+            notify('Storia salvata!', 'success');
+        }
+
+        // ==================== SAVES ====================
+        function updateSavesUI() {
+            let html = '';
+            for (let i = 0; i < 6; i++) {
+                const s = G.saves[i];
+                html += `
+                    <div class="save-slot ${G.selectedSave === i ? 'selected' : ''}" data-idx="${i}">
+                        <div class="save-slot-title">Slot ${i + 1}</div>
+                        <div class="save-slot-info">${s ? `${s.character?.name || '?'} - ${s.story?.title || '?'}` : 'Vuoto'}</div>
+                    </div>
+                `;
+            }
+            $('saves-list').innerHTML = html;
+        }
+
+        function saveToSlot() {
+            if (G.selectedSave === null || !G.isPlaying) return;
+            G.saves[G.selectedSave] = {
+                timestamp: Date.now(),
+                character: JSON.parse(JSON.stringify(G.character)),
+                story: G.currentStory,
+                storyLog: G.storyLog,
+                history: G.history
+            };
+            save();
+            updateSavesUI();
+            notify(`Salvato in Slot ${G.selectedSave + 1}!`, 'success');
+        }
+
+        function loadFromSlot() {
+            if (G.selectedSave === null) return;
+            const s = G.saves[G.selectedSave];
+            if (!s) { notify('Slot vuoto!', 'error'); return; }
+
+            G.character = s.character;
+            G.currentStory = s.story;
+            G.storyLog = s.storyLog || [];
+            G.history = s.history || [];
+            G.isPlaying = true;
+
+            closeAllModals();
+            startGameUI();
+            notify('Partita caricata!', 'success');
+        }
+
+        // ==================== GAME ====================
+        function startNewGame() {
+            const storyIdx = parseInt($('new-game-story').value);
+            const name = $('new-game-name').value || 'Eroe';
+
+            if (G.selectedRace === null || G.selectedClass === null) {
+                notify('Seleziona razza e classe!', 'error');
+                return;
+            }
+            if (G.stories.length === 0) {
+                notify('Crea prima una storia!', 'error');
+                return;
+            }
+
+            G.currentStory = G.stories[storyIdx];
+            createCharacter(name, G.selectedRace, G.selectedClass);
+            G.storyLog = [];
+            G.history = [];
+            G.isPlaying = true;
+
+            closeAllModals();
+            startGameUI();
+        }
+
+        function startGameUI() {
+            showScreen('game-screen');
+            updateCharacterUI();
+
+            $('story-scroll').innerHTML = '';
+            G.storyLog.forEach(e => addStoryEntry(e.text, e.type, false));
+
+            if (G.storyLog.length === 0 && G.currentStory?.prologue) {
+                addStoryEntry(G.currentStory.prologue, 'narrator');
+                generateAI('L\'avventura inizia...', true);
+            }
+
+            updateHome();
+        }
+
+        function exitGame() {
+            if (confirm('Uscire? I progressi non salvati saranno persi.')) {
+                showScreen('home-screen');
+            }
+        }
+
+        function addStoryEntry(text, type, log = true) {
+            const div = document.createElement('div');
+            div.className = `story-entry ${type}`;
+            
+            // Format text properly
+            let formatted = text
+                // Convert newlines to proper paragraphs
+                .split(/\n\n+/)
+                .map(para => para.trim())
+                .filter(para => para.length > 0)
+                .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+                .join('');
+            
+            // If no paragraphs were created, just use the text
+            if (!formatted) {
+                formatted = `<p>${text.replace(/\n/g, '<br>')}</p>`;
+            }
+            
+            div.innerHTML = formatted;
+            $('story-scroll').appendChild(div);
+            $('story-scroll').scrollTop = $('story-scroll').scrollHeight;
+
+            if (log) G.storyLog.push({ text, type, time: Date.now() });
+        }
+
+        function displaySuggestions(suggestions) {
+            const area = $('suggestions-area');
+            const list = $('suggestions-list');
+
+            if (!suggestions || suggestions.length === 0) {
+                area.style.display = 'none';
+                return;
+            }
+
+            const typeIcons = {
+                'dialogo': '💬',
+                'azione': '⚡',
+                'esplorazione': '🔍',
+                'combattimento': '⚔️',
+                'default': '💡'
+            };
+
+            list.innerHTML = suggestions.map((s, i) => `
+                <button class="suggestion-btn" data-idx="${i}">
+                    <span class="suggestion-type">${typeIcons[s.type.toLowerCase()] || typeIcons.default} ${s.type}</span>
+                    ${s.text}
+                </button>
+            `).join('');
+
+            area.style.display = 'block';
+
+            // Click handlers for suggestions
+            list.querySelectorAll('.suggestion-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const suggestion = suggestions[parseInt(btn.dataset.idx)];
+                    $('action-input').value = suggestion.text;
+                    area.style.display = 'none';
+                    sendAction();
+                };
+            });
+        }
+
+        function sendAction() {
+            const input = $('action-input');
+            const action = input.value.trim();
+            if (!action || G.isProcessing) return;
+
+            // Hide suggestions when acting
+            $('suggestions-area').style.display = 'none';
+
+            input.value = '';
+            addStoryEntry(`➤ ${action}`, 'player');
+            generateAI(action);
+        }
+
+        // ==================== AI ====================
+        async function generateAI(action, isStart = false) {
+            if (G.isProcessing || !G.currentStory) return;
+            G.isProcessing = true;
+            $('btn-send').disabled = true;
+
+            addStoryEntry('<span class="loading-dots">Il narratore sta scrivendo</span>', 'system');
+
+            try {
+                const response = await callAI(action, isStart);
+
+                // Remove loading
+                const last = $('story-scroll').lastChild;
+                if (last?.textContent?.includes('scrivendo')) last.remove();
+
+                parseAIResponse(response);
+                G.history.push({ role: 'user', content: action });
+                G.history.push({ role: 'assistant', content: response });
+
+            } catch (err) {
+                const last = $('story-scroll').lastChild;
+                if (last?.textContent?.includes('scrivendo')) last.remove();
+                addStoryEntry(`⚠️ Errore: ${err.message}`, 'system');
+            }
+
+            G.isProcessing = false;
+            $('btn-send').disabled = false;
+        }
+
+        async function callAI(action, isStart) {
+            const s = G.settings;
+            const story = G.currentStory;
+            const c = G.character;
+            const r = RACES[c.race], cl = CLASSES[c.class];
+
+            const lengths = { short: '150-250 parole', medium: '250-400 parole', long: '400-600 parole' };
+
+            const systemPrompt = `Sei il Narratore di un gioco di ruolo fantasy interattivo. Scrivi in italiano, in modo chiaro e coinvolgente.
+
+AMBIENTAZIONE: ${story.setting}
+${story.desc || ''}
+
+STILE: ${story.personality || 'Narratore evocativo che crea atmosfera'}
+
+PERSONAGGIO: ${c.name}, ${r.name} ${cl.name} Livello ${c.level}
+HP: ${c.health.cur}/${c.health.max} | Mana: ${c.mana.cur}/${c.mana.max}
+
+COME SCRIVERE:
+- Scrivi ${lengths[s.length]} di narrazione fluida
+- Descrivi scene, ambienti e personaggi con dettagli sensoriali
+- Gli NPC parlano tra virgolette: "Benvenuto, viaggiatore!"
+- Le azioni degli NPC tra asterischi: *sorride*
+- Lascia sempre spazio al giocatore di agire
+- NON scrivere liste puntate o numerate
+- NON usare formattazione markdown
+- Scrivi in paragrafi naturali
+
+Se vuoi suggerire azioni possibili, scrivile così alla fine:
+[SUGGERIMENTO: dialogo | Chiedere il nome allo straniero]
+[SUGGERIMENTO: azione | Esaminare la stanza]
+
+Per meccaniche di gioco:
+[MECCANICA: danno=10] oppure [MECCANICA: oro=50] oppure [MECCANICA: exp=25]`;
+
+            let userMsg;
+            if (isStart) {
+                userMsg = `Inizia l'avventura. ${story.prologue || 'Il protagonista arriva in un luogo nuovo.'} Descrivi la scena iniziale e introduci almeno un personaggio interessante con cui il giocatore può interagire.`;
+            } else {
+                userMsg = `Il giocatore: ${action}
+
+Continua la narrazione reagendo a questa azione. Se il giocatore sta parlando, fai rispondere l'NPC in modo naturale.`;
+            }
+
+            let endpoint, model, headers;
+
+            if (s.model === 'openrouter' && s.openrouterKey) {
+                endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+                model = 'google/gemma-3-27b-it';
+                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterKey}` };
+            } else if (s.groqKey) {
+                endpoint = 'https://api.groq.com/openai/v1/chat/completions';
+                model = 'llama-3.1-8b-instant';
+                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.groqKey}` };
+            } else {
+                throw new Error('Configura le API keys nelle Impostazioni!');
+            }
+
+            // Keep only last 6 messages for context
+            const recentHistory = G.history.slice(-6);
+
+            const body = {
+                model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    ...recentHistory,
+                    { role: 'user', content: userMsg }
+                ],
+                temperature: 0.8,
+                max_tokens: 1500
+            };
+
+            const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `Errore API: ${res.status}`);
+            }
+            const data = await res.json();
+            return data.choices[0].message.content;
+        }
+
+        function parseAIResponse(response) {
+            // Extract mechanics
+            const mechRe = /\[MECCANICA:\s*([^\]]+)\]/gi;
+            let m;
+            while ((m = mechRe.exec(response)) !== null) {
+                applyMechanic(m[1]);
+            }
+
+            // Extract suggestions (new format)
+            const suggRe = /\[SUGGERIMENTO:\s*([^|]+)\|([^\]]+)\]/gi;
+            const suggestions = [];
+            while ((m = suggRe.exec(response)) !== null) {
+                suggestions.push({ type: m[1].trim(), text: m[2].trim() });
+            }
+
+            // Also convert old format choices to suggestions
+            const choiceRe = /\[SCELTA:\s*([^|\]]+)[^\]]*\]/gi;
+            while ((m = choiceRe.exec(response)) !== null) {
+                suggestions.push({ type: 'azione', text: m[1].trim() });
+            }
+
+            // Clean response thoroughly
+            let clean = response
+                // Remove all bracketed tags
+                .replace(/\[MECCANICA:[^\]]*\]/gi, '')
+                .replace(/\[SUGGERIMENTO:[^\]]*\]/gi, '')
+                .replace(/\[SCELTA:[^\]]*\]/gi, '')
+                .replace(/\[TIRO:[^\]]*\]/gi, '')
+                .replace(/\[AZIONE:[^\]]*\]/gi, '')
+                // Remove markdown formatting
+                .replace(/#{1,6}\s*/g, '')
+                .replace(/\*\*([^*]+)\*\*/g, '$1')
+                .replace(/\_\_([^_]+)\_\_/g, '$1')
+                .replace(/```[^`]*```/g, '')
+                .replace(/`([^`]+)`/g, '$1')
+                // Format italics (single asterisks) to HTML
+                .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+                // Clean up extra whitespace
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+
+            // If response is empty after cleaning, show error
+            if (!clean || clean.length < 10) {
+                clean = "Il narratore sembra confuso... Riprova con un'altra azione.";
+            }
+
+            addStoryEntry(clean, 'narrator');
+            displaySuggestions(suggestions);
+            updateCharacterUI();
+        }
+
+        function applyMechanic(mech) {
+            const [type, val] = mech.split('=').map(s => s.trim().toLowerCase());
+            const v = parseInt(val) || 0;
+            const c = G.character;
+
+            switch (type) {
+                case 'danno': case 'damage':
+                    c.health.cur = Math.max(0, c.health.cur - v);
+                    addStoryEntry(`💔 -${v} HP`, 'system');
+                    break;
+                case 'cura': case 'heal':
+                    c.health.cur = Math.min(c.health.max, c.health.cur + v);
+                    addStoryEntry(`💚 +${v} HP`, 'system');
+                    break;
+                case 'oro': case 'gold':
+                    c.gold += v;
+                    addStoryEntry(`🪙 +${v} oro`, 'system');
+                    break;
+                case 'exp':
+                    c.exp.cur += v;
+                    addStoryEntry(`⭐ +${v} EXP`, 'system');
+                    checkLevelUp();
+                    break;
+            }
+        }
+
+        function checkLevelUp() {
+            const c = G.character;
+            while (c.exp.cur >= c.exp.need) {
+                c.exp.cur -= c.exp.need;
+                c.level++;
+                c.exp.need = Math.floor(c.exp.need * 1.5);
+                c.health.max += 5;
+                c.health.cur = c.health.max;
+                c.mana.max += 3;
+                c.mana.cur = c.mana.max;
+                notify(`🎉 Livello ${c.level}!`, 'success');
+                addStoryEntry(`🎉 LIVELLO ${c.level}!`, 'system');
+            }
+        }
+
+        // ==================== DICE ====================
+        function rollDice(sides) {
+            const result = roll(sides);
+            $('dice-result').textContent = `🎲 D${sides}: ${result}`;
+            addStoryEntry(`🎲 D${sides}: ${result}`, 'dice-roll');
+        }
+
+        // ==================== INIT ====================
+        function init() {
+            load();
+            updateHome();
+            updateStoriesUI();
+            updateSavesUI();
+
+            // Load settings
+            $('set-groq-key').value = G.settings.groqKey || '';
+            $('set-openrouter-key').value = G.settings.openrouterKey || '';
+            $('set-model').value = G.settings.model || 'groq';
+            $('set-length').value = G.settings.length || 'medium';
+            $('set-autoroll').checked = G.settings.autoRoll !== false;
+
+            // Race/Class grids
+            $('race-grid').innerHTML = Object.entries(RACES).map(([k, v]) => `
+                <div class="creation-option" data-race="${k}">
+                    <div class="creation-icon">${v.icon}</div>
+                    <div class="creation-name">${v.name}</div>
+                </div>
+            `).join('');
+
+            $('class-grid').innerHTML = Object.entries(CLASSES).map(([k, v]) => `
+                <div class="creation-option" data-class="${k}">
+                    <div class="creation-icon">${v.icon}</div>
+                    <div class="creation-name">${v.name}</div>
+                </div>
+            `).join('');
+
+            // HOME BUTTONS
+            $('btn-continue').onclick = () => showScreen('game-screen');
+            $('btn-new-game').onclick = () => openModal('modal-new-game');
+            $('btn-load-game').onclick = () => { updateSavesUI(); openModal('modal-saves'); };
+            $('btn-stories').onclick = () => { updateStoriesUI(); openModal('modal-stories'); };
+            $('btn-settings').onclick = () => openModal('modal-settings');
+
+            // GAME TOPBAR
+            $('btn-exit').onclick = exitGame;
+            $('btn-save-quick').onclick = () => { updateSavesUI(); openModal('modal-saves'); };
+            $('btn-dice').onclick = () => openModal('modal-dice');
+            $('btn-inventory').onclick = () => { updateCharacterUI(); openModal('modal-inventory'); };
+            $('btn-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
+
+            // INPUT
+            $('btn-send').onclick = sendAction;
+            $('action-input').onkeypress = e => { if (e.key === 'Enter') sendAction(); };
+
+            // QUICK ACTIONS
+            $$('.quick-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const action = btn.dataset.action;
+                    const input = $('action-input');
+                    const prefixes = {
+                        'talk': 'Dico: "',
+                        'look': 'Osservo attentamente ',
+                        'interact': 'Interagisco con ',
+                        'ask': 'Chiedo informazioni su ',
+                        'fight': 'Attacco ',
+                        'sneak': 'Cerco di muovermi furtivamente verso '
+                    };
+                    input.value = prefixes[action] || '';
+                    input.focus();
+                    // Position cursor appropriately
+                    if (action === 'talk') {
+                        input.setSelectionRange(input.value.length, input.value.length);
+                    }
+                };
+            });
+
+            // DICE
+            $$('.dice-btn').forEach(btn => {
+                btn.onclick = () => rollDice(parseInt(btn.dataset.sides));
+            });
+
+            // STORIES
+            $('stories-list').onclick = e => {
+                const card = e.target.closest('.story-card');
+                if (card) {
+                    G.selectedStory = parseInt(card.dataset.idx);
+                    updateStoriesUI();
+                }
+            };
+            $('btn-create-story').onclick = () => openStoryEditor();
+            $('btn-edit-story').onclick = () => { if (G.selectedStory !== null) openStoryEditor(G.stories[G.selectedStory]); };
+            $('btn-delete-story').onclick = () => {
+                if (G.selectedStory !== null && confirm('Eliminare questa storia?')) {
+                    G.stories.splice(G.selectedStory, 1);
+                    G.selectedStory = null;
+                    save();
+                    updateStoriesUI();
+                }
+            };
+            $('btn-save-story').onclick = saveStoryFromEditor;
+
+            // NEW GAME
+            $('race-grid').onclick = e => {
+                const opt = e.target.closest('.creation-option');
+                if (opt) {
+                    $$('#race-grid .creation-option').forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    G.selectedRace = opt.dataset.race;
+                }
+            };
+            $('class-grid').onclick = e => {
+                const opt = e.target.closest('.creation-option');
+                if (opt) {
+                    $$('#class-grid .creation-option').forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    G.selectedClass = opt.dataset.class;
+                }
+            };
+            $('btn-start-game').onclick = startNewGame;
+
+            // SAVES
+            $('saves-list').onclick = e => {
+                const slot = e.target.closest('.save-slot');
+                if (slot) {
+                    G.selectedSave = parseInt(slot.dataset.idx);
+                    updateSavesUI();
+                }
+            };
+            $('btn-save-to-slot').onclick = saveToSlot;
+            $('btn-load-from-slot').onclick = loadFromSlot;
+            $('btn-delete-slot').onclick = () => {
+                if (G.selectedSave !== null && G.saves[G.selectedSave] && confirm('Eliminare questo salvataggio?')) {
+                    G.saves[G.selectedSave] = null;
+                    save();
+                    updateSavesUI();
+                }
+            };
+
+            // SETTINGS
+            $('btn-save-settings').onclick = () => {
+                G.settings.groqKey = $('set-groq-key').value;
+                G.settings.openrouterKey = $('set-openrouter-key').value;
+                G.settings.model = $('set-model').value;
+                G.settings.length = $('set-length').value;
+                G.settings.autoRoll = $('set-autoroll').checked;
+                save();
+                notify('Impostazioni salvate!', 'success');
+            };
+            $('btn-reset-all').onclick = () => {
+                if (confirm('⚠️ Cancellare TUTTI i dati?')) {
+                    localStorage.removeItem('dnd_v2');
+                    location.reload();
+                }
+            };
+
+            // MODAL CLOSES
+            $$('.modal-close, [data-close]').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.dataset.close || btn.closest('.modal-overlay')?.id;
+                    if (id) closeModal(id);
+                };
+            });
+
+            // Close on overlay click
+            $$('.modal-overlay').forEach(overlay => {
+                overlay.onclick = e => {
+                    if (e.target === overlay) closeModal(overlay.id);
+                };
+            });
+
+            // Inventory item use
+            $('inv-grid').onclick = e => {
+                const slot = e.target.closest('.inv-slot');
+                if (slot && slot.dataset.idx !== undefined) {
+                    const idx = parseInt(slot.dataset.idx);
+                    const item = G.character.inventory[idx];
+                    if (item) {
+                        const data = ITEMS[item.id];
+                        if (data?.type === 'consumable' && data.effect) {
+                            Object.entries(data.effect).forEach(([k, v]) => {
+                                if (G.character[k]) {
+                                    G.character[k].cur = Math.min(G.character[k].cur + v, G.character[k].max);
+                                }
+                            });
+                            item.count--;
+                            if (item.count <= 0) G.character.inventory.splice(idx, 1);
+                            notify(`Usato ${data.name}!`, 'success');
+                            addStoryEntry(`[Usato ${data.name}]`, 'system');
+                            updateCharacterUI();
+                        }
+                    }
+                }
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
