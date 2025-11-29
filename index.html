@@ -2227,8 +2227,12 @@
             
             const hoursElapsed = minutes / 60;
             if (G.character) {
-                G.character.stamina.cur = Math.max(0, G.character.stamina.cur - Math.floor(hoursElapsed * 2));
-                G.character.hunger.cur = Math.max(0, G.character.hunger.cur - Math.floor(hoursElapsed * 3));
+                const staminaLoss = Math.ceil(hoursElapsed * 2);
+                const hungerLoss = Math.ceil(hoursElapsed * 3);
+                if (minutes > 0) {
+                    G.character.stamina.cur = Math.max(0, G.character.stamina.cur - staminaLoss);
+                    G.character.hunger.cur = Math.max(0, G.character.hunger.cur - hungerLoss);
+                }
                 
                 if (G.character.hunger.cur <= 0) {
                     G.character.health.cur = Math.max(1, G.character.health.cur - Math.floor(hoursElapsed));
@@ -3124,9 +3128,9 @@ ${getResolutionText(story)}
 ${worldMemorySummary || 'Nessuna memoria registrata ancora.'}
 
 ⚠️ CONDIZIONI SPECIALI:
-${c.stamina.cur <= 30 ? '- IL PERSONAGGIO ? MOLTO STANCO - menzionalo nella narrazione' : ''}
+${c.stamina.cur <= 30 ? '- IL PERSONAGGIO è MOLTO STANCO - menzionalo nella narrazione' : ''}
 ${c.hunger.cur <= 30 ? '- IL PERSONAGGIO HA MOLTA FAME - menzionalo nella narrazione' : ''}
-${c.health.cur <= c.health.max * 0.3 ? '- IL PERSONAGGIO ? GRAVEMENTE FERITO - menzionalo nella narrazione' : ''}
+${c.health.cur <= c.health.max * 0.3 ? '- IL PERSONAGGIO è GRAVEMENTE FERITO - menzionalo nella narrazione' : ''}
 
 ?? ESPERIENZA E COMPETENZA:
 - Considera livello, skill e abilita acquisite: se il PG non ha skill/abilita rilevanti o ha stats basse, la probabilita di successo cala e la qualita del risultato è più scarsa; se ha skill/abilita e stats alte, aumenta la probabilita e la qualita.
