@@ -181,12 +181,12 @@
         }
 
         .topbar-btn {
-            padding: 6px 10px;
+            padding: 8px 12px;
             font-size: 1.1em;
-            background: linear-gradient(180deg, var(--gold), var(--gold-dark));
-            border: 2px solid var(--gold);
-            border-radius: 8px;
-            color: white;
+            background: linear-gradient(180deg, #f7d37a, var(--gold-dark));
+            border: 1px solid rgba(0,0,0,0.35);
+            border-radius: 12px;
+            color: #1f130b;
             cursor: pointer;
             transition: all 0.2s ease;
             min-width: 38px;
@@ -194,10 +194,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.35);
         }
 
         .topbar-btn:hover, .topbar-btn:active {
-            transform: scale(1.05);
+            transform: translateY(-1px) scale(1.02);
+            box-shadow: 0 10px 18px rgba(0,0,0,0.4);
         }
 
         .topbar-btn.danger {
@@ -214,17 +216,34 @@
         .time-display {
             display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 5px 12px;
-            background: rgba(0,0,0,0.4);
-            border-radius: 20px;
+            gap: 10px;
+            padding: 6px 14px;
+            background: rgba(0,0,0,0.55);
+            border-radius: 18px;
             font-family: 'Cinzel', serif;
-            font-size: 0.8em;
             color: var(--parchment);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+            border: 1px solid rgba(201, 162, 39, 0.35);
         }
 
         .time-icon {
-            font-size: 1.2em;
+            font-size: 1.3em;
+        }
+
+        .time-block {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+
+        .time-main {
+            font-size: 0.95em;
+            letter-spacing: 0.03em;
+        }
+
+        .time-sub {
+            font-size: 0.75em;
+            color: var(--parchment-dark);
         }
 
         /* Mini Stats */
@@ -235,22 +254,24 @@
         }
 
         .mini-bar {
-            width: 40px;
-            height: 8px;
+            width: 56px;
+            height: 9px;
             background: rgba(0,0,0,0.4);
-            border-radius: 4px;
+            border-radius: 6px;
             overflow: hidden;
             position: relative;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.45);
         }
 
         .mini-bar::before {
             content: attr(data-label);
             position: absolute;
             left: 50%;
-            top: -14px;
+            top: -16px;
             transform: translateX(-50%);
-            font-size: 0.65em;
+            font-size: 0.68em;
             color: var(--parchment-dark);
+            letter-spacing: 0.03em;
         }
 
         .mini-bar-fill {
@@ -730,6 +751,33 @@
             gap: 8px;
             margin-bottom: 15px;
         }
+        .inv-list {
+            margin-top: 8px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            padding-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .inv-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95em;
+            padding: 6px 8px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 6px;
+        }
+        .inv-row-name {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+        }
+        .inv-row-count {
+            color: var(--ink-light);
+            font-weight: 600;
+        }
 
         .inv-slot {
             aspect-ratio: 1;
@@ -1127,8 +1175,11 @@
                 </div>
 
                 <div class="time-display">
-                    <span class="time-icon" id="time-icon">☀️</span>
-                    <span id="time-text">08:00</span>
+                    <span class="time-icon" id="time-icon">?~????</span>
+                    <div class="time-block">
+                        <span class="time-main" id="time-text">08:00</span>
+                        <span class="time-sub" id="time-date">Luned? 1 Marzo (Primavera)</span>
+                    </div>
                 </div>
 
                 <div class="topbar-buttons">
@@ -1243,6 +1294,7 @@
                     <span class="inv-gold">💰 <span id="inv-gold">0</span></span>
                 </div>
                 <div class="inv-grid" id="inv-grid"></div>
+                <div class="inv-list" id="inv-list"></div>
 
                 <div class="special-items">
                     <h4>🔮 Oggetti Speciali</h4>
@@ -1373,6 +1425,22 @@
                 <div class="form-group">
                     <label class="form-label">Ambientazione</label>
                     <input type="text" class="form-input" id="edit-story-setting" placeholder="es. Fantasy Medievale, Moderno, Sci-Fi">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Genere</label>
+                    <select class="form-select" id="edit-story-genre">
+                        <option value="fantasy">Fantasy</option>
+                        <option value="contemporary">Contemporaneo</option>
+                        <option value="sport">Sport / Calcio</option>
+                        <option value="business">Business / Finanza</option>
+                        <option value="crime">Crime / Mafia</option>
+                        <option value="historical">Storico (Roma/Rinascimento)</option>
+                        <option value="military">Militare / Guerra</option>
+                        <option value="diplomatic">Diplomatico</option>
+                        <option value="rural">Rurale / Agricolo</option>
+                        <option value="pirate">Piratesco</option>
+                        <option value="spy">Spionaggio</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Difficoltà</label>
@@ -1558,69 +1626,544 @@
 
         const GENRE_ACTIONS = {
             'Fantasy': [
-                { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
-                { icon: '👁️', label: 'Osserva', prefix: 'Osservo attentamente ' },
-                { icon: '⚔️', label: 'Combatti', prefix: 'Attacco ' },
-                { icon: '🔮', label: 'Magia', prefix: 'Uso la magia per ' },
-                { icon: '🤫', label: 'Furtivo', prefix: 'Mi muovo furtivamente verso ' },
-                { icon: '🎒', label: 'Cerca', prefix: 'Cerco ' }
+                { icon: '?', label: 'Parla', prefix: 'Dico: "' },
+                { icon: '?', label: 'Osserva', prefix: 'Osservo attentamente ' },
+                { icon: '?', label: 'Combatti', prefix: 'Attacco ' },
+                { icon: '?', label: 'Magia', prefix: 'Uso la magia per ' },
+                { icon: '?', label: 'Furtivo', prefix: 'Mi muovo furtivamente verso ' },
+                { icon: '?', label: 'Cerca', prefix: 'Cerco ' }
             ],
             'Contemporaneo': [
-                { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
-                { icon: '👁️', label: 'Osserva', prefix: 'Osservo ' },
-                { icon: '📱', label: 'Telefona', prefix: 'Chiamo ' },
-                { icon: '🔍', label: 'Cerca', prefix: 'Cerco informazioni su ' },
-                { icon: '🚶', label: 'Vai', prefix: 'Vado a ' },
-                { icon: '💭', label: 'Pensa', prefix: 'Rifletto su ' }
+                { icon: '?', label: 'Parla', prefix: 'Dico: "' },
+                { icon: '?', label: 'Osserva', prefix: 'Osservo ' },
+                { icon: '?', label: 'Telefona', prefix: 'Chiamo ' },
+                { icon: '?', label: 'Cerca', prefix: 'Cerco informazioni su ' },
+                { icon: '?', label: 'Vai', prefix: 'Vado a ' },
+                { icon: '?', label: 'Pensa', prefix: 'Rifletto su ' }
             ],
             'Business': [
-                { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
-                { icon: '💼', label: 'Negozia', prefix: 'Propongo ' },
-                { icon: '📊', label: 'Analizza', prefix: 'Analizzo ' },
-                { icon: '📞', label: 'Contatta', prefix: 'Contatto ' },
-                { icon: '💰', label: 'Compra', prefix: 'Compro ' },
-                { icon: '🏷️', label: 'Vendi', prefix: 'Vendo ' }
+                { icon: '?', label: 'Parla', prefix: 'Dico: "' },
+                { icon: '?', label: 'Negozia', prefix: 'Propongo ' },
+                { icon: '?', label: 'Analizza', prefix: 'Analizzo ' },
+                { icon: '?', label: 'Contatta', prefix: 'Contatto ' },
+                { icon: '?', label: 'Compra', prefix: 'Compro ' },
+                { icon: '?', label: 'Vendi', prefix: 'Vendo ' }
             ],
             'default': [
-                { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
-                { icon: '👁️', label: 'Osserva', prefix: 'Osservo ' },
-                { icon: '✋', label: 'Interagisci', prefix: 'Interagisco con ' },
-                { icon: '❓', label: 'Chiedi', prefix: 'Chiedo ' },
-                { icon: '🚶', label: 'Vai', prefix: 'Vado verso ' },
-                { icon: '🔍', label: 'Cerca', prefix: 'Cerco ' }
+                { icon: '?', label: 'Parla', prefix: 'Dico: "' },
+                { icon: '?', label: 'Osserva', prefix: 'Osservo ' },
+                { icon: '?', label: 'Interagisci', prefix: 'Interagisco con ' },
+                { icon: '?', label: 'Chiedi', prefix: 'Chiedo ' },
+                { icon: '?', label: 'Vai', prefix: 'Vado verso ' },
+                { icon: '?', label: 'Cerca', prefix: 'Cerco ' }
             ]
         };
 
         const ORIGINS = {
-            ordinary: { name: 'Persona Comune', icon: '🧑', desc: 'Background normale', bonuses: { all: 1 } },
-            wealthy: { name: 'Famiglia Ricca', icon: '💎', desc: 'Cresciuto negli agi', bonuses: { cha: 2, int: 1 } },
-            street: { name: 'Strada', icon: '🏚️', desc: 'Cresciuto per le strade', bonuses: { dex: 2, wis: 1 } },
-            academic: { name: 'Accademico', icon: '🎓', desc: 'Istruzione elevata', bonuses: { int: 3 } },
-            military: { name: 'Militare', icon: '🎖️', desc: 'Addestramento e disciplina', bonuses: { str: 2, con: 1 } },
-            artistic: { name: 'Artista', icon: '🎨', desc: 'Anima creativa', bonuses: { cha: 2, wis: 1 } }
+            ordinary: { name: 'Persona Comune', icon: '?', desc: 'Background normale', bonuses: { all: 1 } },
+            wealthy: { name: 'Famiglia Ricca', icon: '?', desc: 'Cresciuto negli agi', bonuses: { cha: 2, int: 1 } },
+            street: { name: 'Strada', icon: '?', desc: 'Cresciuto per le strade', bonuses: { dex: 2, wis: 1 } },
+            academic: { name: 'Accademico', icon: '?', desc: 'Istruzione elevata', bonuses: { int: 3 } },
+            military: { name: 'Militare', icon: '?', desc: 'Addestramento e disciplina', bonuses: { str: 2, con: 1 } },
+            artistic: { name: 'Artista', icon: '?', desc: 'Anima creativa', bonuses: { cha: 2, wis: 1 } }
         };
 
         const ARCHETYPES = {
-            leader: { name: 'Leader', icon: '👔', desc: 'Guida gli altri', stat: 'cha', hp: 10, mp: 6, skills: ['Persuasione', 'Comando'] },
-            fighter: { name: 'Combattente', icon: '⚔️', desc: 'Esperto nel combattimento', stat: 'str', hp: 14, mp: 2, skills: ['Combattimento', 'Resistenza'] },
-            thinker: { name: 'Pensatore', icon: '🧠', desc: 'Risolve problemi', stat: 'int', hp: 8, mp: 10, skills: ['Analisi', 'Ricerca'] },
-            shadow: { name: 'Ombra', icon: '🌑', desc: 'Agisce nell\'ombra', stat: 'dex', hp: 10, mp: 4, skills: ['Furtività', 'Agilità'] },
-            healer: { name: 'Guaritore', icon: '💚', desc: 'Cura e supporta', stat: 'wis', hp: 8, mp: 10, skills: ['Medicina', 'Intuizione'] },
-            merchant: { name: 'Mercante', icon: '💰', desc: 'Compra e vende', stat: 'cha', hp: 8, mp: 6, skills: ['Contrattazione', 'Valutazione'] }
+            leader: { name: 'Leader', icon: '?', desc: 'Guida gli altri', stat: 'cha', hp: 10, mp: 6, skills: ['Persuasione', 'Comando'] },
+            fighter: { name: 'Combattente', icon: '?', desc: 'Esperto nel combattimento', stat: 'str', hp: 14, mp: 2, skills: ['Combattimento', 'Resistenza'] },
+            thinker: { name: 'Pensatore', icon: '?', desc: 'Risolve problemi', stat: 'int', hp: 8, mp: 10, skills: ['Analisi', 'Ricerca'] },
+            shadow: { name: 'Ombra', icon: '?', desc: 'Agisce nell\'ombra', stat: 'dex', hp: 10, mp: 4, skills: ['Furtività', 'Agilità'] },
+            healer: { name: 'Guaritore', icon: '?', desc: 'Cura e supporta', stat: 'wis', hp: 8, mp: 10, skills: ['Medicina', 'Intuizione'] },
+            merchant: { name: 'Mercante', icon: '?', desc: 'Compra e vende', stat: 'cha', hp: 8, mp: 6, skills: ['Contrattazione', 'Valutazione'] }
         };
 
         const ITEMS = {
-            healing: { name: 'Kit Pronto Soccorso', icon: '🩹', type: 'consumable', effect: { health: 30 } },
-            energy: { name: 'Energy Drink', icon: '🥤', type: 'consumable', effect: { stamina: 40 } },
-            food: { name: 'Pasto', icon: '🍖', type: 'consumable', effect: { hunger: 50 } },
-            snack: { name: 'Snack', icon: '🍫', type: 'consumable', effect: { hunger: 20, stamina: 10 } },
-            ration: { name: 'Razione', icon: '🥪', type: 'consumable', effect: { hunger: 35 } },
-            potion: { name: 'Pozione Energia', icon: '🧪', type: 'consumable', effect: { mana: 30 } }
+            healing: { name: 'Kit Pronto Soccorso', icon: '?', type: 'consumable', effect: { health: 30 } },
+            energy: { name: 'Energy Drink', icon: '?', type: 'consumable', effect: { stamina: 40 } },
+            food: { name: 'Pasto', icon: '?', type: 'consumable', effect: { hunger: 50 } },
+            snack: { name: 'Snack', icon: '?', type: 'consumable', effect: { hunger: 20, stamina: 10 } },
+            ration: { name: 'Razione', icon: '?', type: 'consumable', effect: { hunger: 35 } },
+            potion: { name: 'Pozione Energia', icon: '?', type: 'consumable', effect: { mana: 30 } }
         };
 
-        // ==================== UTILITIES ====================
+        // ==================== GENERI E CONFIGURAZIONE DINAMICA ====================
+        const DEFAULT_ACTIONS = [
+            { icon: '?', label: 'Parla', prefix: 'Dico: "' },
+            { icon: '?', label: 'Osserva', prefix: 'Osservo ' },
+            { icon: '?', label: 'Vai', prefix: 'Vado verso ' },
+            { icon: '?', label: 'Chiedi', prefix: 'Chiedo ' },
+            { icon: '?', label: 'Cerca', prefix: 'Cerco ' }
+        ];
+
+        const GENRES = {
+            fantasy: {
+                name: 'Fantasy',
+                currency: { name: "Monete d'oro", short: 'oro', symbol: '🪙' },
+                resolution: 'Tira 1d20 + mod caratteristica contro CD 10/15/20; 1 fallimento critico, 20 successo critico.',
+                stats: [
+                    { id: 'str', label: 'Forza', short: 'STR', base: 10 },
+                    { id: 'dex', label: 'Destrezza', short: 'DEX', base: 10 },
+                    { id: 'con', label: 'Costituzione', short: 'CON', base: 10 },
+                    { id: 'int', label: 'Intelligenza', short: 'INT', base: 10 },
+                    { id: 'wis', label: 'Saggezza', short: 'WIS', base: 10 },
+                    { id: 'cha', label: 'Carisma', short: 'CHA', base: 10 }
+                ],
+                origins: {
+                    villager: { name: 'Villano', icon: '🏡', desc: 'Vita nei campi', bonuses: { con: 1, wis: 1 } },
+                    noble: { name: 'Nobile', icon: '👑', desc: 'Cresciuto nei privilegi', bonuses: { cha: 2, int: 1 } },
+                    outlaw: { name: 'Fuorilegge', icon: '🗡️', desc: 'Vive ai margini', bonuses: { dex: 2, cha: 1 } },
+                    scholar: { name: 'Studioso', icon: '📜', desc: 'Anni sui tomi', bonuses: { int: 3 } }
+                },
+                archetypes: {
+                    warrior: { name: 'Guerriero', icon: '⚔️', desc: 'Prima linea', stat: 'str', hp: 14, mp: 2, skills: ['Combattimento', 'Resistenza'] },
+                    rogue: { name: 'Ladro', icon: '🗝️', desc: 'Agile e furtivo', stat: 'dex', hp: 10, mp: 4, skills: ['Furtivita', 'Agilita'] },
+                    mage: { name: 'Mago', icon: '✨', desc: 'Manipola arcani', stat: 'int', hp: 8, mp: 12, skills: ['Magia', 'Analisi'] },
+                    cleric: { name: 'Chierico', icon: '⛪', desc: 'Fede e cura', stat: 'wis', hp: 10, mp: 10, skills: ['Guarigione', 'Intuizione'] }
+                },
+                items: {
+                    potion_heal: { name: 'Pozione Curativa', icon: '🧪', type: 'consumable', effect: { health: 30 } },
+                    potion_mana: { name: 'Pozione di Mana', icon: '🔮', type: 'consumable', effect: { mana: 25 } },
+                    ration: { name: 'Razione', icon: '🍖', type: 'consumable', effect: { hunger: 35, stamina: 10 } },
+                    tonic: { name: 'Tonico', icon: '🥤', type: 'consumable', effect: { stamina: 30 } }
+                },
+                starterInventory: [
+                    { id: 'potion_heal', count: 2 },
+                    { id: 'ration', count: 3 },
+                    { id: 'tonic', count: 2 }
+                ],
+                quickActions: [
+                    { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
+                    { icon: '👁️', label: 'Osserva', prefix: 'Osservo attentamente ' },
+                    { icon: '⚔️', label: 'Combatti', prefix: 'Attacco ' },
+                    { icon: '✨', label: 'Magia', prefix: 'Uso la magia per ' },
+                    { icon: '🕵️', label: 'Furtivo', prefix: 'Mi muovo furtivamente verso ' }
+                ]
+            },
+            contemporary: {
+                name: 'Contemporaneo',
+                currency: { name: 'Euro', short: 'EUR', symbol: '€' },
+                resolution: 'Tira 1d10 + stat (FOR/DEX/INT/CAR) contro 6-12; 1 pessimo, 10 ottimo.',
+                stats: [
+                    { id: 'for', label: 'Forza', short: 'FOR', base: 10 },
+                    { id: 'dex', label: 'Destrezza', short: 'DEX', base: 10 },
+                    { id: 'int', label: 'Intelligenza', short: 'INT', base: 10 },
+                    { id: 'car', label: 'Carisma', short: 'CAR', base: 10 }
+                ],
+                origins: {
+                    student: { name: 'Studente', icon: '📚', desc: 'Vive tra lezioni e appunti', bonuses: { int: 2, car: 1 } },
+                    worker: { name: 'Lavoratore', icon: '🛠️', desc: 'Mani sporche e praticità', bonuses: { for: 1, dex: 1, car: 1 } },
+                    freelancer: { name: 'Freelancer', icon: '💼', desc: 'Creativo indipendente', bonuses: { dex: 1, int: 1, car: 1 } }
+                },
+                archetypes: {
+                    influencer: { name: 'Influencer', icon: '📱', desc: 'Vive di attenzione', stat: 'car', hp: 10, mp: 4, skills: ['Persuasione', 'Storytelling'] },
+                    coder: { name: 'Sviluppatore', icon: '💻', desc: 'Risolve problemi con codice', stat: 'int', hp: 9, mp: 6, skills: ['Debug', 'Automazione'] },
+                    driver: { name: 'Autista', icon: '🚗', desc: 'Sempre in movimento', stat: 'dex', hp: 11, mp: 2, skills: ['Guida', 'Reattività'] }
+                },
+                items: {
+                    snack: { name: 'Snack', icon: '🍫', type: 'consumable', effect: { hunger: 20, stamina: 10 } },
+                    coffee: { name: 'Caffe', icon: '☕', type: 'consumable', effect: { stamina: 20 } },
+                    medkit: { name: 'Kit Medico', icon: '🩹', type: 'consumable', effect: { health: 20 } }
+                },
+                starterInventory: [
+                    { id: 'coffee', count: 2 },
+                    { id: 'snack', count: 2 },
+                    { id: 'medkit', count: 1 }
+                ],
+                quickActions: [
+                    { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
+                    { icon: '👁️', label: 'Osserva', prefix: 'Osservo ' },
+                    { icon: '📞', label: 'Chiama', prefix: 'Chiamo ' },
+                    { icon: '🚶', label: 'Muoviti', prefix: 'Vado verso ' },
+                    { icon: '🔍', label: 'Cerca', prefix: 'Cerco informazioni su ' }
+                ]
+            },
+            sport: {
+                name: 'Sport / Calcio',
+                currency: { name: 'Euro', short: 'EUR', symbol: '€' },
+                resolution: 'Tira 2d6 + stat (TEC/VEL/RES/TAC/MEN) contro 6-14: 6-7 fallimento, 8-9 parziale, 10-11 successo, 12+ critico.',
+                stats: [
+                    { id: 'tec', label: 'Tecnica', short: 'TEC', base: 10 },
+                    { id: 'vel', label: 'Velocita', short: 'VEL', base: 10 },
+                    { id: 'res', label: 'Resistenza', short: 'RES', base: 10 },
+                    { id: 'tac', label: 'Tattica', short: 'TAC', base: 10 },
+                    { id: 'men', label: 'Mentalita', short: 'MEN', base: 10 }
+                ],
+                origins: {
+                    academy: { name: 'Settore Giovanile', icon: '🏟️', desc: 'Formato in accademia', bonuses: { tec: 2, tac: 1 } },
+                    street: { name: 'Strada', icon: '🚧', desc: 'Partite di quartiere', bonuses: { vel: 2, men: 1 } },
+                    amateur: { name: 'Dilettante', icon: '⚽', desc: 'Passione pura', bonuses: { res: 1, men: 1, tec: 1 } }
+                },
+                archetypes: {
+                    striker: { name: 'Attaccante', icon: '🥅', desc: 'Cerca il gol', stat: 'tec', hp: 12, mp: 0, skills: ['Tiro', 'Smarcamento'] },
+                    playmaker: { name: 'Regista', icon: '🎯', desc: 'Imposta il gioco', stat: 'tac', hp: 10, mp: 0, skills: ['Visione', 'Passaggi'] },
+                    defender: { name: 'Difensore', icon: '🛡️', desc: 'Blocca', stat: 'res', hp: 14, mp: 0, skills: ['Contrasto', 'Marcatura'] },
+                    goalkeeper: { name: 'Portiere', icon: '🧤', desc: 'Ultimo baluardo', stat: 'men', hp: 12, mp: 0, skills: ['Riflessi', 'Leadership'] }
+                },
+                items: {
+                    energy_gel: { name: 'Gel Energetico', icon: '🥤', type: 'consumable', effect: { stamina: 40 } },
+                    isotonic: { name: 'Isotonica', icon: '🧃', type: 'consumable', effect: { stamina: 20, hunger: 10 } },
+                    physio: { name: 'Fisioterapia', icon: '🩹', type: 'consumable', effect: { health: 20 } },
+                    protein_bar: { name: 'Barretta Proteica', icon: '🍫', type: 'consumable', effect: { hunger: 25, stamina: 10 } }
+                },
+                starterInventory: [
+                    { id: 'energy_gel', count: 2 },
+                    { id: 'protein_bar', count: 3 },
+                    { id: 'isotonic', count: 2 }
+                ],
+                quickActions: [
+                    { icon: '💬', label: 'Parla', prefix: 'Dico al compagno: "' },
+                    { icon: '⚡', label: 'Scatto', prefix: 'Scatto verso ' },
+                    { icon: '🥅', label: 'Tiro', prefix: 'Carico il tiro verso ' },
+                    { icon: '🎯', label: 'Passaggio', prefix: 'Cerco il passaggio per ' },
+                    { icon: '🛡️', label: 'Contrasto', prefix: 'Entro in contrasto con ' }
+                ]
+            },
+            business: {
+                name: 'Business / Finanza',
+                currency: { name: 'Euro', short: 'EUR', symbol: '€' },
+                resolution: 'Tira 1d10 + stat (CAR/INT/NEG/NET/LCK) contro 6-12; 1 pessimo affare, 10 chiusura brillante.',
+                stats: [
+                    { id: 'car', label: 'Carisma', short: 'CAR', base: 10 },
+                    { id: 'int', label: 'Intelligenza', short: 'INT', base: 10 },
+                    { id: 'neg', label: 'Negoziazione', short: 'NEG', base: 10 },
+                    { id: 'net', label: 'Network', short: 'NET', base: 10 },
+                    { id: 'luck', label: 'Fortuna', short: 'LCK', base: 10 }
+                ],
+                origins: {
+                    startup: { name: 'Startupper', icon: '🚀', desc: 'Vive di pitch', bonuses: { neg: 2, net: 1 } },
+                    consultant: { name: 'Consulente', icon: '📊', desc: 'Metodo e presentazioni', bonuses: { int: 2, car: 1 } },
+                    heir: { name: 'Erede', icon: '💼', desc: 'Capitale di famiglia', bonuses: { car: 1, net: 2 } }
+                },
+                archetypes: {
+                    ceo: { name: 'CEO', icon: '👔', desc: 'Visione e decisioni', stat: 'car', hp: 10, mp: 4, skills: ['Leadership', 'Persuasione'] },
+                    seller: { name: 'Venditore', icon: '🗣️', desc: 'Chiusura di deal', stat: 'neg', hp: 10, mp: 2, skills: ['Pitch', 'Negoziazione'] },
+                    analyst: { name: 'Analista', icon: '📈', desc: 'Legge i numeri', stat: 'int', hp: 9, mp: 6, skills: ['Analisi', 'Ricerca'] },
+                    fixer: { name: 'Fixer', icon: '🤝', desc: 'Apre porte', stat: 'net', hp: 11, mp: 3, skills: ['Contatti', 'Mediazione'] }
+                },
+                items: {
+                    coffee: { name: 'Caffe', icon: '☕', type: 'consumable', effect: { stamina: 25 } },
+                    snack: { name: 'Snack', icon: '🍪', type: 'consumable', effect: { hunger: 20, stamina: 10 } },
+                    energy_drink: { name: 'Energy Drink', icon: '⚡', type: 'consumable', effect: { stamina: 35 } }
+                },
+                starterInventory: [
+                    { id: 'coffee', count: 2 },
+                    { id: 'snack', count: 3 },
+                    { id: 'energy_drink', count: 1 }
+                ],
+                quickActions: [
+                    { icon: '💬', label: 'Pitch', prefix: 'Propongo: "' },
+                    { icon: '📞', label: 'Chiama', prefix: 'Chiamo ' },
+                    { icon: '📊', label: 'Analizza', prefix: 'Analizzo ' },
+                    { icon: '🤝', label: 'Negozia', prefix: 'Negozio con ' },
+                    { icon: '💡', label: 'Idea', prefix: "Valuto un'idea su " }
+                ]
+            },
+            crime: {
+                name: 'Criminale / Mafia',
+                currency: { name: 'Contanti', short: 'USD', symbol: '$' },
+                resolution: 'Tira 1d12 + stat (RSP/VIO/AST/CONN/LEA) contro 7-13; 1 disastro, 12+ colpo magistrale.',
+                stats: [
+                    { id: 'resp', label: 'Rispetto', short: 'RSP', base: 10 },
+                    { id: 'vio', label: 'Violenza', short: 'VIO', base: 10 },
+                    { id: 'ast', label: 'Astuzia', short: 'AST', base: 10 },
+                    { id: 'conn', label: 'Connessioni', short: 'CONN', base: 10 },
+                    { id: 'leal', label: 'Lealta', short: 'LEA', base: 10 }
+                ],
+                origins: {
+                    street: { name: 'Strada', icon: '🧨', desc: 'Vita nei vicoli', bonuses: { vio: 2, resp: 1 } },
+                    insider: { name: 'Insider', icon: '🗝️', desc: 'Informazioni e agganci', bonuses: { conn: 2, ast: 1 } },
+                    loyal: { name: 'Leale', icon: '🤞', desc: "Codice d'onore", bonuses: { leal: 2, resp: 1 } }
+                },
+                archetypes: {
+                    enforcer: { name: 'Picchiatore', icon: '🥊', desc: 'Mani pesanti', stat: 'vio', hp: 14, mp: 0, skills: ['Intimidire', 'Brutalita'] },
+                    strategist: { name: 'Stratega', icon: '🧠', desc: 'Piani e colpi', stat: 'ast', hp: 10, mp: 2, skills: ['Pianificazione', 'Inganno'] },
+                    fixer: { name: 'Facilitatore', icon: '🤝', desc: 'Conosce tutti', stat: 'conn', hp: 11, mp: 2, skills: ['Contatti', 'Mediazione'] },
+                    lieutenant: { name: 'Luogotenente', icon: '🎖️', desc: 'Guida la crew', stat: 'resp', hp: 12, mp: 2, skills: ['Comando', 'Reputazione'] }
+                },
+                items: {
+                    bandage: { name: 'Bendaggio', icon: '🩹', type: 'consumable', effect: { health: 25 } },
+                    energy_shot: { name: 'Adrenalina', icon: '💉', type: 'consumable', effect: { stamina: 35 } },
+                    street_food: { name: 'Street Food', icon: '🌯', type: 'consumable', effect: { hunger: 25 } }
+                },
+                starterInventory: [
+                    { id: 'bandage', count: 2 },
+                    { id: 'street_food', count: 3 },
+                    { id: 'energy_shot', count: 1 }
+                ],
+                quickActions: [
+                    { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
+                    { icon: '🧠', label: 'Astuzia', prefix: 'Studio il colpo su ' },
+                    { icon: '🥊', label: 'Minaccia', prefix: 'Minaccio ' },
+                    { icon: '🤝', label: 'Contatti', prefix: 'Chiamo un contatto per ' },
+                    { icon: '🚗', label: 'Fuga', prefix: 'Preparo la fuga verso ' }
+                ]
+            },
+            historical: {
+                name: 'Storico',
+                currency: { name: 'Fiorini', short: 'FIO', symbol: '🪙' },
+                resolution: 'Tira 1d12 + stat (FOR/DEX/ERU/RET) contro 7-13, con colore storico.',
+                stats: [
+                    { id: 'for', label: 'Forza', short: 'FOR', base: 10 },
+                    { id: 'dex', label: 'Destrezza', short: 'DEX', base: 10 },
+                    { id: 'int', label: 'Erudizione', short: 'ERU', base: 10 },
+                    { id: 'car', label: 'Retorica', short: 'RET', base: 10 }
+                ],
+                origins: {
+                    legionnaire: { name: 'Legionario', icon: '🛡️', desc: 'Disciplina e marce', bonuses: { for: 2, dex: 1 } },
+                    artisan: { name: 'Artigiano', icon: '⚒️', desc: 'Mani d’oro', bonuses: { dex: 2, int: 1 } },
+                    scholar: { name: 'Studioso', icon: '📜', desc: 'Biblioteca vivente', bonuses: { int: 3 } }
+                },
+                archetypes: {
+                    centurion: { name: 'Centurione', icon: '🏺', desc: 'Guida i ranghi', stat: 'for', hp: 13, mp: 2, skills: ['Comando', 'Tattica'] },
+                    merchant: { name: 'Mercante', icon: '🧺', desc: 'Scambia e persuade', stat: 'car', hp: 10, mp: 4, skills: ['Contratto', 'Valutazione'] },
+                    explorer: { name: 'Esploratore', icon: '🧭', desc: 'Conosce percorsi', stat: 'dex', hp: 11, mp: 2, skills: ['Orientamento', 'Furtività'] }
+                },
+                items: {
+                    ration: { name: 'Razione', icon: '🍖', type: 'consumable', effect: { hunger: 30 } },
+                    bandage: { name: 'Bendaggio', icon: '🩹', type: 'consumable', effect: { health: 20 } },
+                    wine: { name: 'Vino', icon: '🍷', type: 'consumable', effect: { stamina: 15 } }
+                },
+                starterInventory: [
+                    { id: 'ration', count: 2 },
+                    { id: 'bandage', count: 2 },
+                    { id: 'wine', count: 1 }
+                ],
+                quickActions: [
+                    { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
+                    { icon: '🧭', label: 'Esplora', prefix: 'Esploro ' },
+                    { icon: '🛡️', label: 'Difendi', prefix: 'Mi preparo a difendere ' },
+                    { icon: '⚒️', label: 'Lavora', prefix: 'Lavoro su ' }
+                ]
+            },
+            military: {
+                name: 'Militare / Guerra',
+                currency: { name: 'Crediti', short: 'CR', symbol: '¤' },
+                resolution: 'Tira 2d6 + stat (FOR/RES/TAC/MOR) contro 6-14; 2 fallimento critico, 12+ successo totale.',
+                stats: [
+                    { id: 'for', label: 'Forza', short: 'FOR', base: 10 },
+                    { id: 'res', label: 'Resistenza', short: 'RES', base: 10 },
+                    { id: 'tac', label: 'Tattica', short: 'TAC', base: 10 },
+                    { id: 'mor', label: 'Morale', short: 'MOR', base: 10 }
+                ],
+                origins: {
+                    recruit: { name: 'Recluta', icon: '🎖️', desc: 'Appena arruolato', bonuses: { res: 1, mor: 1, for: 1 } },
+                    veteran: { name: 'Veterano', icon: '🪖', desc: 'Ha visto battaglie', bonuses: { res: 2, tac: 1 } },
+                    officer: { name: 'Ufficiale', icon: '📐', desc: 'Guida e coordina', bonuses: { tac: 2, mor: 1 } }
+                },
+                archetypes: {
+                    infantry: { name: 'Fante', icon: '🪖', desc: 'Prima linea', stat: 'for', hp: 14, mp: 0, skills: ['Assalto', 'Resistenza'] },
+                    sniper: { name: 'Cecchino', icon: '🎯', desc: 'Precisione', stat: 'tac', hp: 11, mp: 0, skills: ['Mira', 'Osservazione'] },
+                    medic: { name: 'Medico', icon: '⛑️', desc: 'Cura in campo', stat: 'res', hp: 10, mp: 0, skills: ['Pronto soccorso', 'Calma'] }
+                },
+                items: {
+                    medkit: { name: 'Kit Medico', icon: '🩺', type: 'consumable', effect: { health: 25 } },
+                    rations: { name: 'Razioni', icon: '🥫', type: 'consumable', effect: { hunger: 30, stamina: 10 } },
+                    stim: { name: 'Stimolante', icon: '💉', type: 'consumable', effect: { stamina: 30 } }
+                },
+                starterInventory: [
+                    { id: 'medkit', count: 2 },
+                    { id: 'rations', count: 2 },
+                    { id: 'stim', count: 1 }
+                ],
+                quickActions: [
+                    { icon: '💬', label: 'Comando', prefix: 'Ordino: "' },
+                    { icon: '🎯', label: 'Mirare', prefix: 'Prendo mira su ' },
+                    { icon: '🪖', label: 'Copertura', prefix: 'Prendo copertura presso ' },
+                    { icon: '🏃', label: 'Avanza', prefix: 'Avanzo verso ' }
+                ]
+            },
+            diplomatic: {
+                name: 'Diplomatico',
+                currency: { name: 'Crediti', short: 'CR', symbol: '¤' },
+                resolution: 'Tira 2d6 + CAR/RET/INT contro 6-14; 6-7 fallimento, 8-9 complicazioni, 10-11 successo, 12+ successo pieno.',
+                stats: [
+                    { id: 'car', label: 'Carisma', short: 'CAR', base: 10 },
+                    { id: 'ret', label: 'Retorica', short: 'RET', base: 10 },
+                    { id: 'int', label: 'Intelligenza', short: 'INT', base: 10 }
+                ],
+                origins: {
+                    envoy: { name: 'Inviato', icon: '🤝', desc: 'Mandato ufficiale', bonuses: { car: 2, ret: 1 } },
+                    scholar: { name: 'Accademico', icon: '📚', desc: 'Specialista di culture', bonuses: { int: 2, ret: 1 } },
+                    courtier: { name: 'Cortigiano', icon: '👑', desc: 'Abituato alle etichette', bonuses: { car: 1, ret: 2 } }
+                },
+                archetypes: {
+                    mediator: { name: 'Mediatore', icon: '🕊️', desc: 'Trova compromessi', stat: 'car', hp: 10, mp: 4, skills: ['Negoziazione', 'Empatia'] },
+                    orator: { name: 'Oratore', icon: '🎙️', desc: 'Parola incisiva', stat: 'ret', hp: 9, mp: 5, skills: ['Retorica', 'Ispirazione'] },
+                    analyst: { name: 'Analista', icon: '📊', desc: 'Legge le mosse', stat: 'int', hp: 9, mp: 6, skills: ['Analisi', 'Previsione'] }
+                },
+                items: {
+                    notes: { name: 'Appunti', icon: '📒', type: 'gear' },
+                    coffee: { name: 'Caffe', icon: '☕', type: 'consumable', effect: { stamina: 15 } },
+                    badge: { name: 'Tessera Diplomatica', icon: '🎫', type: 'gear' }
+                },
+                starterInventory: [
+                    { id: 'coffee', count: 2 },
+                    { id: 'notes', count: 1 },
+                    { id: 'badge', count: 1 }
+                ],
+                quickActions: [
+                    { icon: '💬', label: 'Dichiara', prefix: 'Dichiaro: "' },
+                    { icon: '🤝', label: 'Negozia', prefix: 'Propongo un accordo su ' },
+                    { icon: '🕊️', label: 'Media', prefix: 'Media tra ' },
+                    { icon: '🧠', label: 'Analizza', prefix: 'Analizzo la posizione di ' }
+                ]
+            },
+            rural: {
+                name: 'Rurale / Agricolo',
+                currency: { name: 'Crediti', short: 'CR', symbol: '¤' },
+                resolution: 'Tira 1d8 + stat (FOR/RES/AGR) contro 5-10; 1 raccolto rovinato, 8+ raccolto ottimo.',
+                stats: [
+                    { id: 'for', label: 'Forza', short: 'FOR', base: 10 },
+                    { id: 'res', label: 'Resistenza', short: 'RES', base: 10 },
+                    { id: 'agr', label: 'Agronomia', short: 'AGR', base: 10 }
+                ],
+                origins: {
+                    farmer: { name: 'Contadino', icon: '🌾', desc: 'Vive nei campi', bonuses: { agr: 2, res: 1 } },
+                    shepherd: { name: 'Pastore', icon: '🐑', desc: 'Cura il gregge', bonuses: { res: 2, for: 1 } },
+                    miller: { name: 'Mugnaio', icon: '🧺', desc: 'Macina e commercia', bonuses: { agr: 1, for: 1, res: 1 } }
+                },
+                archetypes: {
+                    harvester: { name: 'Raccoglitore', icon: '🧑‍🌾', desc: 'Produce raccolti', stat: 'agr', hp: 11, mp: 0, skills: ['Coltivazione', 'Conservazione'] },
+                    hauler: { name: 'Trasportatore', icon: '🛒', desc: 'Porta il peso', stat: 'for', hp: 12, mp: 0, skills: ['Forza', 'Logistica'] },
+                    caretaker: { name: 'Custode', icon: '🐕', desc: 'Sorveglia e cura', stat: 'res', hp: 12, mp: 0, skills: ['Vigilanza', 'Cura animali'] }
+                },
+                items: {
+                    bread: { name: 'Pane', icon: '🍞', type: 'consumable', effect: { hunger: 20 } },
+                    water: { name: 'Acqua', icon: '💧', type: 'consumable', effect: { stamina: 10 } },
+                    herbs: { name: 'Erbe', icon: '🌿', type: 'consumable', effect: { health: 10 } }
+                },
+                starterInventory: [
+                    { id: 'bread', count: 2 },
+                    { id: 'water', count: 2 },
+                    { id: 'herbs', count: 1 }
+                ],
+                quickActions: [
+                    { icon: '🌾', label: 'Coltiva', prefix: 'Coltivo ' },
+                    { icon: '🚜', label: 'Lavora', prefix: 'Lavoro su ' },
+                    { icon: '🧺', label: 'Raccogli', prefix: 'Raccolgo ' },
+                    { icon: '🐑', label: 'Cura', prefix: 'Curo ' }
+                ]
+            },
+            pirate: {
+                name: 'Piratesco',
+                currency: { name: 'Dobloni', short: 'DOB', symbol: '🪙' },
+                resolution: 'Tira 1d12 + stat (FOR/NAV/AST/CAR) contro 7-13; 1 ammutinamento, 12+ bottino ricco.',
+                stats: [
+                    { id: 'for', label: 'Forza', short: 'FOR', base: 10 },
+                    { id: 'nav', label: 'Navigazione', short: 'NAV', base: 10 },
+                    { id: 'ast', label: 'Astuzia', short: 'AST', base: 10 },
+                    { id: 'car', label: 'Carisma', short: 'CAR', base: 10 }
+                ],
+                origins: {
+                    sailor: { name: 'Marinaio', icon: '⚓', desc: 'Vive sul ponte', bonuses: { nav: 2, for: 1 } },
+                    privateer: { name: 'Corsaro', icon: '🏴‍☠️', desc: 'Lettera di corsa', bonuses: { ast: 1, car: 2 } },
+                    islander: { name: 'Isolano', icon: '🏝️', desc: 'Figlio del mare', bonuses: { nav: 1, for: 1, car: 1 } }
+                },
+                archetypes: {
+                    captain: { name: 'Capitano', icon: '🧭', desc: 'Guida la ciurma', stat: 'car', hp: 12, mp: 2, skills: ['Comando', 'Motivazione'] },
+                    gunner: { name: 'Cannoniere', icon: '🎇', desc: 'Spara preciso', stat: 'for', hp: 13, mp: 0, skills: ['Artiglieria', 'Riparazioni'] },
+                    navigator: { name: 'Navigatore', icon: '🧭', desc: 'Legge rotte', stat: 'nav', hp: 11, mp: 0, skills: ['Navigazione', 'Meteo'] }
+                },
+                items: {
+                    rum: { name: 'Rum', icon: '🥃', type: 'consumable', effect: { stamina: 15, hunger: 5 } },
+                    hardtack: { name: 'Galletta', icon: '🥖', type: 'consumable', effect: { hunger: 20 } },
+                    bandage: { name: 'Bendaggio', icon: '🩹', type: 'consumable', effect: { health: 15 } }
+                },
+                starterInventory: [
+                    { id: 'rum', count: 2 },
+                    { id: 'hardtack', count: 3 },
+                    { id: 'bandage', count: 1 }
+                ],
+                quickActions: [
+                    { icon: '💬', label: 'Arremba', prefix: 'Arrembo ' },
+                    { icon: '⚓', label: 'Manovra', prefix: 'Manovro verso ' },
+                    { icon: '🎇', label: 'Spara', prefix: 'Sparo con i cannoni su ' },
+                    { icon: '🧭', label: 'Rotta', prefix: 'Traccio una rotta per ' }
+                ]
+            },
+            spy: {
+                name: 'Spionaggio',
+                currency: { name: 'Crediti', short: 'CR', symbol: '¤' },
+                resolution: 'Tira 2d6 + stat (FUR/AST/TEC/COP) contro 6-14; 6-7 allarme, 8-9 info parziali, 10-11 successo, 12+ colpo perfetto.',
+                stats: [
+                    { id: 'fur', label: 'Furtività', short: 'FUR', base: 10 },
+                    { id: 'ast', label: 'Astuzia', short: 'AST', base: 10 },
+                    { id: 'tec', label: 'Tecnologia', short: 'TEC', base: 10 },
+                    { id: 'cop', label: 'Copertura', short: 'COP', base: 10 }
+                ],
+                origins: {
+                    analyst: { name: 'Analista', icon: '📡', desc: 'Intelligence da scrivania', bonuses: { tec: 2, ast: 1 } },
+                    field: { name: 'Agente sul campo', icon: '🕶️', desc: 'Operazioni coperte', bonuses: { fur: 2, cop: 1 } },
+                    handler: { name: 'Referente', icon: '☎️', desc: 'Gestisce contatti', bonuses: { ast: 2, cop: 1 } }
+                },
+                archetypes: {
+                    infiltrator: { name: 'Infiltratore', icon: '🕵️', desc: 'Si muove invisibile', stat: 'fur', hp: 11, mp: 3, skills: ['Infiltrazione', 'Scasso'] },
+                    hacker: { name: 'Hacker', icon: '💻', desc: 'Domina i sistemi', stat: 'tec', hp: 9, mp: 5, skills: ['Hacking', 'Sicurezza'] },
+                    handler: { name: 'Handler', icon: '☎️', desc: 'Coordina risorse', stat: 'cop', hp: 10, mp: 4, skills: ['Contatti', 'Copertura'] }
+                },
+                items: {
+                    energy: { name: 'Energia', icon: '⚡', type: 'consumable', effect: { stamina: 25 } },
+                    gadget: { name: 'Gadget', icon: '📟', type: 'gear' },
+                    medkit: { name: 'Kit Medico', icon: '🩺', type: 'consumable', effect: { health: 20 } }
+                },
+                starterInventory: [
+                    { id: 'energy', count: 2 },
+                    { id: 'gadget', count: 1 },
+                    { id: 'medkit', count: 1 }
+                ],
+                quickActions: [
+                    { icon: '👁️', label: 'Osserva', prefix: 'Osservo ' },
+                    { icon: '💻', label: 'Hack', prefix: 'Hackero ' },
+                    { icon: '🕶️', label: 'Copertura', prefix: 'Mantengo la copertura mentre ' },
+                    { icon: '📞', label: 'Contatto', prefix: 'Chiamo il contatto per ' }
+                ]
+            }
+        };
+// ==================== UTILITIES ====================
         const $ = id => document.getElementById(id);
         const $$ = sel => document.querySelectorAll(sel);
+
+        function resolveGenreKey(story) {
+            const raw = (story?.genre || '').toString().toLowerCase();
+            if (raw && GENRES[raw]) return raw;
+            const setting = (story?.setting || '').toString().toLowerCase();
+            if (setting.includes('sport') || setting.includes('calcio')) return 'sport';
+            if (setting.includes('business') || setting.includes('economia')) return 'business';
+            if (setting.includes('crime') || setting.includes('mafia') || setting.includes('gang')) return 'crime';
+            if (setting.includes('storico') || setting.includes('roma') || setting.includes('rinascimento')) return 'historical';
+            if (setting.includes('militare') || setting.includes('guerra') || setting.includes('war')) return 'military';
+            if (setting.includes('diplomatic') || setting.includes('diplomatico')) return 'diplomatic';
+            if (setting.includes('rurale') || setting.includes('agricolo') || setting.includes('contadino')) return 'rural';
+            if (setting.includes('pirata') || setting.includes('piratesco') || setting.includes('pirate')) return 'pirate';
+            if (setting.includes('spia') || setting.includes('spionaggio') || setting.includes('spy')) return 'spy';
+            if (setting.includes('contemporaneo') || setting.includes('moderno')) return 'contemporary';
+            return 'fantasy';
+        }
+
+        function getGenreConfig(story = G.currentStory) {
+            return GENRES[resolveGenreKey(story)] || GENRES.fantasy;
+        }
+
+        function getItemCatalog(source = {}) {
+            const genreKey = source.genre || resolveGenreKey(source.story || source.currentStory || G.currentStory);
+            return (GENRES[genreKey] && GENRES[genreKey].items) || GENRES.fantasy.items;
+        }
+
+        function formatCurrency(amount) {
+            const currency = G.character?.currency || getGenreConfig().currency || { short: 'soldi' };
+            const label = currency.symbol || currency.short || currency.name || 'soldi';
+            return `${amount} ${label}`;
+        }
+
+        function formatStatSummary(character = G.character) {
+            const cfg = getGenreConfig({ genre: character?.genre, setting: G.currentStory?.setting });
+            return (cfg.stats || []).map(st => `${st.short || st.id.toUpperCase()}: ${character?.attrs?.[st.id] ?? 0}`).join(', ');
+        }
+
+        function getResolutionText(story = G.currentStory) {
+            const cfg = getGenreConfig(story);
+            return cfg.resolution || 'Tira 1d20 + bonus rilevante contro una difficolta, adatta al genere.';
+        }
 
         function notify(msg, type = 'info') {
             const n = document.createElement('div');
@@ -1637,6 +2180,36 @@
             localStorage.setItem('dnd_v4', JSON.stringify({
                 stories: G.stories, saves: G.saves, settings: G.settings
             }));
+        }
+
+        function computeDayName(year, month, day) {
+            try {
+                const date = new Date(year, month - 1, day);
+                const idx = date.getDay(); // 0-6
+                return DAYS[idx] || 'Lunedì';
+            } catch (e) {
+                return 'Lunedì';
+            }
+        }
+
+        function getStartTimeForStory(story) {
+            const genreKey = resolveGenreKey(story);
+            const presets = {
+                fantasy: { day: 1, month: 3, year: 1400, hour: 8, minute: 0 },
+                contemporary: { day: 2, month: 5, year: 2024, hour: 9, minute: 0 },
+                sport: { day: 15, month: 8, year: 2024, hour: 10, minute: 0 },
+                business: { day: 2, month: 4, year: 2023, hour: 9, minute: 0 },
+                crime: { day: 7, month: 10, year: 1986, hour: 22, minute: 0 },
+                historical: { day: 12, month: 6, year: 1520, hour: 8, minute: 0 },
+                military: { day: 1, month: 11, year: 1943, hour: 5, minute: 0 },
+                diplomatic: { day: 10, month: 9, year: 2025, hour: 10, minute: 0 },
+                rural: { day: 20, month: 4, year: 1890, hour: 6, minute: 0 },
+                pirate: { day: 5, month: 7, year: 1720, hour: 14, minute: 0 },
+                spy: { day: 3, month: 3, year: 1968, hour: 21, minute: 0 }
+            };
+            const base = (story?.startTime) ? { ...story.startTime } : (presets[genreKey] || presets.fantasy);
+            base.dayName = base.dayName || computeDayName(base.year, base.month, base.day);
+            return base;
         }
 
         // ==================== TIME MANAGEMENT ====================
@@ -1709,13 +2282,13 @@
 
         function getTimePeriod() {
             const h = G.time.hour;
-            if (h >= 5 && h < 7) return { name: 'Alba', icon: '🌅' };
-            if (h >= 7 && h < 12) return { name: 'Mattina', icon: '☀️' };
-            if (h >= 12 && h < 14) return { name: 'Mezzogiorno', icon: '🌞' };
-            if (h >= 14 && h < 18) return { name: 'Pomeriggio', icon: '🌤️' };
-            if (h >= 18 && h < 21) return { name: 'Sera', icon: '🌆' };
-            if (h >= 21 || h < 5) return { name: 'Notte', icon: '🌙' };
-            return { name: 'Giorno', icon: '☀️' };
+            if (h >= 5 && h < 7) return { name: 'Alba', icon: '?' };
+            if (h >= 7 && h < 12) return { name: 'Mattina', icon: '?' };
+            if (h >= 12 && h < 14) return { name: 'Mezzogiorno', icon: '?' };
+            if (h >= 14 && h < 18) return { name: 'Pomeriggio', icon: '?' };
+            if (h >= 18 && h < 21) return { name: 'Sera', icon: '?' };
+            if (h >= 21 || h < 5) return { name: 'Notte', icon: '?' };
+            return { name: 'Giorno', icon: '?' };
         }
 
         function getTimeString() {
@@ -1731,7 +2304,10 @@
         function updateTimeDisplay() {
             const period = getTimePeriod();
             $('time-icon').textContent = period.icon;
-            $('time-text').textContent = `${getTimeString()} • ${G.time.day}/${G.time.month}`;
+            $('time-text').textContent = `${getTimeString()}`;
+            if ($('time-date')) {
+                $('time-date').textContent = `${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} (${getCurrentSeason()})`;
+            }
             if ($('wait-current-time')) {
                 $('wait-current-time').textContent = `${getTimeString()} - ${period.name}`;
             }
@@ -1763,15 +2339,19 @@
         function doEat() {
             if (!G.character) return;
             
-            const foodIdx = G.character.inventory.findIndex(i => 
-                i && (i.id === 'food' || i.id === 'snack' || i.id === 'ration')
-            );
+            const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
+            const currencyLabel = G.character.currency?.short || 'soldi';
+            const foodIdx = G.character.inventory.findIndex(i => {
+                if (!i) return false;
+                const data = catalog[i.id];
+                return data?.effect?.hunger || data?.effect?.stamina;
+            });
             
             if (foodIdx === -1) {
                 if (G.character.gold >= 5) {
                     G.character.gold -= 5;
                     G.character.hunger.cur = Math.min(G.character.hunger.max, G.character.hunger.cur + 50);
-                    addStoryEntry('🍖 Compri e mangi un pasto. (-5 soldi, +50 sazietà)', 'mechanic');
+                    addStoryEntry(`🍖 Compri e mangi un pasto. (-5 ${currencyLabel}, +50 sazietà)`, 'mechanic');
                     advanceTime(30);
                     updateCharacterUI();
                     generateAI(`Il protagonista ha comprato e mangiato un pasto. Descrivi brevemente la scena.`);
@@ -1780,38 +2360,32 @@
                 }
             } else {
                 const item = G.character.inventory[foodIdx];
-                const data = ITEMS[item.id];
+                const data = catalog[item.id];
                 
-                if (data.effect.hunger) {
+                if (data?.effect?.hunger) {
                     G.character.hunger.cur = Math.min(G.character.hunger.max, G.character.hunger.cur + data.effect.hunger);
                 }
-                if (data.effect.stamina) {
+                if (data?.effect?.stamina) {
                     G.character.stamina.cur = Math.min(G.character.stamina.max, G.character.stamina.cur + data.effect.stamina);
                 }
                 
                 item.count--;
                 if (item.count <= 0) G.character.inventory.splice(foodIdx, 1);
                 
-                addStoryEntry(`🍖 Mangi ${data.name}. (+${data.effect.hunger || 0} sazietà)`, 'mechanic');
+                addStoryEntry(`🍖 Mangi ${data?.name || 'cibo'}. (+${data?.effect?.hunger || 0} sazietà)`, 'mechanic');
                 advanceTime(15);
                 updateCharacterUI();
             }
         }
 
         // ==================== QUICK ACTIONS ====================
-        function getGenreActions(setting) {
-            if (!setting) return GENRE_ACTIONS['default'];
-            const settingLower = setting.toLowerCase();
-            
-            if (settingLower.includes('fantasy') || settingLower.includes('medievale')) return GENRE_ACTIONS['Fantasy'];
-            if (settingLower.includes('business') || settingLower.includes('economia')) return GENRE_ACTIONS['Business'];
-            if (settingLower.includes('contemporaneo') || settingLower.includes('moderno')) return GENRE_ACTIONS['Contemporaneo'];
-            
-            return GENRE_ACTIONS['default'];
+        function getGenreActions(story) {
+            const cfg = getGenreConfig(story);
+            return cfg.quickActions || DEFAULT_ACTIONS;
         }
 
         function updateQuickActions() {
-            const actions = G.currentStory ? getGenreActions(G.currentStory.setting) : GENRE_ACTIONS['default'];
+            const actions = G.currentStory ? getGenreActions(G.currentStory) : DEFAULT_ACTIONS;
             
             const html = actions.map(a => `
                 <button class="quick-btn" data-prefix="${a.prefix}">
@@ -1844,6 +2418,7 @@
                         id: 1, 
                         title: 'La Cripta dei Sussurri', 
                         setting: 'Fantasy Gotico', 
+                        genre: 'fantasy',
                         difficulty: 'normal', 
                         desc: 'Un mondo gotico dove la nebbia avvolge antichi cimiteri. Il villaggio di Ravenhollow vive nella paura.', 
                         personality: 'Narratore misterioso e atmosferico. Crea tensione e suspense.', 
@@ -1854,6 +2429,7 @@
                         id: 2, 
                         title: 'Scalata al Successo', 
                         setting: 'Contemporaneo / Business', 
+                        genre: 'business',
                         difficulty: 'normal', 
                         desc: 'Una storia moderna. Hai ereditato un piccolo negozio e sogni di costruire un impero commerciale.', 
                         personality: 'Narratore realistico. Dialoghi naturali e moderni.', 
@@ -1882,41 +2458,54 @@
 
         // ==================== CHARACTER ====================
         function createCharacter(name, origin, archetype) {
-            const o = ORIGINS[origin], a = ARCHETYPES[archetype];
-            const attrs = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
-            
-            if (o.bonuses) {
-                if (o.bonuses.all) Object.keys(attrs).forEach(k => attrs[k] += o.bonuses.all);
-                else Object.entries(o.bonuses).forEach(([k,v]) => { if(attrs[k]) attrs[k] += v; });
+            const genreCfg = getGenreConfig(G.currentStory);
+            const genreKey = resolveGenreKey(G.currentStory);
+            const originData = genreCfg.origins[origin] || Object.values(genreCfg.origins)[0];
+            const archetypeData = genreCfg.archetypes[archetype] || Object.values(genreCfg.archetypes)[0];
+
+            const attrs = {};
+            genreCfg.stats.forEach(stat => { attrs[stat.id] = stat.base || 10; });
+
+            if (originData?.bonuses) {
+                if (originData.bonuses.all) Object.keys(attrs).forEach(k => attrs[k] += originData.bonuses.all);
+                else Object.entries(originData.bonuses).forEach(([k,v]) => { if(attrs[k] !== undefined) attrs[k] += v; });
             }
 
-            const conMod = mod(attrs.con);
-            
+            const conValue = attrs.con ?? attrs.res ?? attrs.resp ?? 10;
+            const manaValue = attrs.int ?? attrs.ast ?? attrs.car ?? 10;
+            const conMod = mod(conValue);
+            const manaMod = Math.max(0, mod(manaValue));
+
             G.character = {
-                name, origin, archetype, level: 1,
-                health: { cur: a.hp + conMod, max: a.hp + conMod },
-                mana: { cur: a.mp + Math.max(0, mod(attrs.int)), max: a.mp + Math.max(0, mod(attrs.int)) },
+                name,
+                origin: Object.keys(genreCfg.origins).find(k => genreCfg.origins[k] === originData),
+                archetype: Object.keys(genreCfg.archetypes).find(k => genreCfg.archetypes[k] === archetypeData),
+                genre: genreKey,
+                currency: genreCfg.currency,
+                level: 1,
+                health: { cur: archetypeData.hp + conMod, max: archetypeData.hp + conMod },
+                mana: { cur: Math.max(0, archetypeData.mp + manaMod), max: Math.max(0, archetypeData.mp + manaMod) },
                 stamina: { cur: 100, max: 100 },
                 hunger: { cur: 100, max: 100 },
                 exp: { cur: 0, need: 100 },
                 attrs,
                 skills: {},
-                inventory: [
-                    { id: 'healing', count: 2 },
-                    { id: 'food', count: 3 },
-                    { id: 'snack', count: 5 }
-                ],
+                inventory: (genreCfg.starterInventory || []).map(i => ({ ...i })),
                 equipment: { weapon: null, armor: null, accessory: null },
                 gold: 100
             };
             
-            a.skills.forEach(s => G.character.skills[s] = mod(attrs[a.stat]));
+            if (archetypeData?.skills) {
+                archetypeData.skills.forEach(s => G.character.skills[s] = mod(attrs[archetypeData.stat] || 10));
+            }
         }
 
         function updateCharacterUI() {
             if (!G.character) return;
             const c = G.character;
-            const o = ORIGINS[c.origin], a = ARCHETYPES[c.archetype];
+            const genreCfg = getGenreConfig({ genre: c.genre, setting: G.currentStory?.setting });
+            const o = genreCfg.origins[c.origin] || { name: c.origin || 'Origine' };
+            const a = genreCfg.archetypes[c.archetype] || { name: c.archetype || 'Archetipo', icon: '?', stat: genreCfg.stats?.[0]?.id };
 
             $('mini-health').style.width = `${(c.health.cur / c.health.max) * 100}%`;
             $('mini-stamina').style.width = `${(c.stamina.cur / c.stamina.max) * 100}%`;
@@ -1924,7 +2513,7 @@
 
             $('char-portrait').textContent = a.icon;
             $('char-name').textContent = c.name;
-            $('char-class').textContent = `${o.name} • ${a.name} Lv. ${c.level}`;
+            $('char-class').textContent = `${o.name} / ${a.name} Lv. ${c.level}`;
 
             $('stat-health').style.width = `${(c.health.cur / c.health.max) * 100}%`;
             $('stat-health-text').textContent = `${c.health.cur}/${c.health.max}`;
@@ -1937,11 +2526,11 @@
             $('stat-exp').style.width = `${(c.exp.cur / c.exp.need) * 100}%`;
             $('stat-exp-text').textContent = `${c.exp.cur}/${c.exp.need}`;
 
-            const attrsHtml = ['str','dex','con','int','wis','cha'].map(at => `
+            const attrsHtml = (genreCfg.stats || []).map(stat => `
                 <div class="attr-box">
-                    <div class="attr-name">${at.toUpperCase()}</div>
-                    <div class="attr-value">${c.attrs[at]}</div>
-                    <div class="attr-mod">${mod(c.attrs[at]) >= 0 ? '+' : ''}${mod(c.attrs[at])}</div>
+                    <div class="attr-name">${stat.short || stat.id.toUpperCase()}</div>
+                    <div class="attr-value">${c.attrs[stat.id] ?? 0}</div>
+                    <div class="attr-mod">${mod(c.attrs[stat.id] ?? 10) >= 0 ? '+' : ''}${mod(c.attrs[stat.id] ?? 10)}</div>
                 </div>
             `).join('');
             $('attrs-grid').innerHTML = attrsHtml;
@@ -1964,18 +2553,28 @@
             $('abilities-list').innerHTML = abilitiesHtml || '<div class="skill-item" style="font-style:italic;">Nessuna abilità acquisita</div>';
 
             // Inventory
-            $('inv-gold').textContent = c.gold;
+            const catalog = getItemCatalog({ genre: c.genre, story: G.currentStory });
+            const currencyLabel = c.currency?.symbol || c.currency?.short || 'soldi';
+            $('inv-gold').textContent = `${c.gold} ${currencyLabel}`;
             let invHtml = '';
+            const invListRows = [];
             for (let i = 0; i < 16; i++) {
                 const item = c.inventory[i];
                 if (item) {
-                    const data = ITEMS[item.id] || { icon: '❓', name: item.id };
+                    const data = catalog[item.id] || { icon: '📦', name: item.id };
                     invHtml += `<div class="inv-slot" data-idx="${i}" title="${data.name}">${data.icon}${item.count > 1 ? `<span class="count">x${item.count}</span>` : ''}</div>`;
+                    invListRows.push(`
+                        <div class="inv-row">
+                            <div class="inv-row-name">${data.icon || '📦'} ${data.name || item.id}</div>
+                            <div class="inv-row-count">x${item.count || 1}</div>
+                        </div>
+                    `);
                 } else {
                     invHtml += `<div class="inv-slot"></div>`;
                 }
             }
             $('inv-grid').innerHTML = invHtml;
+            $('inv-list').innerHTML = invListRows.join('') || '<div class="inv-row" style="color: var(--ink-light); font-style: italic;">Inventario vuoto</div>';
 
             // Special Items
             const specialHtml = G.worldMemory.acquiredItems.map(item => `
@@ -2205,12 +2804,17 @@
             $('new-game-story').innerHTML = G.stories.map((s, i) => 
                 `<option value="${i}">${s.title}</option>`
             ).join('');
+
+            if (typeof renderCreationOptions === 'function') {
+                renderCreationOptions();
+            }
         }
 
         function openStoryEditor(story = null) {
             G.editingStory = story;
             $('edit-story-title').value = story?.title || '';
             $('edit-story-setting').value = story?.setting || 'Fantasy Medievale';
+            $('edit-story-genre').value = story?.genre || resolveGenreKey(story) || 'fantasy';
             $('edit-story-difficulty').value = story?.difficulty || 'normal';
             $('edit-story-desc').value = story?.desc || '';
             $('edit-story-personality').value = story?.personality || '';
@@ -2224,6 +2828,7 @@
                 id: G.editingStory?.id || Date.now(),
                 title: $('edit-story-title').value || 'Nuova Storia',
                 setting: $('edit-story-setting').value,
+                genre: $('edit-story-genre').value || resolveGenreKey(G.editingStory),
                 difficulty: $('edit-story-difficulty').value,
                 desc: $('edit-story-desc').value,
                 personality: $('edit-story-personality').value,
@@ -2287,6 +2892,12 @@
             const s = G.saves[G.selectedSave];
             G.character = JSON.parse(JSON.stringify(s.character));
             G.currentStory = JSON.parse(JSON.stringify(s.story));
+            const cfg = getGenreConfig(G.currentStory);
+            if (G.currentStory && !G.currentStory.genre) G.currentStory.genre = resolveGenreKey(G.currentStory);
+            if (G.character) {
+                G.character.genre = G.character.genre || resolveGenreKey(G.currentStory);
+                G.character.currency = G.character.currency || cfg.currency;
+            }
             G.storyLog = JSON.parse(JSON.stringify(s.storyLog || []));
             G.history = JSON.parse(JSON.stringify(s.history || []));
             G.time = JSON.parse(JSON.stringify(s.time || { day: 1, month: 1, year: 1400, hour: 8, minute: 0, dayName: 'Lunedì' }));
@@ -2313,10 +2924,10 @@
             }
 
             G.currentStory = JSON.parse(JSON.stringify(G.stories[storyIdx]));
+            if (!G.currentStory.genre) G.currentStory.genre = resolveGenreKey(G.currentStory);
             createCharacter(name, G.selectedOrigin, G.selectedArchetype);
-            
-            // Reset time
-            G.time = { day: 1, month: 3, year: 1400, hour: 8, minute: 0, dayName: 'Lunedì' };
+            // Reset time dinamico per genere/storia
+            G.time = getStartTimeForStory(G.currentStory);
             
             // Reset world memory
             G.worldMemory = {
@@ -2340,6 +2951,11 @@
         }
 
         function startGameUI() {
+            const cfg = getGenreConfig(G.currentStory);
+            if (G.character) {
+                G.character.genre = G.character.genre || resolveGenreKey(G.currentStory);
+                G.character.currency = G.character.currency || cfg.currency;
+            }
             showScreen('game-screen');
             updateCharacterUI();
             updateQuickActions();
@@ -2377,7 +2993,8 @@
             
             div.innerHTML = formatted;
             $('story-scroll').appendChild(div);
-            $('story-scroll').scrollTop = $('story-scroll').scrollHeight;
+            // Porta il nuovo messaggio in alto per leggerlo dall'inizio senza dover scrollare manualmente
+            div.scrollIntoView({ block: 'start' });
 
             if (log) G.storyLog.push({ text, type, time: Date.now() });
         }
@@ -2467,7 +3084,9 @@
             const s = G.settings;
             const story = G.currentStory;
             const c = G.character;
-            const o = ORIGINS[c.origin], a = ARCHETYPES[c.archetype];
+            const genreCfg = getGenreConfig(story);
+            const o = genreCfg.origins[c.origin] || { name: c.origin || 'Origine' };
+            const a = genreCfg.archetypes[c.archetype] || { name: c.archetype || 'Archetipo' };
             const period = getTimePeriod();
             const season = getCurrentSeason();
 
@@ -2492,20 +3111,28 @@ STILE: ${story.personality || 'Narratore evocativo e coinvolgente'}
 👤 STATO DEL PROTAGONISTA:
 - Nome: ${c.name} (${o.name} / ${a.name})
 - Livello: ${c.level}
+- Statistiche: ${formatStatSummary(c)}
 - Salute: ${c.health.cur}/${c.health.max} HP
 - Energia: ${c.stamina.cur}/${c.stamina.max} ⚡
 - Sazietà: ${c.hunger.cur}/${c.hunger.max} 🍖
-- Soldi: ${c.gold} 💵
+- Valuta: ${formatCurrency(c.gold)} (${c.currency?.name || c.currency?.short || 'soldi'})
+
+?? SISTEMA DI SUCCESSO / INSUCCESSO (usa questo, non il vecchio D&D fisso):
+${getResolutionText(story)}
 
 🧠 **MEMORIA DEL MONDO** (IMPORTANTISSIMO - USA QUESTE INFORMAZIONI!):
 ${worldMemorySummary || 'Nessuna memoria registrata ancora.'}
 
 ⚠️ CONDIZIONI SPECIALI:
-${c.stamina.cur <= 30 ? '- IL PERSONAGGIO È MOLTO STANCO - menzionalo nella narrazione' : ''}
+${c.stamina.cur <= 30 ? '- IL PERSONAGGIO ? MOLTO STANCO - menzionalo nella narrazione' : ''}
 ${c.hunger.cur <= 30 ? '- IL PERSONAGGIO HA MOLTA FAME - menzionalo nella narrazione' : ''}
-${c.health.cur <= c.health.max * 0.3 ? '- IL PERSONAGGIO È GRAVEMENTE FERITO - menzionalo nella narrazione' : ''}
+${c.health.cur <= c.health.max * 0.3 ? '- IL PERSONAGGIO ? GRAVEMENTE FERITO - menzionalo nella narrazione' : ''}
 
-🎯 REGOLE IMPORTANTI - LEGGI ATTENTAMENTE:
+?? ESPERIENZA E COMPETENZA:
+- Considera livello, skill e abilita acquisite: se il PG non ha skill/abilita rilevanti o ha stats basse, la probabilita di successo cala e la qualita del risultato è più scarsa; se ha skill/abilita e stats alte, aumenta la probabilita e la qualita.
+- Per azioni complesse senza esperienza, preferisci esiti parziali o fallimenti con qualita bassa; con esperienza, fornisci esiti più solidi.
+
+?? REGOLE IMPORTANTI - LEGGI ATTENTAMENTE:
 
 1. SCRIVI ${lengths[s.length]} di narrazione immersiva
 2. Tieni conto dell'ora (${period.name}) e della stagione (${season}) nelle descrizioni
@@ -2557,7 +3184,7 @@ ${story.prologue || 'Il protagonista inizia la sua avventura.'}
 Descrivi la scena iniziale. Introduci l'ambiente e almeno un personaggio. Ricorda di usare i tag [NPC:...] e [LUOGO:...] per registrarli!`;
             } else {
                 userMsg = `[${G.time.dayName} ${G.time.day}/${G.time.month}/${G.time.year} ${getTimeString()} - ${period.name}, ${season}]
-[Stato: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur}/100 | Fame ${c.hunger.cur}/100 | Soldi: ${c.gold}]
+[Stato: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur}/100 | Fame ${c.hunger.cur}/100 | Valuta: ${formatCurrency(c.gold)}]
 
 Il giocatore: ${action}
 
@@ -2733,9 +3360,11 @@ RICORDA:
                     c.health.cur = Math.min(c.health.max, c.health.cur + Math.abs(v));
                     addStoryEntry(`💚 +${Math.abs(v)} HP`, 'mechanic');
                     break;
-                case 'soldi': case 'gold': case 'money':
-                    c.gold += v;
-                    addStoryEntry(`💰 ${v >= 0 ? '+' : ''}${v} soldi`, 'mechanic');
+                                case 'soldi': case 'gold': case 'money':
+                    const prevGold = c.gold;
+                    c.gold = Math.max(0, c.gold + v);
+                    const deltaGold = c.gold - prevGold;
+                    addStoryEntry(`?? ${deltaGold >= 0 ? '+' : ''}${deltaGold} ${c.currency?.symbol || c.currency?.short || 'soldi'}`, 'mechanic');
                     break;
                 case 'exp': case 'experience':
                     c.exp.cur += Math.abs(v);
@@ -2786,6 +3415,35 @@ RICORDA:
             G.worldMemory.lastSummaryTurn = G.worldMemory.turnCount;
         }
 
+        function ensureStoryGenres() {
+            G.stories = (G.stories || []).map(s => {
+                if (!s.genre) s.genre = resolveGenreKey(s);
+                return s;
+            });
+        }
+
+        function renderCreationOptions() {
+            const storyIdx = parseInt($('new-game-story').value) || 0;
+            const story = G.stories[storyIdx] || G.stories[0] || {};
+            const genreCfg = getGenreConfig(story);
+            const originEntries = Object.entries(genreCfg.origins || {});
+            const archeEntries = Object.entries(genreCfg.archetypes || {});
+            if (!G.selectedOrigin || !genreCfg.origins[G.selectedOrigin]) G.selectedOrigin = originEntries[0]?.[0] || null;
+            if (!G.selectedArchetype || !genreCfg.archetypes[G.selectedArchetype]) G.selectedArchetype = archeEntries[0]?.[0] || null;
+            $('origin-grid').innerHTML = originEntries.map(([k, v]) => `
+                <div class="creation-option ${G.selectedOrigin === k ? 'selected' : ''}" data-origin="${k}" title="${v.desc}">
+                    <div class="creation-icon">${v.icon}</div>
+                    <div class="creation-name">${v.name}</div>
+                </div>
+            `).join('');
+            $('archetype-grid').innerHTML = archeEntries.map(([k, v]) => `
+                <div class="creation-option ${G.selectedArchetype === k ? 'selected' : ''}" data-archetype="${k}" title="${v.desc}">
+                    <div class="creation-icon">${v.icon}</div>
+                    <div class="creation-name">${v.name}</div>
+                </div>
+            `).join('');
+        }
+
         // ==================== DICE ====================
         function rollDice(sides) {
             const result = roll(sides);
@@ -2796,9 +3454,13 @@ RICORDA:
         // ==================== INIT ====================
         function init() {
             load();
+            ensureStoryGenres();
             updateHome();
             updateStoriesUI();
             updateSavesUI();
+            if (!G.isPlaying && G.stories.length > 0) {
+                G.time = getStartTimeForStory(G.stories[0]);
+            }
 
             $('set-groq-key').value = G.settings.groqKey || '';
             $('set-openrouter-key').value = G.settings.openrouterKey || '';
@@ -2806,23 +3468,11 @@ RICORDA:
             $('set-length').value = G.settings.length || 'medium';
             $('set-autoroll').checked = G.settings.autoRoll !== false;
 
-            $('origin-grid').innerHTML = Object.entries(ORIGINS).map(([k, v]) => `
-                <div class="creation-option" data-origin="${k}" title="${v.desc}">
-                    <div class="creation-icon">${v.icon}</div>
-                    <div class="creation-name">${v.name}</div>
-                </div>
-            `).join('');
-
-            $('archetype-grid').innerHTML = Object.entries(ARCHETYPES).map(([k, v]) => `
-                <div class="creation-option" data-archetype="${k}" title="${v.desc}">
-                    <div class="creation-icon">${v.icon}</div>
-                    <div class="creation-name">${v.name}</div>
-                </div>
-            `).join('');
+            renderCreationOptions();
 
             // HOME BUTTONS
             $('btn-continue').onclick = () => showScreen('game-screen');
-            $('btn-new-game').onclick = () => openModal('modal-new-game');
+            $('btn-new-game').onclick = () => { renderCreationOptions(); openModal('modal-new-game'); };
             $('btn-load-game').onclick = () => { updateSavesUI(); openModal('modal-saves'); };
             $('btn-stories').onclick = () => { updateStoriesUI(); openModal('modal-stories'); };
             $('btn-settings').onclick = () => openModal('modal-settings');
@@ -2890,6 +3540,7 @@ RICORDA:
             $('btn-save-story').onclick = saveStoryFromEditor;
 
             // NEW GAME
+            $('new-game-story').onchange = () => { G.selectedOrigin = null; G.selectedArchetype = null; renderCreationOptions(); };
             $('origin-grid').onclick = e => {
                 const opt = e.target.closest('.creation-option');
                 if (opt) {
@@ -2972,9 +3623,10 @@ RICORDA:
                 const slot = e.target.closest('.inv-slot');
                 if (slot && slot.dataset.idx !== undefined) {
                     const idx = parseInt(slot.dataset.idx);
+                    const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
                     const item = G.character.inventory[idx];
                     if (item) {
-                        const data = ITEMS[item.id];
+                        const data = catalog[item.id];
                         if (data?.type === 'consumable' && data.effect) {
                             Object.entries(data.effect).forEach(([k, v]) => {
                                 if (G.character[k]) {
