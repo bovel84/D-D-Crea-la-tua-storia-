@@ -1,0 +1,2998 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🐉 Cronache del Destino v4</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=MedievalSharp&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --parchment: #f4e4bc;
+            --parchment-dark: #d4c4a0;
+            --ink: #2c1810;
+            --ink-light: #5c4030;
+            --gold: #c9a227;
+            --gold-dark: #8b6914;
+            --blood: #8b0000;
+            --emerald: #2e8b57;
+            --sapphire: #1e3a5f;
+            --shadow: rgba(0,0,0,0.4);
+            --orange: #ff8c00;
+            --purple: #6b2e9b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Crimson Text', Georgia, serif;
+            background: linear-gradient(135deg, #1a0f0a 0%, #2c1810 50%, #1a0f0a 100%);
+            min-height: 100vh;
+            min-height: 100dvh;
+            color: var(--ink);
+            overflow-x: hidden;
+        }
+
+        /* ==================== SCREENS ==================== */
+        .screen {
+            display: none;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ==================== HOMEPAGE ==================== */
+        #home-screen {
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: 
+                radial-gradient(ellipse at center, rgba(201, 162, 39, 0.1) 0%, transparent 70%),
+                linear-gradient(135deg, #1a0f0a 0%, #2c1810 50%, #1a0f0a 100%);
+        }
+
+        .home-container {
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .home-logo {
+            font-size: 5em;
+            margin-bottom: 10px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .home-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2.5em;
+            color: var(--gold);
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+            margin-bottom: 5px;
+        }
+
+        .home-subtitle {
+            font-family: 'MedievalSharp', cursive;
+            font-size: 1.1em;
+            color: var(--parchment-dark);
+            margin-bottom: 40px;
+        }
+
+        .home-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .home-btn {
+            padding: 18px 30px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.2em;
+            background: linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+            border: 3px solid var(--gold-dark);
+            border-radius: 12px;
+            color: var(--ink);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px var(--shadow);
+        }
+
+        .home-btn:hover, .home-btn:active {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px var(--shadow);
+            border-color: var(--gold);
+        }
+
+        .home-btn.primary {
+            background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+            color: white;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .home-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .home-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid var(--gold-dark);
+        }
+
+        .home-section-title {
+            font-family: 'Cinzel', serif;
+            color: var(--gold);
+            margin-bottom: 15px;
+        }
+
+        /* ==================== GAME SCREEN ==================== */
+        #game-screen {
+            background: var(--parchment);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+        }
+
+        #game-screen.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* TOPBAR - STICKY */
+        .game-topbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: linear-gradient(180deg, var(--ink), #1a0f08);
+            padding: 6px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex-shrink: 0;
+            border-bottom: 2px solid var(--gold);
+        }
+
+        .topbar-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .topbar-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .topbar-btn {
+            padding: 6px 10px;
+            font-size: 1.1em;
+            background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+            border: 2px solid var(--gold);
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 38px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .topbar-btn:hover, .topbar-btn:active {
+            transform: scale(1.05);
+        }
+
+        .topbar-btn.danger {
+            background: linear-gradient(180deg, var(--blood), #5a0000);
+            border-color: var(--blood);
+        }
+
+        .topbar-btn.special {
+            background: linear-gradient(180deg, var(--purple), #4a1e6b);
+            border-color: var(--purple);
+        }
+
+        /* Time Display */
+        .time-display {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 20px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.8em;
+            color: var(--parchment);
+        }
+
+        .time-icon {
+            font-size: 1.2em;
+        }
+
+        /* Mini Stats */
+        .mini-stats {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .mini-bar {
+            width: 40px;
+            height: 8px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .mini-bar::before {
+            content: attr(data-label);
+            position: absolute;
+            left: 50%;
+            top: -14px;
+            transform: translateX(-50%);
+            font-size: 0.65em;
+            color: var(--parchment-dark);
+        }
+
+        .mini-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .mini-bar-fill.health { background: linear-gradient(90deg, #c62828, #ef5350); }
+        .mini-bar-fill.stamina { background: linear-gradient(90deg, #1565c0, #42a5f5); }
+        .mini-bar-fill.hunger { background: linear-gradient(90deg, #f57c00, #ffb74d); }
+
+        /* Story Area */
+        .story-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .story-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: 
+                radial-gradient(ellipse at top, rgba(201, 162, 39, 0.05) 0%, transparent 50%),
+                var(--parchment);
+        }
+
+        .story-entry {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            line-height: 1.6;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .story-entry p {
+            margin-bottom: 8px;
+        }
+
+        .story-entry p:last-child {
+            margin-bottom: 0;
+        }
+
+        .story-entry.narrator {
+            background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255,255,255,0.3));
+            border-left: 4px solid var(--gold);
+            font-size: 1.05em;
+        }
+
+        .story-entry.player {
+            background: linear-gradient(135deg, rgba(30, 58, 95, 0.15), rgba(30, 58, 95, 0.05));
+            border-left: 4px solid var(--sapphire);
+            font-weight: 600;
+        }
+
+        .story-entry.system {
+            background: rgba(0,0,0,0.05);
+            font-style: italic;
+            color: var(--ink-light);
+            padding: 8px 15px;
+            font-size: 0.9em;
+        }
+
+        .story-entry.mechanic {
+            background: linear-gradient(135deg, rgba(46, 139, 87, 0.15), rgba(46, 139, 87, 0.05));
+            border-left: 4px solid var(--emerald);
+            font-family: 'Cinzel', serif;
+            font-size: 0.95em;
+        }
+
+        .story-entry.dice-roll {
+            background: linear-gradient(135deg, rgba(201, 162, 39, 0.2), rgba(201, 162, 39, 0.1));
+            border-left: 4px solid var(--gold);
+            font-family: 'Cinzel', serif;
+        }
+
+        .story-entry.memory-update {
+            background: linear-gradient(135deg, rgba(107, 46, 155, 0.15), rgba(107, 46, 155, 0.05));
+            border-left: 4px solid var(--purple);
+            font-size: 0.85em;
+        }
+
+        .story-entry em {
+            font-style: italic;
+            color: var(--ink-light);
+        }
+
+        /* Suggestions */
+        .suggestions-area {
+            display: none;
+            padding: 10px 15px;
+            background: rgba(0,0,0,0.05);
+            border-top: 1px solid var(--parchment-dark);
+        }
+
+        .suggestions-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .suggestion-btn {
+            padding: 8px 14px;
+            font-family: 'Crimson Text', serif;
+            font-size: 0.9em;
+            background: white;
+            border: 2px solid var(--gold-dark);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .suggestion-btn:hover {
+            background: var(--gold);
+            color: white;
+            border-color: var(--gold);
+        }
+
+        .suggestion-type {
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 10px 15px;
+            background: linear-gradient(180deg, var(--parchment-dark), #c4b490);
+            border-top: 2px solid var(--gold-dark);
+            flex-shrink: 0;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .quick-btn {
+            padding: 6px 12px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.85em;
+            background: white;
+            border: 2px solid var(--ink-light);
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .quick-btn:hover, .quick-btn:active {
+            background: var(--ink);
+            color: white;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 12px 15px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1em;
+            border: 2px solid var(--ink-light);
+            border-radius: 25px;
+            background: white;
+            color: var(--ink);
+        }
+
+        .input-row input:focus {
+            outline: none;
+            border-color: var(--gold);
+        }
+
+        .input-row button {
+            padding: 12px 20px;
+            font-family: 'Cinzel', serif;
+            font-size: 1em;
+            background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+            border: none;
+            border-radius: 25px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .input-row button:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        .input-row button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ==================== MODALS ==================== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--parchment);
+            border-radius: 15px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+            border: 3px solid var(--gold);
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            background: linear-gradient(180deg, var(--ink), #1a0f08);
+            color: var(--gold);
+            font-family: 'Cinzel', serif;
+            font-size: 1.3em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--parchment);
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 5px;
+            line-height: 1;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            font-family: 'Cinzel', serif;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--ink);
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1em;
+            border: 2px solid var(--ink-light);
+            border-radius: 8px;
+            background: white;
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            font-family: 'Cinzel', serif;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn.primary {
+            background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+            color: white;
+        }
+
+        .btn.secondary {
+            background: linear-gradient(180deg, var(--sapphire), #0f2540);
+            color: white;
+        }
+
+        .btn.danger {
+            background: linear-gradient(180deg, var(--blood), #5a0000);
+            color: white;
+        }
+
+        .btn.special {
+            background: linear-gradient(180deg, var(--purple), #4a1e6b);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        /* Character */
+        .char-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .char-portrait {
+            font-size: 4em;
+            margin-bottom: 5px;
+        }
+
+        .char-name {
+            font-family: 'Cinzel', serif;
+            font-size: 1.5em;
+            color: var(--ink);
+        }
+
+        .char-class {
+            color: var(--ink-light);
+            font-style: italic;
+        }
+
+        .stat-group {
+            margin-bottom: 15px;
+        }
+
+        .stat-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            width: 80px;
+            font-weight: 600;
+        }
+
+        .stat-bar {
+            flex: 1;
+            height: 20px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-right: 10px;
+        }
+
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        .stat-bar-fill.health { background: linear-gradient(90deg, #c62828, #ef5350); }
+        .stat-bar-fill.mana { background: linear-gradient(90deg, #6a1b9a, #ab47bc); }
+        .stat-bar-fill.stamina { background: linear-gradient(90deg, #1565c0, #42a5f5); }
+        .stat-bar-fill.hunger { background: linear-gradient(90deg, #f57c00, #ffb74d); }
+        .stat-bar-fill.exp { background: linear-gradient(90deg, #2e7d32, #66bb6a); }
+
+        .stat-value {
+            width: 70px;
+            text-align: right;
+            font-family: 'Cinzel', serif;
+            font-size: 0.9em;
+        }
+
+        /* Attributes */
+        .attrs-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .attr-box {
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .attr-name {
+            font-family: 'Cinzel', serif;
+            font-size: 0.8em;
+            color: var(--ink-light);
+        }
+
+        .attr-value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .attr-mod {
+            font-size: 0.85em;
+            color: var(--emerald);
+        }
+
+        /* Skills & Abilities */
+        .skills-list, .abilities-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .skill-item, .ability-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 5px;
+        }
+
+        .skill-bonus { color: var(--emerald); }
+        .skill-malus { color: var(--blood); }
+
+        .ability-item {
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .ability-name {
+            font-weight: 600;
+            color: var(--purple);
+        }
+
+        .ability-desc {
+            font-size: 0.85em;
+            color: var(--ink-light);
+        }
+
+        /* Inventory */
+        .inv-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .inv-gold {
+            font-family: 'Cinzel', serif;
+            font-size: 1.2em;
+        }
+
+        .inv-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .inv-slot {
+            aspect-ratio: 1;
+            background: rgba(0,0,0,0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .inv-slot:hover {
+            background: rgba(0,0,0,0.2);
+        }
+
+        .inv-slot .count {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 0.4em;
+            background: var(--ink);
+            color: white;
+            padding: 2px 5px;
+            border-radius: 10px;
+        }
+
+        /* Special Items */
+        .special-items {
+            margin-top: 15px;
+            border-top: 1px solid var(--parchment-dark);
+            padding-top: 15px;
+        }
+
+        .special-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: linear-gradient(135deg, rgba(107, 46, 155, 0.1), rgba(107, 46, 155, 0.05));
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--purple);
+        }
+
+        .special-item-icon {
+            font-size: 1.5em;
+        }
+
+        .special-item-info {
+            flex: 1;
+        }
+
+        .special-item-name {
+            font-weight: 600;
+        }
+
+        .special-item-desc {
+            font-size: 0.85em;
+            color: var(--ink-light);
+        }
+
+        /* World Memory Modal */
+        .memory-section {
+            margin-bottom: 20px;
+        }
+
+        .memory-section-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.1em;
+            color: var(--purple);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .memory-card {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--gold);
+        }
+
+        .memory-card.npc { border-left-color: var(--sapphire); }
+        .memory-card.location { border-left-color: var(--emerald); }
+        .memory-card.quest { border-left-color: var(--orange); }
+        .memory-card.quest.completed { border-left-color: var(--emerald); opacity: 0.7; }
+        .memory-card.event { border-left-color: var(--purple); }
+
+        .memory-card-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .memory-card-desc {
+            font-size: 0.9em;
+            color: var(--ink-light);
+        }
+
+        .memory-card-meta {
+            font-size: 0.8em;
+            color: var(--ink-light);
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .memory-empty {
+            color: var(--ink-light);
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* Stories/Saves Cards */
+        .story-card, .save-slot {
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+        .story-card:hover, .save-slot:hover {
+            transform: translateY(-2px);
+        }
+
+        .story-card.selected, .save-slot.selected {
+            border-color: var(--gold);
+            background: rgba(201, 162, 39, 0.1);
+        }
+
+        .story-card-title, .save-slot-title {
+            font-family: 'Cinzel', serif;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .story-card-desc, .save-slot-info {
+            font-size: 0.9em;
+            color: var(--ink-light);
+        }
+
+        /* Creation Grid */
+        .creation-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .creation-option {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+        .creation-option:hover {
+            transform: translateY(-2px);
+        }
+
+        .creation-option.selected {
+            border-color: var(--gold);
+            background: rgba(201, 162, 39, 0.1);
+        }
+
+        .creation-icon {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .creation-name {
+            font-family: 'Cinzel', serif;
+            font-size: 0.85em;
+        }
+
+        /* Dice */
+        .dice-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .dice-btn {
+            padding: 20px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.3em;
+            background: linear-gradient(180deg, white, #f0f0f0);
+            border: 3px solid var(--ink);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .dice-btn:hover, .dice-btn:active {
+            transform: scale(1.05);
+            border-color: var(--gold);
+        }
+
+        .dice-result {
+            text-align: center;
+            font-family: 'Cinzel', serif;
+            font-size: 1.5em;
+            padding: 20px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 10px;
+        }
+
+        /* Wait Modal */
+        .wait-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .wait-btn {
+            padding: 15px;
+            font-family: 'Cinzel', serif;
+            background: white;
+            border: 2px solid var(--ink-light);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .wait-btn:hover {
+            border-color: var(--gold);
+            background: rgba(201, 162, 39, 0.1);
+        }
+
+        .wait-custom {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .wait-custom input {
+            width: 80px;
+            padding: 10px;
+            font-size: 1.2em;
+            text-align: center;
+            border: 2px solid var(--ink-light);
+            border-radius: 8px;
+        }
+
+        /* Loading */
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-family: 'Cinzel', serif;
+            z-index: 300;
+            animation: notifyIn 0.3s ease, notifyOut 0.3s ease 2.7s;
+        }
+
+        .notification.success {
+            background: var(--emerald);
+            color: white;
+        }
+
+        .notification.error {
+            background: var(--blood);
+            color: white;
+        }
+
+        .notification.info {
+            background: var(--sapphire);
+            color: white;
+        }
+
+        @keyframes notifyIn {
+            from { opacity: 0; transform: translate(-50%, -20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        @keyframes notifyOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid var(--parchment-dark);
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            font-family: 'Cinzel', serif;
+            background: none;
+            border: none;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s ease;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--gold);
+            color: var(--gold-dark);
+        }
+
+        .tab:hover:not(.active) {
+            background: rgba(0,0,0,0.05);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Memory Stats */
+        .memory-stats {
+            display: flex;
+            gap: 15px;
+            padding: 10px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .memory-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9em;
+        }
+
+        .memory-stat-icon {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <!-- HOME SCREEN -->
+    <div class="screen active" id="home-screen">
+        <div class="home-container">
+            <div class="home-logo">🐉</div>
+            <h1 class="home-title">Cronache del Destino</h1>
+            <p class="home-subtitle">Un'avventura narrata dall'IA • v4.0</p>
+
+            <div class="home-menu">
+                <button class="home-btn primary" id="btn-continue" disabled>▶️ Continua</button>
+                <button class="home-btn" id="btn-new-game">📜 Nuova Partita</button>
+                <button class="home-btn" id="btn-load-game">💾 Carica</button>
+
+                <div class="home-section">
+                    <h3 class="home-section-title">📚 Gestione</h3>
+                    <button class="home-btn" id="btn-stories">✏️ Storie</button>
+                    <button class="home-btn" id="btn-settings">⚙️ Impostazioni</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div class="screen" id="game-screen">
+        <div class="game-topbar">
+            <div class="topbar-row">
+                <div class="topbar-buttons">
+                    <button class="topbar-btn danger" id="btn-exit" title="Esci">🚪</button>
+                    <button class="topbar-btn" id="btn-save-quick" title="Salva">💾</button>
+                    <button class="topbar-btn" id="btn-dice" title="Dadi">🎲</button>
+                </div>
+
+                <div class="time-display">
+                    <span class="time-icon" id="time-icon">☀️</span>
+                    <span id="time-text">08:00</span>
+                </div>
+
+                <div class="topbar-buttons">
+                    <button class="topbar-btn" id="btn-inventory" title="Inventario">🎒</button>
+                    <button class="topbar-btn" id="btn-character" title="Personaggio">👤</button>
+                    <button class="topbar-btn special" id="btn-memory" title="Memoria del Mondo">🧠</button>
+                </div>
+            </div>
+
+            <div class="topbar-row">
+                <div class="mini-stats">
+                    <div class="mini-bar" data-label="HP">
+                        <div class="mini-bar-fill health" id="mini-health" style="width: 100%"></div>
+                    </div>
+                    <div class="mini-bar" data-label="EN">
+                        <div class="mini-bar-fill stamina" id="mini-stamina" style="width: 100%"></div>
+                    </div>
+                    <div class="mini-bar" data-label="🍖">
+                        <div class="mini-bar-fill hunger" id="mini-hunger" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <div class="topbar-buttons">
+                    <button class="topbar-btn" id="btn-wait" title="Aspetta">⏰</button>
+                    <button class="topbar-btn" id="btn-rest" title="Riposa">😴</button>
+                    <button class="topbar-btn" id="btn-eat" title="Mangia">🍖</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="story-container">
+            <div class="story-scroll" id="story-scroll"></div>
+
+            <div class="suggestions-area" id="suggestions-area">
+                <div class="suggestions-list" id="suggestions-list"></div>
+            </div>
+
+            <div class="input-area">
+                <div class="quick-actions" id="quick-actions"></div>
+                <div class="input-row">
+                    <input type="text" id="action-input" placeholder="Cosa fai?" autocomplete="off">
+                    <button id="btn-send">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Character Modal -->
+    <div class="modal-overlay" id="modal-character">
+        <div class="modal">
+            <div class="modal-header">
+                👤 Personaggio
+                <button class="modal-close" data-close="modal-character">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="char-header">
+                    <div class="char-portrait" id="char-portrait">⚔️</div>
+                    <div class="char-name" id="char-name">Nome</div>
+                    <div class="char-class" id="char-class">Classe</div>
+                </div>
+
+                <div class="stat-group">
+                    <div class="stat-row">
+                        <span class="stat-label">❤️ Salute</span>
+                        <div class="stat-bar"><div class="stat-bar-fill health" id="stat-health"></div></div>
+                        <span class="stat-value" id="stat-health-text">0/0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">💜 Mana</span>
+                        <div class="stat-bar"><div class="stat-bar-fill mana" id="stat-mana"></div></div>
+                        <span class="stat-value" id="stat-mana-text">0/0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">⚡ Energia</span>
+                        <div class="stat-bar"><div class="stat-bar-fill stamina" id="stat-stamina"></div></div>
+                        <span class="stat-value" id="stat-stamina-text">0/0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">🍖 Sazietà</span>
+                        <div class="stat-bar"><div class="stat-bar-fill hunger" id="stat-hunger"></div></div>
+                        <span class="stat-value" id="stat-hunger-text">0/0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">⭐ Exp</span>
+                        <div class="stat-bar"><div class="stat-bar-fill exp" id="stat-exp"></div></div>
+                        <span class="stat-value" id="stat-exp-text">0/0</span>
+                    </div>
+                </div>
+
+                <h4>📊 Attributi</h4>
+                <div class="attrs-grid" id="attrs-grid"></div>
+
+                <h4>🎯 Abilità Base</h4>
+                <div class="skills-list" id="skills-list"></div>
+
+                <h4 style="margin-top: 15px;">✨ Abilità Acquisite</h4>
+                <div class="abilities-list" id="abilities-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Modal -->
+    <div class="modal-overlay" id="modal-inventory">
+        <div class="modal">
+            <div class="modal-header">
+                🎒 Inventario
+                <button class="modal-close" data-close="modal-inventory">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="inv-header">
+                    <span>Oggetti</span>
+                    <span class="inv-gold">💰 <span id="inv-gold">0</span></span>
+                </div>
+                <div class="inv-grid" id="inv-grid"></div>
+
+                <div class="special-items">
+                    <h4>🔮 Oggetti Speciali</h4>
+                    <div id="special-items-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- World Memory Modal -->
+    <div class="modal-overlay" id="modal-memory">
+        <div class="modal">
+            <div class="modal-header">
+                🧠 Memoria del Mondo
+                <button class="modal-close" data-close="modal-memory">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="memory-stats">
+                    <div class="memory-stat"><span class="memory-stat-icon">👥</span> NPC: <strong id="mem-npc-count">0</strong></div>
+                    <div class="memory-stat"><span class="memory-stat-icon">📍</span> Luoghi: <strong id="mem-loc-count">0</strong></div>
+                    <div class="memory-stat"><span class="memory-stat-icon">📋</span> Quest: <strong id="mem-quest-count">0</strong></div>
+                    <div class="memory-stat"><span class="memory-stat-icon">📜</span> Eventi: <strong id="mem-event-count">0</strong></div>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" data-tab="npcs">👥 NPC</button>
+                    <button class="tab" data-tab="locations">📍 Luoghi</button>
+                    <button class="tab" data-tab="quests">📋 Quest</button>
+                    <button class="tab" data-tab="events">📜 Eventi</button>
+                </div>
+
+                <div class="tab-content active" id="tab-npcs">
+                    <div id="memory-npcs-list"></div>
+                </div>
+                <div class="tab-content" id="tab-locations">
+                    <div id="memory-locations-list"></div>
+                </div>
+                <div class="tab-content" id="tab-quests">
+                    <div id="memory-quests-list"></div>
+                </div>
+                <div class="tab-content" id="tab-events">
+                    <div id="memory-events-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dice Modal -->
+    <div class="modal-overlay" id="modal-dice">
+        <div class="modal">
+            <div class="modal-header">
+                🎲 Tira i Dadi
+                <button class="modal-close" data-close="modal-dice">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="dice-grid">
+                    <button class="dice-btn" data-sides="4">D4</button>
+                    <button class="dice-btn" data-sides="6">D6</button>
+                    <button class="dice-btn" data-sides="8">D8</button>
+                    <button class="dice-btn" data-sides="10">D10</button>
+                    <button class="dice-btn" data-sides="12">D12</button>
+                    <button class="dice-btn" data-sides="20">D20</button>
+                </div>
+                <div class="dice-result" id="dice-result">🎲 Tira un dado!</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wait Modal -->
+    <div class="modal-overlay" id="modal-wait">
+        <div class="modal">
+            <div class="modal-header">
+                ⏰ Aspetta
+                <button class="modal-close" data-close="modal-wait">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 15px; text-align: center;">
+                    Ora attuale: <strong id="wait-current-time">00:00</strong>
+                </p>
+                <div class="wait-grid">
+                    <button class="wait-btn" data-minutes="30">30 minuti</button>
+                    <button class="wait-btn" data-minutes="60">1 ora</button>
+                    <button class="wait-btn" data-minutes="180">3 ore</button>
+                    <button class="wait-btn" data-minutes="360">6 ore</button>
+                    <button class="wait-btn" data-minutes="720">12 ore</button>
+                    <button class="wait-btn" data-minutes="1440">1 giorno</button>
+                </div>
+                <div class="wait-custom">
+                    <span>Aspetta fino alle:</span>
+                    <input type="number" id="wait-until-hour" min="0" max="23" value="12">
+                    <span>:00</span>
+                    <button class="btn secondary" id="btn-wait-until">Vai</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stories Modal -->
+    <div class="modal-overlay" id="modal-stories">
+        <div class="modal">
+            <div class="modal-header">
+                ✏️ Gestione Storie
+                <button class="modal-close" data-close="modal-stories">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="stories-list"></div>
+                <div class="btn-row">
+                    <button class="btn primary" id="btn-create-story">➕ Nuova</button>
+                    <button class="btn secondary" id="btn-edit-story" disabled>✏️ Modifica</button>
+                    <button class="btn danger" id="btn-delete-story" disabled>🗑️</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Story Editor Modal -->
+    <div class="modal-overlay" id="modal-story-editor">
+        <div class="modal">
+            <div class="modal-header">
+                📝 Editor Storia
+                <button class="modal-close" data-close="modal-story-editor">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Titolo</label>
+                    <input type="text" class="form-input" id="edit-story-title" placeholder="Titolo della storia">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Ambientazione</label>
+                    <input type="text" class="form-input" id="edit-story-setting" placeholder="es. Fantasy Medievale, Moderno, Sci-Fi">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Difficoltà</label>
+                    <select class="form-select" id="edit-story-difficulty">
+                        <option value="easy">Facile</option>
+                        <option value="normal" selected>Normale</option>
+                        <option value="hard">Difficile</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Descrizione Mondo</label>
+                    <textarea class="form-textarea" id="edit-story-desc" placeholder="Descrivi il mondo..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Personalità Narratore</label>
+                    <textarea class="form-textarea" id="edit-story-personality" placeholder="Come deve narrare l'IA?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Profondità (NPC, morale...)</label>
+                    <textarea class="form-textarea" id="edit-story-depth" placeholder="Dettagli sulla profondità del mondo..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Prologo</label>
+                    <textarea class="form-textarea" id="edit-story-prologue" placeholder="Il testo iniziale della storia..."></textarea>
+                </div>
+                <button class="btn primary" id="btn-save-story" style="width: 100%;">💾 Salva Storia</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Saves Modal -->
+    <div class="modal-overlay" id="modal-saves">
+        <div class="modal">
+            <div class="modal-header">
+                💾 Salvataggi
+                <button class="modal-close" data-close="modal-saves">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="saves-list"></div>
+                <div class="btn-row">
+                    <button class="btn primary" id="btn-save-to-slot">💾 Salva</button>
+                    <button class="btn secondary" id="btn-load-from-slot">📂 Carica</button>
+                    <button class="btn danger" id="btn-delete-slot">🗑️</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Game Modal -->
+    <div class="modal-overlay" id="modal-new-game">
+        <div class="modal">
+            <div class="modal-header">
+                📜 Nuova Partita
+                <button class="modal-close" data-close="modal-new-game">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Scegli una Storia</label>
+                    <select class="form-select" id="new-game-story"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nome Personaggio</label>
+                    <input type="text" class="form-input" id="new-game-name" placeholder="Il tuo nome...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Origine</label>
+                    <div class="creation-grid" id="origin-grid"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Archetipo</label>
+                    <div class="creation-grid" id="archetype-grid"></div>
+                </div>
+                <button class="btn primary" id="btn-start-game" style="width: 100%;">⚔️ Inizia Avventura!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="modal-settings">
+        <div class="modal">
+            <div class="modal-header">
+                🔧 Impostazioni
+                <button class="modal-close" data-close="modal-settings">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">🔑 API Key Groq</label>
+                    <input type="password" class="form-input" id="set-groq-key" placeholder="Inserisci la tua API key Groq...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">🔑 API Key OpenRouter</label>
+                    <input type="password" class="form-input" id="set-openrouter-key" placeholder="Inserisci la tua API key OpenRouter...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">🤖 Modello AI</label>
+                    <select class="form-select" id="set-model">
+                        <option value="groq">Groq (Llama 3.1 - Veloce)</option>
+                        <option value="openrouter">OpenRouter (Gemma 3 27B)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">📏 Lunghezza Risposte</label>
+                    <select class="form-select" id="set-length">
+                        <option value="short">Breve</option>
+                        <option value="medium">Media</option>
+                        <option value="long">Lunga</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="set-autoroll" checked> Tiri automatici</label>
+                </div>
+                <div class="btn-row">
+                    <button class="btn primary" id="btn-save-settings">💾 Salva</button>
+                    <button class="btn danger" id="btn-reset-all">⚠️ Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== GAME STATE ====================
+        const G = {
+            currentStory: null,
+            character: null,
+            storyLog: [],
+            history: [],
+            time: {
+                day: 1,
+                month: 1,
+                year: 1400,
+                hour: 8,
+                minute: 0,
+                dayName: 'Lunedì'
+            },
+            // === NUOVO: World Memory System ===
+            worldMemory: {
+                npcs: [],           // { id, name, description, relationship, lastSeen, metAt }
+                locations: [],      // { id, name, description, discovered, notes }
+                quests: [],         // { id, name, description, status, progress }
+                events: [],         // { id, summary, turn, importance }
+                acquiredItems: [],  // { id, name, description, icon, acquiredAt }
+                acquiredAbilities: [], // { id, name, description, acquiredAt }
+                storySummary: '',   // Riassunto compresso della storia
+                lastSummaryTurn: 0,
+                turnCount: 0
+            },
+            settings: {
+                groqKey: '', openrouterKey: '', model: 'groq', length: 'medium', autoRoll: true
+            },
+            stories: [],
+            saves: Array(6).fill(null),
+            selectedStory: null,
+            selectedSave: null,
+            selectedOrigin: null,
+            selectedArchetype: null,
+            editingStory: null,
+            isPlaying: false,
+            isProcessing: false
+        };
+
+        const DAYS = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
+        const MONTHS = [
+            { name: 'Gennaio', days: 31, season: 'Inverno' },
+            { name: 'Febbraio', days: 28, season: 'Inverno' },
+            { name: 'Marzo', days: 31, season: 'Primavera' },
+            { name: 'Aprile', days: 30, season: 'Primavera' },
+            { name: 'Maggio', days: 31, season: 'Primavera' },
+            { name: 'Giugno', days: 30, season: 'Estate' },
+            { name: 'Luglio', days: 31, season: 'Estate' },
+            { name: 'Agosto', days: 31, season: 'Estate' },
+            { name: 'Settembre', days: 30, season: 'Autunno' },
+            { name: 'Ottobre', days: 31, season: 'Autunno' },
+            { name: 'Novembre', days: 30, season: 'Autunno' },
+            { name: 'Dicembre', days: 31, season: 'Inverno' }
+        ];
+
+        const SEASON_ICONS = {
+            'Inverno': '❄️',
+            'Primavera': '🌸',
+            'Estate': '☀️',
+            'Autunno': '🍂'
+        };
+
+        const GENRE_ACTIONS = {
+            'Fantasy': [
+                { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
+                { icon: '👁️', label: 'Osserva', prefix: 'Osservo attentamente ' },
+                { icon: '⚔️', label: 'Combatti', prefix: 'Attacco ' },
+                { icon: '🔮', label: 'Magia', prefix: 'Uso la magia per ' },
+                { icon: '🤫', label: 'Furtivo', prefix: 'Mi muovo furtivamente verso ' },
+                { icon: '🎒', label: 'Cerca', prefix: 'Cerco ' }
+            ],
+            'Contemporaneo': [
+                { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
+                { icon: '👁️', label: 'Osserva', prefix: 'Osservo ' },
+                { icon: '📱', label: 'Telefona', prefix: 'Chiamo ' },
+                { icon: '🔍', label: 'Cerca', prefix: 'Cerco informazioni su ' },
+                { icon: '🚶', label: 'Vai', prefix: 'Vado a ' },
+                { icon: '💭', label: 'Pensa', prefix: 'Rifletto su ' }
+            ],
+            'Business': [
+                { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
+                { icon: '💼', label: 'Negozia', prefix: 'Propongo ' },
+                { icon: '📊', label: 'Analizza', prefix: 'Analizzo ' },
+                { icon: '📞', label: 'Contatta', prefix: 'Contatto ' },
+                { icon: '💰', label: 'Compra', prefix: 'Compro ' },
+                { icon: '🏷️', label: 'Vendi', prefix: 'Vendo ' }
+            ],
+            'default': [
+                { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
+                { icon: '👁️', label: 'Osserva', prefix: 'Osservo ' },
+                { icon: '✋', label: 'Interagisci', prefix: 'Interagisco con ' },
+                { icon: '❓', label: 'Chiedi', prefix: 'Chiedo ' },
+                { icon: '🚶', label: 'Vai', prefix: 'Vado verso ' },
+                { icon: '🔍', label: 'Cerca', prefix: 'Cerco ' }
+            ]
+        };
+
+        const ORIGINS = {
+            ordinary: { name: 'Persona Comune', icon: '🧑', desc: 'Background normale', bonuses: { all: 1 } },
+            wealthy: { name: 'Famiglia Ricca', icon: '💎', desc: 'Cresciuto negli agi', bonuses: { cha: 2, int: 1 } },
+            street: { name: 'Strada', icon: '🏚️', desc: 'Cresciuto per le strade', bonuses: { dex: 2, wis: 1 } },
+            academic: { name: 'Accademico', icon: '🎓', desc: 'Istruzione elevata', bonuses: { int: 3 } },
+            military: { name: 'Militare', icon: '🎖️', desc: 'Addestramento e disciplina', bonuses: { str: 2, con: 1 } },
+            artistic: { name: 'Artista', icon: '🎨', desc: 'Anima creativa', bonuses: { cha: 2, wis: 1 } }
+        };
+
+        const ARCHETYPES = {
+            leader: { name: 'Leader', icon: '👔', desc: 'Guida gli altri', stat: 'cha', hp: 10, mp: 6, skills: ['Persuasione', 'Comando'] },
+            fighter: { name: 'Combattente', icon: '⚔️', desc: 'Esperto nel combattimento', stat: 'str', hp: 14, mp: 2, skills: ['Combattimento', 'Resistenza'] },
+            thinker: { name: 'Pensatore', icon: '🧠', desc: 'Risolve problemi', stat: 'int', hp: 8, mp: 10, skills: ['Analisi', 'Ricerca'] },
+            shadow: { name: 'Ombra', icon: '🌑', desc: 'Agisce nell\'ombra', stat: 'dex', hp: 10, mp: 4, skills: ['Furtività', 'Agilità'] },
+            healer: { name: 'Guaritore', icon: '💚', desc: 'Cura e supporta', stat: 'wis', hp: 8, mp: 10, skills: ['Medicina', 'Intuizione'] },
+            merchant: { name: 'Mercante', icon: '💰', desc: 'Compra e vende', stat: 'cha', hp: 8, mp: 6, skills: ['Contrattazione', 'Valutazione'] }
+        };
+
+        const ITEMS = {
+            healing: { name: 'Kit Pronto Soccorso', icon: '🩹', type: 'consumable', effect: { health: 30 } },
+            energy: { name: 'Energy Drink', icon: '🥤', type: 'consumable', effect: { stamina: 40 } },
+            food: { name: 'Pasto', icon: '🍖', type: 'consumable', effect: { hunger: 50 } },
+            snack: { name: 'Snack', icon: '🍫', type: 'consumable', effect: { hunger: 20, stamina: 10 } },
+            ration: { name: 'Razione', icon: '🥪', type: 'consumable', effect: { hunger: 35 } },
+            potion: { name: 'Pozione Energia', icon: '🧪', type: 'consumable', effect: { mana: 30 } }
+        };
+
+        // ==================== UTILITIES ====================
+        const $ = id => document.getElementById(id);
+        const $$ = sel => document.querySelectorAll(sel);
+
+        function notify(msg, type = 'info') {
+            const n = document.createElement('div');
+            n.className = `notification ${type}`;
+            n.textContent = msg;
+            document.body.appendChild(n);
+            setTimeout(() => n.remove(), 3000);
+        }
+
+        function mod(val) { return Math.floor((val - 10) / 2); }
+        function roll(sides) { return Math.floor(Math.random() * sides) + 1; }
+
+        function save() {
+            localStorage.setItem('dnd_v4', JSON.stringify({
+                stories: G.stories, saves: G.saves, settings: G.settings
+            }));
+        }
+
+        // ==================== TIME MANAGEMENT ====================
+        function getCurrentSeason() {
+            return MONTHS[G.time.month - 1].season;
+        }
+
+        function getDaysInMonth(month, year) {
+            if (month === 2 && year % 4 === 0) return 29;
+            return MONTHS[month - 1].days;
+        }
+
+        function advanceTime(minutes) {
+            G.time.minute += minutes;
+            
+            const hoursElapsed = minutes / 60;
+            if (G.character) {
+                G.character.stamina.cur = Math.max(0, G.character.stamina.cur - Math.floor(hoursElapsed * 2));
+                G.character.hunger.cur = Math.max(0, G.character.hunger.cur - Math.floor(hoursElapsed * 3));
+                
+                if (G.character.hunger.cur <= 0) {
+                    G.character.health.cur = Math.max(1, G.character.health.cur - Math.floor(hoursElapsed));
+                }
+                if (G.character.stamina.cur <= 0) {
+                    G.character.health.cur = Math.max(1, G.character.health.cur - Math.floor(hoursElapsed * 0.5));
+                }
+            }
+            
+            while (G.time.minute >= 60) {
+                G.time.minute -= 60;
+                G.time.hour++;
+            }
+            
+            while (G.time.hour >= 24) {
+                G.time.hour -= 24;
+                G.time.day++;
+                const dayIndex = DAYS.indexOf(G.time.dayName);
+                G.time.dayName = DAYS[(dayIndex + 1) % 7];
+            }
+            
+            while (G.time.day > getDaysInMonth(G.time.month, G.time.year)) {
+                G.time.day -= getDaysInMonth(G.time.month, G.time.year);
+                G.time.month++;
+                
+                if (G.time.month > 12) {
+                    G.time.month = 1;
+                    G.time.year++;
+                }
+            }
+            
+            updateTimeDisplay();
+            updateCharacterUI();
+            checkStatusEffects();
+        }
+
+        function waitUntilHour(targetHour) {
+            let minutesToWait = 0;
+            let currentHour = G.time.hour;
+            let currentMinute = G.time.minute;
+            
+            if (targetHour <= currentHour) {
+                minutesToWait = (24 - currentHour + targetHour) * 60 - currentMinute;
+            } else {
+                minutesToWait = (targetHour - currentHour) * 60 - currentMinute;
+            }
+            
+            advanceTime(minutesToWait);
+            return minutesToWait;
+        }
+
+        function getTimePeriod() {
+            const h = G.time.hour;
+            if (h >= 5 && h < 7) return { name: 'Alba', icon: '🌅' };
+            if (h >= 7 && h < 12) return { name: 'Mattina', icon: '☀️' };
+            if (h >= 12 && h < 14) return { name: 'Mezzogiorno', icon: '🌞' };
+            if (h >= 14 && h < 18) return { name: 'Pomeriggio', icon: '🌤️' };
+            if (h >= 18 && h < 21) return { name: 'Sera', icon: '🌆' };
+            if (h >= 21 || h < 5) return { name: 'Notte', icon: '🌙' };
+            return { name: 'Giorno', icon: '☀️' };
+        }
+
+        function getTimeString() {
+            return `${G.time.hour.toString().padStart(2, '0')}:${G.time.minute.toString().padStart(2, '0')}`;
+        }
+
+        function getFullTimeString() {
+            const period = getTimePeriod();
+            const season = getCurrentSeason();
+            return `${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}, ${getTimeString()} (${period.name}, ${season})`;
+        }
+
+        function updateTimeDisplay() {
+            const period = getTimePeriod();
+            $('time-icon').textContent = period.icon;
+            $('time-text').textContent = `${getTimeString()} • ${G.time.day}/${G.time.month}`;
+            if ($('wait-current-time')) {
+                $('wait-current-time').textContent = `${getTimeString()} - ${period.name}`;
+            }
+        }
+
+        function checkStatusEffects() {
+            if (!G.character) return;
+            const c = G.character;
+            
+            if (c.health.cur <= 0) {
+                addStoryEntry('💀 SEI MORTO! La tua avventura finisce qui...', 'system');
+            }
+        }
+
+        function doRest() {
+            if (!G.character) return;
+            
+            advanceTime(480);
+            G.character.stamina.cur = G.character.stamina.max;
+            G.character.health.cur = Math.min(G.character.health.max, G.character.health.cur + 20);
+            G.character.hunger.cur = Math.max(0, G.character.hunger.cur - 20);
+            
+            addStoryEntry(`😴 Hai riposato per 8 ore. Energia ripristinata! Ora sono le ${getTimeString()}.`, 'system');
+            updateCharacterUI();
+            
+            generateAI(`Il protagonista ha dormito per 8 ore. Ora è ${getFullTimeString()}. Descrivi brevemente come si sveglia e cosa trova.`);
+        }
+
+        function doEat() {
+            if (!G.character) return;
+            
+            const foodIdx = G.character.inventory.findIndex(i => 
+                i && (i.id === 'food' || i.id === 'snack' || i.id === 'ration')
+            );
+            
+            if (foodIdx === -1) {
+                if (G.character.gold >= 5) {
+                    G.character.gold -= 5;
+                    G.character.hunger.cur = Math.min(G.character.hunger.max, G.character.hunger.cur + 50);
+                    addStoryEntry('🍖 Compri e mangi un pasto. (-5 soldi, +50 sazietà)', 'mechanic');
+                    advanceTime(30);
+                    updateCharacterUI();
+                    generateAI(`Il protagonista ha comprato e mangiato un pasto. Descrivi brevemente la scena.`);
+                } else {
+                    notify('Non hai cibo né soldi per comprarlo!', 'error');
+                }
+            } else {
+                const item = G.character.inventory[foodIdx];
+                const data = ITEMS[item.id];
+                
+                if (data.effect.hunger) {
+                    G.character.hunger.cur = Math.min(G.character.hunger.max, G.character.hunger.cur + data.effect.hunger);
+                }
+                if (data.effect.stamina) {
+                    G.character.stamina.cur = Math.min(G.character.stamina.max, G.character.stamina.cur + data.effect.stamina);
+                }
+                
+                item.count--;
+                if (item.count <= 0) G.character.inventory.splice(foodIdx, 1);
+                
+                addStoryEntry(`🍖 Mangi ${data.name}. (+${data.effect.hunger || 0} sazietà)`, 'mechanic');
+                advanceTime(15);
+                updateCharacterUI();
+            }
+        }
+
+        // ==================== QUICK ACTIONS ====================
+        function getGenreActions(setting) {
+            if (!setting) return GENRE_ACTIONS['default'];
+            const settingLower = setting.toLowerCase();
+            
+            if (settingLower.includes('fantasy') || settingLower.includes('medievale')) return GENRE_ACTIONS['Fantasy'];
+            if (settingLower.includes('business') || settingLower.includes('economia')) return GENRE_ACTIONS['Business'];
+            if (settingLower.includes('contemporaneo') || settingLower.includes('moderno')) return GENRE_ACTIONS['Contemporaneo'];
+            
+            return GENRE_ACTIONS['default'];
+        }
+
+        function updateQuickActions() {
+            const actions = G.currentStory ? getGenreActions(G.currentStory.setting) : GENRE_ACTIONS['default'];
+            
+            const html = actions.map(a => `
+                <button class="quick-btn" data-prefix="${a.prefix}">
+                    ${a.icon} ${a.label}
+                </button>
+            `).join('');
+            
+            $('quick-actions').innerHTML = html;
+            
+            $$('.quick-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const prefix = btn.dataset.prefix;
+                    $('action-input').value = prefix;
+                    $('action-input').focus();
+                };
+            });
+        }
+
+        function load() {
+            const d = localStorage.getItem('dnd_v4');
+            if (d) {
+                const p = JSON.parse(d);
+                G.stories = p.stories || [];
+                G.saves = p.saves || Array(6).fill(null);
+                G.settings = { ...G.settings, ...p.settings };
+            }
+            if (G.stories.length === 0) {
+                G.stories = [
+                    { 
+                        id: 1, 
+                        title: 'La Cripta dei Sussurri', 
+                        setting: 'Fantasy Gotico', 
+                        difficulty: 'normal', 
+                        desc: 'Un mondo gotico dove la nebbia avvolge antichi cimiteri. Il villaggio di Ravenhollow vive nella paura.', 
+                        personality: 'Narratore misterioso e atmosferico. Crea tensione e suspense.', 
+                        depth: 'Gli NPC hanno paure e segreti. Le scelte morali hanno conseguenze.',
+                        prologue: 'La nebbia si alza lenta dal cimitero mentre attraversi i cancelli arrugginiti di Ravenhollow. Il villaggio sembra deserto, le finestre delle case sprangate. Solo la locanda "Il Corvo Stanco" mostra segni di vita.'
+                    },
+                    { 
+                        id: 2, 
+                        title: 'Scalata al Successo', 
+                        setting: 'Contemporaneo / Business', 
+                        difficulty: 'normal', 
+                        desc: 'Una storia moderna. Hai ereditato un piccolo negozio e sogni di costruire un impero commerciale.', 
+                        personality: 'Narratore realistico. Dialoghi naturali e moderni.', 
+                        depth: 'Ogni decisione economica ha conseguenze. I rapporti contano.',
+                        prologue: 'La serranda si alza con un cigolio familiare. "Emporio Rossi" - la vecchia insegna pende ancora sopra la porta. L\'avvocato ti ha dato le chiavi ieri, insieme a un conto quasi vuoto.'
+                    }
+                ];
+                save();
+            }
+        }
+
+        // ==================== SCREENS ====================
+        function showScreen(id) {
+            $$('.screen').forEach(s => s.classList.remove('active'));
+            $(id).classList.add('active');
+        }
+
+        function openModal(id) { $(id).classList.add('active'); }
+        function closeModal(id) { $(id).classList.remove('active'); }
+        function closeAllModals() { $$('.modal-overlay').forEach(m => m.classList.remove('active')); }
+
+        // ==================== HOME ====================
+        function updateHome() {
+            $('btn-continue').disabled = !G.isPlaying;
+        }
+
+        // ==================== CHARACTER ====================
+        function createCharacter(name, origin, archetype) {
+            const o = ORIGINS[origin], a = ARCHETYPES[archetype];
+            const attrs = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+            
+            if (o.bonuses) {
+                if (o.bonuses.all) Object.keys(attrs).forEach(k => attrs[k] += o.bonuses.all);
+                else Object.entries(o.bonuses).forEach(([k,v]) => { if(attrs[k]) attrs[k] += v; });
+            }
+
+            const conMod = mod(attrs.con);
+            
+            G.character = {
+                name, origin, archetype, level: 1,
+                health: { cur: a.hp + conMod, max: a.hp + conMod },
+                mana: { cur: a.mp + Math.max(0, mod(attrs.int)), max: a.mp + Math.max(0, mod(attrs.int)) },
+                stamina: { cur: 100, max: 100 },
+                hunger: { cur: 100, max: 100 },
+                exp: { cur: 0, need: 100 },
+                attrs,
+                skills: {},
+                inventory: [
+                    { id: 'healing', count: 2 },
+                    { id: 'food', count: 3 },
+                    { id: 'snack', count: 5 }
+                ],
+                equipment: { weapon: null, armor: null, accessory: null },
+                gold: 100
+            };
+            
+            a.skills.forEach(s => G.character.skills[s] = mod(attrs[a.stat]));
+        }
+
+        function updateCharacterUI() {
+            if (!G.character) return;
+            const c = G.character;
+            const o = ORIGINS[c.origin], a = ARCHETYPES[c.archetype];
+
+            $('mini-health').style.width = `${(c.health.cur / c.health.max) * 100}%`;
+            $('mini-stamina').style.width = `${(c.stamina.cur / c.stamina.max) * 100}%`;
+            $('mini-hunger').style.width = `${(c.hunger.cur / c.hunger.max) * 100}%`;
+
+            $('char-portrait').textContent = a.icon;
+            $('char-name').textContent = c.name;
+            $('char-class').textContent = `${o.name} • ${a.name} Lv. ${c.level}`;
+
+            $('stat-health').style.width = `${(c.health.cur / c.health.max) * 100}%`;
+            $('stat-health-text').textContent = `${c.health.cur}/${c.health.max}`;
+            $('stat-mana').style.width = `${(c.mana.cur / c.mana.max) * 100}%`;
+            $('stat-mana-text').textContent = `${c.mana.cur}/${c.mana.max}`;
+            $('stat-stamina').style.width = `${(c.stamina.cur / c.stamina.max) * 100}%`;
+            $('stat-stamina-text').textContent = `${c.stamina.cur}/${c.stamina.max}`;
+            $('stat-hunger').style.width = `${(c.hunger.cur / c.hunger.max) * 100}%`;
+            $('stat-hunger-text').textContent = `${c.hunger.cur}/${c.hunger.max}`;
+            $('stat-exp').style.width = `${(c.exp.cur / c.exp.need) * 100}%`;
+            $('stat-exp-text').textContent = `${c.exp.cur}/${c.exp.need}`;
+
+            const attrsHtml = ['str','dex','con','int','wis','cha'].map(at => `
+                <div class="attr-box">
+                    <div class="attr-name">${at.toUpperCase()}</div>
+                    <div class="attr-value">${c.attrs[at]}</div>
+                    <div class="attr-mod">${mod(c.attrs[at]) >= 0 ? '+' : ''}${mod(c.attrs[at])}</div>
+                </div>
+            `).join('');
+            $('attrs-grid').innerHTML = attrsHtml;
+
+            const skillsHtml = Object.entries(c.skills).map(([name, val]) => `
+                <div class="skill-item">
+                    <span>${name}</span>
+                    <span class="${val >= 0 ? 'skill-bonus' : 'skill-malus'}">${val >= 0 ? '+' : ''}${val}</span>
+                </div>
+            `).join('');
+            $('skills-list').innerHTML = skillsHtml || '<div class="skill-item">Nessuna abilità</div>';
+
+            // Acquired Abilities
+            const abilitiesHtml = G.worldMemory.acquiredAbilities.map(ab => `
+                <div class="ability-item">
+                    <span class="ability-name">✨ ${ab.name}</span>
+                    <span class="ability-desc">${ab.description}</span>
+                </div>
+            `).join('');
+            $('abilities-list').innerHTML = abilitiesHtml || '<div class="skill-item" style="font-style:italic;">Nessuna abilità acquisita</div>';
+
+            // Inventory
+            $('inv-gold').textContent = c.gold;
+            let invHtml = '';
+            for (let i = 0; i < 16; i++) {
+                const item = c.inventory[i];
+                if (item) {
+                    const data = ITEMS[item.id] || { icon: '❓', name: item.id };
+                    invHtml += `<div class="inv-slot" data-idx="${i}" title="${data.name}">${data.icon}${item.count > 1 ? `<span class="count">x${item.count}</span>` : ''}</div>`;
+                } else {
+                    invHtml += `<div class="inv-slot"></div>`;
+                }
+            }
+            $('inv-grid').innerHTML = invHtml;
+
+            // Special Items
+            const specialHtml = G.worldMemory.acquiredItems.map(item => `
+                <div class="special-item">
+                    <span class="special-item-icon">${item.icon || '🔮'}</span>
+                    <div class="special-item-info">
+                        <div class="special-item-name">${item.name}</div>
+                        <div class="special-item-desc">${item.description}</div>
+                    </div>
+                </div>
+            `).join('');
+            $('special-items-list').innerHTML = specialHtml || '<p style="color: var(--ink-light); font-style: italic;">Nessun oggetto speciale</p>';
+            
+            checkStatusEffects();
+        }
+
+        // ==================== WORLD MEMORY ====================
+        function updateMemoryUI() {
+            const wm = G.worldMemory;
+
+            // Stats
+            $('mem-npc-count').textContent = wm.npcs.length;
+            $('mem-loc-count').textContent = wm.locations.length;
+            $('mem-quest-count').textContent = wm.quests.length;
+            $('mem-event-count').textContent = wm.events.length;
+
+            // NPCs
+            const npcsHtml = wm.npcs.length ? wm.npcs.map(npc => `
+                <div class="memory-card npc">
+                    <div class="memory-card-title">👤 ${npc.name}</div>
+                    <div class="memory-card-desc">${npc.description}</div>
+                    ${npc.relationship ? `<div class="memory-card-meta">Relazione: ${npc.relationship}</div>` : ''}
+                </div>
+            `).join('') : '<div class="memory-empty">Nessun NPC incontrato</div>';
+            $('memory-npcs-list').innerHTML = npcsHtml;
+
+            // Locations
+            const locsHtml = wm.locations.length ? wm.locations.map(loc => `
+                <div class="memory-card location">
+                    <div class="memory-card-title">📍 ${loc.name}</div>
+                    <div class="memory-card-desc">${loc.description}</div>
+                    ${loc.notes ? `<div class="memory-card-meta">${loc.notes}</div>` : ''}
+                </div>
+            `).join('') : '<div class="memory-empty">Nessun luogo scoperto</div>';
+            $('memory-locations-list').innerHTML = locsHtml;
+
+            // Quests
+            const questsHtml = wm.quests.length ? wm.quests.map(q => `
+                <div class="memory-card quest ${q.status}">
+                    <div class="memory-card-title">📋 ${q.name} ${q.status === 'completed' ? '✅' : '🔄'}</div>
+                    <div class="memory-card-desc">${q.description}</div>
+                    ${q.progress ? `<div class="memory-card-meta">Progresso: ${q.progress}</div>` : ''}
+                </div>
+            `).join('') : '<div class="memory-empty">Nessuna quest attiva</div>';
+            $('memory-quests-list').innerHTML = questsHtml;
+
+            // Events
+            const eventsHtml = wm.events.length ? wm.events.slice(-20).reverse().map(e => `
+                <div class="memory-card event">
+                    <div class="memory-card-title">📜 Turno ${e.turn}</div>
+                    <div class="memory-card-desc">${e.summary}</div>
+                </div>
+            `).join('') : '<div class="memory-empty">Nessun evento registrato</div>';
+            $('memory-events-list').innerHTML = eventsHtml;
+        }
+
+        function addNPC(name, description, relationship = '') {
+            const existing = G.worldMemory.npcs.find(n => n.name.toLowerCase() === name.toLowerCase());
+            if (existing) {
+                existing.description = description;
+                if (relationship) existing.relationship = relationship;
+                existing.lastSeen = G.worldMemory.turnCount;
+            } else {
+                G.worldMemory.npcs.push({
+                    id: Date.now(),
+                    name,
+                    description,
+                    relationship,
+                    metAt: G.worldMemory.turnCount,
+                    lastSeen: G.worldMemory.turnCount
+                });
+            }
+        }
+
+        function addLocation(name, description, notes = '') {
+            const existing = G.worldMemory.locations.find(l => l.name.toLowerCase() === name.toLowerCase());
+            if (existing) {
+                if (notes) existing.notes = notes;
+            } else {
+                G.worldMemory.locations.push({
+                    id: Date.now(),
+                    name,
+                    description,
+                    discovered: G.worldMemory.turnCount,
+                    notes
+                });
+            }
+        }
+
+        function addQuest(name, description, status = 'active', progress = '') {
+            const existing = G.worldMemory.quests.find(q => q.name.toLowerCase() === name.toLowerCase());
+            if (existing) {
+                existing.status = status;
+                if (progress) existing.progress = progress;
+            } else {
+                G.worldMemory.quests.push({
+                    id: Date.now(),
+                    name,
+                    description,
+                    status,
+                    progress
+                });
+            }
+        }
+
+        function addEvent(summary, importance = 'normal') {
+            G.worldMemory.events.push({
+                id: Date.now(),
+                summary,
+                turn: G.worldMemory.turnCount,
+                importance
+            });
+            // Keep only last 50 events
+            if (G.worldMemory.events.length > 50) {
+                G.worldMemory.events = G.worldMemory.events.slice(-50);
+            }
+        }
+
+        function addSpecialItem(name, description, icon = '🔮') {
+            const existing = G.worldMemory.acquiredItems.find(i => i.name.toLowerCase() === name.toLowerCase());
+            if (!existing) {
+                G.worldMemory.acquiredItems.push({
+                    id: Date.now(),
+                    name,
+                    description,
+                    icon,
+                    acquiredAt: G.worldMemory.turnCount
+                });
+                addStoryEntry(`🔮 Nuovo oggetto speciale: ${name}`, 'memory-update');
+            }
+        }
+
+        function addAbility(name, description) {
+            const existing = G.worldMemory.acquiredAbilities.find(a => a.name.toLowerCase() === name.toLowerCase());
+            if (!existing) {
+                G.worldMemory.acquiredAbilities.push({
+                    id: Date.now(),
+                    name,
+                    description,
+                    acquiredAt: G.worldMemory.turnCount
+                });
+                addStoryEntry(`✨ Nuova abilità: ${name}`, 'memory-update');
+            }
+        }
+
+        function buildWorldMemorySummary() {
+            const wm = G.worldMemory;
+            let summary = '';
+
+            if (wm.npcs.length > 0) {
+                summary += '\n👥 PERSONAGGI CONOSCIUTI:\n';
+                wm.npcs.forEach(npc => {
+                    summary += `- ${npc.name}: ${npc.description}${npc.relationship ? ` (${npc.relationship})` : ''}\n`;
+                });
+            }
+
+            if (wm.locations.length > 0) {
+                summary += '\n📍 LUOGHI VISITATI:\n';
+                wm.locations.forEach(loc => {
+                    summary += `- ${loc.name}: ${loc.description}\n`;
+                });
+            }
+
+            if (wm.quests.length > 0) {
+                const activeQuests = wm.quests.filter(q => q.status === 'active');
+                if (activeQuests.length > 0) {
+                    summary += '\n📋 QUEST ATTIVE:\n';
+                    activeQuests.forEach(q => {
+                        summary += `- ${q.name}: ${q.description}${q.progress ? ` [${q.progress}]` : ''}\n`;
+                    });
+                }
+            }
+
+            if (wm.acquiredItems.length > 0) {
+                summary += '\n🔮 OGGETTI SPECIALI POSSEDUTI:\n';
+                wm.acquiredItems.forEach(item => {
+                    summary += `- ${item.name}: ${item.description}\n`;
+                });
+            }
+
+            if (wm.acquiredAbilities.length > 0) {
+                summary += '\n✨ ABILITÀ ACQUISITE:\n';
+                wm.acquiredAbilities.forEach(ab => {
+                    summary += `- ${ab.name}: ${ab.description}\n`;
+                });
+            }
+
+            // Recent important events
+            if (wm.events.length > 0) {
+                const recentEvents = wm.events.slice(-5);
+                summary += '\n📜 EVENTI RECENTI:\n';
+                recentEvents.forEach(e => {
+                    summary += `- ${e.summary}\n`;
+                });
+            }
+
+            if (wm.storySummary) {
+                summary += '\n📖 RIASSUNTO STORIA:\n' + wm.storySummary + '\n';
+            }
+
+            return summary;
+        }
+
+        // ==================== STORIES ====================
+        function updateStoriesUI() {
+            const html = G.stories.map((s, i) => `
+                <div class="story-card ${G.selectedStory === i ? 'selected' : ''}" data-idx="${i}">
+                    <div class="story-card-title">${s.title}</div>
+                    <div class="story-card-desc">${s.desc?.substring(0, 80) || ''}...</div>
+                </div>
+            `).join('');
+            $('stories-list').innerHTML = html || '<p>Nessuna storia. Creane una!</p>';
+
+            $('btn-edit-story').disabled = G.selectedStory === null;
+            $('btn-delete-story').disabled = G.selectedStory === null;
+
+            $('new-game-story').innerHTML = G.stories.map((s, i) => 
+                `<option value="${i}">${s.title}</option>`
+            ).join('');
+        }
+
+        function openStoryEditor(story = null) {
+            G.editingStory = story;
+            $('edit-story-title').value = story?.title || '';
+            $('edit-story-setting').value = story?.setting || 'Fantasy Medievale';
+            $('edit-story-difficulty').value = story?.difficulty || 'normal';
+            $('edit-story-desc').value = story?.desc || '';
+            $('edit-story-personality').value = story?.personality || '';
+            $('edit-story-depth').value = story?.depth || '';
+            $('edit-story-prologue').value = story?.prologue || '';
+            openModal('modal-story-editor');
+        }
+
+        function saveStoryFromEditor() {
+            const story = {
+                id: G.editingStory?.id || Date.now(),
+                title: $('edit-story-title').value || 'Nuova Storia',
+                setting: $('edit-story-setting').value,
+                difficulty: $('edit-story-difficulty').value,
+                desc: $('edit-story-desc').value,
+                personality: $('edit-story-personality').value,
+                depth: $('edit-story-depth').value,
+                prologue: $('edit-story-prologue').value
+            };
+
+            if (G.editingStory) {
+                const idx = G.stories.findIndex(s => s.id === G.editingStory.id);
+                if (idx !== -1) G.stories[idx] = story;
+            } else {
+                G.stories.push(story);
+            }
+
+            save();
+            closeModal('modal-story-editor');
+            updateStoriesUI();
+            notify('Storia salvata!', 'success');
+        }
+
+        // ==================== SAVES ====================
+        function updateSavesUI() {
+            let html = '';
+            for (let i = 0; i < 6; i++) {
+                const s = G.saves[i];
+                let info = 'Vuoto';
+                if (s) {
+                    const dateInfo = s.time ? `${s.time.day}/${s.time.month}/${s.time.year} ${s.time.hour.toString().padStart(2,'0')}:${s.time.minute.toString().padStart(2,'0')}` : '';
+                    info = `${s.character?.name || '?'} - ${s.story?.title || '?'} ${dateInfo ? '• ' + dateInfo : ''}`;
+                }
+                html += `
+                    <div class="save-slot ${G.selectedSave === i ? 'selected' : ''}" data-idx="${i}">
+                        <div class="save-slot-title">Slot ${i + 1}</div>
+                        <div class="save-slot-info">${info}</div>
+                    </div>
+                `;
+            }
+            $('saves-list').innerHTML = html;
+        }
+
+        function saveToSlot() {
+            if (G.selectedSave === null || !G.isPlaying) return;
+            
+            G.saves[G.selectedSave] = {
+                character: JSON.parse(JSON.stringify(G.character)),
+                story: JSON.parse(JSON.stringify(G.currentStory)),
+                storyLog: JSON.parse(JSON.stringify(G.storyLog)),
+                history: JSON.parse(JSON.stringify(G.history)),
+                time: JSON.parse(JSON.stringify(G.time)),
+                worldMemory: JSON.parse(JSON.stringify(G.worldMemory))
+            };
+            
+            save();
+            updateSavesUI();
+            notify('Partita salvata!', 'success');
+        }
+
+        function loadFromSlot() {
+            if (G.selectedSave === null || !G.saves[G.selectedSave]) return;
+            
+            const s = G.saves[G.selectedSave];
+            G.character = JSON.parse(JSON.stringify(s.character));
+            G.currentStory = JSON.parse(JSON.stringify(s.story));
+            G.storyLog = JSON.parse(JSON.stringify(s.storyLog || []));
+            G.history = JSON.parse(JSON.stringify(s.history || []));
+            G.time = JSON.parse(JSON.stringify(s.time || { day: 1, month: 1, year: 1400, hour: 8, minute: 0, dayName: 'Lunedì' }));
+            G.worldMemory = JSON.parse(JSON.stringify(s.worldMemory || {
+                npcs: [], locations: [], quests: [], events: [],
+                acquiredItems: [], acquiredAbilities: [],
+                storySummary: '', lastSummaryTurn: 0, turnCount: 0
+            }));
+            G.isPlaying = true;
+            
+            closeAllModals();
+            startGameUI();
+            notify('Partita caricata!', 'success');
+        }
+
+        // ==================== GAME ====================
+        function startNewGame() {
+            const storyIdx = parseInt($('new-game-story').value);
+            const name = $('new-game-name').value.trim() || 'Eroe';
+            
+            if (!G.selectedOrigin || !G.selectedArchetype) {
+                notify('Seleziona origine e archetipo!', 'error');
+                return;
+            }
+
+            G.currentStory = JSON.parse(JSON.stringify(G.stories[storyIdx]));
+            createCharacter(name, G.selectedOrigin, G.selectedArchetype);
+            
+            // Reset time
+            G.time = { day: 1, month: 3, year: 1400, hour: 8, minute: 0, dayName: 'Lunedì' };
+            
+            // Reset world memory
+            G.worldMemory = {
+                npcs: [],
+                locations: [],
+                quests: [],
+                events: [],
+                acquiredItems: [],
+                acquiredAbilities: [],
+                storySummary: '',
+                lastSummaryTurn: 0,
+                turnCount: 0
+            };
+            
+            G.storyLog = [];
+            G.history = [];
+            G.isPlaying = true;
+
+            closeAllModals();
+            startGameUI();
+        }
+
+        function startGameUI() {
+            showScreen('game-screen');
+            updateCharacterUI();
+            updateQuickActions();
+            updateTimeDisplay();
+
+            $('story-scroll').innerHTML = '';
+            G.storyLog.forEach(e => addStoryEntry(e.text, e.type, false));
+
+            if (G.storyLog.length === 0 && G.currentStory?.prologue) {
+                addStoryEntry(G.currentStory.prologue, 'narrator');
+                generateAI('L\'avventura inizia...', true);
+            }
+
+            updateHome();
+        }
+
+        function exitGame() {
+            if (confirm('Uscire? I progressi non salvati saranno persi.')) {
+                showScreen('home-screen');
+            }
+        }
+
+        function addStoryEntry(text, type, log = true) {
+            const div = document.createElement('div');
+            div.className = `story-entry ${type}`;
+            
+            let formatted = text
+                .split(/\n\n+/)
+                .map(para => para.trim())
+                .filter(para => para.length > 0)
+                .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+                .join('');
+            
+            if (!formatted) formatted = `<p>${text.replace(/\n/g, '<br>')}</p>`;
+            
+            div.innerHTML = formatted;
+            $('story-scroll').appendChild(div);
+            $('story-scroll').scrollTop = $('story-scroll').scrollHeight;
+
+            if (log) G.storyLog.push({ text, type, time: Date.now() });
+        }
+
+        function displaySuggestions(suggestions) {
+            const area = $('suggestions-area');
+            const list = $('suggestions-list');
+
+            if (!suggestions || suggestions.length === 0) {
+                area.style.display = 'none';
+                return;
+            }
+
+            const typeIcons = {
+                'dialogo': '💬', 'azione': '⚡', 'esplorazione': '🔍',
+                'combattimento': '⚔️', 'default': '💡'
+            };
+
+            list.innerHTML = suggestions.map((s, i) => `
+                <button class="suggestion-btn" data-idx="${i}">
+                    <span class="suggestion-type">${typeIcons[s.type.toLowerCase()] || typeIcons.default} ${s.type}</span>
+                    ${s.text}
+                </button>
+            `).join('');
+
+            area.style.display = 'block';
+
+            list.querySelectorAll('.suggestion-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const suggestion = suggestions[parseInt(btn.dataset.idx)];
+                    $('action-input').value = suggestion.text;
+                    area.style.display = 'none';
+                    sendAction();
+                };
+            });
+        }
+
+        function sendAction() {
+            const input = $('action-input');
+            const action = input.value.trim();
+            if (!action || G.isProcessing) return;
+
+            $('suggestions-area').style.display = 'none';
+            input.value = '';
+            addStoryEntry(`➤ ${action}`, 'player');
+            
+            advanceTime(15 + Math.floor(Math.random() * 15));
+            G.worldMemory.turnCount++;
+            
+            generateAI(action);
+        }
+
+        // ==================== AI ====================
+        async function generateAI(action, isStart = false) {
+            if (G.isProcessing || !G.currentStory) return;
+            G.isProcessing = true;
+            $('btn-send').disabled = true;
+
+            addStoryEntry('<span class="loading-dots">Il narratore sta scrivendo</span>', 'system');
+
+            try {
+                const response = await callAI(action, isStart);
+
+                const last = $('story-scroll').lastChild;
+                if (last?.textContent?.includes('scrivendo')) last.remove();
+
+                parseAIResponse(response);
+                G.history.push({ role: 'user', content: action });
+                G.history.push({ role: 'assistant', content: response });
+
+                // Periodic story summary (every 10 turns)
+                if (G.worldMemory.turnCount - G.worldMemory.lastSummaryTurn >= 10) {
+                    generateStorySummary();
+                }
+
+            } catch (err) {
+                const last = $('story-scroll').lastChild;
+                if (last?.textContent?.includes('scrivendo')) last.remove();
+                addStoryEntry(`⚠️ Errore: ${err.message}`, 'system');
+            }
+
+            G.isProcessing = false;
+            $('btn-send').disabled = false;
+        }
+
+        async function callAI(action, isStart) {
+            const s = G.settings;
+            const story = G.currentStory;
+            const c = G.character;
+            const o = ORIGINS[c.origin], a = ARCHETYPES[c.archetype];
+            const period = getTimePeriod();
+            const season = getCurrentSeason();
+
+            const lengths = { short: '150-250 parole', medium: '250-400 parole', long: '400-600 parole' };
+
+            // Build world memory summary
+            const worldMemorySummary = buildWorldMemorySummary();
+
+            const systemPrompt = `Sei il Narratore di un gioco di ruolo interattivo. Scrivi in italiano fluente.
+
+AMBIENTAZIONE: ${story.setting}
+${story.desc || ''}
+
+STILE: ${story.personality || 'Narratore evocativo e coinvolgente'}
+
+📅 DATA E ORA ATTUALI:
+- ${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}
+- Ore ${getTimeString()} - ${period.name}
+- Stagione: ${season}
+- Turno: ${G.worldMemory.turnCount}
+
+👤 STATO DEL PROTAGONISTA:
+- Nome: ${c.name} (${o.name} / ${a.name})
+- Livello: ${c.level}
+- Salute: ${c.health.cur}/${c.health.max} HP
+- Energia: ${c.stamina.cur}/${c.stamina.max} ⚡
+- Sazietà: ${c.hunger.cur}/${c.hunger.max} 🍖
+- Soldi: ${c.gold} 💵
+
+🧠 **MEMORIA DEL MONDO** (IMPORTANTISSIMO - USA QUESTE INFORMAZIONI!):
+${worldMemorySummary || 'Nessuna memoria registrata ancora.'}
+
+⚠️ CONDIZIONI SPECIALI:
+${c.stamina.cur <= 30 ? '- IL PERSONAGGIO È MOLTO STANCO - menzionalo nella narrazione' : ''}
+${c.hunger.cur <= 30 ? '- IL PERSONAGGIO HA MOLTA FAME - menzionalo nella narrazione' : ''}
+${c.health.cur <= c.health.max * 0.3 ? '- IL PERSONAGGIO È GRAVEMENTE FERITO - menzionalo nella narrazione' : ''}
+
+🎯 REGOLE IMPORTANTI - LEGGI ATTENTAMENTE:
+
+1. SCRIVI ${lengths[s.length]} di narrazione immersiva
+2. Tieni conto dell'ora (${period.name}) e della stagione (${season}) nelle descrizioni
+3. I personaggi parlano tra virgolette: "Ciao!"
+4. Le espressioni tra asterischi: *sorride*
+5. NON usare markdown, liste o formattazione
+6. **USA LA MEMORIA DEL MONDO** per mantenere coerenza con NPC, luoghi e quest già incontrati!
+
+📊 **MECCANICHE DI GIOCO - USA SEMPRE QUESTE QUANDO APPROPRIATO:**
+
+OGNI VOLTA che il protagonista:
+- Guadagna soldi → DEVI scrivere: [MECCANICA: soldi=50]
+- Perde soldi/paga → DEVI scrivere: [MECCANICA: soldi=-30]
+- Subisce danno → DEVI scrivere: [MECCANICA: danno=10]
+- Viene curato → DEVI scrivere: [MECCANICA: cura=15]
+- Guadagna esperienza → DEVI scrivere: [MECCANICA: exp=25]
+- Usa energia/magia → DEVI scrivere: [MECCANICA: mana=-5]
+- Si stanca molto → DEVI scrivere: [MECCANICA: stamina=-20]
+- Mangia qualcosa → DEVI scrivere: [MECCANICA: fame=30]
+
+⏰ Per far passare il tempo: [TEMPO: +30] (minuti)
+
+🧠 **SISTEMA DI MEMORIA - IMPORTANTISSIMO!**
+Quando introduci o interagisci con elementi importanti, DEVI registrarli:
+
+- Nuovo personaggio/NPC: [NPC: Nome | Descrizione breve | Relazione (amico/nemico/neutrale)]
+- Nuovo luogo scoperto: [LUOGO: Nome | Descrizione breve]
+- Nuova quest/missione: [QUEST: Nome | Descrizione | stato (active/completed)]
+- Oggetto speciale ottenuto: [OGGETTO: Nome | Descrizione | icona emoji]
+- Nuova abilità appresa: [ABILITÀ: Nome | Descrizione]
+- Evento importante: [EVENTO: Breve descrizione di cosa è successo]
+
+ESEMPI:
+[NPC: Greta la Locandiera | Donna robusta con cicatrice, gestisce Il Corvo Stanco | neutrale]
+[LUOGO: Cripta Antica | Sotterraneo umido con tombe coperte di ragnatele]
+[QUEST: Trova l'Amuleto | Greta chiede di recuperare l'amuleto rubato | active]
+[OGGETTO: Chiave d'Argento | Apre la porta della cripta | 🗝️]
+[ABILITÀ: Scassinare Serrature | Puoi aprire serrature semplici]
+[EVENTO: Il protagonista ha salvato il figlio di Greta dai banditi]
+
+💡 Suggerimenti opzionali alla fine:
+[SUGGERIMENTO: tipo | testo dell'azione]`;
+
+            let userMsg;
+            if (isStart) {
+                userMsg = `Inizia la storia. È ${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}, ${period.name} (${getTimeString()}), ${season}. 
+${story.prologue || 'Il protagonista inizia la sua avventura.'}
+
+Descrivi la scena iniziale. Introduci l'ambiente e almeno un personaggio. Ricorda di usare i tag [NPC:...] e [LUOGO:...] per registrarli!`;
+            } else {
+                userMsg = `[${G.time.dayName} ${G.time.day}/${G.time.month}/${G.time.year} ${getTimeString()} - ${period.name}, ${season}]
+[Stato: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur}/100 | Fame ${c.hunger.cur}/100 | Soldi: ${c.gold}]
+
+Il giocatore: ${action}
+
+Continua la narrazione. 
+RICORDA: 
+1. Se ci sono conseguenze economiche, danni, o altri effetti, USA LE MECCANICHE [MECCANICA: tipo=valore]!
+2. Se incontri/introduci NPC, luoghi, quest, oggetti speciali o abilità, REGISTRALI con i tag appropriati!
+3. USA la MEMORIA DEL MONDO per mantenere coerenza - se il giocatore parla con un NPC già conosciuto, usa le informazioni registrate!`;
+            }
+
+            let endpoint, model, headers;
+
+            if (s.model === 'openrouter' && s.openrouterKey) {
+                endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+                model = 'google/gemma-3-27b-it';
+                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterKey}` };
+            } else if (s.groqKey) {
+                endpoint = 'https://api.groq.com/openai/v1/chat/completions';
+                model = 'llama-3.1-8b-instant';
+                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.groqKey}` };
+            } else {
+                throw new Error('Configura le API keys nelle Impostazioni!');
+            }
+
+            // Increased history window from 6 to 12 messages
+            const recentHistory = G.history.slice(-12);
+
+            const body = {
+                model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    ...recentHistory,
+                    { role: 'user', content: userMsg }
+                ],
+                temperature: 0.8,
+                max_tokens: 2000
+            };
+
+            const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `Errore API: ${res.status}`);
+            }
+            const data = await res.json();
+            return data.choices[0].message.content;
+        }
+
+        function parseAIResponse(response) {
+            // Extract time changes
+            const timeRe = /\[TEMPO:\s*\+?(\d+)\]/gi;
+            let m;
+            while ((m = timeRe.exec(response)) !== null) {
+                const mins = parseInt(m[1]);
+                advanceTime(mins);
+                const timeStr = mins >= 1440 ? `${Math.floor(mins/1440)} giorno/i` : 
+                               mins >= 60 ? `${Math.floor(mins/60)} ora/e` : `${mins} minuti`;
+                addStoryEntry(`⏰ Passa ${timeStr}...`, 'system');
+            }
+
+            // Extract mechanics
+            const mechRe = /\[MECCANICA:\s*([^\]]+)\]/gi;
+            while ((m = mechRe.exec(response)) !== null) {
+                applyMechanic(m[1]);
+            }
+
+            // Extract NPCs
+            const npcRe = /\[NPC:\s*([^|]+)\|([^|]+)\|([^\]]+)\]/gi;
+            while ((m = npcRe.exec(response)) !== null) {
+                const name = m[1].trim();
+                const desc = m[2].trim();
+                const rel = m[3].trim();
+                addNPC(name, desc, rel);
+                addStoryEntry(`👥 NPC registrato: ${name}`, 'memory-update');
+            }
+
+            // Extract Locations
+            const locRe = /\[LUOGO:\s*([^|]+)\|([^\]]+)\]/gi;
+            while ((m = locRe.exec(response)) !== null) {
+                const name = m[1].trim();
+                const desc = m[2].trim();
+                addLocation(name, desc);
+                addStoryEntry(`📍 Luogo scoperto: ${name}`, 'memory-update');
+            }
+
+            // Extract Quests
+            const questRe = /\[QUEST:\s*([^|]+)\|([^|]+)\|([^\]]+)\]/gi;
+            while ((m = questRe.exec(response)) !== null) {
+                const name = m[1].trim();
+                const desc = m[2].trim();
+                const status = m[3].trim().toLowerCase();
+                addQuest(name, desc, status);
+                if (status === 'completed') {
+                    addStoryEntry(`📋 Quest completata: ${name}`, 'memory-update');
+                } else {
+                    addStoryEntry(`📋 Nuova quest: ${name}`, 'memory-update');
+                }
+            }
+
+            // Extract Special Items
+            const itemRe = /\[OGGETTO:\s*([^|]+)\|([^|]+)\|([^\]]+)\]/gi;
+            while ((m = itemRe.exec(response)) !== null) {
+                const name = m[1].trim();
+                const desc = m[2].trim();
+                const icon = m[3].trim();
+                addSpecialItem(name, desc, icon);
+            }
+
+            // Extract Abilities
+            const abilityRe = /\[ABILITÀ:\s*([^|]+)\|([^\]]+)\]/gi;
+            while ((m = abilityRe.exec(response)) !== null) {
+                const name = m[1].trim();
+                const desc = m[2].trim();
+                addAbility(name, desc);
+            }
+
+            // Extract Events
+            const eventRe = /\[EVENTO:\s*([^\]]+)\]/gi;
+            while ((m = eventRe.exec(response)) !== null) {
+                const summary = m[1].trim();
+                addEvent(summary);
+            }
+
+            // Extract suggestions
+            const suggRe = /\[SUGGERIMENTO:\s*([^|]+)\|([^\]]+)\]/gi;
+            const suggestions = [];
+            while ((m = suggRe.exec(response)) !== null) {
+                suggestions.push({ type: m[1].trim(), text: m[2].trim() });
+            }
+
+            // Clean response
+            let clean = response
+                .replace(/\[TEMPO:[^\]]*\]/gi, '')
+                .replace(/\[MECCANICA:[^\]]*\]/gi, '')
+                .replace(/\[SUGGERIMENTO:[^\]]*\]/gi, '')
+                .replace(/\[NPC:[^\]]*\]/gi, '')
+                .replace(/\[LUOGO:[^\]]*\]/gi, '')
+                .replace(/\[QUEST:[^\]]*\]/gi, '')
+                .replace(/\[OGGETTO:[^\]]*\]/gi, '')
+                .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
+                .replace(/\[EVENTO:[^\]]*\]/gi, '')
+                .replace(/\[SCELTA:[^\]]*\]/gi, '')
+                .replace(/#{1,6}\s*/g, '')
+                .replace(/\*\*([^*]+)\*\*/g, '$1')
+                .replace(/\_\_([^_]+)\_\_/g, '$1')
+                .replace(/```[^`]*```/g, '')
+                .replace(/`([^`]+)`/g, '$1')
+                .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+
+            if (!clean || clean.length < 10) {
+                clean = "Il narratore sembra confuso... Riprova con un'altra azione.";
+            }
+
+            addStoryEntry(clean, 'narrator');
+            displaySuggestions(suggestions);
+            updateCharacterUI();
+            updateTimeDisplay();
+            updateMemoryUI();
+        }
+
+        function applyMechanic(mech) {
+            const [type, val] = mech.split('=').map(s => s.trim().toLowerCase());
+            const v = parseInt(val) || 0;
+            const c = G.character;
+
+            switch (type) {
+                case 'danno': case 'damage':
+                    c.health.cur = Math.max(0, c.health.cur - Math.abs(v));
+                    addStoryEntry(`💔 -${Math.abs(v)} HP`, 'mechanic');
+                    break;
+                case 'cura': case 'heal':
+                    c.health.cur = Math.min(c.health.max, c.health.cur + Math.abs(v));
+                    addStoryEntry(`💚 +${Math.abs(v)} HP`, 'mechanic');
+                    break;
+                case 'soldi': case 'gold': case 'money':
+                    c.gold += v;
+                    addStoryEntry(`💰 ${v >= 0 ? '+' : ''}${v} soldi`, 'mechanic');
+                    break;
+                case 'exp': case 'experience':
+                    c.exp.cur += Math.abs(v);
+                    addStoryEntry(`⭐ +${Math.abs(v)} EXP`, 'mechanic');
+                    checkLevelUp();
+                    break;
+                case 'mana':
+                    c.mana.cur = Math.max(0, Math.min(c.mana.max, c.mana.cur + v));
+                    addStoryEntry(`💜 ${v >= 0 ? '+' : ''}${v} Mana`, 'mechanic');
+                    break;
+                case 'stamina': case 'energia':
+                    c.stamina.cur = Math.max(0, Math.min(c.stamina.max, c.stamina.cur + v));
+                    addStoryEntry(`⚡ ${v >= 0 ? '+' : ''}${v} Energia`, 'mechanic');
+                    break;
+                case 'fame': case 'hunger':
+                    c.hunger.cur = Math.max(0, Math.min(c.hunger.max, c.hunger.cur + v));
+                    addStoryEntry(`🍖 ${v >= 0 ? '+' : ''}${v} Sazietà`, 'mechanic');
+                    break;
+            }
+            updateCharacterUI();
+        }
+
+        function checkLevelUp() {
+            const c = G.character;
+            while (c.exp.cur >= c.exp.need) {
+                c.exp.cur -= c.exp.need;
+                c.level++;
+                c.exp.need = Math.floor(c.exp.need * 1.5);
+                c.health.max += 5;
+                c.health.cur = c.health.max;
+                c.mana.max += 3;
+                c.mana.cur = c.mana.max;
+                c.stamina.max += 10;
+                c.stamina.cur = c.stamina.max;
+                notify(`🎉 Livello ${c.level}!`, 'success');
+                addStoryEntry(`🎉 LIVELLO ${c.level}! Stats aumentate!`, 'mechanic');
+                addEvent(`Il protagonista è salito al livello ${c.level}!`);
+            }
+        }
+
+        async function generateStorySummary() {
+            // Auto-generate a summary every N turns
+            const recentEvents = G.worldMemory.events.slice(-10);
+            if (recentEvents.length < 5) return;
+
+            const eventsSummary = recentEvents.map(e => e.summary).join('. ');
+            G.worldMemory.storySummary = `Finora: ${eventsSummary}`;
+            G.worldMemory.lastSummaryTurn = G.worldMemory.turnCount;
+        }
+
+        // ==================== DICE ====================
+        function rollDice(sides) {
+            const result = roll(sides);
+            $('dice-result').textContent = `🎲 D${sides}: ${result}`;
+            addStoryEntry(`🎲 D${sides}: ${result}`, 'dice-roll');
+        }
+
+        // ==================== INIT ====================
+        function init() {
+            load();
+            updateHome();
+            updateStoriesUI();
+            updateSavesUI();
+
+            $('set-groq-key').value = G.settings.groqKey || '';
+            $('set-openrouter-key').value = G.settings.openrouterKey || '';
+            $('set-model').value = G.settings.model || 'groq';
+            $('set-length').value = G.settings.length || 'medium';
+            $('set-autoroll').checked = G.settings.autoRoll !== false;
+
+            $('origin-grid').innerHTML = Object.entries(ORIGINS).map(([k, v]) => `
+                <div class="creation-option" data-origin="${k}" title="${v.desc}">
+                    <div class="creation-icon">${v.icon}</div>
+                    <div class="creation-name">${v.name}</div>
+                </div>
+            `).join('');
+
+            $('archetype-grid').innerHTML = Object.entries(ARCHETYPES).map(([k, v]) => `
+                <div class="creation-option" data-archetype="${k}" title="${v.desc}">
+                    <div class="creation-icon">${v.icon}</div>
+                    <div class="creation-name">${v.name}</div>
+                </div>
+            `).join('');
+
+            // HOME BUTTONS
+            $('btn-continue').onclick = () => showScreen('game-screen');
+            $('btn-new-game').onclick = () => openModal('modal-new-game');
+            $('btn-load-game').onclick = () => { updateSavesUI(); openModal('modal-saves'); };
+            $('btn-stories').onclick = () => { updateStoriesUI(); openModal('modal-stories'); };
+            $('btn-settings').onclick = () => openModal('modal-settings');
+
+            // GAME TOPBAR
+            $('btn-exit').onclick = exitGame;
+            $('btn-save-quick').onclick = () => { updateSavesUI(); openModal('modal-saves'); };
+            $('btn-dice').onclick = () => openModal('modal-dice');
+            $('btn-inventory').onclick = () => { updateCharacterUI(); openModal('modal-inventory'); };
+            $('btn-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
+            $('btn-memory').onclick = () => { updateMemoryUI(); openModal('modal-memory'); };
+            $('btn-wait').onclick = () => { updateTimeDisplay(); openModal('modal-wait'); };
+            $('btn-rest').onclick = doRest;
+            $('btn-eat').onclick = doEat;
+
+            // WAIT MODAL HANDLERS
+            $$('.wait-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const mins = parseInt(btn.dataset.minutes);
+                    advanceTime(mins);
+                    closeAllModals();
+                    const timeStr = mins >= 1440 ? `${Math.floor(mins/1440)} giorno/i` : 
+                                   mins >= 60 ? `${Math.floor(mins/60)} ora/e` : `${mins} minuti`;
+                    addStoryEntry(`⏰ Passano ${timeStr}... Ora sono le ${getTimeString()}, ${getTimePeriod().name}.`, 'system');
+                    generateAI(`È passato del tempo. Ora è ${getFullTimeString()}. Descrivi brevemente cosa è cambiato nella scena o cosa succede.`);
+                };
+            });
+            $('btn-wait-until').onclick = () => {
+                const targetHour = parseInt($('wait-until-hour').value);
+                const waited = waitUntilHour(targetHour);
+                closeAllModals();
+                if (waited > 0) {
+                    addStoryEntry(`⏰ Aspetti fino alle ${targetHour.toString().padStart(2,'0')}:00...`, 'system');
+                    generateAI(`È passato del tempo. Ora è ${getFullTimeString()}. Descrivi brevemente cosa è cambiato.`);
+                }
+            };
+
+            // INPUT
+            $('btn-send').onclick = sendAction;
+            $('action-input').onkeypress = e => { if (e.key === 'Enter') sendAction(); };
+
+            // DICE
+            $$('.dice-btn').forEach(btn => {
+                btn.onclick = () => rollDice(parseInt(btn.dataset.sides));
+            });
+
+            // STORIES
+            $('stories-list').onclick = e => {
+                const card = e.target.closest('.story-card');
+                if (card) {
+                    G.selectedStory = parseInt(card.dataset.idx);
+                    updateStoriesUI();
+                }
+            };
+            $('btn-create-story').onclick = () => openStoryEditor();
+            $('btn-edit-story').onclick = () => { if (G.selectedStory !== null) openStoryEditor(G.stories[G.selectedStory]); };
+            $('btn-delete-story').onclick = () => {
+                if (G.selectedStory !== null && confirm('Eliminare questa storia?')) {
+                    G.stories.splice(G.selectedStory, 1);
+                    G.selectedStory = null;
+                    save();
+                    updateStoriesUI();
+                }
+            };
+            $('btn-save-story').onclick = saveStoryFromEditor;
+
+            // NEW GAME
+            $('origin-grid').onclick = e => {
+                const opt = e.target.closest('.creation-option');
+                if (opt) {
+                    $$('#origin-grid .creation-option').forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    G.selectedOrigin = opt.dataset.origin;
+                }
+            };
+            $('archetype-grid').onclick = e => {
+                const opt = e.target.closest('.creation-option');
+                if (opt) {
+                    $$('#archetype-grid .creation-option').forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    G.selectedArchetype = opt.dataset.archetype;
+                }
+            };
+            $('btn-start-game').onclick = startNewGame;
+
+            // SAVES
+            $('saves-list').onclick = e => {
+                const slot = e.target.closest('.save-slot');
+                if (slot) {
+                    G.selectedSave = parseInt(slot.dataset.idx);
+                    updateSavesUI();
+                }
+            };
+            $('btn-save-to-slot').onclick = saveToSlot;
+            $('btn-load-from-slot').onclick = loadFromSlot;
+            $('btn-delete-slot').onclick = () => {
+                if (G.selectedSave !== null && G.saves[G.selectedSave] && confirm('Eliminare questo salvataggio?')) {
+                    G.saves[G.selectedSave] = null;
+                    save();
+                    updateSavesUI();
+                }
+            };
+
+            // SETTINGS
+            $('btn-save-settings').onclick = () => {
+                G.settings.groqKey = $('set-groq-key').value;
+                G.settings.openrouterKey = $('set-openrouter-key').value;
+                G.settings.model = $('set-model').value;
+                G.settings.length = $('set-length').value;
+                G.settings.autoRoll = $('set-autoroll').checked;
+                save();
+                notify('Impostazioni salvate!', 'success');
+            };
+            $('btn-reset-all').onclick = () => {
+                if (confirm('⚠️ Cancellare TUTTI i dati?')) {
+                    localStorage.removeItem('dnd_v4');
+                    location.reload();
+                }
+            };
+
+            // MODAL CLOSES
+            $$('.modal-close, [data-close]').forEach(btn => {
+                btn.onclick = () => {
+                    const id = btn.dataset.close || btn.closest('.modal-overlay')?.id;
+                    if (id) closeModal(id);
+                };
+            });
+
+            $$('.modal-overlay').forEach(overlay => {
+                overlay.onclick = e => {
+                    if (e.target === overlay) closeModal(overlay.id);
+                };
+            });
+
+            // Memory Tabs
+            $$('.tab').forEach(tab => {
+                tab.onclick = () => {
+                    $$('.tab').forEach(t => t.classList.remove('active'));
+                    $$('.tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    $(`tab-${tab.dataset.tab}`).classList.add('active');
+                };
+            });
+
+            // Inventory item use
+            $('inv-grid').onclick = e => {
+                const slot = e.target.closest('.inv-slot');
+                if (slot && slot.dataset.idx !== undefined) {
+                    const idx = parseInt(slot.dataset.idx);
+                    const item = G.character.inventory[idx];
+                    if (item) {
+                        const data = ITEMS[item.id];
+                        if (data?.type === 'consumable' && data.effect) {
+                            Object.entries(data.effect).forEach(([k, v]) => {
+                                if (G.character[k]) {
+                                    G.character[k].cur = Math.min(G.character[k].cur + v, G.character[k].max);
+                                }
+                            });
+                            item.count--;
+                            if (item.count <= 0) G.character.inventory.splice(idx, 1);
+                            notify(`Usato ${data.name}!`, 'success');
+                            addStoryEntry(`[Usato ${data.name}]`, 'mechanic');
+                            updateCharacterUI();
+                        }
+                    }
+                }
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
