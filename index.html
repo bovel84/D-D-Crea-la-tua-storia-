@@ -1350,6 +1350,13 @@
             font-style: italic;
         }
 
+        .item-value {
+            font-size: 0.95em;
+            color: var(--ink-light);
+            margin: -5px 0 12px 0;
+            font-weight: 600;
+        }
+
         .item-stats {
             background: rgba(0,0,0,0.03);
             border-radius: 8px;
@@ -1991,11 +1998,7 @@
                     ration: { name: 'Razione da Viaggio', icon: '🍖', type: 'consumable', desc: 'Carne essiccata e pane duro avvolti in una foglia. Non è un banchetto, ma ti tiene in piedi.', effect: { hunger: 35, stamina: 10 } },
                     tonic: { name: 'Tonico Energetico', icon: '🥤', type: 'consumable', desc: 'Un infuso di erbe montane che rinvigorisce il corpo affaticato. Lascia un retrogusto di menta.', effect: { stamina: 30 } }
                 },
-                starterInventory: [
-                    { id: 'potion_heal', count: 2 },
-                    { id: 'ration', count: 3 },
-                    { id: 'tonic', count: 2 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
                     { icon: '👁️', label: 'Osserva', prefix: 'Osservo attentamente ' },
@@ -2029,11 +2032,7 @@
                     coffee: { name: 'Caffè', icon: '☕', type: 'consumable', desc: 'Un espresso caldo e intenso. L\'aroma ti risveglia prima ancora di berlo.', effect: { stamina: 20 } },
                     medkit: { name: 'Kit di Pronto Soccorso', icon: '🩹', type: 'consumable', desc: 'Una scatola compatta con bende, disinfettante e cerotti. Essenziale per le emergenze.', effect: { health: 20 } }
                 },
-                starterInventory: [
-                    { id: 'coffee', count: 2 },
-                    { id: 'snack', count: 2 },
-                    { id: 'medkit', count: 1 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
                     { icon: '👁️', label: 'Osserva', prefix: 'Osservo ' },
@@ -2070,11 +2069,7 @@
                     physio: { name: 'Trattamento Fisioterapico', icon: '🩹', type: 'consumable', desc: 'Un massaggio e fasciature professionali. Allevia i dolori muscolari e previene infortuni.', effect: { health: 20 } },
                     protein_bar: { name: 'Barretta Proteica', icon: '🍫', type: 'consumable', desc: 'Una barretta densa ricca di proteine e fibre. Ideale per il recupero post-allenamento.', effect: { hunger: 25, stamina: 10 } }
                 },
-                starterInventory: [
-                    { id: 'energy_gel', count: 2 },
-                    { id: 'protein_bar', count: 3 },
-                    { id: 'isotonic', count: 2 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '💬', label: 'Parla', prefix: 'Dico al compagno: "' },
                     { icon: '⚡', label: 'Scatto', prefix: 'Scatto verso ' },
@@ -2110,11 +2105,7 @@
                     snack: { name: 'Biscotti', icon: '🍪', type: 'consumable', desc: 'Biscotti artigianali dalla sala meeting. Un piccolo lusso durante le pause.', effect: { hunger: 20, stamina: 10 } },
                     energy_drink: { name: 'Energy Drink', icon: '⚡', type: 'consumable', desc: 'Una lattina gelata di bevanda energetica. Taurina e caffeina per le notti in ufficio.', effect: { stamina: 35 } }
                 },
-                starterInventory: [
-                    { id: 'coffee', count: 2 },
-                    { id: 'snack', count: 3 },
-                    { id: 'energy_drink', count: 1 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '💬', label: 'Pitch', prefix: 'Propongo: "' },
                     { icon: '📞', label: 'Chiama', prefix: 'Chiamo ' },
@@ -2150,11 +2141,7 @@
                     energy_shot: { name: 'Adrenalina', icon: '💉', type: 'consumable', desc: 'Una fiala di stimolante da iniettare. Illegale, potente, e ti tiene sveglio per ore.', effect: { stamina: 35 } },
                     street_food: { name: 'Street Food', icon: '🌯', type: 'consumable', desc: 'Un kebab unto dal chiosco di quartiere. Non chiedere cosa c\'è dentro, ma è buono.', effect: { hunger: 25 } }
                 },
-                starterInventory: [
-                    { id: 'bandage', count: 2 },
-                    { id: 'street_food', count: 3 },
-                    { id: 'energy_shot', count: 1 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
                     { icon: '🧠', label: 'Astuzia', prefix: 'Studio il colpo su ' },
@@ -2188,11 +2175,7 @@
                     bandage: { name: 'Bendaggio', icon: '🩹', type: 'consumable', desc: 'Strisce di lino pulito imbevute di erbe curative. La medicina dei legionari.', effect: { health: 20 } },
                     wine: { name: 'Vino', icon: '🍷', type: 'consumable', desc: 'Vino rosso denso in un otre di pelle. Riscalda il corpo e solleva lo spirito.', effect: { stamina: 15 } }
                 },
-                starterInventory: [
-                    { id: 'ration', count: 2 },
-                    { id: 'bandage', count: 2 },
-                    { id: 'wine', count: 1 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '💬', label: 'Parla', prefix: 'Dico: "' },
                     { icon: '🧭', label: 'Esplora', prefix: 'Esploro ' },
@@ -2225,11 +2208,7 @@
                     rations: { name: 'Razioni MRE', icon: '🥫', type: 'consumable', desc: 'Pasto pronto confezionato dell\'esercito. Dura anni, sa di cartone, ma nutre.', effect: { hunger: 30, stamina: 10 } },
                     stim: { name: 'Stimolante Tattico', icon: '💉', type: 'consumable', desc: 'Un\'iniezione di adrenalina sintetica. Ti tiene all\'erta quando la stanchezza uccide.', effect: { stamina: 30 } }
                 },
-                starterInventory: [
-                    { id: 'medkit', count: 2 },
-                    { id: 'rations', count: 2 },
-                    { id: 'stim', count: 1 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '💬', label: 'Comando', prefix: 'Ordino: "' },
                     { icon: '🎯', label: 'Mirare', prefix: 'Prendo mira su ' },
@@ -2261,11 +2240,7 @@
                     coffee: { name: 'Caffè Diplomatico', icon: '☕', type: 'consumable', desc: 'Un caffè turco servito durante le pause. Forte, dolce, e perfetto per schiarire le idee.', effect: { stamina: 15 } },
                     badge: { name: 'Tessera Diplomatica', icon: '🎫', type: 'gear', desc: 'Un documento ufficiale che garantisce immunità e accesso a zone riservate.' }
                 },
-                starterInventory: [
-                    { id: 'coffee', count: 2 },
-                    { id: 'notes', count: 1 },
-                    { id: 'badge', count: 1 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '💬', label: 'Dichiara', prefix: 'Dichiaro: "' },
                     { icon: '🤝', label: 'Negozia', prefix: 'Propongo un accordo su ' },
@@ -2297,11 +2272,7 @@
                     water: { name: 'Acqua di Fonte', icon: '💧', type: 'consumable', desc: 'Acqua fresca dalla sorgente del villaggio. Pura e cristallina come sempre.', effect: { stamina: 10 } },
                     herbs: { name: 'Erbe Medicinali', icon: '🌿', type: 'consumable', desc: 'Un mazzetto di erbe raccolte al mattino. Le nonne sanno come usarle per curare.', effect: { health: 10 } }
                 },
-                starterInventory: [
-                    { id: 'bread', count: 2 },
-                    { id: 'water', count: 2 },
-                    { id: 'herbs', count: 1 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '🌾', label: 'Coltiva', prefix: 'Coltivo ' },
                     { icon: '🚜', label: 'Lavora', prefix: 'Lavoro su ' },
@@ -2334,11 +2305,7 @@
                     hardtack: { name: 'Galletta di Mare', icon: '🥖', type: 'consumable', desc: 'Biscotto duro come pietra che dura mesi. Meglio ammollarlo nel rum prima di morderlo.', effect: { hunger: 20 } },
                     bandage: { name: 'Bendaggio da Bordo', icon: '🩹', type: 'consumable', desc: 'Strisce di stoffa dalla cambusa. Non sono pulite, ma chiudono le ferite da sciabola.', effect: { health: 15 } }
                 },
-                starterInventory: [
-                    { id: 'rum', count: 2 },
-                    { id: 'hardtack', count: 3 },
-                    { id: 'bandage', count: 1 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '💬', label: 'Arremba', prefix: 'Arrembo ' },
                     { icon: '⚓', label: 'Manovra', prefix: 'Manovro verso ' },
@@ -2371,11 +2338,7 @@
                     gadget: { name: 'Gadget Q-Tech', icon: '📟', type: 'gear', desc: 'Un dispositivo multifunzione dall\'aspetto innocuo. Scanner, jammer e localizzatore in uno.' },
                     medkit: { name: 'Kit Medico Compatto', icon: '🩺', type: 'consumable', desc: 'Un astuccio nero con suture rapide e antidolorifici. Progettato per auto-medicazione sul campo.', effect: { health: 20 } }
                 },
-                starterInventory: [
-                    { id: 'energy', count: 2 },
-                    { id: 'gadget', count: 1 },
-                    { id: 'medkit', count: 1 }
-                ],
+                starterInventory: [],
                 quickActions: [
                     { icon: '👁️', label: 'Osserva', prefix: 'Osservo ' },
                     { icon: '💻', label: 'Hack', prefix: 'Hackero ' },
@@ -2747,7 +2710,8 @@
                 }
             } else {
                 const item = G.character.inventory[foodIdx];
-                const data = catalog[item.id];
+                const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
+                const data = catalog[normalizedId] || catalog[item.id];
                 
                 if (data?.effect?.hunger) {
                     G.character.hunger.cur = Math.min(G.character.hunger.max, G.character.hunger.cur + data.effect.hunger);
@@ -2988,11 +2952,20 @@
             for (let i = 0; i < totalSlots; i++) {
                 const item = c.inventory[i];
                 if (item) {
-                    const data = catalog[item.id] || { icon: '📦', name: item.id, type: 'misc' };
+                    const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
+                    const data = catalog[normalizedId] || catalog[item.id] || {};
+                    const name = item.name || data.name || (item.id ? item.id.replace(/_/g, ' ') : 'Oggetto');
+                    const icon = item.icon || data.icon || '📦';
+                    const desc = item.description || data.desc;
+                    const value = item.value !== undefined ? item.value : data.value;
+                    const tooltipParts = [name];
+                    if (desc) tooltipParts.push(desc);
+                    if (value !== undefined) tooltipParts.push(`Valore: ${formatCurrency(value)}`);
+                    const tooltip = tooltipParts.join(' • ').replace(/"/g, "'");
                     // Aggiungiamo onclick per SELEZIONARE invece di usare direttamente
                     invHtml += `
-                        <div class="inv-slot" onclick="selectItem(${i})" id="slot-${i}" title="${data.name}">
-                            ${data.icon}
+                        <div class="inv-slot" onclick="selectItem(${i})" id="slot-${i}" title="${tooltip}">
+                            ${icon}
                             ${item.count > 1 ? `<span class="count">${item.count}</span>` : ''}
                         </div>`;
                 } else {
@@ -3070,43 +3043,44 @@
 
         function renderItemDetails(item, index) {
             const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
-            // Fallback se l'oggetto non è nel catalogo (es. creato dall'IA)
-            const data = catalog[item.id] || { 
-                name: item.id.charAt(0).toUpperCase() + item.id.slice(1).replace(/_/g, ' '), 
-                icon: '📦', 
-                type: 'general',
-                desc: 'Un oggetto misterioso trovato durante l\'avventura.' 
-            };
+            const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
+            const catalogData = catalog[normalizedId] || catalog[item.id] || {};
+            const fallbackName = item.id ? item.id.charAt(0).toUpperCase() + item.id.slice(1).replace(/_/g, ' ') : 'Oggetto';
+            const name = item.name || catalogData.name || fallbackName;
+            const icon = item.icon || catalogData.icon || '📦';
+            const type = item.type || catalogData.type || 'general';
+            const effect = catalogData.effect || item.effect;
+            const value = item.value !== undefined ? item.value : catalogData.value;
+            const description = item.description || catalogData.desc || (type === 'consumable' ? "Può essere consumato per recuperare forze." : "Un oggetto utile per l'avventura.");
 
             // Determina etichetta tipo
             let typeLabel = 'Oggetto';
             let typeClass = 'misc';
-            if (data.type === 'consumable') { typeLabel = 'Consumabile'; typeClass = 'consumable'; }
-            if (data.type === 'gear') { typeLabel = 'Equipaggiamento'; typeClass = 'gear'; }
-            if (data.type === 'weapon') { typeLabel = 'Arma'; typeClass = 'weapon'; }
+            if (type === 'consumable') { typeLabel = 'Consumabile'; typeClass = 'consumable'; }
+            if (type === 'gear') { typeLabel = 'Equipaggiamento'; typeClass = 'gear'; }
+            if (type === 'weapon') { typeLabel = 'Arma'; typeClass = 'weapon'; }
 
             // Costruisci lista effetti
             let statsHtml = '';
-            if (data.effect) {
+            if (effect) {
                 statsHtml += '<div class="item-stats">';
-                if (data.effect.health) statsHtml += `<div class="stat-line"><span>❤️ Salute</span> <span>+${data.effect.health}</span></div>`;
-                if (data.effect.stamina) statsHtml += `<div class="stat-line"><span>⚡ Energia</span> <span>+${data.effect.stamina}</span></div>`;
-                if (data.effect.hunger) statsHtml += `<div class="stat-line"><span>🍖 Sazietà</span> <span>+${data.effect.hunger}</span></div>`;
-                if (data.effect.mana) statsHtml += `<div class="stat-line"><span>💜 Mana</span> <span>+${data.effect.mana}</span></div>`;
+                if (effect.health) statsHtml += `<div class="stat-line"><span>❤️ Salute</span> <span>+${effect.health}</span></div>`;
+                if (effect.stamina) statsHtml += `<div class="stat-line"><span>⚡ Energia</span> <span>+${effect.stamina}</span></div>`;
+                if (effect.hunger) statsHtml += `<div class="stat-line"><span>🍖 Sazietà</span> <span>+${effect.hunger}</span></div>`;
+                if (effect.mana) statsHtml += `<div class="stat-line"><span>💜 Mana</span> <span>+${effect.mana}</span></div>`;
                 statsHtml += '</div>';
             } else {
                 statsHtml = '<div class="item-stats" style="color:var(--ink-light); font-style:italic; font-size:0.9em;">Nessun effetto immediato</div>';
             }
 
-            // Descrizione
-            const description = data.desc || (data.type === 'consumable' ? "Può essere consumato per recuperare forze." : "Un oggetto utile per l'avventura.");
+            const valueHtml = value !== undefined ? `<div class="item-value">Valore stimato: <strong>${formatCurrency(value)}</strong></div>` : '';
 
             const html = `
                 <div class="item-card">
                     <div class="item-card-header">
-                        <div class="item-big-icon">${data.icon}</div>
+                        <div class="item-big-icon">${icon}</div>
                         <div class="item-title-block">
-                            <h3>${data.name}</h3>
+                            <h3>${name}</h3>
                             <span class="item-type-badge ${typeClass}">${typeLabel}</span>
                             <div style="font-size: 0.85em; color: var(--ink-light); margin-top: 2px;">Quantità: ${item.count}</div>
                         </div>
@@ -3116,10 +3090,12 @@
                         "${description}"
                     </div>
 
+                    ${valueHtml}
+
                     ${statsHtml}
 
                     <div class="item-actions">
-                        ${data.type === 'consumable' ? 
+                        ${type === 'consumable' ? 
                             `<button class="btn primary btn-use" onclick="useInventoryItem(${index})">Usa Oggetto</button>` : 
                             `<button class="btn secondary btn-use" disabled>Non usabile</button>`
                         }
@@ -3135,7 +3111,8 @@
             if (!item) return;
 
             const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
-            const data = catalog[item.id];
+            const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
+            const data = catalog[normalizedId] || catalog[item.id] || item;
 
             if (data?.type === 'consumable' && data.effect) {
                 // Applica effetti
@@ -3317,33 +3294,52 @@
             }
         }
 
-        function addLootToInventory(itemId, qty) {
+        function addLootToInventory(itemId, qty = 1, meta = {}) {
             const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
-            let itemData = catalog[itemId];
-            
-            // Se l'oggetto non esiste nel catalogo predefinito, creane uno generico
-            if (!itemData) {
-                itemData = {
-                    name: itemId.charAt(0).toUpperCase() + itemId.slice(1).replace(/_/g, ' '),
-                    icon: '📦',
-                    type: 'general'
-                };
-                // Aggiungilo temporaneamente al catalogo locale per visualizzarlo bene (opzionale, ma utile)
-                // Nota: In questa versione semplice, ci fidiamo dell'ID
-            }
+            const safeName = (itemId || 'oggetto').toString().trim();
+            const normalizedId = safeName.toLowerCase().replace(/\s+/g, '_');
+            const catalogData = catalog[normalizedId];
+            const cleanValue = (typeof meta.value === 'number' && !Number.isNaN(meta.value)) ? meta.value : undefined;
+
+            let itemData = catalogData ? { ...catalogData } : {
+                name: safeName.charAt(0).toUpperCase() + safeName.slice(1),
+                icon: meta.icon || '📦',
+                type: meta.type || 'general',
+                desc: meta.description || ''
+            };
+
+            if (meta.description && !itemData.desc) itemData.desc = meta.description;
+            if (meta.icon && !itemData.icon) itemData.icon = meta.icon;
+            if (cleanValue !== undefined) itemData.value = cleanValue;
 
             // Cerca se esiste già nell'inventario
-            const existingItem = G.character.inventory.find(i => i.id === itemId);
+            const existingItem = G.character.inventory.find(i => 
+                i.id === normalizedId || 
+                i.id === safeName || 
+                (typeof i.id === 'string' && i.id.replace(/\s+/g, '_') === normalizedId)
+            );
             if (existingItem) {
                 existingItem.count += qty;
+                if (meta.description && !existingItem.description) existingItem.description = meta.description;
+                if (cleanValue !== undefined) existingItem.value = cleanValue;
+                if (meta.icon && !existingItem.icon) existingItem.icon = meta.icon;
+                if (!existingItem.name && itemData.name) existingItem.name = itemData.name;
+                if (!existingItem.type && itemData.type) existingItem.type = itemData.type;
             } else {
-                // Cerca uno slot vuoto o aggiungi
-                G.character.inventory.push({ id: itemId, count: qty });
+                G.character.inventory.push({
+                    id: normalizedId,
+                    count: qty,
+                    name: meta.name || itemData.name || safeName,
+                    description: meta.description || itemData.desc,
+                    value: cleanValue !== undefined ? cleanValue : itemData.value,
+                    icon: itemData.icon,
+                    type: itemData.type
+                });
             }
 
-            const name = itemData.name || itemId;
-            notify(`Trovato: ${name} (x${qty})`, 'success');
-            addStoryEntry(`📦 Hai ottenuto: ${name} x${qty}`, 'mechanic');
+            const displayName = meta.name || itemData.name || safeName;
+            notify(`Trovato: ${displayName} (x${qty})`, 'success');
+            addStoryEntry(`📦 Hai ottenuto: ${displayName} x${qty}`, 'mechanic');
             updateCharacterUI();
         }
 
@@ -3797,29 +3793,41 @@
 AMBIENTAZIONE: ${story.setting}
 ${story.desc || ''}
 
-STILE: ${story.personality || 'Narratore evocativo e cinematografico: descrizioni sensoriali, ritmo dinamico, chiudi ogni scena con un dettaglio forte'}
+STILE: ${story.personality || 'Narratore evocativo.'}
 
-📅 DATA E ORA ATTUALI:
-- ${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}
-- Ore ${getTimeString()} - ${period.name}
-- Stagione: ${season}
+DATI GIOCO:
 - Turno: ${G.worldMemory.turnCount}
+- Soldi: ${formatCurrency(c.gold)}
+- Salute: ${c.health.cur}/${c.health.max}
 
-👤 STATO DEL PROTAGONISTA:
-- Nome: ${c.name} (${o.name} / ${a.name})
-- Livello: ${c.level}
-- Statistiche: ${formatStatSummary(c)}
-- Salute: ${c.health.cur}/${c.health.max} HP
-- Energia: ${c.stamina.cur}/${c.stamina.max} ⚡
-- Fame: ${c.hunger.cur}/${c.hunger.max} 🍖
-- Valuta: ${formatCurrency(c.gold)} (${c.currency?.name || c.currency?.short || 'soldi'})
-${criticalConditions ? '\n🚨 CONDIZIONI CRITICHE:' + criticalConditions : ''}
+⚠️ REGOLA FONDAMENTALE - SINCRONIZZAZIONE INVENTARIO ⚠️
+L'inventario del giocatore DEVE rispecchiare ESATTAMENTE ciò che scrivi.
+Ogni volta che descrivi che il protagonista:
+1. Ha un equipaggiamento iniziale (vestiti, armi, oggetti in tasca).
+2. Trova un oggetto.
+3. Compra qualcosa.
+4. Riceve un dono.
+
+DEVI ASSOLUTAMENTE generare il tag [LOOT] subito dopo la descrizione.
+Formato: [LOOT: Nome Oggetto | quantità | breve descrizione | valore opzionale | icona opzionale]
+
+ESEMPI:
+- Testo: "Indossi un vecchio mantello logoro e stringi un pugnale arrugginito."
+  Comando: [LOOT: Mantello Logoro|1|Vecchio e consunto|5|🧥] [LOOT: Pugnale Arrugginito|1|Poco affilato|10|🗡️]
+
+- Testo: "Il barista ti porge una birra gelata."
+  Comando: [LOOT: Birra Gelata|1|Rinfrescante|5|🍺]
+
+- Testo: "Nel cassetto trovi una chiave d'argento."
+  Comando: [LOOT: Chiave d'Argento|1|Apre la porta sul retro|0|🗝️]
+
+NON limitarti a descrivere gli oggetti a parole. Se non usi il tag [LOOT], l'oggetto NON ESISTE nell'inventario del giocatore.
 
 🎲 SISTEMA DI RISOLUZIONE:
 ${getResolutionText(story)}
 
-🧠 **MEMORIA DEL MONDO**:
-${worldMemorySummary || 'Nessuna memoria registrata ancora.'}
+🧠 MEMORIA:
+${worldMemorySummary}
 
 ⏰ **TEMPO E FATICA - IMPORTANTISSIMO!**
 DEVI SEMPRE usare [TEMPO: +X] per indicare i minuti che passano. Sii REALISTICO:
@@ -3857,9 +3865,6 @@ ATTIVITÀ LUNGHE (ore):
 1. **SOLDI**: [MECCANICA: soldi=50] o [MECCANICA: soldi=-20]
    *I debiti sono permessi!*
 
-2. **OGGETTI**: [LOOT: id_oggetto|quantità]
-   *ID Validi:* ${validItems}
-
 3. **PROPRIETÀ/BENI**: [PROPRIETA: Nome|Descrizione|Bonus/entrate]
    *Case, negozi, titoli, licenze, terreni o beni durevoli vanno qui!*
 
@@ -3882,8 +3887,10 @@ NON usare markdown per il testo narrativo.
                 userMsg = `Inizia la storia. È ${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}, ${period.name}.
 ${story.prologue || 'Il protagonista inizia la sua avventura.'}
 
-Descrivi la scena iniziale e l'equipaggiamento o le risorse iniziali del protagonista.
-IMPORTANTE: Se nel prologo il protagonista ha dei soldi o oggetti extra, USA SUBITO i tag [MECCANICA: soldi=X] e [LOOT: id|qty] per assegnarli!`;
+TUO COMPITO ORA:
+1. Descrivi la scena iniziale e dove si trova il protagonista.
+2. Descrivi cosa indossa e cosa ha nelle tasche/zaino in questo momento.
+3. IMPORTANTE: Per OGNI oggetto o vestito che descrivi, genera SUBITO il tag [LOOT:...] corrispondente, altrimenti l'inventario sarà vuoto!`;
             } else {
                 const debtInfo = c.gold < 0 ? ` | ⚠️DEBITO: ${Math.abs(c.gold)}` : '';
                 userMsg = `[Turno: ${G.worldMemory.turnCount} | HP ${c.health.cur}/${c.health.max} | ⚡${c.stamina.cur} | 🍖${c.hunger.cur} | 💰${c.gold}${debtInfo}]
@@ -3954,11 +3961,17 @@ RICORDA:
             }
 
             // Extract LOOT (inventory items)
-            const lootRe = /\[LOOT:\s*([^|]+)\|?(\d+)?\]/gi;
+            const lootRe = /\[LOOT:\s*([^\]]+)\]/gi;
             while ((m = lootRe.exec(response)) !== null) {
-                const itemId = m[1].trim().toLowerCase();
-                const qty = parseInt(m[2]) || 1;
-                addLootToInventory(itemId, qty);
+                const raw = m[1];
+                const parts = raw.split('|').map(p => p.trim());
+                const itemName = parts[0] || '';
+                const qty = parseInt(parts[1]) || 1;
+                const description = parts[2] || '';
+                const rawValue = parts.length >= 4 ? parseInt(parts[3]) : undefined;
+                const value = Number.isFinite(rawValue) ? rawValue : undefined;
+                const icon = parts[4] || '';
+                addLootToInventory(itemName, qty, { description, value, icon });
             }
 
             // Extract NPCs
