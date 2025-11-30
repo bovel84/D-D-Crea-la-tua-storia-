@@ -302,68 +302,120 @@
         }
 
         .story-entry {
+            position: relative;
             margin-bottom: 15px;
-            padding: 12px 15px;
-            border-radius: 8px;
+            padding: 14px 16px 12px;
+            border-radius: 12px;
             line-height: 1.6;
-            animation: fadeIn 0.3s ease;
+            background: rgba(255,255,255,0.82);
+            border-left: 4px solid var(--ink);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+            overflow: hidden;
+            animation: entryPop 0.35s ease;
+        }
+
+        .story-entry::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 15% 20%, rgba(201, 162, 39, 0.12), transparent 40%);
+            pointer-events: none;
+        }
+
+        .story-entry-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .story-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.85em;
+            letter-spacing: 0.3px;
+            border: 1px solid rgba(0,0,0,0.08);
+            background: rgba(0,0,0,0.04);
+        }
+
+        .story-time {
+            font-size: 0.82em;
+            color: var(--ink-light);
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+
+        .story-entry-text p {
+            margin-bottom: 8px;
+        }
+
+        .story-entry-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .story-entry.narrator {
+            background: linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0.35));
+            border-left-color: var(--gold);
+            font-size: 1.05em;
+        }
+        .story-entry.narrator .story-badge { background: rgba(201,162,39,0.15); border-color: rgba(201,162,39,0.3); color: var(--gold-dark); }
+
+        .story-entry.player {
+            background: linear-gradient(135deg, rgba(30, 58, 95, 0.18), rgba(30, 58, 95, 0.08));
+            border-left-color: var(--sapphire);
+            font-weight: 600;
+        }
+        .story-entry.player .story-badge { background: rgba(30,58,95,0.15); border-color: rgba(30,58,95,0.25); color: var(--sapphire); }
+
+        .story-entry.system {
+            background: linear-gradient(135deg, rgba(0,0,0,0.08), rgba(0,0,0,0.03));
+            border-left-color: var(--ink-light);
+            font-style: italic;
+            color: var(--ink-light);
+            font-size: 0.9em;
+        }
+        .story-entry.system .story-badge { background: rgba(0,0,0,0.12); border-color: rgba(0,0,0,0.25); color: var(--ink); }
+
+        .story-entry.mechanic {
+            background: linear-gradient(135deg, rgba(46, 139, 87, 0.18), rgba(46, 139, 87, 0.08));
+            border-left-color: var(--emerald);
+            font-family: 'Cinzel', serif;
+            font-size: 0.95em;
+        }
+        .story-entry.mechanic .story-badge { background: rgba(46,139,87,0.18); border-color: rgba(46,139,87,0.35); color: var(--emerald); }
+
+        .story-entry.dice-roll {
+            background: linear-gradient(135deg, rgba(201, 162, 39, 0.22), rgba(201, 162, 39, 0.1));
+            border-left-color: var(--gold);
+            font-family: 'Cinzel', serif;
+        }
+        .story-entry.dice-roll .story-badge { background: rgba(201,162,39,0.18); border-color: rgba(201,162,39,0.35); color: var(--gold-dark); }
+
+        .story-entry.memory-update {
+            background: linear-gradient(135deg, rgba(107, 46, 155, 0.18), rgba(107, 46, 155, 0.08));
+            border-left-color: var(--purple);
+            font-size: 0.85em;
+        }
+        .story-entry.memory-update .story-badge { background: rgba(107,46,155,0.16); border-color: rgba(107,46,155,0.32); color: var(--purple); }
+
+        .story-entry em {
+            font-style: italic;
+            color: var(--ink-light);
+        }
+
+        @keyframes entryPop {
+            from { transform: translateY(10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
-        }
-
-        .story-entry p {
-            margin-bottom: 8px;
-        }
-
-        .story-entry p:last-child {
-            margin-bottom: 0;
-        }
-
-        .story-entry.narrator {
-            background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255,255,255,0.3));
-            border-left: 4px solid var(--gold);
-            font-size: 1.05em;
-        }
-
-        .story-entry.player {
-            background: linear-gradient(135deg, rgba(30, 58, 95, 0.15), rgba(30, 58, 95, 0.05));
-            border-left: 4px solid var(--sapphire);
-            font-weight: 600;
-        }
-
-        .story-entry.system {
-            background: rgba(0,0,0,0.05);
-            font-style: italic;
-            color: var(--ink-light);
-            padding: 8px 15px;
-            font-size: 0.9em;
-        }
-
-        .story-entry.mechanic {
-            background: linear-gradient(135deg, rgba(46, 139, 87, 0.15), rgba(46, 139, 87, 0.05));
-            border-left: 4px solid var(--emerald);
-            font-family: 'Cinzel', serif;
-            font-size: 0.95em;
-        }
-
-        .story-entry.dice-roll {
-            background: linear-gradient(135deg, rgba(201, 162, 39, 0.2), rgba(201, 162, 39, 0.1));
-            border-left: 4px solid var(--gold);
-            font-family: 'Cinzel', serif;
-        }
-
-        .story-entry.memory-update {
-            background: linear-gradient(135deg, rgba(107, 46, 155, 0.15), rgba(107, 46, 155, 0.05));
-            border-left: 4px solid var(--purple);
-            font-size: 0.85em;
-        }
-
-        .story-entry em {
-            font-style: italic;
-            color: var(--ink-light);
         }
 
         /* Suggestions */
@@ -747,9 +799,10 @@
 
         .inv-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
             gap: 8px;
             margin-bottom: 15px;
+            align-content: start;
         }
         .inv-list {
             margin-top: 8px;
@@ -841,6 +894,26 @@
             font-size: 0.85em;
             color: var(--ink-light);
         }
+
+        /* Properties & Abilities recap */
+        .property-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: linear-gradient(135deg, rgba(201, 162, 39, 0.12), rgba(201, 162, 39, 0.04));
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            align-items: flex-start;
+        }
+        .property-item.ability {
+            background: linear-gradient(135deg, rgba(46, 139, 87, 0.12), rgba(46, 139, 87, 0.05));
+        }
+        .property-icon { font-size: 1.4em; }
+        .property-info { flex: 1; }
+        .property-name { font-weight: 700; font-family: 'Cinzel', serif; }
+        .property-desc { font-size: 0.9em; color: var(--ink); }
+        .property-meta { font-size: 0.85em; color: var(--ink-light); }
 
         /* World Memory Modal */
         .memory-section {
@@ -1156,6 +1229,8 @@
             flex: 1;
             border-right: 1px solid rgba(0,0,0,0.1);
             padding-right: 15px;
+            max-height: 420px;
+            overflow-y: auto;
         }
 
         .inv-right-col {
@@ -1167,7 +1242,7 @@
         /* Griglia più compatta */
         .inv-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
             gap: 8px;
             align-content: start;
         }
@@ -1303,7 +1378,7 @@
         @media (max-width: 600px) {
             .inv-container { flex-direction: column; }
             .inv-left-col { border-right: none; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 15px; }
-            .inv-grid { grid-template-columns: repeat(5, 1fr); }
+            .inv-grid { grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); }
         }
     </style>
 </head>
@@ -1455,7 +1530,7 @@
             <div class="modal-body">
                 <div class="inv-header">
                     <span class="inv-gold">💰 <span id="inv-gold">0</span></span>
-                    <span class="inv-weight">📦 Spazio: <span id="inv-count">0</span>/20</span>
+                    <span class="inv-weight">📦 Spazio: <span id="inv-count">0</span>/<span id="inv-capacity">20</span></span>
                 </div>
 
                 <div class="inv-container">
@@ -1474,6 +1549,16 @@
                 <div class="special-items">
                     <h4>🔮 Oggetti Chiave & Memoria</h4>
                     <div id="special-items-list"></div>
+                </div>
+
+                <div class="special-items">
+                    <h4>🏰 Proprietà & Beni</h4>
+                    <div id="properties-list"></div>
+                </div>
+
+                <div class="special-items">
+                    <h4>✨ Abilità Registrate</h4>
+                    <div id="inventory-abilities"></div>
                 </div>
             </div>
         </div>
@@ -1758,6 +1843,7 @@
                 events: [],         // { id, summary, turn, importance }
                 acquiredItems: [],  // { id, name, description, icon, acquiredAt }
                 acquiredAbilities: [], // { id, name, description, acquiredAt }
+                properties: [],     // { id, name, description, notes, acquiredAt }
                 storySummary: '',   // Riassunto compresso della storia
                 lastSummaryTurn: 0,
                 turnCount: 0
@@ -2850,12 +2936,14 @@
             
             // Calcolo slot occupati
             const itemCount = c.inventory.length;
+            const totalSlots = Math.max(20, itemCount);
             if ($('inv-count')) $('inv-count').textContent = itemCount;
+            if ($('inv-capacity')) $('inv-capacity').textContent = totalSlots;
 
             let invHtml = '';
             
-            // Genera 20 slot fissi (o più se necessario)
-            for (let i = 0; i < 20; i++) {
+            // Genera slot dinamici (minimo 20)
+            for (let i = 0; i < totalSlots; i++) {
                 const item = c.inventory[i];
                 if (item) {
                     const data = catalog[item.id] || { icon: '📦', name: item.id, type: 'misc' };
@@ -2882,6 +2970,33 @@
                 </div>
             `).join('');
             $('special-items-list').innerHTML = specialHtml || '<p style="color: var(--ink-light); font-style: italic;">Nessun oggetto speciale</p>';
+
+            // Properties / Assets
+            const propertiesHtml = (G.worldMemory.properties || []).map(p => `
+                <div class="property-item">
+                    <div class="property-icon">🏰</div>
+                    <div class="property-info">
+                        <div class="property-name">${p.name}</div>
+                        <div class="property-desc">${p.description || 'Nessuna descrizione'}</div>
+                        ${p.notes ? `<div class="property-meta">${p.notes}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+            const propFallback = '<p style="color: var(--ink-light); font-style: italic;">Nessuna proprietà registrata</p>';
+            if ($('properties-list')) $('properties-list').innerHTML = propertiesHtml || propFallback;
+
+            // Abilities recap inside inventory
+            const invAbilitiesHtml = (G.worldMemory.acquiredAbilities || []).map(ab => `
+                <div class="property-item ability">
+                    <div class="property-icon">✨</div>
+                    <div class="property-info">
+                        <div class="property-name">${ab.name}</div>
+                        <div class="property-desc">${ab.description}</div>
+                    </div>
+                </div>
+            `).join('');
+            const abilityFallback = '<p style="color: var(--ink-light); font-style: italic;">Nessuna abilità segnata</p>';
+            if ($('inventory-abilities')) $('inventory-abilities').innerHTML = invAbilitiesHtml || abilityFallback;
             
             checkStatusEffects();
         }
@@ -3142,6 +3257,24 @@
             }
         }
 
+        function addProperty(name, description, notes = '') {
+            if (!name) return;
+            const existing = G.worldMemory.properties.find(p => p.name.toLowerCase() === name.toLowerCase());
+            if (existing) {
+                if (description) existing.description = description;
+                if (notes) existing.notes = notes;
+            } else {
+                G.worldMemory.properties.push({
+                    id: Date.now(),
+                    name,
+                    description,
+                    notes,
+                    acquiredAt: G.worldMemory.turnCount
+                });
+                addStoryEntry(`🏰 Nuova proprietà: ${name}`, 'memory-update');
+            }
+        }
+
         function addLootToInventory(itemId, qty) {
             const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
             let itemData = catalog[itemId];
@@ -3204,6 +3337,13 @@
                 summary += '\n🔮 OGGETTI SPECIALI POSSEDUTI:\n';
                 wm.acquiredItems.forEach(item => {
                     summary += `- ${item.name}: ${item.description}\n`;
+                });
+            }
+
+            if (wm.properties?.length > 0) {
+                summary += '\n🏰 PROPRIETÀ E BENI:\n';
+                wm.properties.forEach(p => {
+                    summary += `- ${p.name}: ${p.description}${p.notes ? ` (${p.notes})` : ''}\n`;
                 });
             }
 
@@ -3345,9 +3485,10 @@
             G.time = JSON.parse(JSON.stringify(s.time || { day: 1, month: 1, year: 1400, hour: 8, minute: 0, dayName: 'Lunedì' }));
             G.worldMemory = JSON.parse(JSON.stringify(s.worldMemory || {
                 npcs: [], locations: [], quests: [], events: [],
-                acquiredItems: [], acquiredAbilities: [],
+                acquiredItems: [], acquiredAbilities: [], properties: [],
                 storySummary: '', lastSummaryTurn: 0, turnCount: 0
             }));
+            G.worldMemory.properties = G.worldMemory.properties || [];
             G.isPlaying = true;
             
             closeAllModals();
@@ -3379,6 +3520,7 @@
                 events: [],
                 acquiredItems: [],
                 acquiredAbilities: [],
+                properties: [],
                 storySummary: '',
                 lastSummaryTurn: 0,
                 turnCount: 0
@@ -3433,7 +3575,33 @@
             
             if (!formatted) formatted = `<p>${text.replace(/\n/g, '<br>')}</p>`;
             
-            div.innerHTML = formatted;
+            const typeLabels = {
+                narrator: 'Narratore',
+                player: 'Azione del Giocatore',
+                system: 'Sistema',
+                mechanic: 'Meccanica',
+                'dice-roll': 'Tiro',
+                'memory-update': 'Memoria'
+            };
+            const typeIcons = {
+                narrator: '✦',
+                player: '⚔️',
+                system: '⚙️',
+                mechanic: '➕',
+                'dice-roll': '🎲',
+                'memory-update': '🗝️'
+            };
+            const badge = `${typeIcons[type] || '✶'} ${typeLabels[type] || 'Narrazione'}`;
+            const timeLabel = G?.isPlaying ? `${getTimeString()} · Turno ${G.worldMemory?.turnCount ?? 0}` : '';
+            
+            div.innerHTML = `
+                <div class="story-entry-head">
+                    <span class="story-badge">${badge}</span>
+                    ${timeLabel ? `<span class="story-time">${timeLabel}</span>` : ''}
+                </div>
+                <div class="story-entry-text">${formatted}</div>
+            `;
+
             $('story-scroll').appendChild(div);
             // Porta il nuovo messaggio in alto per leggerlo dall'inizio senza dover scrollare manualmente
             div.scrollIntoView({ block: 'start' });
@@ -3562,7 +3730,7 @@
 AMBIENTAZIONE: ${story.setting}
 ${story.desc || ''}
 
-STILE: ${story.personality || 'Narratore evocativo e coinvolgente'}
+STILE: ${story.personality || 'Narratore evocativo e cinematografico: descrizioni sensoriali, ritmo dinamico, chiudi ogni scena con un dettaglio forte'}
 
 📅 DATA E ORA ATTUALI:
 - ${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}
@@ -3625,11 +3793,14 @@ ATTIVITÀ LUNGHE (ore):
 2. **OGGETTI**: [LOOT: id_oggetto|quantità]
    *ID Validi:* ${validItems}
 
-3. **DANNI/CURE**: [MECCANICA: danno=10] o [MECCANICA: cura=15]
+3. **PROPRIETÀ/BENI**: [PROPRIETA: Nome|Descrizione|Bonus/entrate]
+   *Case, negozi, titoli, licenze, terreni o beni durevoli vanno qui!*
 
-4. **ESPERIENZA**: [MECCANICA: exp=25]
+4. **DANNI/CURE**: [MECCANICA: danno=10] o [MECCANICA: cura=15]
 
-5. **MEMORIA**:
+5. **ESPERIENZA**: [MECCANICA: exp=25]
+
+6. **MEMORIA**:
    [NPC: Nome | Descrizione | Relazione]
    [LUOGO: Nome | Descrizione]
    [QUEST: Nome | Descrizione | active/completed]
@@ -3656,7 +3827,8 @@ RICORDA:
 - [MECCANICA: stamina=-X] per la fatica (lavori pesanti = -30/-50!)
 - Se ⚡ è basso, il PG fatica o non riesce a fare lavori pesanti
 - [MECCANICA: soldi=...] per transazioni
-- [LOOT:...] per oggetti trovati`;
+- [LOOT:...] per oggetti trovati
+- [PROPRIETA: Nome|Descrizione|Bonus] quando ottieni case/negozi/licenze/beni permanenti`;
             }
 
             let endpoint, model, headers;
@@ -3762,6 +3934,15 @@ RICORDA:
                 const desc = m[2].trim();
                 const icon = m[3].trim();
                 addSpecialItem(name, desc, icon);
+            }
+
+            // Extract Properties / Assets
+            const propertyRe = /\[PROPRIETA:\s*([^|]+)\|([^|]+)(?:\|([^\]]+))?\]/gi;
+            while ((m = propertyRe.exec(response)) !== null) {
+                const name = m[1].trim();
+                const desc = m[2].trim();
+                const notes = (m[3] || '').trim();
+                addProperty(name, desc, notes);
             }
 
             // Extract Abilities
