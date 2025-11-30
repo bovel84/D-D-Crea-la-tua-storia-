@@ -1726,6 +1726,10 @@
                     <label class="form-label">Prologo</label>
                     <textarea class="form-textarea" id="edit-story-prologue" placeholder="Il testo iniziale della storia..."></textarea>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Proprietà iniziali (una per riga: Nome | Descrizione | Note)</label>
+                    <textarea class="form-textarea" id="edit-story-properties" placeholder="Emporio Rossi | Piccolo negozio di famiglia | Puoi investirci o venderlo"></textarea>
+                </div>
                 <button class="btn primary" id="btn-save-story" style="width: 100%;">💾 Salva Storia</button>
             </div>
         </div>
@@ -2477,6 +2481,17 @@
             return base;
         }
 
+        // Starter properties helpers (garantiscono beni iniziali coerenti)
+        function applyStarterProperties(story) {
+            if (!story || !story.starterProperties) return;
+            story.starterProperties.forEach(p => {
+                const name = (p.name || '').trim();
+                if (!name) return;
+                const already = (G.worldMemory.properties || []).some(prop => prop.name.toLowerCase() === name.toLowerCase());
+                if (!already) addProperty(name, p.description || '', p.notes || '');
+            });
+        }
+
         // ==================== TIME MANAGEMENT ====================
         function getCurrentSeason() {
             return MONTHS[G.time.month - 1].season;
@@ -2784,6 +2799,24 @@
                 G.saves = p.saves || Array(6).fill(null);
                 G.settings = { ...G.settings, ...p.settings };
             }
+            // Migrazione: assicurati che la storia business abbia la proprietà eredita
+            let storiesChanged = false;
+            G.stories = (G.stories || []).map(s => {
+                if (s.title === 'Scalata al Successo' && !s.starterProperties) {
+                    storiesChanged = true;
+                    return {
+                        ...s,
+                        starterProperties: [
+                            {
+                                name: 'Emporio Rossi',
+                                description: 'Il piccolo negozio di famiglia appena ereditato. Clientela locale fedele, margini stretti.',
+                                notes: 'Puoi investire per ampliarlo o venderlo per fare cassa.'
+                            }
+                        ]
+                    };
+                }
+                return s;
+            });
             if (G.stories.length === 0) {
                 G.stories = [
                     { 
@@ -2806,9 +2839,18 @@
                         desc: 'Una storia moderna. Hai ereditato un piccolo negozio e sogni di costruire un impero commerciale.', 
                         personality: 'Narratore realistico. Dialoghi naturali e moderni.', 
                         depth: 'Ogni decisione economica ha conseguenze. I rapporti contano.',
-                        prologue: 'La serranda si alza con un cigolio familiare. "Emporio Rossi" - la vecchia insegna pende ancora sopra la porta. L\'avvocato ti ha dato le chiavi ieri, insieme a un conto quasi vuoto.'
+                        prologue: 'La serranda si alza con un cigolio familiare. "Emporio Rossi" - la vecchia insegna pende ancora sopra la porta. L\'avvocato ti ha dato le chiavi ieri, insieme a un conto quasi vuoto.',
+                        starterProperties: [
+                            {
+                                name: 'Emporio Rossi',
+                                description: 'Il piccolo negozio di famiglia appena ereditato. Clientela locale fedele, margini stretti.',
+                                notes: 'Puoi investire per ampliarlo o venderlo per fare cassa.'
+                            }
+                        ]
                     }
                 ];
+                save();
+            } else if (storiesChanged) {
                 save();
             }
         }
@@ -3402,6 +3444,13 @@
             $('edit-story-personality').value = story?.personality || '';
             $('edit-story-depth').value = story?.depth || '';
             $('edit-story-prologue').value = story?.prologue || '';
+            const props = story?.starterProperties || [];
+            $('edit-story-properties').value = props.map(p => {
+                const name = p.name || '';
+                const desc = p.description || '';
+                const notes = p.notes || '';
+                return `${name} | ${desc}${notes ? ` | ${notes}` : ''}`;
+            }).join('\n');
             openModal('modal-story-editor');
         }
 
@@ -3417,6 +3466,17 @@
                 depth: $('edit-story-depth').value,
                 prologue: $('edit-story-prologue').value
             };
+
+            // Parse proprietà iniziali dal textarea
+            const propsRaw = $('edit-story-properties').value.split('\n').map(l => l.trim()).filter(Boolean);
+            story.starterProperties = propsRaw.map(line => {
+                const parts = line.split('|').map(p => p.trim());
+                return {
+                    name: parts[0],
+                    description: parts[1] || '',
+                    notes: parts[2] || ''
+                };
+            }).filter(p => p.name);
 
             if (G.editingStory) {
                 const idx = G.stories.findIndex(s => s.id === G.editingStory.id);
@@ -3489,6 +3549,7 @@
                 storySummary: '', lastSummaryTurn: 0, turnCount: 0
             }));
             G.worldMemory.properties = G.worldMemory.properties || [];
+            applyStarterProperties(G.currentStory);
             G.isPlaying = true;
             
             closeAllModals();
@@ -3525,6 +3586,9 @@
                 lastSummaryTurn: 0,
                 turnCount: 0
             };
+
+            // Applica proprietà iniziali definite dalla storia
+            applyStarterProperties(G.currentStory);
             
             G.storyLog = [];
             G.history = [];
@@ -3547,6 +3611,9 @@
 
             $('story-scroll').innerHTML = '';
             G.storyLog.forEach(e => addStoryEntry(e.text, e.type, false));
+
+            // Se il salvataggio era vecchio e non aveva beni iniziali, sincronizza ora
+            applyStarterProperties(G.currentStory);
 
             if (G.storyLog.length === 0 && G.currentStory?.prologue) {
                 addStoryEntry(G.currentStory.prologue, 'narrator');
