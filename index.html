@@ -3134,7 +3134,7 @@
                 skills: {},
                 inventory: (genreCfg.starterInventory || []).map(i => ({ ...i })),
                 equipment: { weapon: null, armor: null, accessory: null },
-                gold: 100
+                gold: 0
             };
             Object.defineProperty(G.character, 'mana', {
                 get() { return this.secondary; },
@@ -3308,7 +3308,10 @@
                     const value = item.value !== undefined ? item.value : data.value;
                     const tooltipParts = [name];
                     if (desc) tooltipParts.push(desc);
-                    if (value !== undefined) tooltipParts.push(`Valore: ${formatCurrency(value)}`);
+                    if (value !== undefined && !item.financial) tooltipParts.push(`Valore: ${formatCurrency(value)}`);
+                    if (item.financial && Number.isFinite(item.balance)) {
+                        tooltipParts.push(`Saldo: ${formatCurrency(item.balance)}`);
+                    }
                     const tooltip = tooltipParts.join(' • ').replace(/"/g, "'");
                     // Aggiungiamo onclick per SELEZIONARE invece di usare direttamente
                     invHtml += `
@@ -3703,7 +3706,23 @@
                 });
                 addStoryEntry(`🏰 Nuova proprietà: ${name}`, 'memory-update');
             }
+            updateCharacterUI();
         }
+
+        function removeProperty(name) {
+            if (!name) return false;
+            const normalized = name.toLowerCase();
+            const before = G.worldMemory.properties.length;
+            G.worldMemory.properties = G.worldMemory.properties.filter(p => p.name.toLowerCase() !== normalized);
+            const removed = before !== G.worldMemory.properties.length;
+            if (removed) {
+                addStoryEntry(`🏚️ Proprietà rimossa: ${name}`, 'memory-update');
+                updateCharacterUI();
+            }
+            return removed;
+        }
+
+        const FINANCIAL_KEYWORDS = ['conto', 'conto corrente', 'libretto', 'libretto di deposito', 'deposito', 'carta di credito', 'carta di debito', 'carta prepagata', 'bancomat', 'libro mastro', 'registro contabile', 'registro di cassa', 'registro cassa', 'fondo cassa', 'cassaforte'];
 
         function addLootToInventory(itemId, qty = 1, meta = {}) {
             const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
@@ -3711,6 +3730,9 @@
             const normalizedId = safeName.toLowerCase().replace(/\s+/g, '_');
             const catalogData = catalog[normalizedId];
             const cleanValue = (typeof meta.value === 'number' && !Number.isNaN(meta.value)) ? meta.value : undefined;
+            const lowerName = safeName.toLowerCase();
+            const descriptionText = (meta.description || '').toLowerCase();
+            const isFinancialInstrument = FINANCIAL_KEYWORDS.some(keyword => lowerName.includes(keyword) || descriptionText.includes(keyword)) || meta.type === 'financial';
 
             let itemData = catalogData ? { ...catalogData } : {
                 name: safeName.charAt(0).toUpperCase() + safeName.slice(1),
@@ -3736,15 +3758,29 @@
                 if (meta.icon && !existingItem.icon) existingItem.icon = meta.icon;
                 if (!existingItem.name && itemData.name) existingItem.name = itemData.name;
                 if (!existingItem.type && itemData.type) existingItem.type = itemData.type;
+                if (isFinancialInstrument || existingItem.financial) {
+                    const deltaBalance = cleanValue !== undefined ? cleanValue : 0;
+                    existingItem.financial = true;
+                    if (!Number.isFinite(existingItem.balance)) {
+                        existingItem.balance = Number.isFinite(existingItem.value) ? existingItem.value : 0;
+                    }
+                    if (cleanValue !== undefined) {
+                        existingItem.balance += deltaBalance;
+                    }
+                    existingItem.value = existingItem.balance;
+                }
             } else {
+                const initialBalance = isFinancialInstrument ? (cleanValue !== undefined ? cleanValue : 0) : undefined;
                 G.character.inventory.push({
                     id: normalizedId,
                     count: qty,
                     name: meta.name || itemData.name || safeName,
                     description: meta.description || itemData.desc,
-                    value: cleanValue !== undefined ? cleanValue : itemData.value,
+                    value: isFinancialInstrument ? initialBalance : (cleanValue !== undefined ? cleanValue : itemData.value),
                     icon: itemData.icon,
-                    type: itemData.type
+                    type: isFinancialInstrument ? 'financial' : itemData.type,
+                    balance: initialBalance,
+                    financial: isFinancialInstrument
                 });
             }
 
@@ -3752,6 +3788,70 @@
             notify(`Trovato: ${displayName} (x${qty})`, 'success');
             addStoryEntry(`📦 Hai ottenuto: ${displayName} x${qty}`, 'mechanic');
             updateCharacterUI();
+        }
+
+        function normalizeKey(value) {
+            return (value || '').toString().trim().toLowerCase().replace(/\s+/g, '_');
+        }
+
+        function findInventoryItemByName(nameOrId) {
+            if (!nameOrId) return null;
+            const normalized = normalizeKey(nameOrId);
+            return G.character.inventory.find(item => {
+                const itemId = typeof item.id === 'string' ? normalizeKey(item.id) : null;
+                const itemName = normalizeKey(item.name || '');
+                return itemId === normalized || itemName === normalized;
+            }) || null;
+        }
+
+        function removeItemFromInventory(target, qty = 1) {
+            const item = typeof target === 'object' ? target : findInventoryItemByName(target);
+            if (!item) return null;
+
+            const fallbackName = item.name || (typeof item.id === 'string' ? item.id.replace(/_/g, ' ') : 'Oggetto');
+            const previousCount = item.count || 0;
+            const removeQty = (qty === undefined || qty === null) ? previousCount : qty;
+            const actualRemoved = Math.min(removeQty, previousCount);
+
+            item.count = Math.max(0, previousCount - actualRemoved);
+            let removedAll = false;
+            if (item.count <= 0) {
+                removedAll = true;
+                G.character.inventory = G.character.inventory.filter(i => i !== item);
+            }
+            updateCharacterUI();
+
+            return {
+                removed: actualRemoved,
+                remaining: removedAll ? 0 : item.count,
+                itemName: fallbackName,
+                removedAll,
+                originalCount: previousCount
+            };
+        }
+
+        function adjustFinancialInstrumentBalance(nameOrId, delta) {
+            if (!nameOrId || !delta) return;
+            const item = findInventoryItemByName(nameOrId);
+            if (!item) {
+                addStoryEntry(`⚠️ Strumento finanziario non trovato: ${nameOrId}`, 'system');
+                return;
+            }
+            item.financial = true;
+            if (!Number.isFinite(item.balance)) {
+                item.balance = Number.isFinite(item.value) ? item.value : 0;
+            }
+            item.balance += delta;
+            item.balance = Math.max(0, Math.round(item.balance * 100) / 100);
+            item.value = item.balance;
+
+            if (item.balance <= 0) {
+                const removal = removeItemFromInventory(item, item.count || 1);
+                addStoryEntry(`🗑️ ${item.name || nameOrId} esaurito e rimosso dall'inventario`, 'system');
+            } else {
+                addStoryEntry(`💼 ${item.name || nameOrId}: saldo aggiornato a ${formatCurrency(item.balance)}`, 'system');
+                updateCharacterUI();
+            }
         }
 
         function buildWorldMemorySummary() {
@@ -4187,7 +4287,10 @@
 
             // 1. CREAZIONE LISTA INVENTARIO CORRENTE (Fondamentale per i controlli)
             const inventoryList = c.inventory.length > 0 
-                ? c.inventory.map(i => `- ${i.name} (x${i.count})`).join('\n') 
+                ? c.inventory.map(i => {
+                    const saldo = (i.financial && Number.isFinite(i.balance)) ? ` | saldo: ${formatCurrency(i.balance)}` : '';
+                    return `- ${i.name} (x${i.count}${saldo})`;
+                }).join('\n') 
                 : "Nessun oggetto (Tasche vuote)";
 
             // Build world memory summary
@@ -4213,6 +4316,7 @@ REGOLE:
 - Quando serve, puoi evocare la “sorte” come se stessi tirando un dado, senza numeri espliciti.
 - Mantieni il mondo vivo: ambienti sensoriali, PNG con personalità, eventi che reagiscono alle scelte.
 - Non prendere mai decisioni per il giocatore; presenta sempre opzioni e lascia a lui la scelta.
+- Prima di concludere acquisti, contratti, promesse o altre azioni irreversibili, chiedi SEMPRE conferma esplicita al giocatore e attendi la risposta prima di applicare conseguenze.
 - Integra meccaniche di gioco (salute, energia, soldi, inventario) in modo fluido e naturale nella narrazione.
 - Usa i TAG MECCANICA e LOOT per modificare lo stato di gioco (salute, energia, soldi, inventario).
 
@@ -4262,7 +4366,27 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 🎒 **LOOT SOLO OGGETTI REALI**
 - Usa i tag [LOOT: ...] solo per oggetti fisici o risorse effettivamente ottenuti e trasportabili.
 - Non aggiungere nell'inventario elementi scenografici o non possedibili (es. "vista dalla finestra", mobili fissati, parti dell'ambiente, sensazioni).
+
+🗑️ **RIMUOVI OGGETTI ESAURITI**
+- Quando un oggetto come carta di credito o libretto di deposito viene usato completamente (saldo esaurito), usa [REMOVE: Nome Oggetto] per rimuoverlo dall'inventario.
+- Esempio: [REMOVE: Carta di Credito]
 - Gli oggetti che restano nel luogo vanno descritti nella narrazione senza usare [LOOT].
+
+♻️ **USO / VENDITA DI OGGETTI**
+- Quando consumi o usi risorse (pozione, razione, carburante, munizioni) usa [CONSUMA: Nome|Quantità] oppure [USA: Nome|Quantità].
+- Quando vendi o scambi un oggetto usa [VENDI: Nome|Quantità] assieme al relativo [MECCANICA: soldi=±X].
+- Per abbandonare o lasciare un oggetto usa [SCARTA: Nome|Quantità] (o [DROP: ...]).
+- Se la quantità non è specificata, l'oggetto viene rimosso interamente dall'inventario.
+
+🏦 **STRUMENTI FINANZIARI**
+- Quando prelevi o depositi denaro da conti, libretti, carte o registri, usa [FINANZA: Nome Oggetto|±importo] per aggiornare il saldo residuo di quell'oggetto.
+- Usa numeri positivi per depositi, numeri negativi per prelievi o spese.
+- Se il saldo scende a zero, aggiungi anche [REMOVE: Nome Oggetto] (oppure descrivi che viene archiviato o restituito).
+
+🏠 **PROPRIETÀ E BENI**
+- Usa [PROPRIETA: Nome|Descrizione|Note opzionali] quando acquisti o ottieni case, negozi, licenze, terreni o attività.
+- Quando vendi, perdi o cedi una proprietà, usa [REMOVE_PROPRIETA: Nome] (o [VENDI_PROPRIETA: Nome]) per rimuoverla dal registro.
+- Ricorda di applicare anche [MECCANICA: soldi=±X] per riflettere il guadagno o la spesa legata alla transazione.
 
 💰 **CAPITALE DISPONIBILE**
 - All'inizio della partita devi dichiarare chiaramente quante risorse economiche, contanti o crediti possiede il protagonista e come sono conservate (cassa, libro mastro, eredità, titoli, ecc.).
@@ -4283,7 +4407,8 @@ SCRIVI ${lengths[s.length]} di narrazione.`;
 ${story.prologue || 'Il protagonista inizia la sua avventura.'}
 Descrivi la scena e l'equipaggiamento iniziale (usa [LOOT] per dare gli oggetti iniziali).
 Metti in chiaro quanti ${c.currency?.short || 'soldi'} sono subito disponibili (${formatCurrency(c.gold)} secondo il sistema) e dove sono custoditi.
-Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa, libro mastro con 2000 fiorini) applica immediatamente [MECCANICA: soldi=±X] per riallineare il saldo e cita il registro o il contante come oggetto fisico con [LOOT: ...] quando opportuno.`;
+Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa, libro mastro con 2000 fiorini) applica immediatamente [MECCANICA: soldi=±X] per riallineare il saldo e cita il registro o il contante come oggetto fisico con [LOOT: ...] quando opportuno.
+Per conti, libretti, carte o registri con saldo, usa anche [FINANZA: Nome Oggetto|±X] per indicare l'importo depositato o prelevato.`;
             } else {
                 userMsg = `[Stato attuale: HP ${c.health.cur} | Energia ${c.stamina.cur} | Soldi ${c.gold}]
 Il giocatore dichiara: "${action}"
@@ -4292,7 +4417,20 @@ AGISCI DA ARBITRO:
 1. Controlla l'INVENTARIO e i SOLDI sopra.
 2. Il giocatore può farlo? 
    - SI -> Narra il successo e usa i tag [MECCANICA/LOOT].
-   - NO -> Narra il fallimento/rifiuto e NON usare i tag di ricompensa.`;
+    - NO -> Narra il fallimento/rifiuto e NON usare i tag di ricompensa.
+3. Se l'azione implica acquisti, contratti o decisioni irreversibili, chiedi conferma ("Vuoi procedere?") e attendi il prossimo input prima di applicare effetti.
+
+RICORDA:
+- [TEMPO: +X] per i minuti che passano (lavori pesanti = ORE, non minuti!)
+- [MECCANICA: stamina=-X] per la fatica (lavori pesanti = -30/-50!)
+- Se ⚡ è basso, il PG fatica o non riesce a fare lavori pesanti
+- [MECCANICA: soldi=...] per spese/guadagni
+- [FINANZA: Nome Oggetto|±X] per aggiornare conti, libretti, carte o registri
+- [CONSUMA/USA/VENDI/SCARTA: Nome|Q] per rimuovere oggetti usati, venduti o abbandonati
+- Prima di finalizzare acquisti, contratti o decisioni permanenti, chiedi conferma al giocatore (es. "Vuoi procedere?") e attendi la risposta prima di applicare tag o conseguenze
+- [LOOT:...] per oggetti trovati
+- [PROPRIETA: Nome|Descrizione|Bonus] quando ottieni case/negozi/licenze/beni permanenti
+- [REMOVE_PROPRIETA: Nome] (o [VENDI_PROPRIETA: Nome]) quando la proprietà viene ceduta o venduta`;
             }
 
             let endpoint, model, headers;
@@ -4390,7 +4528,79 @@ AGISCI DA ARBITRO:
                     addStoryEntry(`⚠️ Oggetto ignorato (non trasportabile): ${itemName}`, 'system');
                     continue;
                 }
-                addLootToInventory(itemName, qty, { description, value, icon });
+                // Check if it's currency
+                const currencyKeywords = ['moneta', 'soldo', 'euro', 'dollaro', 'doblone', 'fiorino', 'credito', 'banconota', 'monete', 'soldi'];
+                const isFinancialInstrumentLoot = FINANCIAL_KEYWORDS.some(keyword => lowerName.includes(keyword));
+                const isCurrency = !isFinancialInstrumentLoot && currencyKeywords.some(keyword => lowerName.includes(keyword));
+                if (isCurrency) {
+                    const amount = value || qty;
+                    G.character.gold += amount;
+                    addStoryEntry(`💰 Hai ottenuto ${amount} ${G.character.currency?.short || 'monete'} da ${itemName}`, 'system');
+                } else {
+                    addLootToInventory(itemName, qty, { description, value, icon });
+                }
+            }
+
+            // Extract FINANZA (financial instrument adjustments)
+            const financeRe = /\[FINANZA:\s*([^|]+)\|([^\]]+)\]/gi;
+            while ((m = financeRe.exec(response)) !== null) {
+                const itemId = m[1].trim();
+                const deltaRaw = m[2].trim();
+                const cleanedDelta = deltaRaw.replace(/[^0-9+\-.,]/g, '').replace(',', '.');
+                const normalizedDelta = parseFloat(cleanedDelta);
+                if (!Number.isNaN(normalizedDelta)) {
+                    adjustFinancialInstrumentBalance(itemId, normalizedDelta);
+                }
+            }
+
+            // Extract inventory usage/sale/discard commands
+            const inventoryCmdRe = /\[(CONSUMA|USA|USE|VENDI|SELL|SCARTA|DROP|CONSUME|UTILIZZA):\s*([^|\]]+)(?:\|([^\]]+))?\]/gi;
+            while ((m = inventoryCmdRe.exec(response)) !== null) {
+                const command = (m[1] || '').trim().toUpperCase();
+                const itemId = (m[2] || '').trim();
+                const qtyRaw = (m[3] || '').trim();
+                const qtyParsed = qtyRaw ? parseInt(qtyRaw.replace(/[^0-9-]/g, ''), 10) : undefined;
+                const qty = Number.isFinite(qtyParsed) ? Math.abs(qtyParsed) : undefined;
+                if (!itemId) continue;
+
+                const removal = removeItemFromInventory(itemId, Number.isFinite(qty) && qty > 0 ? qty : undefined);
+                if (!removal) {
+                    addStoryEntry(`⚠️ Oggetto non trovato (${command}): ${itemId}`, 'system');
+                    continue;
+                }
+                if (removal.removed <= 0) {
+                    addStoryEntry(`⚠️ Nessuna quantità rimossa per ${itemId}`, 'system');
+                    continue;
+                }
+
+                const commandMap = {
+                    'CONSUMA': { icon: '🥄', verb: 'Consumati' },
+                    'CONSUME': { icon: '🥄', verb: 'Consumati' },
+                    'USA': { icon: '⚙️', verb: 'Usati' },
+                    'USE': { icon: '⚙️', verb: 'Usati' },
+                    'UTILIZZA': { icon: '⚙️', verb: 'Usati' },
+                    'VENDI': { icon: '💼', verb: 'Venduti' },
+                    'SELL': { icon: '💼', verb: 'Venduti' },
+                    'SCARTA': { icon: '🗑️', verb: 'Scartati' },
+                    'DROP': { icon: '🗑️', verb: 'Scartati' }
+                };
+                const meta = commandMap[command] || { icon: '🗑️', verb: 'Rimossi' };
+                const countLabel = removal.removed > 1 ? `${removal.removed}x ` : removal.removed === 1 ? '' : '';
+                const suffix = removal.remaining > 0 ? ` (restano ${removal.remaining})` : ' (esaurito)';
+                addStoryEntry(`${meta.icon} ${meta.verb}: ${countLabel}${removal.itemName}${suffix}`, 'system');
+            }
+
+            // Extract REMOVE (remove items from inventory)
+            const removeRe = /\[REMOVE:\s*([^\]]+)\]/gi;
+            while ((m = removeRe.exec(response)) !== null) {
+                const itemId = m[1].trim();
+                const removal = removeItemFromInventory(itemId);
+                if (removal && removal.removed > 0) {
+                    const suffix = removal.remaining > 0 ? ` (restano ${removal.remaining})` : ' (esaurito)';
+                    addStoryEntry(`🗑️ Rimosso ${removal.itemName}${suffix}`, 'system');
+                } else {
+                    addStoryEntry(`⚠️ Oggetto non trovato (REMOVE): ${itemId}`, 'system');
+                }
             }
 
             // Extract NPCs
@@ -4442,6 +4652,16 @@ AGISCI DA ARBITRO:
                 const desc = m[2].trim();
                 const notes = (m[3] || '').trim();
                 addProperty(name, desc, notes);
+            }
+
+            const propertyRemoveRe = /\[(?:REMOVE_PROPRIETA|PROPRIETA_REMOVE|VENDI_PROPRIETA|PROPRIETA_VENDUTA|VENDE_PROPRIETA|SELL_PROPERTY):\s*([^\]]+)\]/gi;
+            while ((m = propertyRemoveRe.exec(response)) !== null) {
+                const name = (m[1] || '').trim();
+                if (!name) continue;
+                const removed = removeProperty(name);
+                if (!removed) {
+                    addStoryEntry(`⚠️ Proprietà non trovata: ${name}`, 'system');
+                }
             }
 
             // Extract Abilities
