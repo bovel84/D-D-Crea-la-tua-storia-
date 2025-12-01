@@ -1424,7 +1424,38 @@
         }
 
         /* Mobile Responsive */
+        @media (max-width: 900px) {
+            .game-topbar { padding: 10px 8px; }
+            .topbar-row { flex-direction: column; align-items: stretch; gap: 6px; }
+            .topbar-buttons { width: 100%; justify-content: space-between; }
+            .time-display { width: 100%; justify-content: space-between; }
+            .mini-stats { width: 100%; justify-content: space-between; }
+            .mini-bar { flex: 1; min-width: 0; height: 14px; }
+            .mini-bar + .mini-bar { margin-left: 6px; }
+            .mini-bar::before { left: 8px; transform: none; }
+            .mini-bar::after { right: 8px; }
+            .story-scroll { padding: 12px; }
+            .story-entry { padding: 12px 14px 10px; }
+            .input-area { padding: 12px; }
+        }
+
         @media (max-width: 600px) {
+            body { font-size: 15px; }
+            .home-container { padding: 0 10px; }
+            .home-title { font-size: 2em; }
+            .home-btn { padding: 14px 20px; font-size: 1em; }
+            .time-display { flex-wrap: wrap; gap: 6px; }
+            .mini-stats { flex-direction: column; gap: 12px; }
+            .mini-bar { height: 16px; }
+            .mini-bar::before { top: -16px; font-size: 0.65em; }
+            .mini-bar::after { font-size: 0.7em; }
+            .mini-bar + .mini-bar { margin-left: 0; }
+            .quick-actions { gap: 4px; }
+            .input-row { flex-direction: column; gap: 8px; }
+            .input-row button { width: 100%; }
+            .story-entry-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+            .story-time { font-size: 0.78em; }
+            .modal { max-height: 90vh; }
             .inv-container { flex-direction: column; }
             .inv-left-col { border-right: none; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 15px; }
             .inv-grid { grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); }
@@ -1758,6 +1789,10 @@
                         <option value="normal" selected>Normale</option>
                         <option value="hard">Difficile</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Capitale iniziale</label>
+                    <input type="number" class="form-input" id="edit-story-gold" placeholder="es. 2000">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Descrizione Mondo</label>
@@ -3381,6 +3416,7 @@
                 let staminaDelta = 0;
                 let hungerDelta = 0;
                 let secondaryDelta = 0;
+                let wealthDelta = 0;
                 const extraLines = [];
 
                 Object.entries(effect).forEach(([rawKey, rawVal]) => {
@@ -3392,6 +3428,8 @@
                         staminaDelta += amount;
                     } else if (['hunger', 'fame', 'sazieta', 'satiety'].includes(key)) {
                         hungerDelta += amount;
+                    } else if (['soldi', 'gold', 'money', 'denaro', 'cash', 'contanti', 'ricchezza', 'fiorini', 'fiorino'].includes(key)) {
+                        wealthDelta += amount;
                     } else if (matchesSecondaryKey(key, secState)) {
                         secondaryDelta += amount;
                     } else {
@@ -3408,6 +3446,11 @@
                 if (healthDelta) lines.push(formatLine('❤️', 'Salute', healthDelta));
                 if (staminaDelta) lines.push(formatLine('⚡', 'Energia', staminaDelta));
                 if (hungerDelta) lines.push(formatLine('🍖', 'Sazietà', hungerDelta));
+                if (wealthDelta) {
+                    const currencyIcon = G.character?.currency?.symbol || '💰';
+                    const currencyLabel = G.character?.currency?.short?.toUpperCase?.() || 'Denaro';
+                    lines.push(formatLine(currencyIcon, currencyLabel, wealthDelta));
+                }
                 if (secondaryDelta && secState) lines.push(formatLine(secState.icon || '💜', secState.label || 'Risorsa', secondaryDelta));
                 extraLines.forEach(extra => {
                     const icon = '📈';
@@ -3477,6 +3520,12 @@
                         G.character.stamina.cur = Math.min(G.character.stamina.max, Math.max(0, G.character.stamina.cur + amount));
                     } else if (['hunger', 'fame', 'sazieta', 'satiety'].includes(key) && G.character.hunger) {
                         G.character.hunger.cur = Math.min(G.character.hunger.max, Math.max(0, G.character.hunger.cur + amount));
+                    } else if (['soldi', 'gold', 'money', 'denaro', 'cash', 'contanti', 'ricchezza', 'fiorini', 'fiorino'].includes(key)) {
+                        const prevGold = G.character.gold;
+                        G.character.gold = G.character.gold + amount;
+                        const deltaGold = G.character.gold - prevGold;
+                        const symbol = G.character.currency?.symbol || G.character.currency?.short || '💰';
+                        addStoryEntry(`${symbol} ${deltaGold >= 0 ? '+' : ''}${deltaGold.toLocaleString('it-IT')}`, 'mechanic');
                     } else if (matchesSecondaryKey(key, secState)) {
                         adjustSecondary(amount, G.character);
                     } else if (G.character[key]) {
@@ -3798,6 +3847,7 @@
             $('edit-story-setting').value = story?.setting || 'Fantasy Medievale';
             $('edit-story-genre').value = story?.genre || resolveGenreKey(story) || 'fantasy';
             $('edit-story-difficulty').value = story?.difficulty || 'normal';
+            $('edit-story-gold').value = story?.starterGold ?? '';
             $('edit-story-desc').value = story?.desc || '';
             $('edit-story-personality').value = story?.personality || '';
             $('edit-story-depth').value = story?.depth || '';
@@ -3819,6 +3869,11 @@
                 setting: $('edit-story-setting').value,
                 genre: $('edit-story-genre').value || resolveGenreKey(G.editingStory),
                 difficulty: $('edit-story-difficulty').value,
+                starterGold: (() => {
+                    const raw = $('edit-story-gold').value.trim();
+                    const val = parseInt(raw, 10);
+                    return Number.isFinite(val) ? val : undefined;
+                })(),
                 desc: $('edit-story-desc').value,
                 personality: $('edit-story-personality').value,
                 depth: $('edit-story-depth').value,
@@ -3928,6 +3983,9 @@
             G.currentStory = JSON.parse(JSON.stringify(G.stories[storyIdx]));
             if (!G.currentStory.genre) G.currentStory.genre = resolveGenreKey(G.currentStory);
             createCharacter(name, G.selectedOrigin, G.selectedArchetype);
+            if (Number.isFinite(Number(G.currentStory.starterGold))) {
+                G.character.gold = Number(G.currentStory.starterGold);
+            }
             // Reset time dinamico per genere/storia
             G.time = getStartTimeForStory(G.currentStory);
             
@@ -4206,6 +4264,12 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 - Non aggiungere nell'inventario elementi scenografici o non possedibili (es. "vista dalla finestra", mobili fissati, parti dell'ambiente, sensazioni).
 - Gli oggetti che restano nel luogo vanno descritti nella narrazione senza usare [LOOT].
 
+💰 **CAPITALE DISPONIBILE**
+- All'inizio della partita devi dichiarare chiaramente quante risorse economiche, contanti o crediti possiede il protagonista e come sono conservate (cassa, libro mastro, eredità, titoli, ecc.).
+- Se il capitale iniziale differisce da quello indicato in DATI GIOCO, calcola la differenza e usa subito [MECCANICA: soldi=±X] (o il tag equivalente della valuta) per allineare il saldo.
+- Quando il denaro è registrato in documenti o libri mastri, cita il supporto nella narrazione e, se appropriato, fornisci l'oggetto con [LOOT: Libro mastro|1|Contiene ...].
+- Ricorda che le valute possono essere espresse in euro, monete d'oro, fiorini o altre unità: usa sempre il tag meccanico per aggiornare il totale.
+
 🧠 MEMORIA MONDO:
 ${worldMemorySummary}
 
@@ -4217,7 +4281,9 @@ SCRIVI ${lengths[s.length]} di narrazione.`;
             if (isStart) {
                 userMsg = `Inizia la storia. È ${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}, ${period.name}.
 ${story.prologue || 'Il protagonista inizia la sua avventura.'}
-Descrivi la scena e l'equipaggiamento iniziale (usa [LOOT] per dare gli oggetti iniziali).`;
+Descrivi la scena e l'equipaggiamento iniziale (usa [LOOT] per dare gli oggetti iniziali).
+Metti in chiaro quanti ${c.currency?.short || 'soldi'} sono subito disponibili (${formatCurrency(c.gold)} secondo il sistema) e dove sono custoditi.
+Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa, libro mastro con 2000 fiorini) applica immediatamente [MECCANICA: soldi=±X] per riallineare il saldo e cita il registro o il contante come oggetto fisico con [LOOT: ...] quando opportuno.`;
             } else {
                 userMsg = `[Stato attuale: HP ${c.health.cur} | Energia ${c.stamina.cur} | Soldi ${c.gold}]
 Il giocatore dichiara: "${action}"
@@ -4459,7 +4525,7 @@ AGISCI DA ARBITRO:
                     c.health.cur = Math.min(c.health.max, c.health.cur + Math.abs(v));
                     addStoryEntry(`💚 +${Math.abs(v)} HP`, 'mechanic');
                     break;
-                case 'soldi': case 'gold': case 'money':
+                case 'soldi': case 'gold': case 'money': case 'denaro': case 'cash': case 'contanti': case 'ricchezza': case 'fiorini': case 'fiorino':
                     const prevGold = c.gold;
                     c.gold = c.gold + v; // PERMETTE DEBITI (niente Math.max)
                     const deltaGold = c.gold - prevGold;
