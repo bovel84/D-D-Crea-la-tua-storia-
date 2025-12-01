@@ -254,30 +254,44 @@
         }
 
         .mini-bar {
-            width: 56px;
-            height: 9px;
-            background: rgba(0,0,0,0.4);
-            border-radius: 6px;
+            width: 74px;
+            height: 12px;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.65));
+            border-radius: 8px;
             overflow: hidden;
             position: relative;
-            box-shadow: inset 0 1px 2px rgba(0,0,0,0.45);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
         }
 
         .mini-bar::before {
             content: attr(data-label);
             position: absolute;
             left: 50%;
-            top: -16px;
+            top: -18px;
             transform: translateX(-50%);
-            font-size: 0.68em;
-            color: var(--parchment-dark);
+            font-size: 0.7em;
+            color: rgba(255,255,255,0.9);
             letter-spacing: 0.03em;
+        }
+
+        .mini-bar::after {
+            content: attr(data-value);
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.65em;
+            color: rgba(255,255,255,0.92);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+            letter-spacing: 0.02em;
         }
 
         .mini-bar-fill {
             height: 100%;
-            border-radius: 4px;
+            border-radius: 6px;
             transition: width 0.3s ease;
+            box-shadow: inset 0 0 4px rgba(255,255,255,0.25);
         }
 
         .mini-bar-fill.health { background: linear-gradient(90deg, #c62828, #ef5350); }
@@ -388,6 +402,25 @@
             font-size: 0.95em;
         }
         .story-entry.mechanic .story-badge { background: rgba(46,139,87,0.18); border-color: rgba(46,139,87,0.35); color: var(--emerald); }
+
+        /* Stile per i messaggi di Analisi/Controllo */
+        .story-entry.analysis {
+            background: #f4f4f4;
+            border-left-color: #7f8c8d; /* Grigio */
+            color: #555;
+            font-family: 'Courier New', monospace; /* Font tecnico */
+            font-size: 0.85em;
+            padding: 8px 12px;
+            margin-bottom: 5px; /* Più compatto */
+            box-shadow: none; /* Meno invasivo */
+        }
+        .story-entry.analysis .story-badge {
+            background: #e0e0e0;
+            border-color: #ccc;
+            color: #555;
+        }
+        /* Se vuoi NASCONDERLI completamente, togli il commento alla riga sotto: */
+        /* .story-entry.analysis { display: none; } */
 
         .story-entry.dice-roll {
             background: linear-gradient(135deg, rgba(201, 162, 39, 0.22), rgba(201, 162, 39, 0.1));
@@ -694,17 +727,20 @@
 
         .stat-bar {
             flex: 1;
-            height: 20px;
-            background: rgba(0,0,0,0.1);
-            border-radius: 10px;
+            height: 22px;
+            background: rgba(0,0,0,0.18);
+            border-radius: 12px;
             overflow: hidden;
-            margin-right: 10px;
+            margin-right: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.45);
         }
 
         .stat-bar-fill {
             height: 100%;
-            border-radius: 10px;
+            border-radius: 12px;
             transition: width 0.3s ease;
+            box-shadow: inset 0 0 6px rgba(255,255,255,0.22);
         }
 
         .stat-bar-fill.health { background: linear-gradient(90deg, #c62828, #ef5350); }
@@ -712,6 +748,12 @@
         .stat-bar-fill.stamina { background: linear-gradient(90deg, #1565c0, #42a5f5); }
         .stat-bar-fill.hunger { background: linear-gradient(90deg, #f57c00, #ffb74d); }
         .stat-bar-fill.exp { background: linear-gradient(90deg, #2e7d32, #66bb6a); }
+        .stat-bar-fill.reputation { background: linear-gradient(90deg, #fdd835, #f57f17); }
+        .stat-bar-fill.morale { background: linear-gradient(90deg, #00897b, #26a69a); }
+        .stat-bar-fill.respect { background: linear-gradient(90deg, #5d4037, #8d6e63); }
+        .stat-bar-fill.honor { background: linear-gradient(90deg, #8d6e63, #ffab91); }
+        .stat-bar-fill.fame { background: linear-gradient(90deg, #3949ab, #7e57c2); }
+        .stat-bar-fill.cover { background: linear-gradient(90deg, #4527a0, #7e57c2); }
 
         .stat-value {
             width: 70px;
@@ -1438,13 +1480,13 @@
 
             <div class="topbar-row">
                 <div class="mini-stats">
-                    <div class="mini-bar" data-label="HP">
+                    <div class="mini-bar" data-label="HP" data-value="--">
                         <div class="mini-bar-fill health" id="mini-health" style="width: 100%"></div>
                     </div>
-                    <div class="mini-bar" data-label="EN">
+                    <div class="mini-bar" data-label="EN" data-value="--">
                         <div class="mini-bar-fill stamina" id="mini-stamina" style="width: 100%"></div>
                     </div>
-                    <div class="mini-bar" data-label="🍖">
+                    <div class="mini-bar" data-label="🍖" data-value="--">
                         <div class="mini-bar-fill hunger" id="mini-hunger" style="width: 100%"></div>
                     </div>
                 </div>
@@ -1494,10 +1536,10 @@
                         <div class="stat-bar"><div class="stat-bar-fill health" id="stat-health"></div></div>
                         <span class="stat-value" id="stat-health-text">0/0</span>
                     </div>
-                    <div class="stat-row">
-                        <span class="stat-label">💜 Mana</span>
-                        <div class="stat-bar"><div class="stat-bar-fill mana" id="stat-mana"></div></div>
-                        <span class="stat-value" id="stat-mana-text">0/0</span>
+                    <div class="stat-row" id="stat-secondary-row">
+                        <span class="stat-label" id="stat-secondary-label">💜 Mana</span>
+                        <div class="stat-bar"><div class="stat-bar-fill mana" id="stat-secondary"></div></div>
+                        <span class="stat-value" id="stat-secondary-text">0/0</span>
                     </div>
                     <div class="stat-row">
                         <span class="stat-label">⚡ Energia</span>
@@ -1896,6 +1938,22 @@
             'Autunno': '🍂'
         };
 
+        const DEFAULT_SECONDARY_RESOURCE = {
+            key: 'mana',
+            label: 'Mana',
+            icon: '💜',
+            className: 'mana',
+            attrPriority: ['int', 'wis', 'cha', 'car'],
+            baseField: 'mp',
+            includeMod: true,
+            modMultiplier: 1,
+            scale: 1,
+            defaultMax: 10,
+            startFull: true,
+            levelUpBonus: 3,
+            aliases: ['mana']
+        };
+
         const GENRE_ACTIONS = {
             'Fantasy': [
                 { icon: '?', label: 'Parla', prefix: 'Dico: "' },
@@ -2005,7 +2063,21 @@
                     { icon: '⚔️', label: 'Combatti', prefix: 'Attacco ' },
                     { icon: '✨', label: 'Magia', prefix: 'Uso la magia per ' },
                     { icon: '🕵️', label: 'Furtivo', prefix: 'Mi muovo furtivamente verso ' }
-                ]
+                ],
+                secondaryResource: {
+                    key: 'mana',
+                    label: 'Mana',
+                    icon: '💜',
+                    className: 'mana',
+                    attrPriority: ['int', 'wis', 'cha'],
+                    baseField: 'mp',
+                    includeMod: true,
+                    scale: 1,
+                    defaultMax: 10,
+                    startFull: true,
+                    levelUpBonus: 3,
+                    aliases: ['mana', 'magia', 'energia']
+                }
             },
             contemporary: {
                 name: 'Contemporaneo',
@@ -2025,7 +2097,7 @@
                 archetypes: {
                     influencer: { name: 'Influencer', icon: '📱', desc: 'Vive di attenzione', stat: 'car', hp: 10, mp: 4, skills: ['Persuasione', 'Storytelling'] },
                     coder: { name: 'Sviluppatore', icon: '💻', desc: 'Risolve problemi con codice', stat: 'int', hp: 9, mp: 6, skills: ['Debug', 'Automazione'] },
-                    driver: { name: 'Autista', icon: '🚗', desc: 'Sempre in movimento', stat: 'dex', hp: 11, mp: 2, skills: ['Guida', 'Reattività'] }
+                    driver: { name: 'Autista', icon: '🚗', desc: 'Sempre in movimento', stat: 'dex', hp: 11, mp: 3, skills: ['Guida', 'Reattività'] }
                 },
                 items: {
                     snack: { name: 'Snack', icon: '🍫', type: 'consumable', desc: 'Una barretta di cioccolato e frutta secca. Perfetta per uno spuntino veloce quando il tempo stringe.', effect: { hunger: 20, stamina: 10 } },
@@ -2039,7 +2111,22 @@
                     { icon: '📞', label: 'Chiama', prefix: 'Chiamo ' },
                     { icon: '🚶', label: 'Muoviti', prefix: 'Vado verso ' },
                     { icon: '🔍', label: 'Cerca', prefix: 'Cerco informazioni su ' }
-                ]
+                ],
+                secondaryResource: {
+                    key: 'reputation',
+                    label: 'Reputazione',
+                    icon: '🌟',
+                    className: 'reputation',
+                    attrPriority: ['car', 'int'],
+                    baseField: 'mp',
+                    includeMod: true,
+                    modMultiplier: 1,
+                    scale: 10,
+                    defaultMax: 40,
+                    startFull: true,
+                    levelUpBonus: 4,
+                    aliases: ['reputazione', 'prestigio', 'reputation']
+                }
             },
             sport: {
                 name: 'Sport / Calcio',
@@ -2058,10 +2145,10 @@
                     amateur: { name: 'Dilettante', icon: '⚽', desc: 'Passione pura', bonuses: { res: 1, men: 1, tec: 1 } }
                 },
                 archetypes: {
-                    striker: { name: 'Attaccante', icon: '🥅', desc: 'Cerca il gol', stat: 'tec', hp: 12, mp: 0, skills: ['Tiro', 'Smarcamento'] },
-                    playmaker: { name: 'Regista', icon: '🎯', desc: 'Imposta il gioco', stat: 'tac', hp: 10, mp: 0, skills: ['Visione', 'Passaggi'] },
-                    defender: { name: 'Difensore', icon: '🛡️', desc: 'Blocca', stat: 'res', hp: 14, mp: 0, skills: ['Contrasto', 'Marcatura'] },
-                    goalkeeper: { name: 'Portiere', icon: '🧤', desc: 'Ultimo baluardo', stat: 'men', hp: 12, mp: 0, skills: ['Riflessi', 'Leadership'] }
+                    striker: { name: 'Attaccante', icon: '🥅', desc: 'Cerca il gol', stat: 'tec', hp: 12, mp: 6, skills: ['Tiro', 'Smarcamento'] },
+                    playmaker: { name: 'Regista', icon: '🎯', desc: 'Imposta il gioco', stat: 'tac', hp: 10, mp: 5, skills: ['Visione', 'Passaggi'] },
+                    defender: { name: 'Difensore', icon: '🛡️', desc: 'Blocca', stat: 'res', hp: 14, mp: 5, skills: ['Contrasto', 'Marcatura'] },
+                    goalkeeper: { name: 'Portiere', icon: '🧤', desc: 'Ultimo baluardo', stat: 'men', hp: 12, mp: 6, skills: ['Riflessi', 'Leadership'] }
                 },
                 items: {
                     energy_gel: { name: 'Gel Energetico', icon: '🥤', type: 'consumable', desc: 'Un concentrato di carboidrati in forma gel. Si assume rapidamente e dà una scarica di energia immediata.', effect: { stamina: 40 } },
@@ -2076,7 +2163,21 @@
                     { icon: '🥅', label: 'Tiro', prefix: 'Carico il tiro verso ' },
                     { icon: '🎯', label: 'Passaggio', prefix: 'Cerco il passaggio per ' },
                     { icon: '🛡️', label: 'Contrasto', prefix: 'Entro in contrasto con ' }
-                ]
+                ],
+                secondaryResource: {
+                    key: 'morale',
+                    label: 'Morale',
+                    icon: '🔥',
+                    className: 'morale',
+                    attrPriority: ['men', 'tac', 'res', 'tec'],
+                    baseField: 'mp',
+                    includeMod: true,
+                    scale: 10,
+                    defaultMax: 50,
+                    startFull: true,
+                    levelUpBonus: 4,
+                    aliases: ['morale', 'mentalita', 'focus']
+                }
             },
             business: {
                 name: 'Business / Finanza',
@@ -2095,10 +2196,10 @@
                     heir: { name: 'Erede', icon: '💼', desc: 'Capitale di famiglia', bonuses: { car: 1, net: 2 } }
                 },
                 archetypes: {
-                    ceo: { name: 'CEO', icon: '👔', desc: 'Visione e decisioni', stat: 'car', hp: 10, mp: 4, skills: ['Leadership', 'Persuasione'] },
-                    seller: { name: 'Venditore', icon: '🗣️', desc: 'Chiusura di deal', stat: 'neg', hp: 10, mp: 2, skills: ['Pitch', 'Negoziazione'] },
+                    ceo: { name: 'CEO', icon: '👔', desc: 'Visione e decisioni', stat: 'car', hp: 10, mp: 5, skills: ['Leadership', 'Persuasione'] },
+                    seller: { name: 'Venditore', icon: '🗣️', desc: 'Chiusura di deal', stat: 'neg', hp: 10, mp: 3, skills: ['Pitch', 'Negoziazione'] },
                     analyst: { name: 'Analista', icon: '📈', desc: 'Legge i numeri', stat: 'int', hp: 9, mp: 6, skills: ['Analisi', 'Ricerca'] },
-                    fixer: { name: 'Fixer', icon: '🤝', desc: 'Apre porte', stat: 'net', hp: 11, mp: 3, skills: ['Contatti', 'Mediazione'] }
+                    fixer: { name: 'Fixer', icon: '🤝', desc: 'Apre porte', stat: 'net', hp: 11, mp: 4, skills: ['Contatti', 'Mediazione'] }
                 },
                 items: {
                     coffee: { name: 'Caffè Premium', icon: '☕', type: 'consumable', desc: 'Un espresso arabica servito in tazza di porcellana. Il carburante dei professionisti.', effect: { stamina: 25 } },
@@ -2112,7 +2213,21 @@
                     { icon: '📊', label: 'Analizza', prefix: 'Analizzo ' },
                     { icon: '🤝', label: 'Negozia', prefix: 'Negozio con ' },
                     { icon: '💡', label: 'Idea', prefix: "Valuto un'idea su " }
-                ]
+                ],
+                secondaryResource: {
+                    key: 'reputation',
+                    label: 'Reputazione',
+                    icon: '🏛️',
+                    className: 'reputation',
+                    attrPriority: ['car', 'neg', 'net'],
+                    baseField: 'mp',
+                    includeMod: true,
+                    scale: 10,
+                    defaultMax: 45,
+                    startFull: true,
+                    levelUpBonus: 4,
+                    aliases: ['reputazione', 'prestigio', 'reputation']
+                }
             },
             crime: {
                 name: 'Criminale / Mafia',
@@ -2375,6 +2490,108 @@
         function getItemCatalog(source = {}) {
             const genreKey = source.genre || resolveGenreKey(source.story || source.currentStory || G.currentStory);
             return (GENRES[genreKey] && GENRES[genreKey].items) || GENRES.fantasy.items;
+        }
+
+        function getSecondaryResourceConfig(source = {}) {
+            const cfg = getGenreConfig(source);
+            const raw = cfg.secondaryResource || {};
+            const merged = {
+                ...DEFAULT_SECONDARY_RESOURCE,
+                ...raw
+            };
+
+            const defaultAttrPriority = Array.isArray(DEFAULT_SECONDARY_RESOURCE.attrPriority) ? DEFAULT_SECONDARY_RESOURCE.attrPriority : [];
+            merged.attrPriority = Array.isArray(raw.attrPriority) && raw.attrPriority.length
+                ? [...raw.attrPriority]
+                : [...defaultAttrPriority];
+
+            const aliasSeed = [
+                ...(DEFAULT_SECONDARY_RESOURCE.aliases || []),
+                ...(raw.aliases || []),
+                DEFAULT_SECONDARY_RESOURCE.key,
+                merged.key,
+                'mana',
+                'secondary',
+                'risorsa',
+                'resource'
+            ].filter(Boolean);
+            merged.aliases = Array.from(new Set(aliasSeed.map(a => a.toString().toLowerCase())));
+
+            merged.modMultiplier = raw.modMultiplier ?? DEFAULT_SECONDARY_RESOURCE.modMultiplier ?? 1;
+            merged.scale = raw.scale ?? DEFAULT_SECONDARY_RESOURCE.scale ?? 1;
+            merged.className = raw.className || DEFAULT_SECONDARY_RESOURCE.className;
+            merged.label = raw.label || DEFAULT_SECONDARY_RESOURCE.label;
+            merged.icon = raw.icon || DEFAULT_SECONDARY_RESOURCE.icon;
+            merged.baseField = raw.baseField || DEFAULT_SECONDARY_RESOURCE.baseField || 'mp';
+            merged.levelUpBonus = raw.levelUpBonus ?? DEFAULT_SECONDARY_RESOURCE.levelUpBonus ?? 0;
+            merged.defaultMax = raw.defaultMax ?? DEFAULT_SECONDARY_RESOURCE.defaultMax ?? 0;
+            merged.startFull = raw.startFull ?? DEFAULT_SECONDARY_RESOURCE.startFull ?? true;
+            merged.includeMod = raw.includeMod ?? DEFAULT_SECONDARY_RESOURCE.includeMod ?? false;
+            merged.startPercent = raw.startPercent ?? DEFAULT_SECONDARY_RESOURCE.startPercent ?? 0.5;
+
+            return merged;
+        }
+
+        function buildSecondaryResourceState({ config, archetype, attrs }) {
+            if (!config) return null;
+            const attrPriority = Array.isArray(config.attrPriority) ? config.attrPriority : [];
+            const attrValue = attrPriority
+                .map(id => (attrs && typeof attrs[id] === 'number') ? attrs[id] : undefined)
+                .find(v => v !== undefined);
+
+            const baseField = config.baseField || 'mp';
+            const baseRaw = archetype && typeof archetype[baseField] === 'number' ? archetype[baseField] : 0;
+            const base = baseRaw * (config.scale || 1);
+
+            let bonus = 0;
+            if (config.includeMod && typeof attrValue === 'number') {
+                bonus = mod(attrValue) * (config.modMultiplier || 1);
+            }
+
+            let max = Math.round(base + bonus);
+            if (!Number.isFinite(max) || max <= 0) {
+                max = config.defaultMax || 0;
+            }
+            max = Math.max(0, max);
+
+            let startValue = config.startFull ? max : Math.round(max * (config.startPercent || 0));
+            if (max === 0) startValue = 0;
+            const cur = Math.max(0, Math.min(max, startValue));
+
+            return {
+                key: config.key,
+                label: config.label,
+                icon: config.icon,
+                className: config.className || 'mana',
+                max,
+                cur,
+                aliases: [...(config.aliases || [])],
+                levelUpBonus: config.levelUpBonus || 0
+            };
+        }
+
+        function matchesSecondaryKey(rawKey, secondaryState) {
+            if (!rawKey) return false;
+            const normalized = rawKey.toString().toLowerCase();
+            if (!secondaryState) return normalized === 'mana';
+            if (secondaryState.key && secondaryState.key.toLowerCase() === normalized) return true;
+            return (secondaryState.aliases || []).some(alias => alias.toLowerCase() === normalized);
+        }
+
+        function adjustSecondary(amount, character = G.character) {
+            if (!character || !character.secondary) return;
+            const sec = character.secondary;
+            const delta = Number(amount) || 0;
+            const newValue = Math.max(0, Math.min(sec.max, sec.cur + delta));
+            sec.cur = newValue;
+        }
+
+        function formatSecondaryDelta(delta, secondaryState) {
+            const icon = secondaryState?.icon || '💜';
+            const label = secondaryState?.label || 'Risorsa';
+            const value = Number(delta) || 0;
+            const sign = value >= 0 ? '+' : '';
+            return `${icon} ${sign}${value} ${label}`;
         }
 
         function formatCurrency(amount) {
@@ -2850,9 +3067,21 @@
             }
 
             const conValue = attrs.con ?? attrs.res ?? attrs.resp ?? 10;
-            const manaValue = attrs.int ?? attrs.ast ?? attrs.car ?? 10;
             const conMod = mod(conValue);
-            const manaMod = Math.max(0, mod(manaValue));
+
+            const secondaryConfig = getSecondaryResourceConfig({ genre: genreKey, setting: G.currentStory?.setting });
+            const secondaryStateRaw = buildSecondaryResourceState({ config: secondaryConfig, archetype: archetypeData, attrs });
+            const secondaryState = secondaryStateRaw || {
+                key: secondaryConfig.key,
+                label: secondaryConfig.label,
+                icon: secondaryConfig.icon,
+                className: secondaryConfig.className || 'mana',
+                max: secondaryConfig.defaultMax || 0,
+                cur: secondaryConfig.startFull ? (secondaryConfig.defaultMax || 0) : 0,
+                aliases: secondaryConfig.aliases || [],
+                levelUpBonus: secondaryConfig.levelUpBonus || 0
+            };
+            secondaryState.config = secondaryConfig;
 
             G.character = {
                 name,
@@ -2862,7 +3091,7 @@
                 currency: genreCfg.currency,
                 level: 1,
                 health: { cur: archetypeData.hp + conMod, max: archetypeData.hp + conMod },
-                mana: { cur: Math.max(0, archetypeData.mp + manaMod), max: Math.max(0, archetypeData.mp + manaMod) },
+                secondary: secondaryState,
                 stamina: { cur: 100, max: 100 },
                 hunger: { cur: 100, max: 100 },
                 exp: { cur: 0, need: 100 },
@@ -2872,6 +3101,12 @@
                 equipment: { weapon: null, armor: null, accessory: null },
                 gold: 100
             };
+            Object.defineProperty(G.character, 'mana', {
+                get() { return this.secondary; },
+                set(value) { this.secondary = value; },
+                enumerable: false,
+                configurable: true
+            });
             
             if (archetypeData?.skills) {
                 archetypeData.skills.forEach(s => G.character.skills[s] = mod(attrs[archetypeData.stat] || 10));
@@ -2885,24 +3120,102 @@
             const o = genreCfg.origins[c.origin] || { name: c.origin || 'Origine' };
             const a = genreCfg.archetypes[c.archetype] || { name: c.archetype || 'Archetipo', icon: '?', stat: genreCfg.stats?.[0]?.id };
 
-            $('mini-health').style.width = `${(c.health.cur / c.health.max) * 100}%`;
-            $('mini-stamina').style.width = `${(c.stamina.cur / c.stamina.max) * 100}%`;
-            $('mini-hunger').style.width = `${(c.hunger.cur / c.hunger.max) * 100}%`;
+            const secondaryConfig = getSecondaryResourceConfig({ genre: c.genre, setting: G.currentStory?.setting });
+            let secondaryState = c.secondary;
+            if (!secondaryState) {
+                const archetypeRef = genreCfg.archetypes?.[c.archetype];
+                secondaryState = buildSecondaryResourceState({ config: secondaryConfig, archetype: archetypeRef, attrs: c.attrs }) || null;
+                c.secondary = secondaryState;
+            }
+            if (secondaryState) {
+                secondaryState.label = secondaryConfig.label;
+                secondaryState.icon = secondaryConfig.icon;
+                secondaryState.className = secondaryConfig.className || secondaryState.className || 'mana';
+                secondaryState.aliases = secondaryConfig.aliases;
+                secondaryState.key = secondaryConfig.key;
+                secondaryState.levelUpBonus = secondaryConfig.levelUpBonus || secondaryState.levelUpBonus || 0;
+                secondaryState.config = secondaryConfig;
+            }
+
+            const miniHealth = $('mini-health');
+            const miniStamina = $('mini-stamina');
+            const miniHunger = $('mini-hunger');
+            if (miniHealth) {
+                const percent = c.health.max > 0 ? (c.health.cur / c.health.max) * 100 : 0;
+                miniHealth.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+                if (miniHealth.parentElement) miniHealth.parentElement.setAttribute('data-value', `${c.health.cur}/${c.health.max}`);
+            }
+            if (miniStamina) {
+                const percent = c.stamina.max > 0 ? (c.stamina.cur / c.stamina.max) * 100 : 0;
+                miniStamina.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+                if (miniStamina.parentElement) miniStamina.parentElement.setAttribute('data-value', `${c.stamina.cur}/${c.stamina.max}`);
+            }
+            if (miniHunger) {
+                const percent = c.hunger.max > 0 ? (c.hunger.cur / c.hunger.max) * 100 : 0;
+                miniHunger.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+                if (miniHunger.parentElement) miniHunger.parentElement.setAttribute('data-value', `${c.hunger.cur}/${c.hunger.max}`);
+            }
 
             $('char-portrait').textContent = a.icon;
             $('char-name').textContent = c.name;
             $('char-class').textContent = `${o.name} / ${a.name} Lv. ${c.level}`;
 
-            $('stat-health').style.width = `${(c.health.cur / c.health.max) * 100}%`;
-            $('stat-health-text').textContent = `${c.health.cur}/${c.health.max}`;
-            $('stat-mana').style.width = `${(c.mana.cur / c.mana.max) * 100}%`;
-            $('stat-mana-text').textContent = `${c.mana.cur}/${c.mana.max}`;
-            $('stat-stamina').style.width = `${(c.stamina.cur / c.stamina.max) * 100}%`;
-            $('stat-stamina-text').textContent = `${c.stamina.cur}/${c.stamina.max}`;
-            $('stat-hunger').style.width = `${(c.hunger.cur / c.hunger.max) * 100}%`;
-            $('stat-hunger-text').textContent = `${c.hunger.cur}/${c.hunger.max}`;
-            $('stat-exp').style.width = `${(c.exp.cur / c.exp.need) * 100}%`;
-            $('stat-exp-text').textContent = `${c.exp.cur}/${c.exp.need}`;
+            const statHealth = $('stat-health');
+            const statHealthText = $('stat-health-text');
+            const statSecondary = $('stat-secondary');
+            const statSecondaryLabel = $('stat-secondary-label');
+            const statSecondaryText = $('stat-secondary-text');
+            const statStamina = $('stat-stamina');
+            const statStaminaText = $('stat-stamina-text');
+            const statHunger = $('stat-hunger');
+            const statHungerText = $('stat-hunger-text');
+            const statExp = $('stat-exp');
+            const statExpText = $('stat-exp-text');
+
+            if (statHealth) {
+                const percent = c.health.max > 0 ? (c.health.cur / c.health.max) * 100 : 0;
+                statHealth.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+            }
+            if (statHealthText) statHealthText.textContent = `${c.health.cur}/${c.health.max}`;
+
+            if (statSecondaryLabel && secondaryState) {
+                statSecondaryLabel.textContent = `${secondaryState.icon || '💜'} ${secondaryState.label}`.trim();
+            }
+            if (statSecondary) {
+                if (secondaryState) {
+                    statSecondary.className = `stat-bar-fill ${secondaryState.className || 'mana'}`;
+                    const percent = secondaryState.max > 0 ? (secondaryState.cur / secondaryState.max) * 100 : 0;
+                    statSecondary.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+                } else {
+                    statSecondary.className = 'stat-bar-fill mana';
+                    statSecondary.style.width = '0%';
+                }
+            }
+            if (statSecondaryText) {
+                if (secondaryState && secondaryState.max > 0) {
+                    statSecondaryText.textContent = `${secondaryState.cur}/${secondaryState.max}`;
+                } else {
+                    statSecondaryText.textContent = '--';
+                }
+            }
+
+            if (statStamina) {
+                const percent = c.stamina.max > 0 ? (c.stamina.cur / c.stamina.max) * 100 : 0;
+                statStamina.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+            }
+            if (statStaminaText) statStaminaText.textContent = `${c.stamina.cur}/${c.stamina.max}`;
+
+            if (statHunger) {
+                const percent = c.hunger.max > 0 ? (c.hunger.cur / c.hunger.max) * 100 : 0;
+                statHunger.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+            }
+            if (statHungerText) statHungerText.textContent = `${c.hunger.cur}/${c.hunger.max}`;
+
+            if (statExp) {
+                const percent = c.exp.need > 0 ? (c.exp.cur / c.exp.need) * 100 : 0;
+                statExp.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+            }
+            if (statExpText) statExpText.textContent = `${c.exp.cur}/${c.exp.need}`;
 
             const attrsHtml = (genreCfg.stats || []).map(stat => `
                 <div class="attr-box">
@@ -3063,12 +3376,50 @@
             // Costruisci lista effetti
             let statsHtml = '';
             if (effect) {
-                statsHtml += '<div class="item-stats">';
-                if (effect.health) statsHtml += `<div class="stat-line"><span>❤️ Salute</span> <span>+${effect.health}</span></div>`;
-                if (effect.stamina) statsHtml += `<div class="stat-line"><span>⚡ Energia</span> <span>+${effect.stamina}</span></div>`;
-                if (effect.hunger) statsHtml += `<div class="stat-line"><span>🍖 Sazietà</span> <span>+${effect.hunger}</span></div>`;
-                if (effect.mana) statsHtml += `<div class="stat-line"><span>💜 Mana</span> <span>+${effect.mana}</span></div>`;
-                statsHtml += '</div>';
+                const secState = G.character?.secondary;
+                let healthDelta = 0;
+                let staminaDelta = 0;
+                let hungerDelta = 0;
+                let secondaryDelta = 0;
+                const extraLines = [];
+
+                Object.entries(effect).forEach(([rawKey, rawVal]) => {
+                    const amount = Number(rawVal) || 0;
+                    const key = rawKey.toString().toLowerCase();
+                    if (['health', 'hp', 'salute'].includes(key)) {
+                        healthDelta += amount;
+                    } else if (['stamina', 'energy', 'energia'].includes(key)) {
+                        staminaDelta += amount;
+                    } else if (['hunger', 'fame', 'sazieta', 'satiety'].includes(key)) {
+                        hungerDelta += amount;
+                    } else if (matchesSecondaryKey(key, secState)) {
+                        secondaryDelta += amount;
+                    } else {
+                        extraLines.push({ key: rawKey, amount });
+                    }
+                });
+
+                const formatLine = (icon, label, amount) => {
+                    const sign = amount >= 0 ? '+' : '';
+                    return `<div class="stat-line"><span>${icon} ${label}</span> <span>${sign}${amount}</span></div>`;
+                };
+
+                const lines = [];
+                if (healthDelta) lines.push(formatLine('❤️', 'Salute', healthDelta));
+                if (staminaDelta) lines.push(formatLine('⚡', 'Energia', staminaDelta));
+                if (hungerDelta) lines.push(formatLine('🍖', 'Sazietà', hungerDelta));
+                if (secondaryDelta && secState) lines.push(formatLine(secState.icon || '💜', secState.label || 'Risorsa', secondaryDelta));
+                extraLines.forEach(extra => {
+                    const icon = '📈';
+                    const label = extra.key.toString().toUpperCase();
+                    lines.push(formatLine(icon, label, extra.amount));
+                });
+
+                if (lines.length > 0) {
+                    statsHtml = `<div class="item-stats">${lines.join('')}</div>`;
+                } else {
+                    statsHtml = '<div class="item-stats" style="color:var(--ink-light); font-style:italic; font-size:0.9em;">Nessun effetto immediato</div>';
+                }
             } else {
                 statsHtml = '<div class="item-stats" style="color:var(--ink-light); font-style:italic; font-size:0.9em;">Nessun effetto immediato</div>';
             }
@@ -3115,10 +3466,21 @@
             const data = catalog[normalizedId] || catalog[item.id] || item;
 
             if (data?.type === 'consumable' && data.effect) {
+                const secState = G.character?.secondary;
                 // Applica effetti
-                Object.entries(data.effect).forEach(([k, v]) => {
-                    if (G.character[k]) {
-                        G.character[k].cur = Math.min(G.character[k].cur + v, G.character[k].max);
+                Object.entries(data.effect).forEach(([rawKey, rawVal]) => {
+                    const amount = Number(rawVal) || 0;
+                    const key = rawKey.toString().toLowerCase();
+                    if (['health', 'hp', 'salute'].includes(key) && G.character.health) {
+                        G.character.health.cur = Math.min(G.character.health.max, Math.max(0, G.character.health.cur + amount));
+                    } else if (['stamina', 'energy', 'energia'].includes(key) && G.character.stamina) {
+                        G.character.stamina.cur = Math.min(G.character.stamina.max, Math.max(0, G.character.stamina.cur + amount));
+                    } else if (['hunger', 'fame', 'sazieta', 'satiety'].includes(key) && G.character.hunger) {
+                        G.character.hunger.cur = Math.min(G.character.hunger.max, Math.max(0, G.character.hunger.cur + amount));
+                    } else if (matchesSecondaryKey(key, secState)) {
+                        adjustSecondary(amount, G.character);
+                    } else if (G.character[key]) {
+                        G.character[key].cur = Math.min(G.character[key].max, Math.max(0, G.character[key].cur + amount));
                     }
                 });
 
@@ -3644,7 +4006,8 @@
                 system: 'Sistema',
                 mechanic: 'Meccanica',
                 'dice-roll': 'Tiro',
-                'memory-update': 'Memoria'
+                'memory-update': 'Memoria',
+                analysis: 'Check Sistema' // <--- NUOVO
             };
             const typeIcons = {
                 narrator: '✦',
@@ -3652,7 +4015,8 @@
                 system: '⚙️',
                 mechanic: '➕',
                 'dice-roll': '🎲',
-                'memory-update': '🗝️'
+                'memory-update': '🗝️',
+                analysis: '🔍' // <--- NUOVO
             };
             const badge = `${typeIcons[type] || '✶'} ${typeLabels[type] || 'Narrazione'}`;
             const timeLabel = G?.isPlaying ? `${getTimeString()} · Turno ${G.worldMemory?.turnCount ?? 0}` : '';
@@ -3759,168 +4123,128 @@
             const story = G.currentStory;
             const c = G.character;
             const genreCfg = getGenreConfig(story);
-            const o = genreCfg.origins[c.origin] || { name: c.origin || 'Origine' };
-            const a = genreCfg.archetypes[c.archetype] || { name: c.archetype || 'Archetipo' };
             const period = getTimePeriod();
-            const season = getCurrentSeason();
 
-            // Recupera la lista degli oggetti validi per questo genere per suggerirli all'IA
-            const validItems = Object.keys(genreCfg.items || {}).join(', ');
+            const lengths = { short: '100-200 parole', medium: '200-350 parole', long: '350-500 parole' };
 
-            const lengths = { short: '150-250 parole', medium: '250-400 parole', long: '400-600 parole' };
+            // 1. CREAZIONE LISTA INVENTARIO CORRENTE (Fondamentale per i controlli)
+            const inventoryList = c.inventory.length > 0 
+                ? c.inventory.map(i => `- ${i.name} (x${i.count})`).join('\n') 
+                : "Nessun oggetto (Tasche vuote)";
 
             // Build world memory summary
             const worldMemorySummary = buildWorldMemorySummary();
             
             // Build critical conditions
             let criticalConditions = '';
-            if (c.gold < 0) {
-                const debtAmount = Math.abs(c.gold);
-                criticalConditions += `\n⚠️ IN DEBITO di ${debtAmount.toLocaleString('it-IT')} ${c.currency?.short || 'soldi'}! Menziona la pressione finanziaria.`;
-            }
-            if (c.hunger.cur <= 20) {
-                criticalConditions += '\n⚠️ AFFAMATO! Il personaggio ha molta fame, descrivi i sintomi.';
-            }
-            if (c.stamina.cur <= 20) {
-                criticalConditions += '\n⚠️ ESAUSTO! Il personaggio è stanco, le azioni sono difficili.';
-            }
-            if (c.health.cur <= c.health.max * 0.3) {
-                criticalConditions += '\n⚠️ FERITO GRAVEMENTE! Descrivi il dolore e la difficoltà.';
-            }
+            if (c.gold < 0) criticalConditions += `\n⚠️ IN DEBITO GRAVE: ${c.gold} ${c.currency?.short}! I creditori ti cercano.`;
+            if (c.hunger.cur <= 20) criticalConditions += '\n⚠️ AFFAMATO! Il personaggio ha molta fame.';
+            if (c.stamina.cur <= 20) criticalConditions += '\n⚠️ ESAUSTO! Il personaggio barcolla dalla stanchezza.';
 
-            const systemPrompt = `Sei il Narratore di un gioco di ruolo interattivo. Scrivi in italiano fluente.
+            const systemPrompt = `Sei il NARRATORE Il tuo compito è dare vita al mondo con descrizioni evocative, dinamiche e ricche di atmosfera, mantenendo sempre una posizione neutrale e coerente. Devi coinvolgere emotivamente il giocatore, farlo sentire dentro la scena, far percepire tensione, opportunità, rischi e meraviglia.
 
-AMBIENTAZIONE: ${story.setting}
+STILE:
+- Tono coinvolgente, emozionale, vivido; fai percepire l'ambiente, le sensazioni, l’attesa, i piccoli dettagli significativi.
+- Usa sempre il "tu" per trascinare il giocatore dentro l’azione.
+- Enfatizza scelte, dilemmi, conseguenze, momenti tesi o importanti.
+- Il ritmo deve sostenere l’immersione: frasi che guidano, immagini che suggeriscono, emozioni che emergono.
+
+REGOLE:
+- Mantieni totale imparzialità: non favorire né ostacolare intenzionalmente il giocatore.
+- Gli esiti delle azioni devono essere credibili e coerenti con la situazione (successi, fallimenti e conseguenze logiche).
+- Quando serve, puoi evocare la “sorte” come se stessi tirando un dado, senza numeri espliciti.
+- Mantieni il mondo vivo: ambienti sensoriali, PNG con personalità, eventi che reagiscono alle scelte.
+- Non prendere mai decisioni per il giocatore; presenta sempre opzioni e lascia a lui la scelta.
+- Integra meccaniche di gioco (salute, energia, soldi, inventario) in modo fluido e naturale nella narrazione.
+- Usa i TAG MECCANICA e LOOT per modificare lo stato di gioco (salute, energia, soldi, inventario).
+
+OBIETTIVO:
+- Offrire un’esperienza narrativa profondamente immersiva, emotiva e reattiva, mantenendo sempre il controllo come un master esperto di GdR.
+
+ Ora comportati come tale in ogni risposta.
+ 
+
 ${story.desc || ''}
 
-STILE: ${story.personality || 'Narratore evocativo.'}
+DATI GIOCO: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur} | Soldi ${formatCurrency(c.gold)}
+INVENTARIO: ${inventoryList}
 
-DATI GIOCO:
-- Turno: ${G.worldMemory.turnCount}
-- Soldi: ${formatCurrency(c.gold)}
-- Salute: ${c.health.cur}/${c.health.max}
+⛔ **REGOLA FONDAMENTALE (CONTROLLI NASCOSTI)**
+Quando verifichi i requisiti (soldi, oggetti, logica), DEVI scrivere il ragionamento dentro il tag [ANALISI].
+NON scrivere i controlli nel testo narrativo.
 
-⚠️ REGOLA FONDAMENTALE - SINCRONIZZAZIONE INVENTARIO ⚠️
-L'inventario del giocatore DEVE rispecchiare ESATTAMENTE ciò che scrivi.
-Ogni volta che descrivi che il protagonista:
-1. Ha un equipaggiamento iniziale (vestiti, armi, oggetti in tasca).
-2. Trova un oggetto.
-3. Compra qualcosa.
-4. Riceve un dono.
+Esempio Corretto:
+[ANALISI]Il giocatore vuole la spada (costo 50). Ha 100 monete. OK.[/ANALISI]
+Il fabbro annuisce e ti porge l'arma...
+[MECCANICA: soldi=-50] [LOOT: Spada|1|...]
 
-DEVI ASSOLUTAMENTE generare il tag [LOOT] subito dopo la descrizione.
-Formato: [LOOT: Nome Oggetto | quantità | breve descrizione | valore opzionale | icona opzionale]
+Esempio Errato (NON FARE COSI):
+Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 
-ESEMPI:
-- Testo: "Indossi un vecchio mantello logoro e stringi un pugnale arrugginito."
-  Comando: [LOOT: Mantello Logoro|1|Vecchio e consunto|5|🧥] [LOOT: Pugnale Arrugginito|1|Poco affilato|10|🗡️]
+⚠️ **OUTPUT OBBLIGATORIO**
+1. Inizia SEMPRE con [ANALISI]...ragionamento nascosto...[/ANALISI]
+2. Poi scrivi la NARRAZIONE.
+3. Se il giocatore trova oggetti, usa UN TAG PER OGNI OGGETTO nel formato:
+   [LOOT: Nome Oggetto|Quantità|Descrizione opzionale|Valore opzionale|Icona opzionale]
+   
+   Esempio Multiplo:
+   [LOOT: Registri clienti|1] [LOOT: Scatole prodotti|2] [LOOT: Chiave arrugginita|1||0|🗝️]
 
-- Testo: "Il barista ti porge una birra gelata."
-  Comando: [LOOT: Birra Gelata|1|Rinfrescante|5|🍺]
+   NON usare liste uniche come [LOOT] A|1|B|2 [/LOOT]. Usa tag separati.
+   NON scrivere "Hai ottenuto..." nel testo narrativo, il sistema lo farà in automatico leggendo i tag.
 
-- Testo: "Nel cassetto trovi una chiave d'argento."
-  Comando: [LOOT: Chiave d'Argento|1|Apre la porta sul retro|0|🗝️]
+⏱️ **TEMPO E FATICA REALISTICI**
+- Ogni risposta deve far avanzare il tempo con [TEMPO:+X] in minuti. Calibra X in base all'azione (es. scavare un fosso per ore = [TEMPO:+480]).
+- Le azioni faticose consumano energia con [MECCANICA: stamina=-X]; usa valori alti (30-50) per lavori duri e fallisci l'azione se la stamina scende sotto 20.
+- Se l'attività richiede più tempo del previsto, suddividi la scena oppure esplicita che il personaggio si ferma per riposare e riporta gli effetti.
+- Ricorda di segnalare altri costi (soldi, risorse) con i relativi tag [MECCANICA: soldi=±X] e simili.
+- ricorda che il personaggio deve mangiare e riposare regolarmente per evitare penalità.
 
-NON limitarti a descrivere gli oggetti a parole. Se non usi il tag [LOOT], l'oggetto NON ESISTE nell'inventario del giocatore.
 
-🎲 SISTEMA DI RISOLUZIONE:
-${getResolutionText(story)}
+🎒 **LOOT SOLO OGGETTI REALI**
+- Usa i tag [LOOT: ...] solo per oggetti fisici o risorse effettivamente ottenuti e trasportabili.
+- Non aggiungere nell'inventario elementi scenografici o non possedibili (es. "vista dalla finestra", mobili fissati, parti dell'ambiente, sensazioni).
+- Gli oggetti che restano nel luogo vanno descritti nella narrazione senza usare [LOOT].
 
-🧠 MEMORIA:
+🧠 MEMORIA MONDO:
 ${worldMemorySummary}
 
-⏰ **TEMPO E FATICA - IMPORTANTISSIMO!**
-DEVI SEMPRE usare [TEMPO: +X] per indicare i minuti che passano. Sii REALISTICO:
+${criticalConditions}
 
-ATTIVITÀ BREVI (5-30 min):
-- Conversazione breve → [TEMPO: +10]
-- Esaminare qualcosa → [TEMPO: +5]
-- Comprare qualcosa → [TEMPO: +15]
-
-ATTIVITÀ MEDIE (30-120 min):
-- Conversazione lunga/negoziazione → [TEMPO: +45]
-- Pasto completo → [TEMPO: +60]
-- Spostamento in città → [TEMPO: +30]
-- Ricerca/studio breve → [TEMPO: +60]
-
-ATTIVITÀ LUNGHE (ore):
-- Lavoro manuale (pulire, costruire, coltivare) → [TEMPO: +180] o più (3+ ore!)
-- Viaggio a piedi breve → [TEMPO: +120]
-- Viaggio lungo → [TEMPO: +360] (6 ore) o [TEMPO: +480] (8 ore)
-- Lavoro giornaliero completo → [TEMPO: +480]
-
-💪 **CONSUMO ENERGIA** - USA [MECCANICA: stamina=-X]:
-- Conversazione/riposo → 0
-- Camminata leggera → [MECCANICA: stamina=-5]
-- Lavoro leggero (cucinare, pulire casa) → [MECCANICA: stamina=-15]
-- Lavoro moderato (camminata lunga, artigianato) → [MECCANICA: stamina=-25]
-- Lavoro PESANTE (zappare, costruire, pulire vigna, miniera) → [MECCANICA: stamina=-40] o più!
-- Combattimento → [MECCANICA: stamina=-20] per scontro
-- Corsa/fuga → [MECCANICA: stamina=-30]
-
-⚠️ SE L'ENERGIA È BASSA (sotto 30), il lavoro pesante è IMPOSSIBILE o va malissimo!
-
-📊 **ALTRI COMANDI OBBLIGATORI:**
-
-1. **SOLDI**: [MECCANICA: soldi=50] o [MECCANICA: soldi=-20]
-   *I debiti sono permessi!*
-
-3. **PROPRIETÀ/BENI**: [PROPRIETA: Nome|Descrizione|Bonus/entrate]
-   *Case, negozi, titoli, licenze, terreni o beni durevoli vanno qui!*
-
-4. **DANNI/CURE**: [MECCANICA: danno=10] o [MECCANICA: cura=15]
-
-5. **ESPERIENZA**: [MECCANICA: exp=25]
-
-6. **MEMORIA**:
-   [NPC: Nome | Descrizione | Relazione]
-   [LUOGO: Nome | Descrizione]
-   [QUEST: Nome | Descrizione | active/completed]
-   [EVENTO: Cosa è successo]
-
-SCRIVI ${lengths[s.length]} di narrazione immersiva.
-NON usare markdown per il testo narrativo.
-`;
+SCRIVI ${lengths[s.length]} di narrazione.`;
 
             let userMsg;
             if (isStart) {
                 userMsg = `Inizia la storia. È ${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}, ${period.name}.
 ${story.prologue || 'Il protagonista inizia la sua avventura.'}
-
-TUO COMPITO ORA:
-1. Descrivi la scena iniziale e dove si trova il protagonista.
-2. Descrivi cosa indossa e cosa ha nelle tasche/zaino in questo momento.
-3. IMPORTANTE: Per OGNI oggetto o vestito che descrivi, genera SUBITO il tag [LOOT:...] corrispondente, altrimenti l'inventario sarà vuoto!`;
+Descrivi la scena e l'equipaggiamento iniziale (usa [LOOT] per dare gli oggetti iniziali).`;
             } else {
-                const debtInfo = c.gold < 0 ? ` | ⚠️DEBITO: ${Math.abs(c.gold)}` : '';
-                userMsg = `[Turno: ${G.worldMemory.turnCount} | HP ${c.health.cur}/${c.health.max} | ⚡${c.stamina.cur} | 🍖${c.hunger.cur} | 💰${c.gold}${debtInfo}]
-Il giocatore: ${action}
+                userMsg = `[Stato attuale: HP ${c.health.cur} | Energia ${c.stamina.cur} | Soldi ${c.gold}]
+Il giocatore dichiara: "${action}"
 
-RICORDA:
-- [TEMPO: +X] per i minuti che passano (lavori pesanti = ORE, non minuti!)
-- [MECCANICA: stamina=-X] per la fatica (lavori pesanti = -30/-50!)
-- Se ⚡ è basso, il PG fatica o non riesce a fare lavori pesanti
-- [MECCANICA: soldi=...] per transazioni
-- [LOOT:...] per oggetti trovati
-- [PROPRIETA: Nome|Descrizione|Bonus] quando ottieni case/negozi/licenze/beni permanenti`;
+AGISCI DA ARBITRO:
+1. Controlla l'INVENTARIO e i SOLDI sopra.
+2. Il giocatore può farlo? 
+   - SI -> Narra il successo e usa i tag [MECCANICA/LOOT].
+   - NO -> Narra il fallimento/rifiuto e NON usare i tag di ricompensa.`;
             }
 
             let endpoint, model, headers;
 
             if (s.model === 'openrouter' && s.openrouterKey) {
                 endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-                model = 'google/gemma-3-27b-it';
+                model = 'google/gemma-3-27b-it'; // O un modello più intelligente come Claude-3.5-sonnet o gpt-4o se disponibile
                 headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterKey}` };
             } else if (s.groqKey) {
                 endpoint = 'https://api.groq.com/openai/v1/chat/completions';
-                model = 'llama-3.1-8b-instant';
+                model = 'llama-3.1-8b-instant'; // Consiglio il 70b per logica migliore, o 8b per velocità
                 headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.groqKey}` };
             } else {
                 throw new Error('Configura le API keys nelle Impostazioni!');
             }
 
             // Increased history window
-            const recentHistory = G.history.slice(-12);
+            const recentHistory = G.history.slice(-10);
 
             const body = {
                 model,
@@ -3929,8 +4253,8 @@ RICORDA:
                     ...recentHistory,
                     { role: 'user', content: userMsg }
                 ],
-                temperature: 0.8,
-                max_tokens: 2000
+                temperature: 0.7, // Leggermente più basso per essere più rigoroso
+                max_tokens: 1500
             };
 
             const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -3943,9 +4267,25 @@ RICORDA:
         }
 
         function parseAIResponse(response) {
+            // 1. ESTRAZIONE ANALISI (Nuova parte)
+            const analysisRe = /\[ANALISI\]([\s\S]*?)\[\/ANALISI\]/gi;
+            let m;
+            let analysisContent = '';
+            
+            // Cattura tutto il contenuto di analisi
+            while ((m = analysisRe.exec(response)) !== null) {
+                analysisContent += m[1].trim() + '\n';
+            }
+
+            // Se c'è un'analisi, la aggiungiamo come messaggio separato PRIMA della narrazione
+            if (analysisContent) {
+                // Pulisce un po' il testo dell'analisi per renderlo leggibile
+                analysisContent = analysisContent.replace(/\[.*?\]:/g, '').trim(); 
+                addStoryEntry(analysisContent, 'analysis');
+            }
+
             // Extract time changes
             const timeRe = /\[TEMPO:\s*\+?(\d+)\]/gi;
-            let m;
             while ((m = timeRe.exec(response)) !== null) {
                 const mins = parseInt(m[1]);
                 advanceTime(mins);
@@ -3971,6 +4311,19 @@ RICORDA:
                 const rawValue = parts.length >= 4 ? parseInt(parts[3]) : undefined;
                 const value = Number.isFinite(rawValue) ? rawValue : undefined;
                 const icon = parts[4] || '';
+                // Skip non-physical items accidentally tagged as loot (e.g. "vista dalla finestra")
+                const lowerName = itemName.toLowerCase();
+                const intangiblePatterns = [
+                    /vista\b.*finestra/,
+                    /finestra\b.*vista/,
+                    /\bpanorama\b/,
+                    /\bscorcio\b/,
+                    /\borizzonte\b/
+                ];
+                if (intangiblePatterns.some(re => re.test(lowerName))) {
+                    addStoryEntry(`⚠️ Oggetto ignorato (non trasportabile): ${itemName}`, 'system');
+                    continue;
+                }
                 addLootToInventory(itemName, qty, { description, value, icon });
             }
 
@@ -4047,8 +4400,9 @@ RICORDA:
                 suggestions.push({ type: m[1].trim(), text: m[2].trim() });
             }
 
-            // Clean response
+            // Clean response (AGGIUNGI LA RIGA PER RIMUOVERE [ANALISI])
             let clean = response
+                .replace(/\[ANALISI\][\s\S]*?\[\/ANALISI\]/gi, '') // <--- AGGIUNTA IMPORTANTE
                 .replace(/\[TEMPO:[^\]]*\]/gi, '')
                 .replace(/\[MECCANICA:[^\]]*\]/gi, '')
                 .replace(/\[LOOT:[^\]]*\]/gi, '')
@@ -4086,8 +4440,17 @@ RICORDA:
             const valClean = (valRaw || '').replace(/[.,\s]/g, '').toLowerCase();
             const v = parseInt(valClean) || 0;
             const c = G.character;
+            const normalizedType = type.toLowerCase();
 
-            switch (type.toLowerCase()) {
+            if (matchesSecondaryKey(normalizedType, c.secondary)) {
+                adjustSecondary(v, c);
+                addStoryEntry(formatSecondaryDelta(v, c.secondary), 'mechanic');
+                updateCharacterUI();
+                checkStatusEffects();
+                return;
+            }
+
+            switch (normalizedType) {
                 case 'danno': case 'damage':
                     c.health.cur = Math.max(0, c.health.cur - Math.abs(v));
                     addStoryEntry(`💔 -${Math.abs(v)} HP`, 'mechanic');
@@ -4113,10 +4476,6 @@ RICORDA:
                     addStoryEntry(`⭐ +${Math.abs(v)} EXP`, 'mechanic');
                     checkLevelUp();
                     break;
-                case 'mana':
-                    c.mana.cur = Math.max(0, Math.min(c.mana.max, c.mana.cur + v));
-                    addStoryEntry(`💜 ${v >= 0 ? '+' : ''}${v} Mana`, 'mechanic');
-                    break;
                 case 'stamina': case 'energia':
                     c.stamina.cur = Math.max(0, Math.min(c.stamina.max, c.stamina.cur + v));
                     addStoryEntry(`⚡ ${v >= 0 ? '+' : ''}${v} Energia`, 'mechanic');
@@ -4138,8 +4497,11 @@ RICORDA:
                 c.exp.need = Math.floor(c.exp.need * 1.5);
                 c.health.max += 5;
                 c.health.cur = c.health.max;
-                c.mana.max += 3;
-                c.mana.cur = c.mana.max;
+                if (c.secondary) {
+                    const bonus = c.secondary.levelUpBonus || 0;
+                    if (bonus) c.secondary.max += bonus;
+                    c.secondary.cur = c.secondary.max;
+                }
                 c.stamina.max += 10;
                 c.stamina.cur = c.stamina.max;
                 notify(`🎉 Livello ${c.level}!`, 'success');
