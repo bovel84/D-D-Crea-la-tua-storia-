@@ -4390,7 +4390,8 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 
 💰 **CAPITALE DISPONIBILE**
 - All'inizio della partita devi dichiarare chiaramente quante risorse economiche, contanti o crediti possiede il protagonista e come sono conservate (cassa, libro mastro, eredità, titoli, ecc.).
-- Se il capitale iniziale differisce da quello indicato in DATI GIOCO, calcola la differenza e usa subito [MECCANICA: soldi=±X] (o il tag equivalente della valuta) per allineare il saldo.
+- Se il capitale iniziale differisce da quello indicato in DATI GIOCO, calcola la differenza e usa subito [MECCANICA: soldi=+X] o [MECCANICA: soldi=-X] (o l'equivalente per la valuta usata) per applicare la variazione necessaria.
+- Usa la forma senza segno [MECCANICA: soldi=X] solo quando devi impostare il saldo finale dopo aver ricontato il denaro o dopo aver applicato tutte le variazioni; non usarla per indicare guadagni o spese incrementali.
 - Quando il denaro è registrato in documenti o libri mastri, cita il supporto nella narrazione e, se appropriato, fornisci l'oggetto con [LOOT: Libro mastro|1|Contiene ...].
 - Ricorda che le valute possono essere espresse in euro, monete d'oro, fiorini o altre unità: usa sempre il tag meccanico per aggiornare il totale.
 
@@ -4424,7 +4425,7 @@ RICORDA:
 - [TEMPO: +X] per i minuti che passano (lavori pesanti = ORE, non minuti!)
 - [MECCANICA: stamina=-X] per la fatica (lavori pesanti = -30/-50!)
 - Se ⚡ è basso, il PG fatica o non riesce a fare lavori pesanti
-- [MECCANICA: soldi=...] per spese/guadagni
+- [MECCANICA: soldi=...] per spese/guadagni (usa + o - per le variazioni; usa il valore senza segno solo per impostare il saldo finale dopo un conteggio completo)
 - [FINANZA: Nome Oggetto|±X] per aggiornare conti, libretti, carte o registri
 - [CONSUMA/USA/VENDI/SCARTA: Nome|Q] per rimuovere oggetti usati, venduti o abbandonati
 - Prima di finalizzare acquisti, contratti o decisioni permanenti, chiedi conferma al giocatore (es. "Vuoi procedere?") e attendi la risposta prima di applicare tag o conseguenze
@@ -4747,11 +4748,22 @@ RICORDA:
                     break;
                 case 'soldi': case 'gold': case 'money': case 'denaro': case 'cash': case 'contanti': case 'ricchezza': case 'fiorini': case 'fiorino':
                     const prevGold = c.gold;
-                    c.gold = c.gold + v; // PERMETTE DEBITI (niente Math.max)
+                    const hasExplicitSign = /^[\s]*[+\-]/.test(valRaw || '');
+                    if (hasExplicitSign) {
+                        c.gold = c.gold + v; // delta
+                    } else {
+                        c.gold = v; // valore assoluto
+                    }
                     const deltaGold = c.gold - prevGold;
                     const currSymbol = c.currency?.symbol || c.currency?.short || '💰';
-                    
-                    if (c.gold < 0) {
+
+                    if (!hasExplicitSign) {
+                        if (c.gold < 0) {
+                            addStoryEntry(`🔴 Saldo impostato a debito: ${currSymbol} ${c.gold.toLocaleString('it-IT')}`, 'mechanic');
+                        } else {
+                            addStoryEntry(`${currSymbol} saldo impostato a ${c.gold.toLocaleString('it-IT')}`, 'mechanic');
+                        }
+                    } else if (c.gold < 0) {
                         addStoryEntry(`🔴 DEBITO: ${currSymbol} ${deltaGold.toLocaleString('it-IT')} (Totale: ${c.gold.toLocaleString('it-IT')})`, 'mechanic');
                     } else {
                         addStoryEntry(`${currSymbol} ${deltaGold >= 0 ? '+' : ''}${deltaGold.toLocaleString('it-IT')}`, 'mechanic');
