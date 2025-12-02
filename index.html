@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>🐉 Cronache del Destino v5</title>
+    <title>🐉 Cronache del Destino v4</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=MedievalSharp&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -1929,10 +1929,20 @@
                     <input type="password" class="form-input" id="set-openrouter-key" placeholder="Inserisci la tua API key OpenRouter...">
                 </div>
                 <div class="form-group">
+                    <label class="form-label">🔑 API Key OpenRouter Free</label>
+                    <input type="password" class="form-input" id="set-openrouter-free-key" placeholder="Inserisci la tua API key OpenRouter per modelli free...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">🔑 API Key Amazon</label>
+                    <input type="password" class="form-input" id="set-amazon-key" placeholder="Inserisci la tua API key Amazon...">
+                </div>
+                <div class="form-group">
                     <label class="form-label">🤖 Modello AI</label>
                     <select class="form-select" id="set-model">
                         <option value="groq">Groq (Llama 3.1 - Veloce)</option>
                         <option value="openrouter">OpenRouter (Gemma 3 27B)</option>
+                        <option value="amazon">Amazon Nova 2 Lite (Free)</option>
+                        <option value="xai">xAI Grok 4.1 Fast (Free)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -1983,7 +1993,7 @@
                 turnCount: 0
             },
             settings: {
-                groqKey: '', openrouterKey: '', model: 'groq', length: 'medium', autoRoll: true
+                groqKey: '', openrouterKey: '', openrouterFreeKey: '', amazonKey: '', model: 'groq', length: 'medium', autoRoll: true
             },
             stories: [],
             saves: Array(6).fill(null),
@@ -4837,6 +4847,7 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 🎒 **LOOT SOLO OGGETTI REALI**
 - Usa i tag [LOOT: ...] solo per oggetti fisici o risorse effettivamente ottenuti e trasportabili.
 - Non aggiungere nell'inventario elementi scenografici o non possedibili (es. "vista dalla finestra", mobili fissati, parti dell'ambiente, sensazioni).
+- NON usare [LOOT] per oggetti che il personaggio ha già nell'inventario (es. se estrae la spada, non dare di nuovo [LOOT: Spada]).
 - Il denaro contante non è un oggetto: aggiorna sempre le monete con [MECCANICA: soldi=±X] (o l'equivalente della valuta) invece di usare [LOOT].
 
 🗑️ **RIMUOVI OGGETTI ESAURITI**
@@ -4869,6 +4880,8 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 - All'inizio della partita devi dichiarare chiaramente quante risorse economiche, contanti o crediti possiede il protagonista e come sono conservate (cassa, libro mastro, eredità, titoli, ecc.).
 - Se il capitale iniziale differisce da quello indicato in DATI GIOCO, calcola la differenza e usa subito [MECCANICA: soldi=+X] o [MECCANICA: soldi=-X] (o l'equivalente per la valuta usata) per applicare la variazione necessaria.
 - Usa la forma senza segno [MECCANICA: soldi=X] solo quando devi impostare il saldo finale dopo aver ricontato il denaro o dopo aver applicato tutte le variazioni; non usarla per indicare guadagni o spese incrementali.
+- NON usare [MECCANICA: soldi=...] se stai solo ricordando il saldo attuale senza variazioni. Se il giocatore ha 100 monete e non ne guadagna/perde, NON scrivere nulla.
+- NON usare [LOOT: ...] per oggetti che il personaggio possiede già. Usa [LOOT] solo per NUOVI oggetti ottenuti.
 - Quando il denaro è registrato in documenti o libri mastri, cita il supporto nella narrazione e, se appropriato, fornisci l'oggetto con [LOOT: Libro mastro|1|Contiene ...].
 - Ricorda che le valute possono essere espresse in euro, monete d'oro, fiorini o altre unità: usa sempre il tag meccanico per aggiornare il totale.
 
@@ -4918,6 +4931,14 @@ RICORDA:
                 endpoint = 'https://openrouter.ai/api/v1/chat/completions';
                 model = 'google/gemma-3-27b-it'; // O un modello più intelligente come Claude-3.5-sonnet o gpt-4o se disponibile
                 headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterKey}` };
+            } else if (s.model === 'amazon' && s.openrouterFreeKey) {
+                endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+                model = 'amazon/nova-2-lite-v1:free';
+                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterFreeKey}` };
+            } else if (s.model === 'xai' && s.openrouterFreeKey) {
+                endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+                model = 'x-ai/grok-4.1-fast:free';
+                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterFreeKey}` };
             } else if (s.groqKey) {
                 endpoint = 'https://api.groq.com/openai/v1/chat/completions';
                 model = 'llama-3.1-8b-instant'; // Consiglio il 70b per logica migliore, o 8b per velocità
@@ -5525,6 +5546,8 @@ RICORDA:
 
             $('set-groq-key').value = G.settings.groqKey || '';
             $('set-openrouter-key').value = G.settings.openrouterKey || '';
+            $('set-openrouter-free-key').value = G.settings.openrouterFreeKey || '';
+            $('set-amazon-key').value = G.settings.amazonKey || '';
             $('set-model').value = G.settings.model || 'groq';
             $('set-length').value = G.settings.length || 'medium';
             $('set-autoroll').checked = G.settings.autoRoll !== false;
@@ -5649,6 +5672,8 @@ RICORDA:
             $('btn-save-settings').onclick = () => {
                 G.settings.groqKey = $('set-groq-key').value;
                 G.settings.openrouterKey = $('set-openrouter-key').value;
+                G.settings.openrouterFreeKey = $('set-openrouter-free-key').value;
+                G.settings.amazonKey = $('set-amazon-key').value;
                 G.settings.model = $('set-model').value;
                 G.settings.length = $('set-length').value;
                 G.settings.autoRoll = $('set-autoroll').checked;
