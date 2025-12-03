@@ -2779,9 +2779,9 @@
             const hoursElapsed = minutes / 60;
             if (G.character && minutes > 0) {
                 // Consumo risorse proporzionale al tempo
-                // Circa 8 stamina/ora e 10 hunger/ora (un giorno = ~80 stamina, ~240 hunger)
-                const staminaLoss = Math.ceil(hoursElapsed * 8);
-                const hungerLoss = Math.ceil(hoursElapsed * 10);
+                // Circa 3 stamina/ora e 4 hunger/ora (un giorno = ~72 stamina, ~96 hunger)
+                const staminaLoss = Math.ceil(hoursElapsed * 3);
+                const hungerLoss = Math.ceil(hoursElapsed * 4);
                 
                 const oldStamina = G.character.stamina.cur;
                 const oldHunger = G.character.hunger.cur;
@@ -2814,12 +2814,12 @@
                 
                 // Penalità per fame/stanchezza critica
                 if (G.character.hunger.cur <= 0) {
-                    const hpLoss = Math.ceil(hoursElapsed * 3);
+                    const hpLoss = Math.ceil(hoursElapsed * 1);
                     G.character.health.cur = Math.max(1, G.character.health.cur - hpLoss);
                     addStoryEntry(`⚠️ Stai morendo di fame! -${hpLoss} HP`, 'system');
                 }
                 if (G.character.stamina.cur <= 0) {
-                    const hpLoss = Math.ceil(hoursElapsed * 2);
+                    const hpLoss = Math.ceil(hoursElapsed * 1);
                     G.character.health.cur = Math.max(1, G.character.health.cur - hpLoss);
                     addStoryEntry(`⚠️ Sei completamente esausto! -${hpLoss} HP`, 'system');
                 }
@@ -4815,6 +4815,9 @@ INVENTARIO: ${inventoryList}
 ⛔ **REGOLA FONDAMENTALE (CONTROLLI NASCOSTI)**
 Quando verifichi i requisiti (soldi, oggetti, logica), DEVI scrivere il ragionamento dentro il tag [ANALISI].
 NON scrivere i controlli nel testo narrativo.
+⚠️ **IMPORTANTE: APPLICA I COSTI UNA SOLA VOLTA**
+Se un pagamento è stato già effettuato o narrato in precedenza, NON inserire nuovamente il tag [MECCANICA: soldi=-X].
+Controlla la cronologia: se hai già tolto i soldi per questo contratto/oggetto, non farlo di nuovo.
 
 Esempio Corretto:
 [ANALISI]Il giocatore vuole la spada (costo 50). Ha 100 monete. OK.[/ANALISI]
@@ -4838,7 +4841,9 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 
 ⏱️ **TEMPO E FATICA REALISTICI**
 - Ogni risposta deve far avanzare il tempo con [TEMPO:+X] in minuti. Calibra X in base all'azione (es. scavare un fosso per ore = [TEMPO:+480]).
-- Le azioni faticose consumano energia con [MECCANICA: stamina=-X]; usa valori alti (30-50) per lavori duri e fallisci l'azione se la stamina scende sotto 20.
+- Le azioni faticose consumano energia con [MECCANICA: stamina=-X]; usa valori moderati (10-20) per lavori duri e fallisci l'azione se la stamina scende sotto 20.
+- Quando il personaggio DORME, recupera l'energia persa: usa [MECCANICA: stamina=+100] (o quanto serve per il max).
+- Quando il personaggio MANGIA o RIPOSA (senza dormire), recupera salute [MECCANICA: hp=+X] e un po' di energia.
 - Se l'attività richiede più tempo del previsto, suddividi la scena oppure esplicita che il personaggio si ferma per riposare e riporta gli effetti.
 - Ricorda di segnalare altri costi (soldi, risorse) con i relativi tag [MECCANICA: soldi=±X] e simili.
 - ricorda che il personaggio deve mangiare e riposare regolarmente per evitare penalità.
@@ -4881,6 +4886,7 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 - Se il capitale iniziale differisce da quello indicato in DATI GIOCO, calcola la differenza e usa subito [MECCANICA: soldi=+X] o [MECCANICA: soldi=-X] (o l'equivalente per la valuta usata) per applicare la variazione necessaria.
 - Usa la forma senza segno [MECCANICA: soldi=X] solo quando devi impostare il saldo finale dopo aver ricontato il denaro o dopo aver applicato tutte le variazioni; non usarla per indicare guadagni o spese incrementali.
 - NON usare [MECCANICA: soldi=...] se stai solo ricordando il saldo attuale senza variazioni. Se il giocatore ha 100 monete e non ne guadagna/perde, NON scrivere nulla.
+- EVITA DOPPI ADDEBITI: Se un'azione richiede un pagamento (es. firma contratto), inserisci il tag [MECCANICA: soldi=-X] SOLO nel messaggio in cui l'azione viene finalizzata. Non ripeterlo nei messaggi successivi di riepilogo.
 - NON usare [LOOT: ...] per oggetti che il personaggio possiede già. Usa [LOOT] solo per NUOVI oggetti ottenuti.
 - Quando il denaro è registrato in documenti o libri mastri, cita il supporto nella narrazione e, se appropriato, fornisci l'oggetto con [LOOT: Libro mastro|1|Contiene ...].
 - Ricorda che le valute possono essere espresse in euro, monete d'oro, fiorini o altre unità: usa sempre il tag meccanico per aggiornare il totale.
@@ -4913,7 +4919,8 @@ AGISCI DA ARBITRO:
 
 RICORDA:
 - [TEMPO: +X] per i minuti che passano (lavori pesanti = ORE, non minuti!)
-- [MECCANICA: stamina=-X] per la fatica (lavori pesanti = -30/-50!)
+- [MECCANICA: stamina=-X] per la fatica (lavori pesanti = -10/-20!)
+- [MECCANICA: stamina=+100] se DORME; [MECCANICA: hp=+X] se MANGIA/RIPOSA
 - Se ⚡ è basso, il PG fatica o non riesce a fare lavori pesanti
 - [MECCANICA: soldi=...] per spese/guadagni (usa + o - per le variazioni; usa il valore senza segno solo per impostare il saldo finale dopo un conteggio completo)
 - [FINANZA: Nome Oggetto|±X] per aggiornare conti, libretti, carte o registri
