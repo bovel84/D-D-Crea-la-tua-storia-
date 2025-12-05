@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="description" content="Cronache del Destino - Un gioco di ruolo narrativo basato su IA dove puoi creare e vivere le tue avventure fantasy, fantascienza e horror.">
+    <meta name="author" content="Cronache del Destino">
+    <meta name="theme-color" content="#2c1810">
     <title>🐉 Cronache del Destino v4</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=MedievalSharp&display=swap" rel="stylesheet">
     <style>
@@ -1568,8 +1571,9 @@
     </style>
 </head>
 <body>
+    <main>
     <!-- HOME SCREEN -->
-    <div class="screen active" id="home-screen">
+    <div class="screen active" id="home-screen" aria-label="Home screen">
         <div class="home-container">
             <div class="home-logo">🐉</div>
             <h1 class="home-title">Cronache del Destino</h1>
@@ -1590,7 +1594,7 @@
     </div>
 
     <!-- GAME SCREEN -->
-    <div class="screen" id="game-screen">
+    <div class="screen" id="game-screen" role="application" aria-label="Game screen">
         <div class="game-topbar">
             <div class="topbar-row">
                 <div class="topbar-buttons">
@@ -1636,7 +1640,7 @@
         </div>
 
         <div class="story-container">
-            <div class="story-scroll" id="story-scroll"></div>
+            <div class="story-scroll" id="story-scroll" role="log" aria-live="polite" aria-label="Storia del gioco"></div>
 
             <div class="suggestions-area" id="suggestions-area">
                 <div class="suggestions-list" id="suggestions-list"></div>
@@ -1645,12 +1649,13 @@
             <div class="input-area">
                 <div class="quick-actions" id="quick-actions"></div>
                 <div class="input-row">
-                    <input type="text" id="action-input" placeholder="Cosa fai?" autocomplete="off">
-                    <button id="btn-send">➤</button>
+                    <input type="text" id="action-input" placeholder="Cosa fai?" autocomplete="off" aria-label="Inserisci la tua azione">
+                    <button id="btn-send" aria-label="Invia azione">➤</button>
                 </div>
             </div>
         </div>
     </div>
+    </main>
 
     <!-- Character Modal -->
     <div class="modal-overlay" id="modal-character">
