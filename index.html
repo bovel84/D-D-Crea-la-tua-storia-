@@ -436,6 +436,36 @@
         }
         .story-entry.memory-update .story-badge { background: rgba(107,46,155,0.16); border-color: rgba(107,46,155,0.32); color: var(--purple); }
 
+        /* Stile per eventi del mondo - colore teal/ciano distintivo */
+        .story-entry.world-event {
+            background: linear-gradient(135deg, rgba(0, 128, 128, 0.15), rgba(32, 178, 170, 0.08));
+            border-left-color: #20b2aa;
+            border-left-width: 4px;
+            font-style: italic;
+        }
+        .story-entry.world-event .story-badge {
+            background: rgba(32, 178, 170, 0.2);
+            border-color: rgba(32, 178, 170, 0.4);
+            color: #008080;
+        }
+        .story-entry.world-event::before {
+            content: '🌍';
+            margin-right: 8px;
+        }
+
+        /* Stile per azioni NPC autonome */
+        .story-entry.npc-action {
+            background: linear-gradient(135deg, rgba(255, 165, 0, 0.12), rgba(255, 140, 0, 0.06));
+            border-left-color: #ff8c00;
+            border-left-width: 3px;
+            font-size: 0.9em;
+        }
+        .story-entry.npc-action .story-badge {
+            background: rgba(255, 140, 0, 0.18);
+            border-color: rgba(255, 140, 0, 0.35);
+            color: #cc7000;
+        }
+
         .story-entry em {
             font-style: italic;
             color: var(--ink-light);
@@ -940,55 +970,97 @@
         /* Properties & Abilities recap */
         .property-item {
             display: flex;
-            gap: 10px;
-            padding: 10px;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px;
             background: linear-gradient(135deg, rgba(201, 162, 39, 0.12), rgba(201, 162, 39, 0.04));
             border: 1px solid rgba(0,0,0,0.08);
             border-radius: 10px;
-            margin-bottom: 8px;
-            align-items: flex-start;
+            margin-bottom: 10px;
         }
         .property-item.ability {
             background: linear-gradient(135deg, rgba(46, 139, 87, 0.12), rgba(46, 139, 87, 0.05));
         }
-        .property-icon { font-size: 1.4em; }
+        .property-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .property-icon { font-size: 1.6em; }
+        .property-title { flex: 1; }
+        .property-name { font-weight: 700; font-family: 'Cinzel', serif; font-size: 1.05em; }
+        .property-type { font-size: 0.75em; color: var(--ink-light); text-transform: uppercase; }
+        .property-condition-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
         .property-info { flex: 1; }
-        .property-name { font-weight: 700; font-family: 'Cinzel', serif; }
-        .property-desc { font-size: 0.9em; color: var(--ink); }
-        .property-meta { font-size: 0.85em; color: var(--ink-light); }
-        .property-holdings { margin-top: 8px; width: 100%; }
-        .property-holdings-title { font-size: 0.75em; letter-spacing: 0.08em; font-weight: 600; text-transform: uppercase; color: var(--ink-light); margin-bottom: 4px; }
-        .property-holdings-grid { display: flex; flex-wrap: wrap; gap: 6px; }
-        .property-holdings-item { display: flex; align-items: center; gap: 6px; background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(0,0,0,0.08); border-radius: 8px; padding: 6px 10px; font-size: 0.85em; position: relative; }
-        .property-holdings-item .icon { font-size: 1.1em; }
-        .property-holdings-item .info { display: flex; flex-direction: column; gap: 2px; }
-        .property-holdings-item .name { font-weight: 600; }
-        .property-holdings-item .meta { font-size: 0.75em; color: var(--ink-light); }
-        .property-holdings-item .qty { background: var(--purple); color: white; border-radius: 6px; padding: 0 6px; font-size: 0.75em; align-self: center; }
-        .property-holdings-empty { font-size: 0.8em; color: var(--ink-light); font-style: italic; margin-top: 4px; }
-        .property-holdings-summary { font-size: 0.78em; color: var(--ink-light); margin-top: 6px; letter-spacing: 0.05em; }
-        .property-category-block { margin-top: 12px; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 12px; background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(240,235,226,0.7)); }
-        .property-category-heading { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--purple-dark); font-family: 'Cinzel', serif; margin-bottom: 8px; }
-        .property-category-count { margin-left: auto; font-size: 0.75em; color: var(--ink-light); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-
-        .inventory-tabs { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
-        .inventory-tab-button { border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.6); padding: 8px 14px; border-radius: 999px; cursor: pointer; font-weight: 600; color: var(--ink); transition: background 0.2s, border-color 0.2s, color 0.2s; }
-        .inventory-tab-button:hover { border-color: var(--purple); }
-        .inventory-tab-button.active { background: linear-gradient(135deg, rgba(106, 55, 169, 0.18), rgba(106, 55, 169, 0.08)); border-color: rgba(106, 55, 169, 0.3); color: var(--purple-dark); box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-        .inventory-tab-content { display: none; animation: fadeIn 0.2s ease-in-out; }
-        .inventory-tab-content.active { display: block; }
-        .inventory-note { background: rgba(255, 248, 232, 0.7); border-left: 3px solid var(--gold); padding: 10px 12px; margin-bottom: 18px; font-size: 0.85em; color: var(--ink); border-radius: 6px; }
-        .inventory-note strong { color: var(--purple-dark); }
-        .inventory-section { margin-top: 24px; border-top: 1px solid var(--parchment-dark); padding-top: 18px; }
-        .inventory-section h4 { margin-bottom: 10px; }
-        .properties-grid { display: flex; flex-direction: column; gap: 14px; }
-        .properties-empty { color: var(--ink-light); font-style: italic; padding: 12px 4px; }
-        .item-transfer { margin-top: 16px; padding: 12px; border: 1px dashed rgba(106, 55, 169, 0.4); border-radius: 10px; background: rgba(244, 240, 255, 0.6); display: flex; flex-direction: column; gap: 8px; }
-        .item-transfer label { font-weight: 600; color: var(--purple-dark); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; }
-        .item-transfer-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-        .item-transfer select { padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.2); background: white; }
-        .item-transfer input[type="number"] { width: 80px; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.2); }
-        .item-transfer small { font-size: 0.75em; color: var(--ink-light); }
+        .property-desc { font-size: 0.9em; color: var(--ink); margin-bottom: 8px; }
+        .property-meta { font-size: 0.85em; color: var(--ink-light); font-style: italic; margin-top: 8px; }
+        
+        .property-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(0,0,0,0.03);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .property-stat-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85em;
+        }
+        .property-stat-row .stat-label {
+            flex: 1;
+            color: var(--ink-light);
+        }
+        .property-stat-row .stat-value {
+            font-weight: 600;
+            font-family: 'Cinzel', serif;
+        }
+        .property-condition-bar {
+            flex: 1;
+            height: 8px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            max-width: 100px;
+        }
+        .property-condition-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .properties-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 12px;
+            background: linear-gradient(135deg, rgba(201, 162, 39, 0.2), rgba(201, 162, 39, 0.08));
+            border-radius: 10px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(201, 162, 39, 0.3);
+        }
+        .properties-summary .summary-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+            min-width: 120px;
+        }
+        .properties-summary .summary-item span {
+            font-size: 0.75em;
+            color: var(--ink-light);
+        }
+        .properties-summary .summary-item strong {
+            font-family: 'Cinzel', serif;
+            font-size: 1.1em;
+        }
 
         /* World Memory Modal */
         .memory-section {
@@ -1641,50 +1713,37 @@
                 <button class="modal-close" data-close="modal-inventory">✕</button>
             </div>
             <div class="modal-body">
-                <div class="inventory-tabs">
-                    <button class="inventory-tab-button active" data-target="inventory-player">🎒 Inventario giocatore</button>
-                    <button class="inventory-tab-button" data-target="inventory-properties">🏠 Beni delle proprietà</button>
+                <div class="inv-header">
+                    <span class="inv-gold">💰 <span id="inv-gold">0</span></span>
+                    <span class="inv-weight">📦 Spazio: <span id="inv-count">0</span>/<span id="inv-capacity">20</span></span>
                 </div>
 
-                <div class="inventory-tab-content active" id="inventory-player">
-                    <div class="inventory-note">
-                        Oggetti, consumabili e equipaggiamento che usi <strong>spariscono automaticamente</strong> appena li consumi, vendi o scarti.
+                <div class="inv-container">
+                    <div class="inv-left-col">
+                        <div class="inv-grid" id="inv-grid"></div>
                     </div>
 
-                    <div class="inv-header">
-                        <span class="inv-gold">💰 <span id="inv-gold">0</span></span>
-                        <span class="inv-weight">📦 Spazio: <span id="inv-count">0</span>/<span id="inv-capacity">20</span></span>
-                    </div>
-
-                    <div class="inv-container">
-                        <div class="inv-left-col">
-                            <div class="inv-grid" id="inv-grid"></div>
+                    <div class="inv-right-col">
+                        <div id="inv-item-details" class="item-details-empty">
+                            <div class="empty-icon">🎒</div>
+                            <p>Seleziona un oggetto per vedere i dettagli.</p>
                         </div>
-
-                        <div class="inv-right-col">
-                            <div id="inv-item-details" class="item-details-empty">
-                                <div class="empty-icon">🎒</div>
-                                <p>Seleziona un oggetto per vedere i dettagli.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="inventory-section special-items">
-                        <h4>🔮 Oggetti Chiave & Memoria</h4>
-                        <div id="special-items-list"></div>
-                    </div>
-
-                    <div class="inventory-section special-items">
-                        <h4>✨ Abilità Registrate</h4>
-                        <div id="inventory-abilities"></div>
                     </div>
                 </div>
 
-                <div class="inventory-tab-content" id="inventory-properties">
-                    <div class="inventory-note">
-                        Usa <code>[LOOT_PROPRIETA]</code> per stoccare beni locali. Quando il narratore applica <code>[CONSUMA_OGGETTO_PROPRIETA]</code>, <code>[VENDI_OGGETTO_PROPRIETA]</code> o <code>[SCARTA_OGGETTO_PROPRIETA]</code> gli articoli <strong>vengono rimossi subito</strong> da questo registro.
-                    </div>
-                    <div id="properties-grid" class="properties-grid"></div>
+                <div class="special-items">
+                    <h4>🔮 Oggetti Chiave & Memoria</h4>
+                    <div id="special-items-list"></div>
+                </div>
+
+                <div class="special-items">
+                    <h4>🏰 Proprietà & Beni</h4>
+                    <div id="properties-list"></div>
+                </div>
+
+                <div class="special-items">
+                    <h4>✨ Abilità Registrate</h4>
+                    <div id="inventory-abilities"></div>
                 </div>
             </div>
         </div>
@@ -1929,20 +1988,10 @@
                     <input type="password" class="form-input" id="set-openrouter-key" placeholder="Inserisci la tua API key OpenRouter...">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">🔑 API Key OpenRouter Free</label>
-                    <input type="password" class="form-input" id="set-openrouter-free-key" placeholder="Inserisci la tua API key OpenRouter per modelli free...">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">🔑 API Key Amazon</label>
-                    <input type="password" class="form-input" id="set-amazon-key" placeholder="Inserisci la tua API key Amazon...">
-                </div>
-                <div class="form-group">
                     <label class="form-label">🤖 Modello AI</label>
                     <select class="form-select" id="set-model">
                         <option value="groq">Groq (Llama 3.1 - Veloce)</option>
                         <option value="openrouter">OpenRouter (Gemma 3 27B)</option>
-                        <option value="amazon">Amazon Nova 2 Lite (Free)</option>
-                        <option value="xai">xAI Grok 4.1 Fast (Free)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -1993,7 +2042,7 @@
                 turnCount: 0
             },
             settings: {
-                groqKey: '', openrouterKey: '', openrouterFreeKey: '', amazonKey: '', model: 'groq', length: 'medium', autoRoll: true
+                groqKey: '', openrouterKey: '', model: 'groq', length: 'medium', autoRoll: true
             },
             stories: [],
             saves: Array(6).fill(null),
@@ -2778,10 +2827,12 @@
             
             const hoursElapsed = minutes / 60;
             if (G.character && minutes > 0) {
-                // Consumo risorse proporzionale al tempo
-                // Circa 3 stamina/ora e 4 hunger/ora (un giorno = ~72 stamina, ~96 hunger)
-                const staminaLoss = Math.ceil(hoursElapsed * 3);
-                const hungerLoss = Math.ceil(hoursElapsed * 4);
+                // Consumo risorse BILANCIATO e realistico
+                // Una persona può stare sveglia ~16 ore e senza cibo ~24 ore prima di problemi seri
+                // Stamina: 100 in 16 ore = ~6.25/ora, arrotondiamo a 4/ora (più tollerante)
+                // Fame: 100 in 24 ore = ~4.2/ora, arrotondiamo a 3/ora (più tollerante)
+                const staminaLoss = Math.ceil(hoursElapsed * 4);
+                const hungerLoss = Math.ceil(hoursElapsed * 3);
                 
                 const oldStamina = G.character.stamina.cur;
                 const oldHunger = G.character.hunger.cur;
@@ -2812,16 +2863,27 @@
                     addStoryEntry(consumeMsg, 'system');
                 }
                 
-                // Penalità per fame/stanchezza critica
+                // Penalità per fame/stanchezza critica - RIDOTTE per realismo
+                // La morte per fame richiede giorni, non ore
                 if (G.character.hunger.cur <= 0) {
-                    const hpLoss = Math.ceil(hoursElapsed * 1);
-                    G.character.health.cur = Math.max(1, G.character.health.cur - hpLoss);
-                    addStoryEntry(`⚠️ Stai morendo di fame! -${hpLoss} HP`, 'system');
+                    // Perde HP solo se passa almeno 1 ora senza cibo E fame a zero
+                    if (hoursElapsed >= 1) {
+                        const hpLoss = Math.ceil(hoursElapsed * 0.5); // Ridotto da 3 a 0.5/ora
+                        if (hpLoss > 0) {
+                            G.character.health.cur = Math.max(1, G.character.health.cur - hpLoss);
+                            addStoryEntry(`⚠️ Stai morendo di fame! -${hpLoss} HP`, 'system');
+                        }
+                    }
                 }
                 if (G.character.stamina.cur <= 0) {
-                    const hpLoss = Math.ceil(hoursElapsed * 1);
-                    G.character.health.cur = Math.max(1, G.character.health.cur - hpLoss);
-                    addStoryEntry(`⚠️ Sei completamente esausto! -${hpLoss} HP`, 'system');
+                    // Esaurimento: rischio svenimento, non morte immediata
+                    if (hoursElapsed >= 1) {
+                        const hpLoss = Math.ceil(hoursElapsed * 0.3); // Ridotto da 2 a 0.3/ora
+                        if (hpLoss > 0) {
+                            G.character.health.cur = Math.max(1, G.character.health.cur - hpLoss);
+                            addStoryEntry(`⚠️ Sei completamente esausto! -${hpLoss} HP`, 'system');
+                        }
+                    }
                 }
             }
             
@@ -3190,7 +3252,7 @@
                 skills: {},
                 inventory: (genreCfg.starterInventory || []).map(i => ({ ...i })),
                 equipment: { weapon: null, armor: null, accessory: null },
-                gold: 0
+                gold: 100
             };
             Object.defineProperty(G.character, 'mana', {
                 get() { return this.secondary; },
@@ -3364,10 +3426,7 @@
                     const value = item.value !== undefined ? item.value : data.value;
                     const tooltipParts = [name];
                     if (desc) tooltipParts.push(desc);
-                    if (value !== undefined && !item.financial) tooltipParts.push(`Valore: ${formatCurrency(value)}`);
-                    if (item.financial && Number.isFinite(item.balance)) {
-                        tooltipParts.push(`Saldo: ${formatCurrency(item.balance)}`);
-                    }
+                    if (value !== undefined) tooltipParts.push(`Valore: ${formatCurrency(value)}`);
                     const tooltip = tooltipParts.join(' • ').replace(/"/g, "'");
                     // Aggiungiamo onclick per SELEZIONARE invece di usare direttamente
                     invHtml += `
@@ -3393,71 +3452,95 @@
             `).join('');
             $('special-items-list').innerHTML = specialHtml || '<p style="color: var(--ink-light); font-style: italic;">Nessun oggetto speciale</p>';
 
-            const properties = Array.isArray(G.worldMemory.properties) ? G.worldMemory.properties : [];
-            const propertiesHtml = properties.map(p => {
-                const propertyInventory = Array.isArray(p.inventory) ? p.inventory : [];
-                propertyInventory.forEach(ensurePropertyItemCategory);
-                const totalUnits = propertyInventory.reduce((sum, item) => sum + (item?.count || 0), 0);
-                const categorySections = Object.entries(PROPERTY_CATEGORY_INFO).map(([key, info]) => {
-                    const items = propertyInventory.filter(item => ensurePropertyItemCategory(item) === key);
-                    if (!items.length) return '';
-                    const categoryTotal = items.reduce((sum, item) => sum + (item?.count || 0), 0);
-                    const itemsHtml = items.map(item => {
-                        const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
-                        const data = catalog[normalizedId] || catalog[item.id] || {};
-                        const fallbackName = item.id ? item.id.toString().replace(/_/g, ' ') : 'Oggetto';
-                        const name = item.name || data.name || fallbackName;
-                        const icon = item.icon || data.icon || '📦';
-                        const desc = item.description || data.desc || '';
-                        const metaParts = [];
-                        if (item.financial && Number.isFinite(item.balance)) {
-                            metaParts.push(`Saldo ${formatCurrency(item.balance)}`);
-                        } else if (Number.isFinite(item.value)) {
-                            metaParts.push(`Valore ${formatCurrency(item.value)}`);
-                        }
-                        const detailParts = [...metaParts];
-                        if (desc) detailParts.push(desc);
-                        const metaHtml = detailParts.length ? `<div class="meta">${detailParts.join(' • ')}</div>` : '';
-                        const tooltipParts = [name, ...detailParts];
-                        const tooltip = tooltipParts.filter(Boolean).join(' • ').replace(/"/g, "'");
-                        return `
-                            <div class="property-holdings-item" title="${tooltip}">
-                                <span class="icon">${icon}</span>
-                                <div class="info">
-                                    <div class="name">${name}</div>
-                                    ${metaHtml}
-                                </div>
-                                <span class="qty">x${item.count || 1}</span>
-                            </div>
-                        `;
-                    }).join('');
-                    return `
-                        <div class="property-category-block">
-                            <div class="property-category-heading">${info.icon} ${info.label}<span class="property-category-count">${categoryTotal} pezzi</span></div>
-                            <div class="property-holdings-grid">${itemsHtml}</div>
-                        </div>
-                    `;
-                }).filter(Boolean).join('');
-
-                const inventoryHtml = categorySections || '<div class="property-holdings-empty">Inventario della proprietà vuoto</div>';
-
+            // Properties / Assets con statistiche complete
+            const propertiesHtml = (G.worldMemory.properties || []).map(p => {
+                const cond = getPropertyCondition(p.condition || 50);
+                const valuation = calculatePropertyValue(p);
+                const income = calculatePropertyIncome(p);
+                const conditionPercent = p.condition || 50;
+                
+                // Colore barra condizione
+                let barColor = '#2e8b57'; // verde
+                if (conditionPercent < 30) barColor = '#8b0000'; // rosso
+                else if (conditionPercent < 50) barColor = '#ff8c00'; // arancione
+                else if (conditionPercent < 70) barColor = '#daa520'; // giallo
+                
+                // Icona tipo
+                const typeIcons = {
+                    building: '🏠',
+                    land: '🌳',
+                    business: '🏪',
+                    vehicle: '🚗',
+                    other: '📦'
+                };
+                const typeIcon = typeIcons[p.type] || '🏰';
+                
                 return `
-                    <div class="property-item">
-                        <div class="property-icon">🏰</div>
-                        <div class="property-info">
+                <div class="property-item" style="border-left: 4px solid ${cond.color || '#666'};">
+                    <div class="property-header">
+                        <div class="property-icon">${typeIcon}</div>
+                        <div class="property-title">
                             <div class="property-name">${p.name}</div>
-                            <div class="property-desc">${p.description || 'Nessuna descrizione'}</div>
-                            ${p.notes ? `<div class="property-meta">${p.notes}</div>` : ''}
-                            <div class="property-holdings-summary">Articoli registrati: <strong>${totalUnits}</strong></div>
-                            ${inventoryHtml}
+                            <div class="property-type">${p.type || 'building'}</div>
+                        </div>
+                        <div class="property-condition-badge" style="background: ${cond.color}20; color: ${cond.color}; border: 1px solid ${cond.color}50;">
+                            ${cond.icon} ${cond.label}
                         </div>
                     </div>
-                `;
-            }).join('');
-            const propContainer = $('properties-grid');
-            if (propContainer) {
-                propContainer.innerHTML = propertiesHtml || '<div class="properties-empty">Nessuna proprietà registrata. Quando ottieni una nuova proprietà con <code>[PROPRIETA: ...]</code> comparirà qui.</div>';
-            }
+                    <div class="property-desc">${p.description || 'Nessuna descrizione'}</div>
+                    
+                    <div class="property-stats">
+                        <div class="property-stat-row">
+                            <span class="stat-label">Condizione:</span>
+                            <div class="property-condition-bar">
+                                <div class="property-condition-fill" style="width: ${conditionPercent}%; background: ${barColor};"></div>
+                            </div>
+                            <span class="stat-value">${conditionPercent}%</span>
+                        </div>
+                        <div class="property-stat-row">
+                            <span class="stat-label">💰 Valore mercato:</span>
+                            <span class="stat-value">${valuation.marketValue.toLocaleString('it-IT')}</span>
+                        </div>
+                        <div class="property-stat-row">
+                            <span class="stat-label">📈 Investito:</span>
+                            <span class="stat-value">${valuation.invested.toLocaleString('it-IT')}</span>
+                        </div>
+                        ${p.type === 'business' ? `
+                        <div class="property-stat-row">
+                            <span class="stat-label">💵 Rendita:</span>
+                            <span class="stat-value" style="color: ${income >= 0 ? '#2e8b57' : '#8b0000'};">${income >= 0 ? '+' : ''}${income}/periodo</span>
+                        </div>
+                        ` : ''}
+                        <div class="property-stat-row">
+                            <span class="stat-label">⚡ Bonus:</span>
+                            <span class="stat-value" style="color: ${cond.bonus >= 0 ? '#2e8b57' : '#8b0000'};">${cond.bonus >= 0 ? '+' : ''}${cond.bonus}%</span>
+                        </div>
+                    </div>
+                    ${p.notes ? `<div class="property-meta">📝 ${p.notes}</div>` : ''}
+                </div>
+            `}).join('');
+            
+            // Sommario proprietà
+            const propBonus = getPropertiesBonus();
+            const propertySummary = G.worldMemory.properties?.length ? `
+                <div class="properties-summary">
+                    <div class="summary-item">
+                        <span>📊 Patrimonio totale:</span>
+                        <strong>${propBonus.totalValue.toLocaleString('it-IT')}</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span>💵 Rendita totale:</span>
+                        <strong style="color: ${propBonus.totalIncome >= 0 ? '#2e8b57' : '#8b0000'};">${propBonus.totalIncome >= 0 ? '+' : ''}${propBonus.totalIncome}/periodo</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span>⚡ Bonus totale:</span>
+                        <strong style="color: ${propBonus.total >= 0 ? '#2e8b57' : '#8b0000'};">${propBonus.total >= 0 ? '+' : ''}${propBonus.total}%</strong>
+                    </div>
+                </div>
+            ` : '';
+            
+            const propFallback = '<p style="color: var(--ink-light); font-style: italic;">Nessuna proprietà registrata</p>';
+            if ($('properties-list')) $('properties-list').innerHTML = (propertySummary + propertiesHtml) || propFallback;
 
             // Abilities recap inside inventory
             const invAbilitiesHtml = (G.worldMemory.acquiredAbilities || []).map(ab => `
@@ -3580,26 +3663,6 @@
 
             const valueHtml = value !== undefined ? `<div class="item-value">Valore stimato: <strong>${formatCurrency(value)}</strong></div>` : '';
 
-            const availableProperties = (Array.isArray(G.worldMemory.properties) ? G.worldMemory.properties : []).filter(prop => Array.isArray(prop.inventory));
-            let transferHtml = '';
-            if (availableProperties.length > 0) {
-                const selectOptions = availableProperties.map(prop => `<option value="${prop.name}">${prop.name}</option>`).join('');
-                const defaultQty = Math.max(1, Math.min(item.count || 1, 1));
-                transferHtml = `
-                    <div class="item-transfer">
-                        <label>Deposita nella proprietà</label>
-                        <div class="item-transfer-row">
-                            <select id="transfer-property-${index}">
-                                ${selectOptions}
-                            </select>
-                            <input type="number" id="transfer-qty-${index}" min="1" max="${item.count}" value="${defaultQty}">
-                            <button class="btn secondary" onclick="transferInventoryItemToProperty(${index})">Trasferisci</button>
-                        </div>
-                        <small>I beni spostati vengono classificati automaticamente (strumentali, produzione, vendita) nel magazzino della proprietà.</small>
-                    </div>
-                `;
-            }
-
             const html = `
                 <div class="item-card">
                     <div class="item-card-header">
@@ -3625,104 +3688,10 @@
                             `<button class="btn secondary btn-use" disabled>Non usabile</button>`
                         }
                     </div>
-
-                    ${transferHtml}
                 </div>
             `;
 
             $('inv-item-details').innerHTML = html;
-        }
-
-        function transferInventoryItemToProperty(index) {
-            const item = G.character.inventory[index];
-            if (!item) {
-                notify('Nessun oggetto selezionato da trasferire.', 'error');
-                return;
-            }
-
-            const propertySelect = $(`transfer-property-${index}`);
-            if (!propertySelect) {
-                notify('Seleziona una proprietà di destinazione.', 'error');
-                return;
-            }
-            const propertyName = propertySelect.value;
-            if (!propertyName) {
-                notify('Scegli una proprietà per il deposito.', 'error');
-                return;
-            }
-
-            const qtyInput = $(`transfer-qty-${index}`);
-            let qty = qtyInput ? parseInt(qtyInput.value, 10) : 1;
-            if (!Number.isFinite(qty) || qty <= 0) qty = 1;
-            qty = Math.min(qty, item.count || 1);
-
-            if (qty <= 0) {
-                notify('Quantità non valida per il trasferimento.', 'error');
-                return;
-            }
-
-            const property = getPropertyByName(propertyName);
-            if (!property) {
-                notify(`Proprietà non trovata: ${propertyName}`, 'error');
-                return;
-            }
-
-            const itemSnapshot = { ...item };
-            const removal = removeItemFromInventory(item, qty);
-            if (!removal || removal.removed <= 0) {
-                notify('Trasferimento non riuscito: impossibile rimuovere gli oggetti dallo zaino.', 'error');
-                return;
-            }
-
-            addLootToPropertyInventory(
-                propertyName,
-                itemSnapshot.name || itemSnapshot.id,
-                removal.removed,
-                {
-                    description: itemSnapshot.description,
-                    value: itemSnapshot.value,
-                    icon: itemSnapshot.icon,
-                    type: itemSnapshot.type,
-                    category: itemSnapshot.category
-                },
-                { silent: true }
-            );
-
-            addStoryEntry(`📦 Trasferito ${removal.removed}x ${removal.itemName} nella proprietà ${propertyName}.`, 'system');
-            notify(`Deposito completato in ${propertyName}.`, 'success');
-
-            if (removal.remaining > 0 && G.character.inventory[index]) {
-                renderItemDetails(G.character.inventory[index], index);
-            } else {
-                $('inv-item-details').innerHTML = getEmptyDetailsHtml();
-            }
-            updateCharacterUI();
-        }
-
-        function setActiveInventoryTab(targetId) {
-            const buttons = document.querySelectorAll('.inventory-tab-button');
-            const sections = document.querySelectorAll('.inventory-tab-content');
-            buttons.forEach(btn => {
-                const isActive = btn.dataset.target === targetId;
-                btn.classList.toggle('active', isActive);
-            });
-            sections.forEach(section => {
-                section.classList.toggle('active', section.id === targetId);
-            });
-        }
-
-        function setupInventoryTabs() {
-            const buttons = document.querySelectorAll('.inventory-tab-button');
-            if (!buttons.length) return;
-            buttons.forEach(btn => {
-                if (btn.dataset.bound === '1') return;
-                btn.dataset.bound = '1';
-                btn.addEventListener('click', () => {
-                    const targetId = btn.dataset.target;
-                    if (!targetId) return;
-                    setActiveInventoryTab(targetId);
-                });
-            });
         }
 
         function useInventoryItem(index) {
@@ -3783,14 +3752,41 @@
             $('mem-quest-count').textContent = wm.quests.length;
             $('mem-event-count').textContent = wm.events.length;
 
-            // NPCs
-            const npcsHtml = wm.npcs.length ? wm.npcs.map(npc => `
+            // NPCs - con dettagli estesi (personalità, obiettivi, stato, posizione)
+            const npcsHtml = wm.npcs.length ? wm.npcs.map(npc => {
+                const statusIcon = {
+                    'idle': '💤',
+                    'working': '⚒️',
+                    'traveling': '🚶',
+                    'fighting': '⚔️',
+                    'sleeping': '😴',
+                    'eating': '🍽️',
+                    'talking': '💬',
+                    'hiding': '🙈',
+                    'dead': '💀',
+                    'injured': '🩹'
+                }[npc.status?.toLowerCase()] || '👤';
+                
+                const relColor = {
+                    'amico': '#2e8b57',
+                    'alleato': '#2e8b57',
+                    'nemico': '#8b0000',
+                    'ostile': '#8b0000',
+                    'neutrale': '#5c4030',
+                    'sconosciuto': '#666'
+                }[npc.relationship?.toLowerCase()] || '#5c4030';
+                
+                return `
                 <div class="memory-card npc">
-                    <div class="memory-card-title">👤 ${npc.name}</div>
+                    <div class="memory-card-title">${statusIcon} ${npc.name}</div>
                     <div class="memory-card-desc">${npc.description}</div>
-                    ${npc.relationship ? `<div class="memory-card-meta">Relazione: ${npc.relationship}</div>` : ''}
+                    ${npc.relationship ? `<div class="memory-card-meta" style="color: ${relColor}">🤝 ${npc.relationship}</div>` : ''}
+                    ${npc.personality ? `<div class="memory-card-meta">🎭 ${npc.personality}</div>` : ''}
+                    ${npc.goals ? `<div class="memory-card-meta">🎯 ${npc.goals}</div>` : ''}
+                    ${npc.location ? `<div class="memory-card-meta">📍 ${npc.location}</div>` : ''}
+                    ${npc.status && npc.status !== 'idle' ? `<div class="memory-card-meta">⏳ ${npc.status}</div>` : ''}
                 </div>
-            `).join('') : '<div class="memory-empty">Nessun NPC incontrato</div>';
+            `}).join('') : '<div class="memory-empty">Nessun NPC incontrato</div>';
             $('memory-npcs-list').innerHTML = npcsHtml;
 
             // Locations
@@ -3823,21 +3819,62 @@
             $('memory-events-list').innerHTML = eventsHtml;
         }
 
-        function addNPC(name, description, relationship = '') {
+        function addNPC(name, description, relationship = '', meta = {}) {
             const existing = G.worldMemory.npcs.find(n => n.name.toLowerCase() === name.toLowerCase());
             if (existing) {
+                // Traccia il cambio di relazione come interazione
+                if (relationship && relationship !== existing.relationship) {
+                    if (!existing.interactions) existing.interactions = [];
+                    existing.interactions.push({
+                        turn: G.worldMemory.turnCount,
+                        type: 'relationship_change',
+                        from: existing.relationship,
+                        to: relationship
+                    });
+                }
                 existing.description = description;
                 if (relationship) existing.relationship = relationship;
                 existing.lastSeen = G.worldMemory.turnCount;
+                existing.interactionCount = (existing.interactionCount || 0) + 1;
+                if (meta.personality) existing.personality = meta.personality;
+                if (meta.goals) existing.goals = meta.goals;
+                if (meta.status) existing.status = meta.status;
+                if (meta.location) existing.location = meta.location;
+                if (meta.schedule) existing.schedule = meta.schedule;
             } else {
                 G.worldMemory.npcs.push({
                     id: Date.now(),
                     name,
                     description,
                     relationship,
+                    personality: meta.personality || '',
+                    goals: meta.goals || '',
+                    status: meta.status || 'idle',
+                    location: meta.location || '',
+                    schedule: meta.schedule || '',
                     metAt: G.worldMemory.turnCount,
-                    lastSeen: G.worldMemory.turnCount
+                    lastSeen: G.worldMemory.turnCount,
+                    interactionCount: 1,
+                    interactions: []
                 });
+            }
+        }
+        
+        // Registra un'interazione significativa con un NPC
+        function recordNPCInteraction(npcName, interactionType, details = '') {
+            const npc = G.worldMemory.npcs.find(n => n.name.toLowerCase() === npcName.toLowerCase());
+            if (npc) {
+                if (!npc.interactions) npc.interactions = [];
+                npc.interactions.push({
+                    turn: G.worldMemory.turnCount,
+                    type: interactionType, // 'helped', 'attacked', 'traded', 'talked', 'betrayed', etc.
+                    details: details,
+                    time: getTimeString()
+                });
+                // Mantieni solo le ultime 10 interazioni per NPC
+                if (npc.interactions.length > 10) {
+                    npc.interactions = npc.interactions.slice(-10);
+                }
             }
         }
 
@@ -3912,131 +3949,251 @@
             }
         }
 
-        function addProperty(name, description, notes = '') {
+        // ==================== SISTEMA PROPRIETÀ DINAMICHE ====================
+        // Stati possibili: 100=eccellente, 80=buono, 60=discreto, 40=usurato, 20=danneggiato, 0=fatiscente
+        const PROPERTY_CONDITIONS = [
+            { min: 90, label: 'Eccellente', icon: '✨', bonus: 15, color: '#2e8b57' },
+            { min: 70, label: 'Buono', icon: '👍', bonus: 5, color: '#3cb371' },
+            { min: 50, label: 'Discreto', icon: '👌', bonus: 0, color: '#daa520' },
+            { min: 30, label: 'Usurato', icon: '⚠️', bonus: -5, color: '#ff8c00' },
+            { min: 10, label: 'Danneggiato', icon: '🔧', bonus: -15, color: '#cd5c5c' },
+            { min: 0, label: 'Fatiscente', icon: '💀', bonus: -30, color: '#8b0000' }
+        ];
+        
+        function getPropertyCondition(condition) {
+            for (const c of PROPERTY_CONDITIONS) {
+                if (condition >= c.min) return c;
+            }
+            return PROPERTY_CONDITIONS[PROPERTY_CONDITIONS.length - 1];
+        }
+
+        function addProperty(name, description, notes = '', meta = {}) {
             if (!name) return;
             const existing = G.worldMemory.properties.find(p => p.name.toLowerCase() === name.toLowerCase());
             if (existing) {
                 if (description) existing.description = description;
                 if (notes) existing.notes = notes;
-                if (!Array.isArray(existing.inventory)) existing.inventory = [];
-                existing.inventory.forEach(ensurePropertyItemCategory);
+                if (meta.condition !== undefined) existing.condition = meta.condition;
+                if (meta.type) existing.type = meta.type;
+                if (meta.income) existing.income = meta.income;
+                if (meta.baseValue) existing.baseValue = meta.baseValue;
+                existing.lastUpdated = G.worldMemory.turnCount;
             } else {
+                // Stima valore base in base al tipo
+                const defaultValues = {
+                    building: 2000,
+                    land: 1500,
+                    business: 3000,
+                    vehicle: 500,
+                    other: 1000
+                };
+                const propertyType = meta.type || 'building';
+                
                 G.worldMemory.properties.push({
                     id: Date.now(),
                     name,
                     description,
                     notes,
+                    type: propertyType,
+                    condition: meta.condition ?? 80, // Inizia in buone condizioni
+                    baseValue: meta.baseValue || defaultValues[propertyType] || 1000,
+                    income: meta.income || (propertyType === 'business' ? 50 : 0),
+                    maintenanceCost: meta.maintenanceCost || 0,
+                    totalInvested: 0,
+                    lastMaintenance: G.worldMemory.turnCount,
+                    lastUpdated: G.worldMemory.turnCount,
                     acquiredAt: G.worldMemory.turnCount,
-                    inventory: []
+                    events: []
                 });
                 addStoryEntry(`🏰 Nuova proprietà: ${name}`, 'memory-update');
             }
-            updateCharacterUI();
         }
-
-        function removeProperty(name) {
-            if (!name) return false;
-            const normalized = name.toLowerCase();
-            const before = G.worldMemory.properties.length;
-            G.worldMemory.properties = G.worldMemory.properties.filter(p => p.name.toLowerCase() !== normalized);
-            const removed = before !== G.worldMemory.properties.length;
-            if (removed) {
-                addStoryEntry(`🏚️ Proprietà rimossa: ${name}`, 'memory-update');
-                updateCharacterUI();
-            }
-            return removed;
-        }
-
-        const FINANCIAL_KEYWORDS = ['conto', 'conto corrente', 'libretto', 'libretto di deposito', 'deposito', 'carta di credito', 'carta di debito', 'carta prepagata', 'bancomat', 'libro mastro', 'registro contabile', 'registro di cassa', 'registro cassa', 'fondo cassa', 'cassaforte'];
-        const CURRENCY_KEYWORDS = ['moneta', 'monete', 'soldo', 'soldi', 'banconota', 'banconote', 'euro', 'dollaro', 'dollari', 'credito', 'crediti', 'fiorino', 'fiorini', 'pezzo d\'oro', 'pezzi d\'oro', 'doblone', 'dobloni', 'denaro', 'cash'];
-        const INTANGIBLE_LOOT_PATTERNS = [
-            /vista\b.*finestra/,
-            /finestra\b.*vista/,
-            /\bpanorama\b/,
-            /\bscorcio\b/,
-            /\borizzonte\b/
-        ];
-        const PROPERTY_CATEGORY_INFO = {
-            strumentali: {
-                label: 'Beni strumentali',
-                icon: '🛠️',
-                synonyms: ['strumentali', 'strumentale', 'attrezzo', 'attrezzi', 'attrezzature', 'attrezzatura', 'equipment', 'strumento', 'strumenti', 'macchinario', 'macchinari', 'impianto', 'impianti', 'arredo professionale', 'arredo tecnico'],
-                keywords: ['attrez', 'strument', 'macchin', 'attrezz', 'bancone', 'forno', 'pressa', 'cassa', 'scaffale', 'fermentatore', 'torchio', 'alambicco', 'impianto']
-            },
-            produzione: {
-                label: 'Beni per la produzione',
-                icon: '⚙️',
-                synonyms: ['produzione', 'materie prime', 'materia prima', 'scorta produzione', 'scorte produzione', 'approvvigionamenti', 'semilavorati', 'semilavorato', 'ingredienti', 'ingredienti base', 'materie', 'materiale grezzo', 'materiali grezzi'],
-                keywords: ['materi', 'ingred', 'scorta', 'seme', 'semi', 'grano', 'frumento', 'luppolo', 'malto', 'carbone', 'legname', 'tessuto', 'tela', 'ferro', 'acciaio', 'munizione', 'fusti', 'barili vuoti']
-            },
-            vendibili: {
-                label: 'Beni pronti per la vendita',
-                icon: '🧺',
-                synonyms: ['vendibili', 'vendita', 'pronti vendita', 'prodotti finiti', 'merce', 'magazzino vendita', 'stock vendita', 'cassa pronta', 'lotto pronto', 'prodotti', 'scorte pronte'],
-                keywords: ['vend', 'prodotto', 'merce', 'confezion', 'lotto', 'bottiglia', 'cassa', 'pagnotta', 'piatto pronto', 'piatto', 'porzione', 'vaso', 'vasetto', 'barattolo']
-            }
-        };
-
-        function normalizePropertyCategory(value) {
-            if (!value) return null;
-            const text = value.toString().trim().toLowerCase();
-            if (!text) return null;
-            for (const [key, info] of Object.entries(PROPERTY_CATEGORY_INFO)) {
-                if (text === key) return key;
-                if (info.synonyms.some(s => text === s)) return key;
-            }
-            return null;
-        }
-
-        function guessPropertyCategory({ explicitCategory, itemType, fallbackType, lowerName, descriptionText, existingCategory }) {
-            const normalizedExisting = normalizePropertyCategory(existingCategory);
-            if (normalizedExisting) return normalizedExisting;
-
-            const normalizedExplicit = normalizePropertyCategory(explicitCategory);
-            if (normalizedExplicit) return normalizedExplicit;
-
-            const normalizedItemType = normalizePropertyCategory(itemType);
-            if (normalizedItemType) return normalizedItemType;
-
-            const normalizedFallbackType = normalizePropertyCategory(fallbackType);
-            if (normalizedFallbackType) return normalizedFallbackType;
-
-            const haystack = `${lowerName || ''} ${descriptionText || ''}`.trim();
-            if (haystack) {
-                for (const [key, info] of Object.entries(PROPERTY_CATEGORY_INFO)) {
-                    if (info.keywords.some(keyword => haystack.includes(keyword))) {
-                        return key;
+        
+        // Simula usura e eventi sulle proprietà
+        function simulateProperties() {
+            if (!G.worldMemory.properties?.length) return;
+            
+            const turnsElapsed = G.worldMemory.turnCount;
+            
+            G.worldMemory.properties.forEach(prop => {
+                // Calcola turni dall'ultima manutenzione
+                const turnsSinceMaintenance = turnsElapsed - (prop.lastMaintenance || 0);
+                
+                // Usura naturale: ogni ~20 turni perde 1-3 punti condizione
+                if (turnsSinceMaintenance > 0 && turnsSinceMaintenance % 20 === 0) {
+                    const decay = Math.floor(Math.random() * 3) + 1;
+                    prop.condition = Math.max(0, (prop.condition || 80) - decay);
+                    
+                    const cond = getPropertyCondition(prop.condition);
+                    if (prop.condition <= 30 && Math.random() < 0.3) {
+                        addStoryEntry(`🏚️ ${prop.name} necessita di manutenzione urgente! (${cond.label})`, 'world-event');
                     }
                 }
-            }
-
-            return 'strumentali';
-        }
-
-        function ensurePropertyItemCategory(item) {
-            if (!item) return 'strumentali';
-            const lowerName = (item.name || item.id || '').toString().toLowerCase();
-            const descriptionText = (item.description || '').toString().toLowerCase();
-            const category = guessPropertyCategory({
-                explicitCategory: item.category,
-                itemType: item.type,
-                fallbackType: item.type,
-                lowerName,
-                descriptionText,
-                existingCategory: item.category
+                
+                // Eventi casuali sulle proprietà (2% per turno)
+                if (Math.random() < 0.02) {
+                    const event = generatePropertyEvent(prop);
+                    if (event) {
+                        prop.events = prop.events || [];
+                        prop.events.push(event);
+                        if (prop.events.length > 10) prop.events = prop.events.slice(-10);
+                        
+                        // Applica effetto
+                        prop.condition = Math.max(0, Math.min(100, prop.condition + event.conditionChange));
+                        
+                        addStoryEntry(`🏠 ${prop.name}: ${event.text}`, 'world-event');
+                        
+                        // Se l'evento richiede soldi, li sottrae
+                        if (event.cost && G.character) {
+                            G.character.gold -= event.cost;
+                            addStoryEntry(`💰 Spesa per ${prop.name}: -${event.cost}`, 'mechanic');
+                        }
+                    }
+                }
             });
-            item.category = category;
-            return category;
         }
-
-        function extractPropertyCategoryToken(raw) {
-            if (!raw) return null;
-            const value = raw.toString().trim();
-            if (!value) return null;
-            if (value.toLowerCase().startsWith('categoria=')) {
-                return normalizePropertyCategory(value.split('=')[1]);
+        
+        function generatePropertyEvent(prop) {
+            const condition = prop.condition || 50;
+            const events = [];
+            
+            // Eventi negativi (più probabili se condizione bassa)
+            if (condition < 50 || Math.random() < 0.4) {
+                events.push(
+                    { text: 'Piccoli danni strutturali richiedono attenzione.', conditionChange: -5, cost: 0 },
+                    { text: 'Infiltrazioni d\'acqua causano problemi.', conditionChange: -8, cost: 0 },
+                    { text: 'Vandali hanno causato danni.', conditionChange: -10, cost: 0 },
+                    { text: 'Un incendio minore ha danneggiato parte della struttura!', conditionChange: -15, cost: 0 },
+                    { text: 'Parassiti o infestazione rilevata.', conditionChange: -5, cost: 0 }
+                );
             }
-            return normalizePropertyCategory(value);
+            
+            // Eventi positivi (più probabili se condizione alta)
+            if (condition >= 50 || Math.random() < 0.3) {
+                events.push(
+                    { text: 'Un vicino ha aiutato con piccole riparazioni.', conditionChange: 5, cost: 0 },
+                    { text: 'Il buon tempo ha permesso riparazioni naturali.', conditionChange: 3, cost: 0 },
+                    { text: 'Un artigiano di passaggio ha sistemato alcune cose.', conditionChange: 8, cost: 0 }
+                );
+            }
+            
+            // Eventi neutri/informativi
+            events.push(
+                { text: 'Tutto procede normalmente.', conditionChange: 0, cost: 0 },
+                { text: 'Un ispettore ha notato la proprietà.', conditionChange: 0, cost: 0 }
+            );
+            
+            return events[Math.floor(Math.random() * events.length)];
+        }
+        
+        // Manutenzione proprietà
+        function maintainProperty(propertyName, amount = 'normal') {
+            const prop = G.worldMemory.properties.find(p => 
+                p.name.toLowerCase() === propertyName.toLowerCase()
+            );
+            if (!prop) return { success: false, message: 'Proprietà non trovata' };
+            
+            const costs = { light: 10, normal: 30, heavy: 80, restoration: 200 };
+            const improvements = { light: 5, normal: 15, heavy: 35, restoration: 60 };
+            
+            const cost = costs[amount] || costs.normal;
+            const improvement = improvements[amount] || improvements.normal;
+            
+            if (G.character.gold < cost) {
+                return { success: false, message: `Fondi insufficienti. Servono ${cost} monete.` };
+            }
+            
+            G.character.gold -= cost;
+            prop.condition = Math.min(100, (prop.condition || 50) + improvement);
+            prop.lastMaintenance = G.worldMemory.turnCount;
+            
+            const cond = getPropertyCondition(prop.condition);
+            addStoryEntry(`🔧 Manutenzione ${prop.name}: +${improvement} condizione (${cond.label})`, 'mechanic');
+            addStoryEntry(`💰 Costo manutenzione: -${cost}`, 'mechanic');
+            
+            // Registra l'investimento
+            prop.totalInvested = (prop.totalInvested || 0) + cost;
+            
+            return { success: true, newCondition: prop.condition, cost };
+        }
+        
+        // Calcola il valore di mercato di una proprietà
+        function calculatePropertyValue(prop) {
+            const baseValue = prop.baseValue || 1000; // Valore base di default
+            const condition = prop.condition || 50;
+            const invested = prop.totalInvested || 0;
+            
+            // Il valore dipende dalla condizione e dagli investimenti
+            // Condizione: moltiplica il valore base (0.2x a 1.5x)
+            const conditionMultiplier = 0.2 + (condition / 100) * 1.3;
+            
+            // Gli investimenti aumentano il valore ma con rendimenti decrescenti
+            const investmentBonus = Math.sqrt(invested) * 2;
+            
+            const marketValue = Math.round((baseValue * conditionMultiplier) + investmentBonus);
+            
+            // Calcola potenziale di guadagno (ROI)
+            const potentialROI = invested > 0 ? Math.round(((marketValue - baseValue) / invested) * 100) : 0;
+            
+            return {
+                baseValue,
+                marketValue,
+                invested,
+                potentialROI,
+                conditionMultiplier: Math.round(conditionMultiplier * 100)
+            };
+        }
+        
+        // Calcola rendita periodica delle proprietà commerciali
+        function calculatePropertyIncome(prop) {
+            if (prop.type !== 'business') return 0;
+            
+            const condition = prop.condition || 50;
+            const baseIncome = prop.income || 50;
+            
+            // Rendita proporzionale alla condizione
+            if (condition >= 70) {
+                return Math.round(baseIncome * (condition / 80)); // Bonus se in buone condizioni
+            } else if (condition >= 40) {
+                return Math.round(baseIncome * 0.5); // Rendita dimezzata
+            } else if (condition >= 20) {
+                return Math.round(baseIncome * 0.2); // Quasi nulla
+            } else {
+                return -Math.round(baseIncome * 0.3); // Perdita se fatiscente!
+            }
+        }
+        
+        // Calcola bonus/malus totale dalle proprietà
+        function getPropertiesBonus() {
+            if (!G.worldMemory.properties?.length) return { total: 0, details: [], totalValue: 0, totalIncome: 0 };
+            
+            let total = 0;
+            let totalValue = 0;
+            let totalIncome = 0;
+            const details = [];
+            
+            G.worldMemory.properties.forEach(prop => {
+                const cond = getPropertyCondition(prop.condition || 50);
+                const valuation = calculatePropertyValue(prop);
+                const income = calculatePropertyIncome(prop);
+                
+                total += cond.bonus;
+                totalValue += valuation.marketValue;
+                totalIncome += income;
+                
+                details.push({
+                    name: prop.name,
+                    condition: prop.condition,
+                    conditionLabel: cond.label,
+                    bonus: cond.bonus,
+                    icon: cond.icon,
+                    marketValue: valuation.marketValue,
+                    invested: valuation.invested,
+                    income: income
+                });
+            });
+            
+            return { total, details, totalValue, totalIncome };
         }
 
         function addLootToInventory(itemId, qty = 1, meta = {}) {
@@ -4045,9 +4202,6 @@
             const normalizedId = safeName.toLowerCase().replace(/\s+/g, '_');
             const catalogData = catalog[normalizedId];
             const cleanValue = (typeof meta.value === 'number' && !Number.isNaN(meta.value)) ? meta.value : undefined;
-            const lowerName = safeName.toLowerCase();
-            const descriptionText = (meta.description || '').toLowerCase();
-            const isFinancialInstrument = FINANCIAL_KEYWORDS.some(keyword => lowerName.includes(keyword) || descriptionText.includes(keyword)) || meta.type === 'financial';
 
             let itemData = catalogData ? { ...catalogData } : {
                 name: safeName.charAt(0).toUpperCase() + safeName.slice(1),
@@ -4073,29 +4227,15 @@
                 if (meta.icon && !existingItem.icon) existingItem.icon = meta.icon;
                 if (!existingItem.name && itemData.name) existingItem.name = itemData.name;
                 if (!existingItem.type && itemData.type) existingItem.type = itemData.type;
-                if (isFinancialInstrument || existingItem.financial) {
-                    const deltaBalance = cleanValue !== undefined ? cleanValue : 0;
-                    existingItem.financial = true;
-                    if (!Number.isFinite(existingItem.balance)) {
-                        existingItem.balance = Number.isFinite(existingItem.value) ? existingItem.value : 0;
-                    }
-                    if (cleanValue !== undefined) {
-                        existingItem.balance += deltaBalance;
-                    }
-                    existingItem.value = existingItem.balance;
-                }
             } else {
-                const initialBalance = isFinancialInstrument ? (cleanValue !== undefined ? cleanValue : 0) : undefined;
                 G.character.inventory.push({
                     id: normalizedId,
                     count: qty,
                     name: meta.name || itemData.name || safeName,
                     description: meta.description || itemData.desc,
-                    value: isFinancialInstrument ? initialBalance : (cleanValue !== undefined ? cleanValue : itemData.value),
+                    value: cleanValue !== undefined ? cleanValue : itemData.value,
                     icon: itemData.icon,
-                    type: isFinancialInstrument ? 'financial' : itemData.type,
-                    balance: initialBalance,
-                    financial: isFinancialInstrument
+                    type: itemData.type
                 });
             }
 
@@ -4105,228 +4245,6 @@
             updateCharacterUI();
         }
 
-        function normalizeKey(value) {
-            return (value || '').toString().trim().toLowerCase().replace(/\s+/g, '_');
-        }
-
-        function findInventoryItemByName(nameOrId) {
-            if (!nameOrId) return null;
-            const normalized = normalizeKey(nameOrId);
-            return G.character.inventory.find(item => {
-                const itemId = typeof item.id === 'string' ? normalizeKey(item.id) : null;
-                const itemName = normalizeKey(item.name || '');
-                return itemId === normalized || itemName === normalized;
-            }) || null;
-        }
-
-        function removeItemFromInventory(target, qty = 1) {
-            const item = typeof target === 'object' ? target : findInventoryItemByName(target);
-            if (!item) return null;
-
-            const fallbackName = item.name || (typeof item.id === 'string' ? item.id.replace(/_/g, ' ') : 'Oggetto');
-            const previousCount = item.count || 0;
-            const removeQty = (qty === undefined || qty === null) ? previousCount : qty;
-            const actualRemoved = Math.min(removeQty, previousCount);
-
-            item.count = Math.max(0, previousCount - actualRemoved);
-            let removedAll = false;
-            if (item.count <= 0) {
-                removedAll = true;
-                G.character.inventory = G.character.inventory.filter(i => i !== item);
-            }
-            updateCharacterUI();
-
-            return {
-                removed: actualRemoved,
-                remaining: removedAll ? 0 : item.count,
-                itemName: fallbackName,
-                removedAll,
-                originalCount: previousCount
-            };
-        }
-
-        function adjustFinancialInstrumentBalance(nameOrId, delta) {
-            if (!nameOrId || !delta) return;
-            const item = findInventoryItemByName(nameOrId);
-            if (!item) {
-                addStoryEntry(`⚠️ Strumento finanziario non trovato: ${nameOrId}`, 'system');
-                return;
-            }
-            item.financial = true;
-            if (!Number.isFinite(item.balance)) {
-                item.balance = Number.isFinite(item.value) ? item.value : 0;
-            }
-            item.balance += delta;
-            item.balance = Math.max(0, Math.round(item.balance * 100) / 100);
-            item.value = item.balance;
-
-            if (item.balance <= 0) {
-                const removal = removeItemFromInventory(item, item.count || 1);
-                addStoryEntry(`🗑️ ${item.name || nameOrId} esaurito e rimosso dall'inventario`, 'system');
-            } else {
-                addStoryEntry(`💼 ${item.name || nameOrId}: saldo aggiornato a ${formatCurrency(item.balance)}`, 'system');
-                updateCharacterUI();
-            }
-        }
-
-        function getPropertyByName(name) {
-            if (!name) return null;
-            const normalized = name.toString().trim().toLowerCase();
-            return (G.worldMemory.properties || []).find(p => (p.name || '').toLowerCase() === normalized) || null;
-        }
-
-        function ensurePropertyInventory(propertyName) {
-            const property = getPropertyByName(propertyName);
-            if (!property) return null;
-            if (!Array.isArray(property.inventory)) property.inventory = [];
-            property.inventory.forEach(ensurePropertyItemCategory);
-            return property.inventory;
-        }
-
-        function addLootToPropertyInventory(propertyName, itemId, qty = 1, meta = {}, options = {}) {
-            const property = getPropertyByName(propertyName);
-            if (!property) {
-                addStoryEntry(`⚠️ Proprietà non trovata per LOOT_PROPRIETA: ${propertyName}`, 'system');
-                return;
-            }
-            const inventory = ensurePropertyInventory(propertyName);
-            const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
-            const safeName = (itemId || 'oggetto').toString().trim();
-            if (!safeName) return;
-
-            const lowerName = safeName.toLowerCase();
-            if (INTANGIBLE_LOOT_PATTERNS.some(re => re.test(lowerName))) {
-                addStoryEntry(`⚠️ Oggetto non fisico ignorato per ${property.name}: ${safeName}`, 'system');
-                return;
-            }
-            if (CURRENCY_KEYWORDS.some(keyword => lowerName.includes(keyword))) {
-                addStoryEntry(`⚠️ I contanti devono essere registrati con [MECCANICA: soldi=±X], non come oggetto di proprietà (${safeName}).`, 'system');
-                return;
-            }
-
-            const normalizedId = safeName.toLowerCase().replace(/\s+/g, '_');
-            const catalogData = catalog[normalizedId];
-            const cleanValue = (typeof meta.value === 'number' && !Number.isNaN(meta.value)) ? meta.value : undefined;
-            const descriptionText = (meta.description || '').toLowerCase();
-            const isFinancialInstrument = FINANCIAL_KEYWORDS.some(keyword => lowerName.includes(keyword) || descriptionText.includes(keyword)) || meta.type === 'financial';
-
-            let itemData = catalogData ? { ...catalogData } : {
-                name: safeName.charAt(0).toUpperCase() + safeName.slice(1),
-                icon: meta.icon || '📦',
-                type: meta.type || 'general',
-                desc: meta.description || ''
-            };
-
-            if (meta.description && !itemData.desc) itemData.desc = meta.description;
-            if (meta.icon && !itemData.icon) itemData.icon = meta.icon;
-            if (cleanValue !== undefined) itemData.value = cleanValue;
-
-            const existingItem = inventory.find(i =>
-                i.id === normalizedId ||
-                i.id === safeName ||
-                (typeof i.id === 'string' && i.id.replace(/\s+/g, '_') === normalizedId)
-            );
-
-            const categoryKey = guessPropertyCategory({
-                explicitCategory: meta.category || itemData.category || existingItem?.category,
-                itemType: meta.type || itemData.type,
-                fallbackType: itemData.type,
-                lowerName,
-                descriptionText,
-                existingCategory: existingItem?.category
-            });
-
-            if (existingItem) {
-                existingItem.count += qty;
-                if (meta.description && !existingItem.description) existingItem.description = meta.description;
-                if (cleanValue !== undefined) existingItem.value = cleanValue;
-                if (meta.icon && !existingItem.icon) existingItem.icon = meta.icon;
-                if (!existingItem.name && itemData.name) existingItem.name = itemData.name;
-                if (!existingItem.type && itemData.type) existingItem.type = itemData.type;
-                existingItem.category = categoryKey || existingItem.category;
-                if (isFinancialInstrument || existingItem.financial) {
-                    const deltaBalance = cleanValue !== undefined ? cleanValue : 0;
-                    existingItem.financial = true;
-                    if (!Number.isFinite(existingItem.balance)) {
-                        existingItem.balance = Number.isFinite(existingItem.value) ? existingItem.value : 0;
-                    }
-                    if (cleanValue !== undefined) {
-                        existingItem.balance += deltaBalance;
-                    }
-                    existingItem.value = existingItem.balance;
-                }
-            } else {
-                const initialBalance = isFinancialInstrument ? (cleanValue !== undefined ? cleanValue : 0) : undefined;
-                inventory.push({
-                    id: normalizedId,
-                    count: qty,
-                    name: meta.name || itemData.name || safeName,
-                    description: meta.description || itemData.desc,
-                    value: isFinancialInstrument ? initialBalance : (cleanValue !== undefined ? cleanValue : itemData.value),
-                    icon: itemData.icon,
-                    type: meta.type || itemData.type,
-                    balance: initialBalance,
-                    financial: isFinancialInstrument,
-                    category: categoryKey
-                });
-            }
-
-            const displayName = meta.name || itemData.name || safeName;
-            addStoryEntry(`🏠 ${property.name}: aggiunto ${displayName} x${qty}`, 'mechanic');
-            if (!options?.silent) {
-                notify(`Inventario di ${property.name}: ${displayName} x${qty}`, 'success');
-            }
-            updateCharacterUI();
-        }
-
-        function findPropertyInventoryItem(propertyName, nameOrId) {
-            const property = getPropertyByName(propertyName);
-            if (!property) return null;
-            const inventory = ensurePropertyInventory(propertyName);
-            if (!inventory) return null;
-            const normalized = normalizeKey(nameOrId);
-            return inventory.find(item => {
-                const itemId = typeof item.id === 'string' ? normalizeKey(item.id) : null;
-                const itemName = normalizeKey(item.name || '');
-                return itemId === normalized || itemName === normalized;
-            }) || null;
-        }
-
-        function removeItemFromPropertyInventory(propertyName, target, qty = 1) {
-            const property = getPropertyByName(propertyName);
-            if (!property) {
-                addStoryEntry(`⚠️ Proprietà non trovata: ${propertyName}`, 'system');
-                return null;
-            }
-            const inventory = ensurePropertyInventory(propertyName);
-            if (!inventory) return null;
-
-            const item = typeof target === 'object' ? target : findPropertyInventoryItem(propertyName, target);
-            if (!item) return null;
-
-            const fallbackName = item.name || (typeof item.id === 'string' ? item.id.replace(/_/g, ' ') : 'Oggetto');
-            const previousCount = item.count || 0;
-            const removeQty = (qty === undefined || qty === null) ? previousCount : qty;
-            const actualRemoved = Math.min(removeQty, previousCount);
-
-            item.count = Math.max(0, previousCount - actualRemoved);
-            let removedAll = false;
-            if (item.count <= 0) {
-                removedAll = true;
-                property.inventory = inventory.filter(i => i !== item);
-            }
-            updateCharacterUI();
-
-            return {
-                property,
-                removed: actualRemoved,
-                remaining: removedAll ? 0 : item.count,
-                itemName: fallbackName,
-                removedAll,
-                originalCount: previousCount
-            };
-        }
-
         function buildWorldMemorySummary() {
             const wm = G.worldMemory;
             let summary = '';
@@ -4334,7 +4252,21 @@
             if (wm.npcs.length > 0) {
                 summary += '\n👥 PERSONAGGI CONOSCIUTI:\n';
                 wm.npcs.forEach(npc => {
-                    summary += `- ${npc.name}: ${npc.description}${npc.relationship ? ` (${npc.relationship})` : ''}\n`;
+                    let line = `- ${npc.name}: ${npc.description}`;
+                    if (npc.relationship) line += ` [Relazione: ${npc.relationship}]`;
+                    if (npc.personality) line += ` [Personalità: ${npc.personality}]`;
+                    if (npc.goals) line += ` [Obiettivo: ${npc.goals}]`;
+                    if (npc.status && npc.status !== 'idle') line += ` [Stato: ${npc.status}]`;
+                    if (npc.location) line += ` [Posizione: ${npc.location}]`;
+                    // Aggiungi memoria interazioni recenti
+                    if (npc.interactions && npc.interactions.length > 0) {
+                        const recentInteraction = npc.interactions[npc.interactions.length - 1];
+                        line += ` [Ultima interazione: ${recentInteraction.type}]`;
+                    }
+                    if (npc.interactionCount && npc.interactionCount > 1) {
+                        line += ` [Incontri: ${npc.interactionCount}]`;
+                    }
+                    summary += line + '\n';
                 });
             }
 
@@ -4365,8 +4297,19 @@
             if (wm.properties?.length > 0) {
                 summary += '\n🏰 PROPRIETÀ E BENI:\n';
                 wm.properties.forEach(p => {
-                    summary += `- ${p.name}: ${p.description}${p.notes ? ` (${p.notes})` : ''}\n`;
+                    const cond = getPropertyCondition(p.condition || 50);
+                    let line = `- ${p.name}: ${p.description}`;
+                    line += ` [Stato: ${cond.icon} ${cond.label} (${p.condition || 50}%)]`;
+                    if (cond.bonus !== 0) line += ` [${cond.bonus > 0 ? '+' : ''}${cond.bonus}% bonus]`;
+                    if (p.notes) line += ` (${p.notes})`;
+                    summary += line + '\n';
                 });
+                
+                // Mostra bonus/malus totale
+                const propBonus = getPropertiesBonus();
+                if (propBonus.total !== 0) {
+                    summary += `  ➤ Bonus totale proprietà: ${propBonus.total > 0 ? '+' : ''}${propBonus.total}%\n`;
+                }
             }
 
             if (wm.acquiredAbilities.length > 0) {
@@ -4535,10 +4478,6 @@
                 storySummary: '', lastSummaryTurn: 0, turnCount: 0
             }));
             G.worldMemory.properties = G.worldMemory.properties || [];
-            G.worldMemory.properties.forEach(p => {
-                if (!Array.isArray(p.inventory)) p.inventory = [];
-                p.inventory.forEach(ensurePropertyItemCategory);
-            });
             applyStarterProperties(G.currentStory);
             G.isPlaying = true;
             
@@ -4582,10 +4521,6 @@
 
             // Applica proprietà iniziali definite dalla storia
             applyStarterProperties(G.currentStory);
-            G.worldMemory.properties.forEach(p => {
-                if (!Array.isArray(p.inventory)) p.inventory = [];
-                p.inventory.forEach(ensurePropertyItemCategory);
-            });
             
             G.storyLog = [];
             G.history = [];
@@ -4721,7 +4656,237 @@
             advanceTime(5);
             G.worldMemory.turnCount++;
             
+            // Consumo automatico risorse per turno (simulazione bisogni)
+            applyTurnConsumption();
+            
+            // Simula usura e eventi sulle proprietà
+            simulateProperties();
+            
             generateAI(action);
+        }
+        
+        function applyTurnConsumption() {
+            // Consumo base per turno - MOLTO RIDOTTO
+            // Il consumo principale avviene tramite advanceTime() col tempo che passa
+            // Qui applichiamo solo un piccolo consumo simbolico per turno attivo
+            const c = G.character;
+            if (!c) return;
+            
+            // Consumo minimo per turno (1 fame ogni ~5 turni in media)
+            // Solo se il personaggio è attivo (non a riposo)
+            if (Math.random() < 0.2) { // 20% chance di consumare 1 fame per turno
+                c.hunger.cur = Math.max(0, c.hunger.cur - 1);
+            }
+            
+            // Controllo effetti negativi da fame/stanchezza
+            // Penalità HP solo se COMPLETAMENTE a zero, e ridotte
+            if (c.hunger.cur <= 0) {
+                // Fame critica: perdi HP lentamente
+                const hpLoss = 1;
+                c.health.cur = Math.max(1, c.health.cur - hpLoss);
+                addStoryEntry(`💀 La fame ti consuma! -${hpLoss} HP`, 'mechanic');
+            }
+            
+            if (c.stamina.cur <= 0) {
+                // Stanchezza critica: azioni compromesse ma meno letale
+                if (Math.random() < 0.5) { // 50% chance di perdere HP
+                    c.health.cur = Math.max(1, c.health.cur - 1);
+                    addStoryEntry(`💀 L'esaurimento ti abbatte! -1 HP`, 'mechanic');
+                }
+            }
+            
+            // Rigenera stamina se ben nutrito (fame > 60)
+            if (c.hunger.cur > 60 && c.stamina.cur < c.stamina.max) {
+                const regenAmount = 3; // Rigenerazione più generosa
+                c.stamina.cur = Math.min(c.stamina.max, c.stamina.cur + regenAmount);
+            }
+            
+            // Rigenera HP lentamente se ben nutrito e riposato
+            if (c.hunger.cur > 70 && c.stamina.cur > 50 && c.health.cur < c.health.max) {
+                if (Math.random() < 0.3) { // 30% chance di rigenerare 1 HP
+                    c.health.cur = Math.min(c.health.max, c.health.cur + 1);
+                }
+            }
+            
+            // Simula mondo vivo: aggiorna NPC in base all'ora
+            simulateWorldNPCs();
+            
+            updateCharacterUI();
+        }
+
+        // ==================== SIMULAZIONE MONDO VIVO ====================
+        function simulateWorldNPCs() {
+            if (!G.worldMemory.npcs.length) return;
+            
+            const period = getTimePeriod();
+            const hour = G.time.hour;
+            
+            // Aggiorna lo stato degli NPC in base all'ora del giorno
+            G.worldMemory.npcs.forEach(npc => {
+                const prevStatus = npc.status;
+                
+                // Logica base per stato NPC basata sull'ora
+                if (npc.status !== 'dead') {
+                    if (hour >= 23 || hour < 6) {
+                        // Notte: la maggior parte dorme
+                        if (Math.random() < 0.7) npc.status = 'sleeping';
+                    } else if (hour >= 6 && hour < 8) {
+                        // Alba: si svegliano
+                        if (npc.status === 'sleeping') npc.status = 'idle';
+                    } else if (hour >= 8 && hour < 12) {
+                        // Mattina: lavoro
+                        if (Math.random() < 0.6) npc.status = 'working';
+                    } else if (hour >= 12 && hour < 14) {
+                        // Pranzo
+                        if (Math.random() < 0.5) npc.status = 'eating';
+                    } else if (hour >= 14 && hour < 18) {
+                        // Pomeriggio: lavoro o attività
+                        if (Math.random() < 0.5) npc.status = 'working';
+                        else if (Math.random() < 0.3) npc.status = 'traveling';
+                    } else if (hour >= 18 && hour < 21) {
+                        // Sera: relax, socialità
+                        if (Math.random() < 0.4) npc.status = 'talking';
+                        else npc.status = 'idle';
+                    } else {
+                        // Tarda sera
+                        if (Math.random() < 0.5) npc.status = 'idle';
+                    }
+                }
+                
+                // Se l'NPC ha obiettivi specifici, può sovrascrivere lo stato
+                if (npc.goals && npc.goals.toLowerCase().includes('vendetta') && Math.random() < 0.1) {
+                    npc.status = 'hunting';
+                }
+                if (npc.goals && npc.goals.toLowerCase().includes('fuga') && Math.random() < 0.1) {
+                    npc.status = 'hiding';
+                }
+            });
+        }
+
+        // Genera eventi casuali del mondo e li mostra con stile distintivo
+        function generateWorldEvent() {
+            const hour = G.time.hour;
+            const events = [];
+            
+            // Eventi basati sugli NPC con obiettivi (se ce ne sono)
+            if (G.worldMemory.npcs?.length) {
+                G.worldMemory.npcs.forEach(npc => {
+                if (npc.status === 'dead') return;
+                
+                // NPC nemici possono fare mosse
+                if (npc.relationship?.toLowerCase().includes('nemico') || 
+                    npc.relationship?.toLowerCase().includes('ostile')) {
+                    if (Math.random() < 0.15) { // 15% chance
+                        const actions = [
+                            `Voci parlano di ${npc.name} che sta tramando qualcosa...`,
+                            `${npc.name} è stato avvistato in zona.`,
+                            `Qualcuno dice che ${npc.name} ti sta cercando.`,
+                            `Si mormora che ${npc.name} stia radunando alleati.`
+                        ];
+                        events.push({
+                            type: 'npc-action',
+                            npc: npc.name,
+                            text: actions[Math.floor(Math.random() * actions.length)]
+                        });
+                    }
+                }
+                
+                // NPC alleati possono mandare messaggi
+                if (npc.relationship?.toLowerCase().includes('amico') || 
+                    npc.relationship?.toLowerCase().includes('alleato')) {
+                    if (Math.random() < 0.12) { // 12% chance
+                        const actions = [
+                            `${npc.name} ti ha mandato un messaggio.`,
+                            `${npc.name} sta pensando a te.`,
+                            `Hai sentito che ${npc.name} ha chiesto tue notizie.`
+                        ];
+                        events.push({
+                            type: 'npc-action',
+                            npc: npc.name,
+                            text: actions[Math.floor(Math.random() * actions.length)]
+                        });
+                    }
+                }
+                
+                // NPC con obiettivi attivi
+                if (npc.goals && npc.status !== 'sleeping' && npc.status !== 'idle') {
+                    if (Math.random() < 0.1) { // 10% chance
+                        events.push({
+                            type: 'world-event',
+                            npc: npc.name,
+                            text: `${npc.name} è impegnato: ${npc.goals.substring(0, 50)}...`
+                        });
+                    }
+                }
+            });
+            } // Chiude il blocco if degli NPC
+            
+            // Eventi ambientali generici basati sull'ora - PIÙ FREQUENTI
+            if (hour >= 5 && hour < 7) {
+                if (Math.random() < 0.25) events.push({ type: 'world-event', text: '🌅 L\'alba illumina il cielo. La città inizia a svegliarsi.' });
+            } else if (hour >= 7 && hour < 9) {
+                if (Math.random() < 0.2) events.push({ type: 'world-event', text: '☀️ I mercanti aprono le botteghe, le strade si animano.' });
+            } else if (hour >= 12 && hour < 14) {
+                if (Math.random() < 0.2) events.push({ type: 'world-event', text: '🍽️ È ora di pranzo. Il profumo di cibo riempie l\'aria.' });
+            } else if (hour >= 17 && hour < 19) {
+                if (Math.random() < 0.2) events.push({ type: 'world-event', text: '🌆 Il sole inizia a calare. I lavoratori tornano a casa.' });
+            } else if (hour >= 19 && hour < 21) {
+                if (Math.random() < 0.2) events.push({ type: 'world-event', text: '🌙 La sera scende. Le taverne si riempiono di voci e risate.' });
+            } else if (hour >= 21 && hour < 23) {
+                if (Math.random() < 0.15) events.push({ type: 'world-event', text: '🌃 La notte avanza. Le strade si svuotano.' });
+            } else if (hour >= 23 || hour < 3) {
+                if (Math.random() < 0.1) events.push({ type: 'world-event', text: '🦉 Notte fonda. Solo le guardie e le ombre si muovono.' });
+            } else if (hour >= 3 && hour < 5) {
+                if (Math.random() < 0.1) events.push({ type: 'world-event', text: '⭐ Le ore più buie prima dell\'alba. Il mondo dorme.' });
+            }
+            
+            // Eventi casuali generici del mondo (sempre possibili)
+            if (Math.random() < 0.08) {
+                const genericEvents = [
+                    '🐦 Uccelli volano nel cielo, portando presagi.',
+                    '💨 Un vento freddo soffia tra le strade.',
+                    '🔔 In lontananza, campane suonano.',
+                    '👥 Un gruppo di viaggiatori passa di qui.',
+                    '🐕 Un cane randagio attraversa la strada.',
+                    '📯 Un banditore annuncia le ultime notizie.',
+                    '🎭 Artisti di strada intrattengono i passanti.',
+                    '⚔️ Si sentono voci di tensioni ai confini.',
+                    '📜 Nuovi editti sono stati affissi in piazza.',
+                    '🏇 Un messaggero a cavallo passa veloce.'
+                ];
+                events.push({ 
+                    type: 'world-event', 
+                    text: genericEvents[Math.floor(Math.random() * genericEvents.length)] 
+                });
+            }
+            
+            return events.length > 0 ? events[Math.floor(Math.random() * events.length)] : null;
+        }
+        
+        // Mostra un evento del mondo con stile distintivo
+        function showWorldEvent(event) {
+            if (!event) return;
+            addStoryEntry(event.text, event.type || 'world-event');
+        }
+
+        // Costruisce contesto NPC per l'IA
+        function buildNPCContext() {
+            const wm = G.worldMemory;
+            if (!wm.npcs.length) return '';
+            
+            let context = '\n🌍 STATO ATTUALE NPC NEL MONDO:\n';
+            wm.npcs.forEach(npc => {
+                if (npc.status === 'dead') {
+                    context += `- ${npc.name}: MORTO\n`;
+                } else {
+                    let line = `- ${npc.name}`;
+                    if (npc.status) line += ` [${npc.status}]`;
+                    if (npc.location) line += ` @ ${npc.location}`;
+                    if (npc.goals) line += ` - Vuole: ${npc.goals}`;
+                    context += line + '\n';
+                }
+            });
+            return context;
         }
 
         // ==================== AI ====================
@@ -4768,10 +4933,7 @@
 
             // 1. CREAZIONE LISTA INVENTARIO CORRENTE (Fondamentale per i controlli)
             const inventoryList = c.inventory.length > 0 
-                ? c.inventory.map(i => {
-                    const saldo = (i.financial && Number.isFinite(i.balance)) ? ` | saldo: ${formatCurrency(i.balance)}` : '';
-                    return `- ${i.name} (x${i.count}${saldo})`;
-                }).join('\n') 
+                ? c.inventory.map(i => `- ${i.name} (x${i.count})`).join('\n') 
                 : "Nessun oggetto (Tasche vuote)";
 
             // Build world memory summary
@@ -4780,8 +4942,21 @@
             // Build critical conditions
             let criticalConditions = '';
             if (c.gold < 0) criticalConditions += `\n⚠️ IN DEBITO GRAVE: ${c.gold} ${c.currency?.short}! I creditori ti cercano.`;
-            if (c.hunger.cur <= 20) criticalConditions += '\n⚠️ AFFAMATO! Il personaggio ha molta fame.';
-            if (c.stamina.cur <= 20) criticalConditions += '\n⚠️ ESAUSTO! Il personaggio barcolla dalla stanchezza.';
+            if (c.hunger.cur <= 20) criticalConditions += '\n⚠️ AFFAMATO CRITICO! Il personaggio sta morendo di fame, non può compiere azioni fisiche impegnative.';
+            else if (c.hunger.cur <= 40) criticalConditions += '\n⚠️ AFFAMATO! Il personaggio ha molta fame, sente i crampi allo stomaco.';
+            else if (c.hunger.cur <= 60) criticalConditions += '\n📍 Fame moderata: il personaggio inizia ad avere appetito.';
+            if (c.stamina.cur <= 20) criticalConditions += '\n⚠️ ESAUSTO CRITICO! Il personaggio barcolla, rischia di svenire.';
+            else if (c.stamina.cur <= 40) criticalConditions += '\n⚠️ MOLTO STANCO! Movimenti lenti, difficoltà di concentrazione.';
+            else if (c.stamina.cur <= 60) criticalConditions += '\n📍 Stanchezza lieve: il personaggio inizia a sentire la fatica.';
+            if (c.health.cur <= c.health.max * 0.2) criticalConditions += '\n⚠️ FERITO GRAVEMENTE! Il personaggio è in pericolo di vita.';
+            else if (c.health.cur <= c.health.max * 0.5) criticalConditions += '\n⚠️ FERITO! Il personaggio ha ferite visibili e prova dolore.';
+            
+            // Condizioni secondarie (risorsa secondaria)
+            if (c.secondary && c.secondary.max > 0) {
+                const secPercent = (c.secondary.cur / c.secondary.max) * 100;
+                if (secPercent <= 20) criticalConditions += `\n⚠️ ${c.secondary.label} CRITICO! Solo ${c.secondary.cur}/${c.secondary.max}.`;
+                else if (secPercent <= 40) criticalConditions += `\n📍 ${c.secondary.label} basso: ${c.secondary.cur}/${c.secondary.max}.`;
+            }
 
             const systemPrompt = `Sei il NARRATORE Il tuo compito è dare vita al mondo con descrizioni evocative, dinamiche e ricche di atmosfera, mantenendo sempre una posizione neutrale e coerente. Devi coinvolgere emotivamente il giocatore, farlo sentire dentro la scena, far percepire tensione, opportunità, rischi e meraviglia.
 
@@ -4797,7 +4972,6 @@ REGOLE:
 - Quando serve, puoi evocare la “sorte” come se stessi tirando un dado, senza numeri espliciti.
 - Mantieni il mondo vivo: ambienti sensoriali, PNG con personalità, eventi che reagiscono alle scelte.
 - Non prendere mai decisioni per il giocatore; presenta sempre opzioni e lascia a lui la scelta.
-- Prima di concludere acquisti, contratti, promesse o altre azioni irreversibili, chiedi SEMPRE conferma esplicita al giocatore e attendi la risposta prima di applicare conseguenze.
 - Integra meccaniche di gioco (salute, energia, soldi, inventario) in modo fluido e naturale nella narrazione.
 - Usa i TAG MECCANICA e LOOT per modificare lo stato di gioco (salute, energia, soldi, inventario).
 
@@ -4815,9 +4989,6 @@ INVENTARIO: ${inventoryList}
 ⛔ **REGOLA FONDAMENTALE (CONTROLLI NASCOSTI)**
 Quando verifichi i requisiti (soldi, oggetti, logica), DEVI scrivere il ragionamento dentro il tag [ANALISI].
 NON scrivere i controlli nel testo narrativo.
-⚠️ **IMPORTANTE: APPLICA I COSTI UNA SOLA VOLTA**
-Se un pagamento è stato già effettuato o narrato in precedenza, NON inserire nuovamente il tag [MECCANICA: soldi=-X].
-Controlla la cronologia: se hai già tolto i soldi per questo contratto/oggetto, non farlo di nuovo.
 
 Esempio Corretto:
 [ANALISI]Il giocatore vuole la spada (costo 50). Ha 100 monete. OK.[/ANALISI]
@@ -4841,9 +5012,7 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 
 ⏱️ **TEMPO E FATICA REALISTICI**
 - Ogni risposta deve far avanzare il tempo con [TEMPO:+X] in minuti. Calibra X in base all'azione (es. scavare un fosso per ore = [TEMPO:+480]).
-- Le azioni faticose consumano energia con [MECCANICA: stamina=-X]; usa valori moderati (10-20) per lavori duri e fallisci l'azione se la stamina scende sotto 20.
-- Quando il personaggio DORME, recupera l'energia persa: usa [MECCANICA: stamina=+100] (o quanto serve per il max).
-- Quando il personaggio MANGIA o RIPOSA (senza dormire), recupera salute [MECCANICA: hp=+X] e un po' di energia.
+- Le azioni faticose consumano energia con [MECCANICA: stamina=-X]; usa valori alti (30-50) per lavori duri e fallisci l'azione se la stamina scende sotto 20.
 - Se l'attività richiede più tempo del previsto, suddividi la scena oppure esplicita che il personaggio si ferma per riposare e riporta gli effetti.
 - Ricorda di segnalare altri costi (soldi, risorse) con i relativi tag [MECCANICA: soldi=±X] e simili.
 - ricorda che il personaggio deve mangiare e riposare regolarmente per evitare penalità.
@@ -4852,51 +5021,60 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 🎒 **LOOT SOLO OGGETTI REALI**
 - Usa i tag [LOOT: ...] solo per oggetti fisici o risorse effettivamente ottenuti e trasportabili.
 - Non aggiungere nell'inventario elementi scenografici o non possedibili (es. "vista dalla finestra", mobili fissati, parti dell'ambiente, sensazioni).
-- NON usare [LOOT] per oggetti che il personaggio ha già nell'inventario (es. se estrae la spada, non dare di nuovo [LOOT: Spada]).
-- Il denaro contante non è un oggetto: aggiorna sempre le monete con [MECCANICA: soldi=±X] (o l'equivalente della valuta) invece di usare [LOOT].
-
-🗑️ **RIMUOVI OGGETTI ESAURITI**
-- Quando un oggetto come carta di credito o libretto di deposito viene usato completamente (saldo esaurito), usa [REMOVE: Nome Oggetto] per rimuoverlo dall'inventario.
-- Esempio: [REMOVE: Carta di Credito]
 - Gli oggetti che restano nel luogo vanno descritti nella narrazione senza usare [LOOT].
-- Qualsiasi oggetto usato, venduto o consumato deve sparire dall'inventario (zaino o proprietà) usando il tag appropriato.
-
-♻️ **USO / VENDITA DI OGGETTI**
-- Quando consumi o usi risorse (pozione, razione, carburante, munizioni) usa [CONSUMA: Nome|Quantità] oppure [USA: Nome|Quantità].
-- Quando vendi o scambi un oggetto usa [VENDI: Nome|Quantità] assieme al relativo [MECCANICA: soldi=±X].
-- Per abbandonare o lasciare un oggetto usa [SCARTA: Nome|Quantità] (o [DROP: ...]).
-- Se la quantità non è specificata, l'oggetto viene rimosso interamente dall'inventario.
-
-🏦 **STRUMENTI FINANZIARI**
-- Quando prelevi o depositi denaro da conti, libretti, carte o registri, usa [FINANZA: Nome Oggetto|±importo] per aggiornare il saldo residuo di quell'oggetto.
-- Usa numeri positivi per depositi, numeri negativi per prelievi o spese.
-- Se il saldo scende a zero, aggiungi anche [REMOVE: Nome Oggetto] (oppure descrivi che viene archiviato o restituito).
-
-🏠 **PROPRIETÀ E BENI**
-- Usa [PROPRIETA: Nome|Descrizione|Note opzionali] quando acquisti o ottieni case, negozi, licenze, terreni o attività.
-- Quando vendi, perdi o cedi una proprietà, usa [REMOVE_PROPRIETA: Nome] (o [VENDI_PROPRIETA: Nome]) per rimuoverla dal registro.
-- Ricorda di applicare anche [MECCANICA: soldi=±X] per riflettere il guadagno o la spesa legata alla transazione.
-- Per stoccare beni in una proprietà usa [LOOT_PROPRIETA: Nome Proprietà|Oggetto|categoria=strumentali/produzione/vendibili|Quantità|Descrizione|Valore|Icona]; il campo categoria= permette di archiviarli nel magazzino corretto.
-- Se il bene viene consegnato al protagonista ma appartiene al locale, spostalo subito con [DEPOSITA_PROPRIETA: Nome Proprietà|Oggetto|Quantità opzionale|categoria=...]; non lasciare beni del locale nello zaino del personaggio.
-- Non usare [LOOT_PROPRIETA] per il contante: registra sempre i soldi con [MECCANICA: soldi=±X] e descrivi il contenitore nella narrazione.
-- Quando consumi, usi, vendi o scarti un bene della proprietà usa i tag [CONSUMA_OGGETTO_PROPRIETA], [USA_OGGETTO_PROPRIETA], [VENDI_OGGETTO_PROPRIETA] o [SCARTA_OGGETTO_PROPRIETA]; per rimuovere direttamente un elemento usa [REMOVE_OGGETTO_PROPRIETA: Nome Proprietà|Oggetto|Quantità opzionale].
 
 💰 **CAPITALE DISPONIBILE**
 - All'inizio della partita devi dichiarare chiaramente quante risorse economiche, contanti o crediti possiede il protagonista e come sono conservate (cassa, libro mastro, eredità, titoli, ecc.).
-- Se il capitale iniziale differisce da quello indicato in DATI GIOCO, calcola la differenza e usa subito [MECCANICA: soldi=+X] o [MECCANICA: soldi=-X] (o l'equivalente per la valuta usata) per applicare la variazione necessaria.
-- Usa la forma senza segno [MECCANICA: soldi=X] solo quando devi impostare il saldo finale dopo aver ricontato il denaro o dopo aver applicato tutte le variazioni; non usarla per indicare guadagni o spese incrementali.
-- NON usare [MECCANICA: soldi=...] se stai solo ricordando il saldo attuale senza variazioni. Se il giocatore ha 100 monete e non ne guadagna/perde, NON scrivere nulla.
-- EVITA DOPPI ADDEBITI: Se un'azione richiede un pagamento (es. firma contratto), inserisci il tag [MECCANICA: soldi=-X] SOLO nel messaggio in cui l'azione viene finalizzata. Non ripeterlo nei messaggi successivi di riepilogo.
-- NON usare [LOOT: ...] per oggetti che il personaggio possiede già. Usa [LOOT] solo per NUOVI oggetti ottenuti.
+- Se il capitale iniziale differisce da quello indicato in DATI GIOCO, calcola la differenza e usa subito [MECCANICA: soldi=±X] (o il tag equivalente della valuta) per allineare il saldo.
 - Quando il denaro è registrato in documenti o libri mastri, cita il supporto nella narrazione e, se appropriato, fornisci l'oggetto con [LOOT: Libro mastro|1|Contiene ...].
 - Ricorda che le valute possono essere espresse in euro, monete d'oro, fiorini o altre unità: usa sempre il tag meccanico per aggiornare il totale.
 
+🏠 **PROPRIETÀ E BENI (Sistema Dinamico)**
+- Le proprietà hanno una CONDIZIONE (0-100%): Eccellente(90+), Buono(70+), Discreto(50+), Usurato(30+), Danneggiato(10+), Fatiscente(0+).
+- Usa [PROPRIETA: nome|descrizione|note|tipo|condizione|valore|reddito] per registrare proprietà.
+  - Tipi: building, land, business, vehicle
+  - Valore: valore base in valuta (es: 5000 per un edificio di pregio)
+  - Reddito: entrate periodiche (per business o affitti)
+- VALUTAZIONE: il valore di mercato dipende dalla condizione. Eccellente=120%, Buono=100%, Discreto=80%, Usurato=60%, Danneggiato=40%, Fatiscente=20% del valore base.
+- Le proprietà in buone condizioni danno BONUS al giocatore, quelle trascurate danno MALUS.
+- Quando il giocatore visita o ispeziona una proprietà, descrivi il suo stato attuale (segni di usura, danni, miglioramenti) e stima il valore.
+- Se il giocatore fa manutenzione o riparazioni, aumenta la condizione; se la trascura, peggiorerà nel tempo.
+- Eventi casuali possono colpire le proprietà: furti, danni atmosferici, incendi, ma anche miglioramenti fortuiti.
+- Le proprietà commerciali (business) possono generare entrate se ben tenute (condizione 50%+), o perdite se trascurate.
+
+🌍 **MONDO VIVO (PNG AUTONOMI)**
+- Ogni PNG ha personalità, obiettivi, routine e una propria vita indipendente dal giocatore.
+- Quando narri, considera sempre COSA STANNO FACENDO gli NPC in quel momento. Mostrali in azione: lavorano, parlano tra loro, reagiscono agli eventi del mondo, perseguono i propri scopi.
+- I PNG ricordano le interazioni passate e cambiano atteggiamento in base alla storia: alleati possono tradire, nemici diventare amici, estranei sviluppare opinioni.
+- Il mondo NON è statico: eventi accadono anche senza l'intervento del giocatore. Mercanti chiudono bottega la sera, ladri colpiscono di notte, feste si celebrano nei giorni festivi, rivali fanno le loro mosse.
+- Usa [NPC: nome|descrizione|relazione|personalità|obiettivo|stato|posizione] per aggiornare i PNG. Se un PNG cambia stato o posizione, aggiornalo.
+- Usa [INTERAZIONE: nome_npc|tipo|dettagli] per registrare interazioni significative (tipi: helped, attacked, traded, talked, betrayed, intimidated, befriended).
+- Mostra conseguenze delle scelte passate: se il giocatore ha ignorato una richiesta d'aiuto, quella persona potrebbe essere morta o ostile; se ha aiutato qualcuno, potrebbe ricevere un favore inaspettato.
+- Quando mostri un NPC conosciuto, considera la sua storia con il giocatore (quante volte si sono incontrati, cosa è successo l'ultima volta).
+
+🍽️ **BISOGNI FISICI AUTOMATICI**
+- Il sistema riduce automaticamente fame e energia col passare del tempo. Tu devi REAGIRE a questi valori nella narrazione.
+- Se la fame è bassa (≤30), descrivi i morsi della fame, la debolezza, la difficoltà a concentrarsi.
+- Se l'energia è bassa (≤30), descrivi la stanchezza, gli occhi pesanti, i movimenti lenti.
+- Se la salute è bassa (≤30%), descrivi ferite, dolore, difficoltà nei movimenti.
+- Suggerisci (senza forzare) che il personaggio mangi, riposi o si curi quando necessario.
+- Se il personaggio compie azioni fisiche intense con poca energia, applica [MECCANICA: stamina=-X] e descrivi la fatica crescente.
+
 🧠 MEMORIA MONDO:
 ${worldMemorySummary}
+${buildNPCContext()}
 
 ${criticalConditions}
 
 SCRIVI ${lengths[s.length]} di narrazione.`;
+
+            // Controlla se c'è un evento del mondo da menzionare
+            const worldEvent = generateWorldEvent();
+            
+            // Mostra l'evento del mondo PRIMA della risposta (se presente)
+            if (worldEvent && !isStart) {
+                showWorldEvent(worldEvent);
+            }
 
             let userMsg;
             if (isStart) {
@@ -4904,32 +5082,31 @@ SCRIVI ${lengths[s.length]} di narrazione.`;
 ${story.prologue || 'Il protagonista inizia la sua avventura.'}
 Descrivi la scena e l'equipaggiamento iniziale (usa [LOOT] per dare gli oggetti iniziali).
 Metti in chiaro quanti ${c.currency?.short || 'soldi'} sono subito disponibili (${formatCurrency(c.gold)} secondo il sistema) e dove sono custoditi.
-Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa, libro mastro con 2000 fiorini) applica immediatamente [MECCANICA: soldi=±X] per riallineare il saldo e cita il registro o il contante come oggetto fisico con [LOOT: ...] quando opportuno.
-Per conti, libretti, carte o registri con saldo, usa anche [FINANZA: Nome Oggetto|±X] per indicare l'importo depositato o prelevato.`;
+Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa, libro mastro con 2000 fiorini) applica immediatamente [MECCANICA: soldi=±X] per riallineare il saldo e cita il registro o il contante come oggetto fisico con [LOOT: ...] quando opportuno.`;
             } else {
-                userMsg = `[Stato attuale: HP ${c.health.cur} | Energia ${c.stamina.cur} | Soldi ${c.gold}]
+                // Costruisci contesto stato fisico per l'IA
+                let physicalState = '';
+                if (c.hunger.cur <= 30) physicalState += ' [FAME CRITICA]';
+                else if (c.hunger.cur <= 50) physicalState += ' [fame]';
+                if (c.stamina.cur <= 30) physicalState += ' [STANCHEZZA CRITICA]';
+                else if (c.stamina.cur <= 50) physicalState += ' [stanco]';
+                if (c.health.cur <= c.health.max * 0.3) physicalState += ' [FERITO GRAVE]';
+                else if (c.health.cur <= c.health.max * 0.5) physicalState += ' [ferito]';
+                
+                // Aggiungi contesto evento mondo se presente
+                const worldEventContext = worldEvent ? `\n[EVENTO MONDO: ${worldEvent.text}]` : '';
+                
+                userMsg = `[Stato: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur}/100 | Fame ${c.hunger.cur}/100 | Soldi ${formatCurrency(c.gold)}${physicalState}]
+[Ora: ${getTimeString()} - ${period.name}]${worldEventContext}
 Il giocatore dichiara: "${action}"
 
-AGISCI DA ARBITRO:
-1. Controlla l'INVENTARIO e i SOLDI sopra.
-2. Il giocatore può farlo? 
-   - SI -> Narra il successo e usa i tag [MECCANICA/LOOT].
-    - NO -> Narra il fallimento/rifiuto e NON usare i tag di ricompensa.
-3. Se l'azione implica acquisti, contratti o decisioni irreversibili, chiedi conferma ("Vuoi procedere?") e attendi il prossimo input prima di applicare effetti.
-
-RICORDA:
-- [TEMPO: +X] per i minuti che passano (lavori pesanti = ORE, non minuti!)
-- [MECCANICA: stamina=-X] per la fatica (lavori pesanti = -10/-20!)
-- [MECCANICA: stamina=+100] se DORME; [MECCANICA: hp=+X] se MANGIA/RIPOSA
-- Se ⚡ è basso, il PG fatica o non riesce a fare lavori pesanti
-- [MECCANICA: soldi=...] per spese/guadagni (usa + o - per le variazioni; usa il valore senza segno solo per impostare il saldo finale dopo un conteggio completo)
-- [FINANZA: Nome Oggetto|±X] per aggiornare conti, libretti, carte o registri
-- [CONSUMA/USA/VENDI/SCARTA: Nome|Q] per rimuovere oggetti usati, venduti o abbandonati
-- [LOOT_PROPRIETA/CONSUMA_OGGETTO_PROPRIETA/...]: gestisci l'inventario delle proprietà senza mischiarlo allo zaino
-- Prima di finalizzare acquisti, contratti o decisioni permanenti, chiedi conferma al giocatore (es. "Vuoi procedere?") e attendi la risposta prima di applicare tag o conseguenze
-- [LOOT:...] per oggetti trovati
-- [PROPRIETA: Nome|Descrizione|Bonus] quando ottieni case/negozi/licenze/beni permanenti
-- [REMOVE_PROPRIETA: Nome] (o [VENDI_PROPRIETA: Nome]) quando la proprietà viene ceduta o venduta`;
+ISTRUZIONI TURNO:
+1. Prima verifica INVENTARIO e SOLDI. Il giocatore può farlo?
+2. Considera lo STATO FISICO: se fame/energia sono basse, l'azione potrebbe essere compromessa o fallire.
+3. MONDO VIVO: Cosa fanno gli NPC in questo momento? Mostra il mondo che si muove intorno al giocatore.
+4. Descrivi le conseguenze e usa i tag appropriati [MECCANICA/LOOT/NPC/TEMPO].
+5. Se l'azione richiede sforzo fisico, consuma energia con [MECCANICA: stamina=-X].
+${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}`;
             }
 
             let endpoint, model, headers;
@@ -4938,14 +5115,6 @@ RICORDA:
                 endpoint = 'https://openrouter.ai/api/v1/chat/completions';
                 model = 'google/gemma-3-27b-it'; // O un modello più intelligente come Claude-3.5-sonnet o gpt-4o se disponibile
                 headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterKey}` };
-            } else if (s.model === 'amazon' && s.openrouterFreeKey) {
-                endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-                model = 'amazon/nova-2-lite-v1:free';
-                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterFreeKey}` };
-            } else if (s.model === 'xai' && s.openrouterFreeKey) {
-                endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-                model = 'x-ai/grok-4.1-fast:free';
-                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterFreeKey}` };
             } else if (s.groqKey) {
                 endpoint = 'https://api.groq.com/openai/v1/chat/completions';
                 model = 'llama-3.1-8b-instant'; // Consiglio il 70b per logica migliore, o 8b per velocità
@@ -5024,277 +5193,42 @@ RICORDA:
                 const icon = parts[4] || '';
                 // Skip non-physical items accidentally tagged as loot (e.g. "vista dalla finestra")
                 const lowerName = itemName.toLowerCase();
-                if (INTANGIBLE_LOOT_PATTERNS.some(re => re.test(lowerName))) {
+                const intangiblePatterns = [
+                    /vista\b.*finestra/,
+                    /finestra\b.*vista/,
+                    /\bpanorama\b/,
+                    /\bscorcio\b/,
+                    /\borizzonte\b/
+                ];
+                if (intangiblePatterns.some(re => re.test(lowerName))) {
                     addStoryEntry(`⚠️ Oggetto ignorato (non trasportabile): ${itemName}`, 'system');
                     continue;
                 }
-                // Check if it's currency
-                const isFinancialInstrumentLoot = FINANCIAL_KEYWORDS.some(keyword => lowerName.includes(keyword));
-                const isCurrency = !isFinancialInstrumentLoot && CURRENCY_KEYWORDS.some(keyword => lowerName.includes(keyword));
-                if (isCurrency) {
-                    const amount = value || qty;
-                    G.character.gold += amount;
-                    addStoryEntry(`💰 Hai ottenuto ${amount} ${G.character.currency?.short || 'monete'} da ${itemName}`, 'system');
-                } else {
-                    addLootToInventory(itemName, qty, { description, value, icon });
-                }
+                addLootToInventory(itemName, qty, { description, value, icon });
             }
 
-            const propertyLootRe = /\[LOOT_PROPRIETA:\s*([^\]]+)\]/gi;
-            while ((m = propertyLootRe.exec(response)) !== null) {
-                const raw = m[1];
-                const parts = raw.split('|').map(p => p.trim());
-                const propertyName = parts[0] || '';
-                const itemName = parts[1] || '';
-                if (!propertyName || !itemName) {
-                    addStoryEntry('⚠️ Tag [LOOT_PROPRIETA] incompleto. Usa [LOOT_PROPRIETA: Nome Proprietà|Oggetto|categoria=...|Quantità|Descrizione|Valore|Icona]', 'system');
-                    continue;
-                }
-
-                let idx = 2;
-                let qty = 1;
-                let categoryKey = null;
-                if (parts[idx]) {
-                    const maybeCategory = extractPropertyCategoryToken(parts[idx]);
-                    if (maybeCategory) {
-                        categoryKey = maybeCategory;
-                        idx++;
-                    }
-                }
-                if (parts[idx]) {
-                    const parsedQty = parseInt(parts[idx], 10);
-                    if (!Number.isNaN(parsedQty) && parsedQty > 0) {
-                        qty = parsedQty;
-                        idx++;
-                    }
-                }
-                if (parts[idx] && !categoryKey) {
-                    const maybeCategory = extractPropertyCategoryToken(parts[idx]);
-                    if (maybeCategory) {
-                        categoryKey = maybeCategory;
-                        idx++;
-                    }
-                }
-                const description = parts[idx] || '';
-                if (description) idx++;
-                let value;
-                let icon = '';
-                if (parts[idx]) {
-                    const parsedVal = parseInt(parts[idx], 10);
-                    if (!Number.isNaN(parsedVal)) {
-                        value = parsedVal;
-                        idx++;
-                    } else {
-                        icon = parts[idx];
-                        idx++;
-                    }
-                }
-                if (value === undefined && parts[idx]) {
-                    const parsedVal = parseInt(parts[idx], 10);
-                    if (!Number.isNaN(parsedVal)) {
-                        value = parsedVal;
-                        idx++;
-                    }
-                }
-                if (!icon && parts[idx]) {
-                    icon = parts[idx];
-                }
-
-                addLootToPropertyInventory(propertyName, itemName, qty, { description, value, icon, category: categoryKey });
-            }
-
-            // Extract FINANZA (financial instrument adjustments)
-            const financeRe = /\[FINANZA:\s*([^|]+)\|([^\]]+)\]/gi;
-            while ((m = financeRe.exec(response)) !== null) {
-                const itemId = m[1].trim();
-                const deltaRaw = m[2].trim();
-                const cleanedDelta = deltaRaw.replace(/[^0-9+\-.,]/g, '').replace(',', '.');
-                const normalizedDelta = parseFloat(cleanedDelta);
-                if (!Number.isNaN(normalizedDelta)) {
-                    adjustFinancialInstrumentBalance(itemId, normalizedDelta);
-                }
-            }
-
-            // Extract inventory usage/sale/discard commands
-            const inventoryCmdRe = /\[(CONSUMA|USA|USE|VENDI|SELL|SCARTA|DROP|CONSUME|UTILIZZA):\s*([^|\]]+)(?:\|([^\]]+))?\]/gi;
-            while ((m = inventoryCmdRe.exec(response)) !== null) {
-                const command = (m[1] || '').trim().toUpperCase();
-                const itemId = (m[2] || '').trim();
-                const qtyRaw = (m[3] || '').trim();
-                const qtyParsed = qtyRaw ? parseInt(qtyRaw.replace(/[^0-9-]/g, ''), 10) : undefined;
-                const qty = Number.isFinite(qtyParsed) ? Math.abs(qtyParsed) : undefined;
-                if (!itemId) continue;
-
-                const removal = removeItemFromInventory(itemId, Number.isFinite(qty) && qty > 0 ? qty : undefined);
-                if (!removal) {
-                    addStoryEntry(`⚠️ Oggetto non trovato (${command}): ${itemId}`, 'system');
-                    continue;
-                }
-                if (removal.removed <= 0) {
-                    addStoryEntry(`⚠️ Nessuna quantità rimossa per ${itemId}`, 'system');
-                    continue;
-                }
-
-                const commandMap = {
-                    'CONSUMA': { icon: '🥄', verb: 'Consumati' },
-                    'CONSUME': { icon: '🥄', verb: 'Consumati' },
-                    'USA': { icon: '⚙️', verb: 'Usati' },
-                    'USE': { icon: '⚙️', verb: 'Usati' },
-                    'UTILIZZA': { icon: '⚙️', verb: 'Usati' },
-                    'VENDI': { icon: '💼', verb: 'Venduti' },
-                    'SELL': { icon: '💼', verb: 'Venduti' },
-                    'SCARTA': { icon: '🗑️', verb: 'Scartati' },
-                    'DROP': { icon: '🗑️', verb: 'Scartati' }
-                };
-                const meta = commandMap[command] || { icon: '🗑️', verb: 'Rimossi' };
-                const countLabel = removal.removed > 1 ? `${removal.removed}x ` : removal.removed === 1 ? '' : '';
-                const suffix = removal.remaining > 0 ? ` (restano ${removal.remaining})` : ' (esaurito)';
-                addStoryEntry(`${meta.icon} ${meta.verb}: ${countLabel}${removal.itemName}${suffix}`, 'system');
-            }
-
-            const propertyInventoryCmdRe = /\[((?:CONSUMA|USA|UTILIZZA|SCARTA|DROP|VENDI)(?:_OGGETTO)?_PROPRIETA):\s*([^|\]]+)\|([^|\]]+)(?:\|([^\]]+))?\]/gi;
-            while ((m = propertyInventoryCmdRe.exec(response)) !== null) {
-                const command = (m[1] || '').trim().toUpperCase();
-                const propertyName = (m[2] || '').trim();
-                const itemId = (m[3] || '').trim();
-                const qtyRaw = (m[4] || '').trim();
-                const qtyParsed = qtyRaw ? parseInt(qtyRaw.replace(/[^0-9-]/g, ''), 10) : undefined;
-                const qty = Number.isFinite(qtyParsed) ? Math.abs(qtyParsed) : undefined;
-                if (!propertyName || !itemId) {
-                    addStoryEntry('⚠️ Tag proprietà incompleto. Usa ad esempio [CONSUMA_OGGETTO_PROPRIETA: Villa Aurora|Bottiglia di vino|1]', 'system');
-                    continue;
-                }
-
-                const removal = removeItemFromPropertyInventory(propertyName, itemId, Number.isFinite(qty) && qty > 0 ? qty : undefined);
-                if (!removal) {
-                    addStoryEntry(`⚠️ Oggetto non trovato nell'inventario di proprietà (${command}): ${itemId} @ ${propertyName}`, 'system');
-                    continue;
-                }
-                if (removal.removed <= 0) {
-                    addStoryEntry(`⚠️ Nessuna quantità rimossa da ${propertyName}: ${itemId}`, 'system');
-                    continue;
-                }
-
-                const commandKey = command.replace('_OGGETTO', '');
-                const commandMap = {
-                    'CONSUMA_PROPRIETA': { icon: '🥄', verb: 'Consumati' },
-                    'USA_PROPRIETA': { icon: '⚙️', verb: 'Usati' },
-                    'UTILIZZA_PROPRIETA': { icon: '⚙️', verb: 'Usati' },
-                    'SCARTA_PROPRIETA': { icon: '🗑️', verb: 'Scartati' },
-                    'DROP_PROPRIETA': { icon: '🗑️', verb: 'Scartati' },
-                    'VENDI_PROPRIETA': { icon: '💼', verb: 'Venduti' }
-                };
-                const meta = commandMap[commandKey] || { icon: '🗑️', verb: 'Rimossi' };
-                const countLabel = removal.removed > 1 ? `${removal.removed}x ` : removal.removed === 1 ? '' : '';
-                const suffix = removal.remaining > 0 ? ` (restano ${removal.remaining})` : ' (esaurito)';
-                const propertyLabel = removal.property?.name || propertyName;
-                addStoryEntry(`${meta.icon} ${propertyLabel}: ${meta.verb} ${countLabel}${removal.itemName}${suffix}`, 'system');
-            }
-
-            const propertyRemoveItemRe = /\[(?:REMOVE_OGGETTO_PROPRIETA|REMOVE_ITEM_PROPERTY|RIMUOVI_OGGETTO_PROPRIETA):\s*([^|\]]+)\|([^|\]]+)(?:\|([^\]]+))?\]/gi;
-            while ((m = propertyRemoveItemRe.exec(response)) !== null) {
-                const propertyName = (m[1] || '').trim();
-                const itemId = (m[2] || '').trim();
-                const qtyRaw = (m[3] || '').trim();
-                const qtyParsed = qtyRaw ? parseInt(qtyRaw.replace(/[^0-9-]/g, ''), 10) : undefined;
-                const qty = Number.isFinite(qtyParsed) ? Math.abs(qtyParsed) : undefined;
-                if (!propertyName || !itemId) {
-                    addStoryEntry('⚠️ Tag REMOVE_OGGETTO_PROPRIETA incompleto. Usa [REMOVE_OGGETTO_PROPRIETA: Nome Proprietà|Oggetto|Quantità opzionale]', 'system');
-                    continue;
-                }
-
-                const removal = removeItemFromPropertyInventory(propertyName, itemId, Number.isFinite(qty) && qty > 0 ? qty : undefined);
-                if (removal && removal.removed > 0) {
-                    const suffix = removal.remaining > 0 ? ` (restano ${removal.remaining})` : ' (esaurito)';
-                    const propertyLabel = removal.property?.name || propertyName;
-                    addStoryEntry(`🗑️ ${propertyLabel}: rimosso ${removal.itemName}${suffix}`, 'system');
-                } else {
-                    addStoryEntry(`⚠️ Oggetto non trovato in ${propertyName}: ${itemId}`, 'system');
-                }
-            }
-
-            const propertyDepositRe = /\[(?:DEPOSITA_PROPRIETA|TRASFERISCI_PROPRIETA|DEPOSIT_PROPERTY):\s*([^\]]+)\]/gi;
-            while ((m = propertyDepositRe.exec(response)) !== null) {
-                const raw = m[1];
-                const parts = raw.split('|').map(p => p.trim());
-                const propertyName = parts[0] || '';
-                const itemId = parts[1] || '';
-                if (!propertyName || !itemId) {
-                    addStoryEntry('⚠️ Tag [DEPOSITA_PROPRIETA] incompleto. Usa [DEPOSITA_PROPRIETA: Nome Proprietà|Oggetto|Quantità opzionale|categoria=...].', 'system');
-                    continue;
-                }
-
-                let idx = 2;
-                let qty = 1;
-                let categoryKey = null;
-                if (parts[idx]) {
-                    const maybeQty = parseInt(parts[idx], 10);
-                    if (!Number.isNaN(maybeQty) && maybeQty > 0) {
-                        qty = maybeQty;
-                        idx++;
-                    }
-                }
-                if (parts[idx]) {
-                    const maybeCategory = extractPropertyCategoryToken(parts[idx]);
-                    if (maybeCategory) {
-                        categoryKey = maybeCategory;
-                        idx++;
-                    }
-                }
-
-                const playerItem = findInventoryItemByName(itemId);
-                if (!playerItem) {
-                    addStoryEntry(`⚠️ Impossibile depositare: ${itemId} non è nello zaino.`, 'system');
-                    continue;
-                }
-
-                qty = Math.max(1, Math.min(qty, playerItem.count || 1));
-                const snapshot = { ...playerItem };
-                const removal = removeItemFromInventory(playerItem, qty);
-                if (!removal || removal.removed <= 0) {
-                    addStoryEntry(`⚠️ Deposito fallito: quantità non valida per ${itemId}.`, 'system');
-                    continue;
-                }
-
-                addLootToPropertyInventory(
-                    propertyName,
-                    snapshot.name || snapshot.id,
-                    removal.removed,
-                    {
-                        description: snapshot.description,
-                        value: snapshot.value,
-                        icon: snapshot.icon,
-                        type: snapshot.type,
-                        category: categoryKey || snapshot.category
-                    },
-                    { silent: true }
-                );
-
-                addStoryEntry(`📦 Deposito completato: ${removal.removed}x ${removal.itemName} trasferiti a ${propertyName}.`, 'system');
-                notify(`Deposito in ${propertyName}: ${removal.removed}x ${removal.itemName}`, 'success');
-            }
-
-            // Extract REMOVE (remove items from inventory)
-            const removeRe = /\[REMOVE:\s*([^\]]+)\]/gi;
-            while ((m = removeRe.exec(response)) !== null) {
-                const itemId = m[1].trim();
-                const removal = removeItemFromInventory(itemId);
-                if (removal && removal.removed > 0) {
-                    const suffix = removal.remaining > 0 ? ` (restano ${removal.remaining})` : ' (esaurito)';
-                    addStoryEntry(`🗑️ Rimosso ${removal.itemName}${suffix}`, 'system');
-                } else {
-                    addStoryEntry(`⚠️ Oggetto non trovato (REMOVE): ${itemId}`, 'system');
-                }
-            }
-
-            // Extract NPCs
-            const npcRe = /\[NPC:\s*([^|]+)\|([^|]+)\|([^\]]+)\]/gi;
+            // Extract NPCs (formato esteso: nome|desc|rel|personalità|obiettivo|stato|posizione)
+            const npcRe = /\[NPC:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?\]/gi;
             while ((m = npcRe.exec(response)) !== null) {
-                const name = m[1].trim();
-                const desc = m[2].trim();
-                const rel = m[3].trim();
-                addNPC(name, desc, rel);
+                const name = (m[1] || '').trim();
+                const desc = (m[2] || '').trim();
+                const rel = (m[3] || '').trim();
+                const personality = (m[4] || '').trim();
+                const goals = (m[5] || '').trim();
+                const status = (m[6] || '').trim();
+                const location = (m[7] || '').trim();
+                addNPC(name, desc, rel, { personality, goals, status, location });
                 addStoryEntry(`👥 NPC registrato: ${name}`, 'memory-update');
+            }
+            
+            // Extract NPC Interactions (nuovo tag per interazioni significative)
+            // Formato: [INTERAZIONE: nome_npc|tipo|dettagli]
+            const interactionRe = /\[INTERAZIONE:\s*([^|]+)\|([^|]+)(?:\|([^\]]+))?\]/gi;
+            while ((m = interactionRe.exec(response)) !== null) {
+                const npcName = (m[1] || '').trim();
+                const interactionType = (m[2] || '').trim();
+                const details = (m[3] || '').trim();
+                recordNPCInteraction(npcName, interactionType, details);
             }
 
             // Extract Locations
@@ -5329,23 +5263,17 @@ RICORDA:
                 addSpecialItem(name, desc, icon);
             }
 
-            // Extract Properties / Assets
-            const propertyRe = /\[PROPRIETA:\s*([^|]+)\|([^|]+)(?:\|([^\]]+))?\]/gi;
+            // Extract Properties / Assets (formato esteso: nome|desc|note|tipo|condizione|valore|reddito)
+            const propertyRe = /\[PROPRIETA:\s*([^|]+)\|([^|]+)(?:\|([^|]*))?(?:\|([^|]*))?(?:\|([^|]*))?(?:\|([^|]*))?(?:\|([^\]]*))?\]/gi;
             while ((m = propertyRe.exec(response)) !== null) {
                 const name = m[1].trim();
                 const desc = m[2].trim();
                 const notes = (m[3] || '').trim();
-                addProperty(name, desc, notes);
-            }
-
-            const propertyRemoveRe = /\[(?:REMOVE_PROPRIETA|PROPRIETA_REMOVE|VENDI_PROPRIETA|PROPRIETA_VENDUTA|VENDE_PROPRIETA|SELL_PROPERTY):\s*([^\]]+)\]/gi;
-            while ((m = propertyRemoveRe.exec(response)) !== null) {
-                const name = (m[1] || '').trim();
-                if (!name) continue;
-                const removed = removeProperty(name);
-                if (!removed) {
-                    addStoryEntry(`⚠️ Proprietà non trovata: ${name}`, 'system');
-                }
+                const type = (m[4] || 'building').trim();
+                const condition = parseInt(m[5]) || 80;
+                const baseValue = parseInt(m[6]) || undefined;
+                const income = parseInt(m[7]) || undefined;
+                addProperty(name, desc, notes, { type, condition, baseValue, income });
             }
 
             // Extract Abilities
@@ -5376,16 +5304,15 @@ RICORDA:
                 .replace(/\[TEMPO:[^\]]*\]/gi, '')
                 .replace(/\[MECCANICA:[^\]]*\]/gi, '')
                 .replace(/\[LOOT:[^\]]*\]/gi, '')
-                .replace(/\[LOOT_PROPRIETA:[^\]]*\]/gi, '')
                 .replace(/\[SUGGERIMENTO:[^\]]*\]/gi, '')
                 .replace(/\[NPC:[^\]]*\]/gi, '')
+                .replace(/\[INTERAZIONE:[^\]]*\]/gi, '')
                 .replace(/\[LUOGO:[^\]]*\]/gi, '')
                 .replace(/\[QUEST:[^\]]*\]/gi, '')
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
+                .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
                 .replace(/\[EVENTO:[^\]]*\]/gi, '')
-                .replace(/\[(?:CONSUMA|USA|UTILIZZA|SCARTA|DROP|VENDI)(?:_OGGETTO)?_PROPRIETA:[^\]]*\]/gi, '')
-                .replace(/\[(?:REMOVE_OGGETTO_PROPRIETA|REMOVE_ITEM_PROPERTY|RIMUOVI_OGGETTO_PROPRIETA):[^\]]*\]/gi, '')
                 .replace(/\[SCELTA:[^\]]*\]/gi, '')
                 .replace(/#{1,6}\s*/g, '')
                 .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -5434,22 +5361,11 @@ RICORDA:
                     break;
                 case 'soldi': case 'gold': case 'money': case 'denaro': case 'cash': case 'contanti': case 'ricchezza': case 'fiorini': case 'fiorino':
                     const prevGold = c.gold;
-                    const hasExplicitSign = /^[\s]*[+\-]/.test(valRaw || '');
-                    if (hasExplicitSign) {
-                        c.gold = c.gold + v; // delta
-                    } else {
-                        c.gold = v; // valore assoluto
-                    }
+                    c.gold = c.gold + v; // PERMETTE DEBITI (niente Math.max)
                     const deltaGold = c.gold - prevGold;
                     const currSymbol = c.currency?.symbol || c.currency?.short || '💰';
-
-                    if (!hasExplicitSign) {
-                        if (c.gold < 0) {
-                            addStoryEntry(`🔴 Saldo impostato a debito: ${currSymbol} ${c.gold.toLocaleString('it-IT')}`, 'mechanic');
-                        } else {
-                            addStoryEntry(`${currSymbol} saldo impostato a ${c.gold.toLocaleString('it-IT')}`, 'mechanic');
-                        }
-                    } else if (c.gold < 0) {
+                    
+                    if (c.gold < 0) {
                         addStoryEntry(`🔴 DEBITO: ${currSymbol} ${deltaGold.toLocaleString('it-IT')} (Totale: ${c.gold.toLocaleString('it-IT')})`, 'mechanic');
                     } else {
                         addStoryEntry(`${currSymbol} ${deltaGold >= 0 ? '+' : ''}${deltaGold.toLocaleString('it-IT')}`, 'mechanic');
@@ -5495,13 +5411,61 @@ RICORDA:
         }
 
         async function generateStorySummary() {
-            // Auto-generate a summary every N turns
-            const recentEvents = G.worldMemory.events.slice(-10);
+            // Auto-generate a smart summary every N turns
+            const wm = G.worldMemory;
+            const recentEvents = wm.events.slice(-15);
             if (recentEvents.length < 5) return;
-
-            const eventsSummary = recentEvents.map(e => e.summary).join('. ');
-            G.worldMemory.storySummary = `Finora: ${eventsSummary}`;
-            G.worldMemory.lastSummaryTurn = G.worldMemory.turnCount;
+            
+            // Raggruppa eventi per importanza
+            const importantEvents = recentEvents.filter(e => 
+                e.summary.includes('!') || 
+                e.summary.toLowerCase().includes('quest') ||
+                e.summary.toLowerCase().includes('morto') ||
+                e.summary.toLowerCase().includes('combattimento') ||
+                e.summary.toLowerCase().includes('scoperto') ||
+                e.summary.toLowerCase().includes('livello')
+            );
+            
+            // Costruisci riassunto strutturato
+            let summary = '';
+            
+            // Eventi chiave
+            if (importantEvents.length > 0) {
+                summary += 'EVENTI CHIAVE: ' + importantEvents.slice(-5).map(e => e.summary).join('; ') + '. ';
+            }
+            
+            // Progressione quest
+            const activeQuests = wm.quests.filter(q => q.status === 'active');
+            const completedQuests = wm.quests.filter(q => q.status === 'completed');
+            if (activeQuests.length) {
+                summary += `QUEST ATTIVE: ${activeQuests.map(q => q.name).join(', ')}. `;
+            }
+            if (completedQuests.length) {
+                summary += `COMPLETATE: ${completedQuests.map(q => q.name).join(', ')}. `;
+            }
+            
+            // Relazioni NPC significative
+            const allies = wm.npcs.filter(n => 
+                n.relationship?.toLowerCase().includes('amico') || 
+                n.relationship?.toLowerCase().includes('alleato')
+            );
+            const enemies = wm.npcs.filter(n => 
+                n.relationship?.toLowerCase().includes('nemico') || 
+                n.relationship?.toLowerCase().includes('ostile')
+            );
+            if (allies.length) {
+                summary += `ALLEATI: ${allies.map(n => n.name).join(', ')}. `;
+            }
+            if (enemies.length) {
+                summary += `NEMICI: ${enemies.map(n => n.name).join(', ')}. `;
+            }
+            
+            // Timeline recente
+            const recentSummaries = recentEvents.slice(-5).map(e => e.summary).join('; ');
+            summary += `RECENTEMENTE: ${recentSummaries}`;
+            
+            wm.storySummary = summary;
+            wm.lastSummaryTurn = wm.turnCount;
         }
 
         function ensureStoryGenres() {
@@ -5553,8 +5517,6 @@ RICORDA:
 
             $('set-groq-key').value = G.settings.groqKey || '';
             $('set-openrouter-key').value = G.settings.openrouterKey || '';
-            $('set-openrouter-free-key').value = G.settings.openrouterFreeKey || '';
-            $('set-amazon-key').value = G.settings.amazonKey || '';
             $('set-model').value = G.settings.model || 'groq';
             $('set-length').value = G.settings.length || 'medium';
             $('set-autoroll').checked = G.settings.autoRoll !== false;
@@ -5572,19 +5534,12 @@ RICORDA:
             $('btn-exit').onclick = exitGame;
             $('btn-save-quick').onclick = () => { updateSavesUI(); openModal('modal-saves'); };
             $('btn-dice').onclick = () => openModal('modal-dice');
-            $('btn-inventory').onclick = () => {
-                updateCharacterUI();
-                setActiveInventoryTab('inventory-player');
-                openModal('modal-inventory');
-            };
+            $('btn-inventory').onclick = () => { updateCharacterUI(); openModal('modal-inventory'); };
             $('btn-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
             $('btn-memory').onclick = () => { updateMemoryUI(); openModal('modal-memory'); };
             $('btn-wait').onclick = () => { updateTimeDisplay(); openModal('modal-wait'); };
             $('btn-rest').onclick = doRest;
             $('btn-eat').onclick = doEat;
-
-            setupInventoryTabs();
-            setActiveInventoryTab('inventory-player');
 
             // WAIT MODAL HANDLERS
             $$('.wait-btn').forEach(btn => {
@@ -5679,8 +5634,6 @@ RICORDA:
             $('btn-save-settings').onclick = () => {
                 G.settings.groqKey = $('set-groq-key').value;
                 G.settings.openrouterKey = $('set-openrouter-key').value;
-                G.settings.openrouterFreeKey = $('set-openrouter-free-key').value;
-                G.settings.amazonKey = $('set-amazon-key').value;
                 G.settings.model = $('set-model').value;
                 G.settings.length = $('set-length').value;
                 G.settings.autoRoll = $('set-autoroll').checked;
