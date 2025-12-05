@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>🐉 Cronache del Destino v4</title>
+    <title>🐉 Cronache del Destino v6</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=MedievalSharp&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -2823,6 +2823,165 @@
         function mod(val) { return Math.floor((val - 10) / 2); }
         function roll(sides) { return Math.floor(Math.random() * sides) + 1; }
 
+        // Calcola il bonus di competenza basato sul livello (stile D&D 5e)
+        function getProficiencyBonus() {
+            if (!G.character) return 2;
+            const level = G.character.level || 1;
+            return Math.floor((level - 1) / 4) + 2; // +2 a lv1, +3 a lv5, +4 a lv9, +5 a lv13, +6 a lv17
+        }
+
+        // Esegue un tiro di abilità D&D-style e restituisce il risultato
+        function performSkillCheck(attribute, difficulty = 10, skillName = '') {
+            if (!G.character) return { success: false, roll: 0, total: 0, critical: null };
+            
+            const c = G.character;
+            const attrValue = c.attrs?.[attribute] || 10;
+            const attrMod = mod(attrValue);
+            const profBonus = getProficiencyBonus();
+            
+            // Bonus abilità se il personaggio ha questa skill
+            const hasSkill = skillName && c.skills?.[skillName.toLowerCase()];
+            const skillBonus = hasSkill ? profBonus : 0;
+            
+            // Tiro d20
+            const diceRoll = roll(20);
+            const total = diceRoll + attrMod + skillBonus;
+            
+            // Gestione critici
+            let critical = null;
+            if (diceRoll === 1) critical = 'failure';
+            else if (diceRoll === 20) critical = 'success';
+            
+            // Determina successo
+            let success = false;
+            if (critical === 'success') success = true;
+            else if (critical === 'failure') success = false;
+            else success = total >= difficulty;
+            
+            // Margine di successo/fallimento
+            const margin = total - difficulty;
+            
+            return {
+                success,
+                roll: diceRoll,
+                attrMod,
+                skillBonus,
+                total,
+                difficulty,
+                margin,
+                critical,
+                attribute,
+                skillName
+            };
+        }
+
+        // Calcola il bonus di un NPC basato su livello e attributo
+        function getNPCBonus(npc, attribute) {
+            if (!npc) return 0;
+            const attrValue = npc.stats?.[attribute] || 10;
+            const attrMod = mod(attrValue);
+            const npcLevel = npc.level || 1;
+            const profBonus = Math.floor((npcLevel - 1) / 4) + 2;
+            return attrMod + profBonus;
+        }
+
+        // Trova un NPC per nome
+        function findNPC(name) {
+            return G.worldMemory.npcs.find(n => n.name.toLowerCase() === name.toLowerCase());
+        }
+
+        // Tiro contrapposto: giocatore vs NPC
+        function performContestedRoll(playerAttr, npcName, npcAttr, playerSkill = '') {
+            const npc = findNPC(npcName);
+            const playerResult = performSkillCheck(playerAttr, 10, playerSkill); // CD base 10
+            
+            // Tiro NPC
+            const npcRoll = roll(20);
+            const npcBonus = npc ? getNPCBonus(npc, npcAttr) : 0;
+            const npcTotal = npcRoll + npcBonus;
+            const npcLevel = npc?.level || 1;
+            const npcThreat = npc?.threat || 'low';
+            
+            // Determina vincitore
+            let playerWins = playerResult.total >= npcTotal;
+            
+            // Critici sovrascrivono
+            if (playerResult.critical === 'success') playerWins = true;
+            else if (playerResult.critical === 'failure') playerWins = false;
+            else if (npcRoll === 20) playerWins = false;
+            else if (npcRoll === 1) playerWins = true;
+            
+            return {
+                player: playerResult,
+                npc: {
+                    name: npcName,
+                    roll: npcRoll,
+                    bonus: npcBonus,
+                    total: npcTotal,
+                    level: npcLevel,
+                    threat: npcThreat,
+                    critical: npcRoll === 20 ? 'success' : (npcRoll === 1 ? 'failure' : null)
+                },
+                playerWins,
+                margin: playerResult.total - npcTotal
+            };
+        }
+
+        // Mostra risultato tiro contrapposto
+        function showContestedRollResult(result, actionDesc = 'confronto') {
+            let msg = `⚔️ ${actionDesc}: `;
+            msg += `Tu D20(${result.player.roll})+${result.player.attrMod + result.player.skillBonus}=${result.player.total}`;
+            msg += ` vs ${result.npc.name} D20(${result.npc.roll})+${result.npc.bonus}=${result.npc.total}`;
+            
+            if (result.player.critical === 'success') {
+                msg += ' | ✨ TUO CRITICO!';
+            } else if (result.player.critical === 'failure') {
+                msg += ' | 💀 TUO FALLIMENTO CRITICO!';
+            } else if (result.npc.critical === 'success') {
+                msg += ` | ⚡ ${result.npc.name} CRITICO!`;
+            } else if (result.npc.critical === 'failure') {
+                msg += ` | 😅 ${result.npc.name} fallisce!`;
+            }
+            
+            if (result.playerWins) {
+                msg += result.margin >= 5 ? ' | ✅ Vinci nettamente!' : ' | ✅ Vinci!';
+            } else {
+                msg += result.margin <= -5 ? ' | ❌ Perdi nettamente' : ' | ❌ Perdi';
+            }
+            
+            // Info livello NPC se significativo
+            if (result.npc.level > 1) {
+                msg += ` [NPC Lv${result.npc.level}]`;
+            }
+            
+            addStoryEntry(msg, 'system');
+            return result;
+        }
+
+        // Mostra il risultato del tiro come messaggio di sistema (non nel racconto)
+        function showSkillCheckResult(result, actionDesc = 'azione') {
+            const c = G.character;
+            let msg = `🎲 Tiro ${actionDesc}: D20(${result.roll})`;
+            if (result.attrMod !== 0) msg += ` ${result.attrMod >= 0 ? '+' : ''}${result.attrMod} (${result.attribute})`;
+            if (result.skillBonus > 0) msg += ` +${result.skillBonus} (abilità)`;
+            msg += ` = ${result.total} vs CD ${result.difficulty}`;
+            
+            if (result.critical === 'success') {
+                msg += ' | ✨ SUCCESSO CRITICO!';
+            } else if (result.critical === 'failure') {
+                msg += ' | 💀 FALLIMENTO CRITICO!';
+            } else if (result.success) {
+                msg += result.margin >= 5 ? ' | ✅ Successo netto!' : ' | ✅ Successo';
+            } else {
+                msg += result.margin <= -5 ? ' | ❌ Fallimento grave' : ' | ❌ Fallimento';
+            }
+            
+            // Usa 'system' invece di 'dice-roll' per tenerlo separato dalla narrazione
+            addStoryEntry(msg, 'system');
+            
+            return result;
+        }
+
         function save() {
             localStorage.setItem('dnd_v4', JSON.stringify({
                 stories: G.stories, saves: G.saves, settings: G.settings
@@ -3899,6 +4058,9 @@
                 if (meta.status) existing.status = meta.status;
                 if (meta.location) existing.location = meta.location;
                 if (meta.schedule) existing.schedule = meta.schedule;
+                if (meta.level) existing.level = meta.level;
+                if (meta.stats) existing.stats = meta.stats;
+                if (meta.threat) existing.threat = meta.threat;
             } else {
                 G.worldMemory.npcs.push({
                     id: Date.now(),
@@ -3910,6 +4072,10 @@
                     status: meta.status || 'idle',
                     location: meta.location || '',
                     schedule: meta.schedule || '',
+                    // Statistiche NPC per tiri contrapposti
+                    level: meta.level || 1,
+                    stats: meta.stats || { for: 10, des: 10, cos: 10, int: 10, sag: 10, car: 10 },
+                    threat: meta.threat || 'low', // low, medium, high, boss
                     metAt: G.worldMemory.turnCount,
                     lastSeen: G.worldMemory.turnCount,
                     interactionCount: 1,
@@ -5041,7 +5207,9 @@ OBIETTIVO:
 
 ${story.desc || ''}
 
-DATI GIOCO: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur} | Soldi ${formatCurrency(c.gold)}
+DATI GIOCO: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur} | Soldi ${formatCurrency(c.gold)} | Livello ${c.level || 1} | EXP ${c.exp?.cur || 0}/${c.exp?.need || 100}
+BONUS COMPETENZA: +${getProficiencyBonus()} (basato sul livello)
+ATTRIBUTI: ${Object.entries(c.attrs || {}).map(([k, v]) => `${k.toUpperCase()}:${v}(${mod(v) >= 0 ? '+' : ''}${mod(v)})`).join(' | ')}
 INVENTARIO: ${inventoryList}
 
 ⛔ **REGOLA FONDAMENTALE (CONTROLLI NASCOSTI)**
@@ -5056,8 +5224,18 @@ Il fabbro annuisce e ti porge l'arma...
 Esempio Errato (NON FARE COSI):
 Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 
+🎲 **SISTEMA DI RISOLUZIONE AZIONI (D&D Style)**
+- Per azioni incerte, usa il sistema D20: tira 1d20 + modificatore attributo + bonus competenza.
+- Il BONUS COMPETENZA dipende dal livello del personaggio (vedi sopra).
+- Difficoltà (CD): 5=Molto Facile, 10=Facile, 15=Medio, 20=Difficile, 25=Molto Difficile, 30=Quasi Impossibile.
+- 1 naturale = FALLIMENTO CRITICO (conseguenze gravi), 20 naturale = SUCCESSO CRITICO (bonus extra).
+- Scrivi il tiro nell'[ANALISI] es: "Tiro Forza CD 15: d20(12)+3(FOR)+2(competenza)=17. Successo!"
+- L'esperienza del personaggio (livello) influenza TUTTO: negoziazioni, combattimenti, artigianato, furtività.
+- Un personaggio esperto (alto livello) riesce in azioni che un novizio fallirebbe.
+- Se il tiro fallisce, descrivi le conseguenze; se riesce, descrivi il successo proporzionato al margine.
+
 ⚠️ **OUTPUT OBBLIGATORIO**
-1. Inizia SEMPRE con [ANALISI]...ragionamento nascosto...[/ANALISI]
+1. Inizia SEMPRE con [ANALISI]...ragionamento nascosto + eventuali tiri...[/ANALISI]
 2. Poi scrivi la NARRAZIONE.
 3. Se il giocatore trova oggetti, usa UN TAG PER OGNI OGGETTO nel formato:
    [LOOT: Nome Oggetto|Quantità|Descrizione opzionale|Valore opzionale|Icona opzionale]
@@ -5100,15 +5278,23 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 - Eventi casuali possono colpire le proprietà: furti, danni atmosferici, incendi, ma anche miglioramenti fortuiti.
 - Le proprietà commerciali (business) possono generare entrate se ben tenute (condizione 50%+), o perdite se trascurate.
 
-🌍 **MONDO VIVO (PNG AUTONOMI)**
-- Ogni PNG ha personalità, obiettivi, routine e una propria vita indipendente dal giocatore.
-- Quando narri, considera sempre COSA STANNO FACENDO gli NPC in quel momento. Mostrali in azione: lavorano, parlano tra loro, reagiscono agli eventi del mondo, perseguono i propri scopi.
-- I PNG ricordano le interazioni passate e cambiano atteggiamento in base alla storia: alleati possono tradire, nemici diventare amici, estranei sviluppare opinioni.
-- Il mondo NON è statico: eventi accadono anche senza l'intervento del giocatore. Mercanti chiudono bottega la sera, ladri colpiscono di notte, feste si celebrano nei giorni festivi, rivali fanno le loro mosse.
-- Usa [NPC: nome|descrizione|relazione|personalità|obiettivo|stato|posizione] per aggiornare i PNG. Se un PNG cambia stato o posizione, aggiornalo.
-- Usa [INTERAZIONE: nome_npc|tipo|dettagli] per registrare interazioni significative (tipi: helped, attacked, traded, talked, betrayed, intimidated, befriended).
-- Mostra conseguenze delle scelte passate: se il giocatore ha ignorato una richiesta d'aiuto, quella persona potrebbe essere morta o ostile; se ha aiutato qualcuno, potrebbe ricevere un favore inaspettato.
-- Quando mostri un NPC conosciuto, considera la sua storia con il giocatore (quante volte si sono incontrati, cosa è successo l'ultima volta).
+🌍 **MONDO VIVO (PNG AUTONOMI CON STATISTICHE)**
+- Ogni PNG ha personalità, obiettivi, routine, LIVELLO e STATISTICHE proprie.
+- Quando introduci un NPC importante, assegnagli statistiche realistiche:
+  - Usa [NPC_STATS: nome|livello|for,des,cos,int,sag,car|minaccia] per definire le stats.
+  - Livello: 1-5 comune, 6-10 veterano, 11-15 esperto, 16-20 leggendario.
+  - Minaccia: low (guardia), medium (capitano), high (campione), boss (antagonista principale).
+  - Esempio: [NPC_STATS: Guardia|3|12,10,14,8,10,8|low] [NPC_STATS: Mercante astuto|5|8,10,10,14,12,16|medium]
+- Nei TIRI CONTRAPPOSTI (negoziazione, combattimento, inganno), il livello e le stats dell'NPC influenzano la difficoltà:
+  - Il giocatore tira D20 + mod + competenza
+  - L'NPC tira D20 + suo mod + sua competenza
+  - Chi ottiene di più vince. Critici (1 e 20) sovrascrivono.
+- Quando narri, considera sempre COSA STANNO FACENDO gli NPC. Mostrali in azione.
+- I PNG ricordano le interazioni passate e cambiano atteggiamento.
+- Usa [NPC: nome|descrizione|relazione|personalità|obiettivo|stato|posizione] per aggiornare i PNG.
+- Usa [INTERAZIONE: nome_npc|tipo|dettagli] per interazioni significative.
+- Mostra conseguenze delle scelte passate.
+- NPC potenti (alto livello) sono più difficili da ingannare, combattere o convincere.
 
 🍽️ **BISOGNI FISICI AUTOMATICI**
 - Il sistema riduce automaticamente fame e energia col passare del tempo. Tu devi REAGIRE a questi valori nella narrazione.
@@ -5160,10 +5346,15 @@ Il giocatore dichiara: "${action}"
 
 ISTRUZIONI TURNO:
 1. Prima verifica INVENTARIO e SOLDI. Il giocatore può farlo?
-2. Considera lo STATO FISICO: se fame/energia sono basse, l'azione potrebbe essere compromessa o fallire.
-3. MONDO VIVO: Cosa fanno gli NPC in questo momento? Mostra il mondo che si muove intorno al giocatore.
-4. Descrivi le conseguenze e usa i tag appropriati [MECCANICA/LOOT/NPC/TEMPO].
-5. Se l'azione richiede sforzo fisico, consuma energia con [MECCANICA: stamina=-X].
+2. Se l'azione è incerta, TIRA I DADI: D20 + mod attributo + bonus competenza vs CD appropriata.
+   - Azioni fisiche: usa FOR, DES o COS.
+   - Azioni sociali: usa CAR o SAG.
+   - Azioni intellettuali: usa INT o SAG.
+   - Ricorda: il livello aumenta il bonus competenza!
+3. Considera lo STATO FISICO: fame/energia basse = penalità -2 ai tiri; critiche = penalità -5.
+4. MONDO VIVO: Cosa fanno gli NPC? Mostra il mondo che si muove intorno al giocatore.
+5. Descrivi le conseguenze PROPORZIONATE al risultato del tiro (successo critico = bonus, fallimento critico = disastro).
+6. Usa i tag appropriati [MECCANICA/LOOT/NPC/TEMPO] e consuma energia per sforzi fisici.
 ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}`;
             }
 
@@ -5273,6 +5464,29 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 addLootToInventory(itemName, qty, { description, value, icon });
             }
 
+            // Extract NPC Stats (nuovo formato: nome|livello|for,des,cos,int,sag,car|minaccia)
+            const npcStatsRe = /\[NPC_STATS:\s*([^|\]]+)\|([^|\]]+)\|([^|\]]+)\|([^|\]]+)\]/gi;
+            while ((m = npcStatsRe.exec(response)) !== null) {
+                const name = (m[1] || '').trim();
+                const level = parseInt(m[2]) || 1;
+                const statsStr = (m[3] || '').trim();
+                const threat = (m[4] || 'low').trim().toLowerCase();
+                
+                // Parse stats: for,des,cos,int,sag,car
+                const statValues = statsStr.split(',').map(s => parseInt(s.trim()) || 10);
+                const stats = {
+                    for: statValues[0] || 10,
+                    des: statValues[1] || 10,
+                    cos: statValues[2] || 10,
+                    int: statValues[3] || 10,
+                    sag: statValues[4] || 10,
+                    car: statValues[5] || 10
+                };
+                
+                addNPC(name, '', '', { level, stats, threat });
+                addStoryEntry(`👤 ${name} [Lv${level} ${threat}] stats registrate`, 'system');
+            }
+
             // Extract NPCs (formato esteso: nome|desc|rel|personalità|obiettivo|stato|posizione)
             const npcRe = /\[NPC:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?\]/gi;
             while ((m = npcRe.exec(response)) !== null) {
@@ -5372,6 +5586,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[LOOT:[^\]]*\]/gi, '')
                 .replace(/\[SUGGERIMENTO:[^\]]*\]/gi, '')
                 .replace(/\[NPC:[^\]]*\]/gi, '')
+                .replace(/\[NPC_STATS:[^\]]*\]/gi, '')
                 .replace(/\[INTERAZIONE:[^\]]*\]/gi, '')
                 .replace(/\[LUOGO:[^\]]*\]/gi, '')
                 .replace(/\[QUEST:[^\]]*\]/gi, '')
@@ -5566,8 +5781,25 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
         // ==================== DICE ====================
         function rollDice(sides) {
             const result = roll(sides);
-            $('dice-result').textContent = `🎲 D${sides}: ${result}`;
-            addStoryEntry(`🎲 D${sides}: ${result}`, 'dice-roll');
+            const c = G.character;
+            let msg = `🎲 D${sides}: ${result}`;
+            
+            // Se è un D20 e c'è un personaggio, mostra anche bonus potenziale
+            if (sides === 20 && c) {
+                const profBonus = getProficiencyBonus();
+                msg += ` (Bonus competenza lv${c.level || 1}: +${profBonus})`;
+            }
+            
+            $('dice-result').textContent = msg;
+            // Usa 'system' per non sporcare il racconto
+            addStoryEntry(msg, 'system');
+        }
+
+        // Tiro rapido con attributo specifico
+        function rollSkillCheck(attribute, difficulty, skillName) {
+            const result = performSkillCheck(attribute, difficulty, skillName);
+            showSkillCheckResult(result, skillName || attribute);
+            return result;
         }
 
         // ==================== INIT ====================
