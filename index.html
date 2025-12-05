@@ -304,12 +304,15 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            min-height: 0;
         }
 
         .story-scroll {
             flex: 1;
             overflow-y: auto;
             padding: 15px;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
             background: 
                 radial-gradient(ellipse at top, rgba(201, 162, 39, 0.05) 0%, transparent 50%),
                 var(--parchment);
@@ -387,13 +390,22 @@
         .story-entry.player .story-badge { background: rgba(30,58,95,0.15); border-color: rgba(30,58,95,0.25); color: var(--sapphire); }
 
         .story-entry.system {
-            background: linear-gradient(135deg, rgba(0,0,0,0.08), rgba(0,0,0,0.03));
-            border-left-color: var(--ink-light);
-            font-style: italic;
-            color: var(--ink-light);
-            font-size: 0.9em;
+            background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(222,215,201,0.94));
+            border-left-color: #5a4a3c;
+            border-left-width: 5px;
+            font-style: normal;
+            color: #2f241d;
+            font-size: 0.97em;
+            box-shadow: 0 10px 26px rgba(0,0,0,0.18);
         }
-        .story-entry.system .story-badge { background: rgba(0,0,0,0.12); border-color: rgba(0,0,0,0.25); color: var(--ink); }
+        .story-entry.system .story-badge {
+            background: rgba(90,74,60,0.14);
+            border-color: rgba(90,74,60,0.35);
+            color: #3f2f25;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        }
 
         .story-entry.mechanic {
             background: linear-gradient(135deg, rgba(46, 139, 87, 0.18), rgba(46, 139, 87, 0.08));
@@ -438,15 +450,21 @@
 
         /* Stile per eventi del mondo - colore teal/ciano distintivo */
         .story-entry.world-event {
-            background: linear-gradient(135deg, rgba(0, 128, 128, 0.15), rgba(32, 178, 170, 0.08));
-            border-left-color: #20b2aa;
-            border-left-width: 4px;
-            font-style: italic;
+            background: linear-gradient(135deg, rgba(0, 139, 139, 0.2), rgba(0, 191, 179, 0.12));
+            border-left-color: #008b8b;
+            border-left-width: 5px;
+            font-style: normal;
+            color: #0e3f3f;
+            box-shadow: 0 12px 30px rgba(0, 139, 139, 0.18);
+            font-weight: 600;
         }
         .story-entry.world-event .story-badge {
-            background: rgba(32, 178, 170, 0.2);
-            border-color: rgba(32, 178, 170, 0.4);
-            color: #008080;
+            background: rgba(0, 139, 139, 0.18);
+            border-color: rgba(0, 139, 139, 0.32);
+            color: #0f4e4e;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 700;
         }
         .story-entry.world-event::before {
             content: '🌍';
@@ -523,6 +541,7 @@
             background: linear-gradient(180deg, var(--parchment-dark), #c4b490);
             border-top: 2px solid var(--gold-dark);
             flex-shrink: 0;
+            box-shadow: 0 -6px 16px rgba(0,0,0,0.18);
         }
 
         .quick-actions {
@@ -1539,9 +1558,42 @@
             .mini-bar + .mini-bar { margin-left: 6px; }
             .mini-bar::before { left: 8px; transform: none; }
             .mini-bar::after { right: 8px; }
-            .story-scroll { padding: 12px; }
-            .story-entry { padding: 12px 14px 10px; }
-            .input-area { padding: 12px; }
+            .story-container { overflow: visible; }
+            .story-scroll { padding: 12px 12px 120px; }
+            .story-entry { padding: 12px 14px 10px; font-size: 1.02em; line-height: 1.7; }
+            .story-entry-head { align-items: flex-start; }
+            .input-area {
+                padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+                position: sticky;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: linear-gradient(180deg, rgba(212, 196, 160, 0.96), rgba(196, 180, 144, 0.92));
+                border-top-width: 1px;
+                backdrop-filter: blur(6px);
+                box-shadow: 0 -12px 24px rgba(0,0,0,0.22);
+            }
+            .quick-actions {
+                gap: 8px;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding-bottom: 6px;
+                margin-bottom: 10px;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+            .quick-actions::-webkit-scrollbar { display: none; }
+            .input-row {
+                gap: 8px;
+                align-items: center;
+                background: rgba(255,255,255,0.94);
+                padding: 10px;
+                border-radius: 16px;
+                border: 1px solid rgba(0,0,0,0.08);
+                box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+            }
+            .input-row input { font-size: 1.05em; padding: 12px; }
+            .input-row button { min-width: 90px; }
         }
 
         @media (max-width: 600px) {
@@ -1555,9 +1607,10 @@
             .mini-bar::before { top: -16px; font-size: 0.65em; }
             .mini-bar::after { font-size: 0.7em; }
             .mini-bar + .mini-bar { margin-left: 0; }
-            .quick-actions { gap: 4px; }
-            .input-row { flex-direction: column; gap: 8px; }
-            .input-row button { width: 100%; }
+            .story-scroll { padding: 10px 10px 130px; }
+            .quick-actions { gap: 6px; }
+            .input-row { flex-direction: column; gap: 8px; padding: 12px; }
+            .input-row button { width: 100%; min-height: 48px; }
             .story-entry-head { flex-direction: column; align-items: flex-start; gap: 4px; }
             .story-time { font-size: 0.78em; }
             .modal { max-height: 90vh; }
@@ -1988,10 +2041,15 @@
                     <input type="password" class="form-input" id="set-openrouter-key" placeholder="Inserisci la tua API key OpenRouter...">
                 </div>
                 <div class="form-group">
+                    <label class="form-label">🔑 API Key Kimera (DeepSeek)</label>
+                    <input type="password" class="form-input" id="set-kimera-key" placeholder="Inserisci la tua API key Kimera...">
+                </div>
+                <div class="form-group">
                     <label class="form-label">🤖 Modello AI</label>
                     <select class="form-select" id="set-model">
                         <option value="groq">Groq (Llama 3.1 - Veloce)</option>
-                        <option value="openrouter">OpenRouter (Gemma 3 27Bb-it:free)</option>
+                        <option value="openrouter">OpenRouter (Gemma 3 27B it Free)</option>
+                        <option value="deepseek">OpenRouter (DeepSeek R1 Chimera)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -2042,7 +2100,7 @@
                 turnCount: 0
             },
             settings: {
-                groqKey: '', openrouterKey: '', model: 'groq', length: 'medium', autoRoll: true
+                groqKey: '', openrouterKey: '', kimeraKey: '', model: 'groq', length: 'medium', autoRoll: true
             },
             stories: [],
             saves: Array(6).fill(null),
@@ -5113,8 +5171,16 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
 
             if (s.model === 'openrouter' && s.openrouterKey) {
                 endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-                model = 'google/gemma-3-27b-it'; // O un modello più intelligente come Claude-3.5-sonnet o gpt-4o se disponibile
+                model = 'google/gemma-3-27b-it:free'; // Tier gratuito consigliato
                 headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterKey}` };
+            } else if (s.model === 'deepseek') {
+                const chimeraKey = s.kimeraKey || s.openrouterKey;
+                if (!chimeraKey) {
+                    throw new Error('Configura la Kimera (o OpenRouter) API key per usare DeepSeek.');
+                }
+                endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+                model = 'tngtech/deepseek-r1t2-chimera:free';
+                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${chimeraKey}` };
             } else if (s.groqKey) {
                 endpoint = 'https://api.groq.com/openai/v1/chat/completions';
                 model = 'llama-3.1-8b-instant'; // Consiglio il 70b per logica migliore, o 8b per velocità
@@ -5517,6 +5583,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
 
             $('set-groq-key').value = G.settings.groqKey || '';
             $('set-openrouter-key').value = G.settings.openrouterKey || '';
+            $('set-kimera-key').value = G.settings.kimeraKey || '';
             $('set-model').value = G.settings.model || 'groq';
             $('set-length').value = G.settings.length || 'medium';
             $('set-autoroll').checked = G.settings.autoRoll !== false;
@@ -5634,6 +5701,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             $('btn-save-settings').onclick = () => {
                 G.settings.groqKey = $('set-groq-key').value;
                 G.settings.openrouterKey = $('set-openrouter-key').value;
+                G.settings.kimeraKey = $('set-kimera-key').value;
                 G.settings.model = $('set-model').value;
                 G.settings.length = $('set-length').value;
                 G.settings.autoRoll = $('set-autoroll').checked;
