@@ -1081,6 +1081,80 @@
             font-size: 1.1em;
         }
 
+        /* Property Inventory Styles */
+        .property-inventory-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed rgba(0,0,0,0.15);
+        }
+        .property-inventory-header {
+            font-family: 'Cinzel', serif;
+            font-weight: 600;
+            font-size: 0.95em;
+            color: var(--ink);
+            margin-bottom: 10px;
+        }
+        .property-category-block {
+            margin-bottom: 10px;
+        }
+        .property-category-heading {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: var(--ink-light);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .property-category-count {
+            font-weight: normal;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        .property-inv-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding-left: 8px;
+        }
+        .property-inv-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.6);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+        .property-inv-icon {
+            font-size: 1.2em;
+        }
+        .property-inv-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .property-inv-name {
+            font-weight: 600;
+            color: var(--ink);
+        }
+        .property-inv-meta {
+            font-size: 0.8em;
+            color: var(--ink-light);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .property-inv-qty {
+            font-family: 'Cinzel', serif;
+            font-weight: 600;
+            color: var(--purple);
+            background: rgba(101, 67, 133, 0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.85em;
+        }
+
         /* World Memory Modal */
         .memory-section {
             margin-bottom: 20px;
@@ -3676,6 +3750,61 @@
                 const income = calculatePropertyIncome(p);
                 const conditionPercent = p.condition || 50;
                 
+                // Inventario proprietà con categorie
+                const propertyInventory = Array.isArray(p.inventory) ? p.inventory : [];
+                propertyInventory.forEach(ensurePropertyItemCategory);
+                const totalUnits = propertyInventory.reduce((sum, item) => sum + (item?.count || 0), 0);
+                
+                const categorySections = Object.entries(PROPERTY_CATEGORY_INFO).map(([key, info]) => {
+                    const items = propertyInventory.filter(item => ensurePropertyItemCategory(item) === key);
+                    if (!items.length) return '';
+                    const categoryTotal = items.reduce((sum, item) => sum + (item?.count || 0), 0);
+                    const itemsHtml = items.map(item => {
+                        const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
+                        const data = catalog[normalizedId] || catalog[item.id] || {};
+                        const fallbackName = item.id ? item.id.toString().replace(/_/g, ' ') : 'Oggetto';
+                        const name = item.name || data.name || fallbackName;
+                        const icon = item.icon || data.icon || '📦';
+                        const desc = item.description || data.desc || '';
+                        const metaParts = [];
+                        if (item.financial && Number.isFinite(item.balance)) {
+                            metaParts.push(`Saldo ${formatCurrency(item.balance)}`);
+                        } else if (Number.isFinite(item.value)) {
+                            metaParts.push(`Valore ${formatCurrency(item.value)}`);
+                        }
+                        const detailParts = [...metaParts];
+                        if (desc) detailParts.push(desc);
+                        const metaHtml = detailParts.length ? `<div class="property-inv-meta">${detailParts.join(' • ')}</div>` : '';
+                        const tooltipParts = [name, ...detailParts];
+                        const tooltip = tooltipParts.filter(Boolean).join(' • ').replace(/"/g, "'");
+                        return `
+                            <div class="property-inv-item" title="${tooltip}">
+                                <span class="property-inv-icon">${icon}</span>
+                                <div class="property-inv-info">
+                                    <div class="property-inv-name">${name}</div>
+                                    ${metaHtml}
+                                </div>
+                                <span class="property-inv-qty">x${item.count || 1}</span>
+                            </div>
+                        `;
+                    }).join('');
+                    return `
+                        <div class="property-category-block">
+                            <div class="property-category-heading">${info.icon} ${info.label} <span class="property-category-count">(${categoryTotal})</span></div>
+                            <div class="property-inv-grid">${itemsHtml}</div>
+                        </div>
+                    `;
+                }).filter(Boolean).join('');
+
+                const inventoryHtml = totalUnits > 0 ? `
+                    <div class="property-inventory-section">
+                        <div class="property-inventory-header">
+                            <span>📦 Magazzino (${totalUnits} articoli)</span>
+                        </div>
+                        ${categorySections}
+                    </div>
+                ` : '';
+                
                 // Colore barra condizione
                 let barColor = '#2e8b57'; // verde
                 if (conditionPercent < 30) barColor = '#8b0000'; // rosso
@@ -3734,6 +3863,7 @@
                         </div>
                     </div>
                     ${p.notes ? `<div class="property-meta">📝 ${p.notes}</div>` : ''}
+                    ${inventoryHtml}
                 </div>
             `}).join('');
             
@@ -4184,6 +4314,260 @@
             { min: 0, label: 'Fatiscente', icon: '💀', bonus: -30, color: '#8b0000' }
         ];
         
+        // ==================== INVENTARIO PROPRIETÀ ====================
+        const FINANCIAL_KEYWORDS = ['conto', 'conto corrente', 'libretto', 'libretto di deposito', 'deposito', 'carta di credito', 'carta di debito', 'carta prepagata', 'bancomat', 'libro mastro', 'registro contabile', 'registro di cassa', 'registro cassa', 'fondo cassa', 'cassaforte'];
+        const CURRENCY_KEYWORDS = ['moneta', 'monete', 'soldo', 'soldi', 'banconota', 'banconote', 'euro', 'dollaro', 'dollari', 'credito', 'crediti', 'fiorino', 'fiorini', 'pezzo d\'oro', 'pezzi d\'oro', 'doblone', 'dobloni', 'denaro', 'cash'];
+        const INTANGIBLE_LOOT_PATTERNS = [
+            /vista\b.*finestra/,
+            /finestra\b.*vista/,
+            /\bpanorama\b/,
+            /\bscorcio\b/,
+            /\borizzonte\b/
+        ];
+        const PROPERTY_CATEGORY_INFO = {
+            strumentali: {
+                label: 'Beni strumentali',
+                icon: '🛠️',
+                synonyms: ['strumentali', 'strumentale', 'attrezzo', 'attrezzi', 'attrezzature', 'attrezzatura', 'equipment', 'strumento', 'strumenti', 'macchinario', 'macchinari', 'impianto', 'impianti', 'arredo professionale', 'arredo tecnico'],
+                keywords: ['attrez', 'strument', 'macchin', 'attrezz', 'bancone', 'forno', 'pressa', 'cassa', 'scaffale', 'fermentatore', 'torchio', 'alambicco', 'impianto']
+            },
+            produzione: {
+                label: 'Beni per la produzione',
+                icon: '⚙️',
+                synonyms: ['produzione', 'materie prime', 'materia prima', 'scorta produzione', 'scorte produzione', 'approvvigionamenti', 'semilavorati', 'semilavorato', 'ingredienti', 'ingredienti base', 'materie', 'materiale grezzo', 'materiali grezzi'],
+                keywords: ['materi', 'ingred', 'scorta', 'seme', 'semi', 'grano', 'frumento', 'luppolo', 'malto', 'carbone', 'legname', 'tessuto', 'tela', 'ferro', 'acciaio', 'munizione', 'fusti', 'barili vuoti']
+            },
+            vendibili: {
+                label: 'Beni pronti per la vendita',
+                icon: '🧺',
+                synonyms: ['vendibili', 'vendita', 'pronti vendita', 'prodotti finiti', 'merce', 'magazzino vendita', 'stock vendita', 'cassa pronta', 'lotto pronto', 'prodotti', 'scorte pronte'],
+                keywords: ['vend', 'prodotto', 'merce', 'confezion', 'lotto', 'bottiglia', 'cassa', 'pagnotta', 'piatto pronto', 'piatto', 'porzione', 'vaso', 'vasetto', 'barattolo']
+            }
+        };
+
+        function normalizePropertyCategory(value) {
+            if (!value) return null;
+            const text = value.toString().trim().toLowerCase();
+            if (!text) return null;
+            for (const [key, info] of Object.entries(PROPERTY_CATEGORY_INFO)) {
+                if (text === key) return key;
+                if (info.synonyms.some(s => text === s)) return key;
+            }
+            return null;
+        }
+
+        function guessPropertyCategory({ explicitCategory, itemType, fallbackType, lowerName, descriptionText, existingCategory }) {
+            const normalizedExisting = normalizePropertyCategory(existingCategory);
+            if (normalizedExisting) return normalizedExisting;
+
+            const normalizedExplicit = normalizePropertyCategory(explicitCategory);
+            if (normalizedExplicit) return normalizedExplicit;
+
+            const normalizedItemType = normalizePropertyCategory(itemType);
+            if (normalizedItemType) return normalizedItemType;
+
+            const normalizedFallbackType = normalizePropertyCategory(fallbackType);
+            if (normalizedFallbackType) return normalizedFallbackType;
+
+            const haystack = `${lowerName || ''} ${descriptionText || ''}`.trim();
+            if (haystack) {
+                for (const [key, info] of Object.entries(PROPERTY_CATEGORY_INFO)) {
+                    if (info.keywords.some(keyword => haystack.includes(keyword))) {
+                        return key;
+                    }
+                }
+            }
+
+            return 'strumentali';
+        }
+
+        function ensurePropertyItemCategory(item) {
+            if (!item) return 'strumentali';
+            const lowerName = (item.name || item.id || '').toString().toLowerCase();
+            const descriptionText = (item.description || '').toString().toLowerCase();
+            const category = guessPropertyCategory({
+                explicitCategory: item.category,
+                itemType: item.type,
+                fallbackType: item.type,
+                lowerName,
+                descriptionText,
+                existingCategory: item.category
+            });
+            item.category = category;
+            return category;
+        }
+
+        function extractPropertyCategoryToken(raw) {
+            if (!raw) return null;
+            const value = raw.toString().trim();
+            if (!value) return null;
+            if (value.toLowerCase().startsWith('categoria=')) {
+                return normalizePropertyCategory(value.split('=')[1]);
+            }
+            return normalizePropertyCategory(value);
+        }
+
+        function normalizeKey(value) {
+            return (value || '').toString().trim().toLowerCase().replace(/\s+/g, '_');
+        }
+
+        function getPropertyByName(name) {
+            if (!name) return null;
+            const normalized = name.toString().trim().toLowerCase();
+            return (G.worldMemory.properties || []).find(p => (p.name || '').toLowerCase() === normalized) || null;
+        }
+
+        function ensurePropertyInventory(propertyName) {
+            const property = getPropertyByName(propertyName);
+            if (!property) return null;
+            if (!Array.isArray(property.inventory)) property.inventory = [];
+            property.inventory.forEach(ensurePropertyItemCategory);
+            return property.inventory;
+        }
+
+        function addLootToPropertyInventory(propertyName, itemId, qty = 1, meta = {}, options = {}) {
+            const property = getPropertyByName(propertyName);
+            if (!property) {
+                addStoryEntry(`⚠️ Proprietà non trovata per LOOT_PROPRIETA: ${propertyName}`, 'system');
+                return;
+            }
+            const inventory = ensurePropertyInventory(propertyName);
+            const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
+            const safeName = (itemId || 'oggetto').toString().trim();
+            if (!safeName) return;
+
+            const lowerName = safeName.toLowerCase();
+            if (INTANGIBLE_LOOT_PATTERNS.some(re => re.test(lowerName))) {
+                addStoryEntry(`⚠️ Oggetto non fisico ignorato per ${property.name}: ${safeName}`, 'system');
+                return;
+            }
+            if (CURRENCY_KEYWORDS.some(keyword => lowerName.includes(keyword))) {
+                addStoryEntry(`⚠️ I contanti devono essere registrati con [MECCANICA: soldi=±X], non come oggetto di proprietà (${safeName}).`, 'system');
+                return;
+            }
+
+            const normalizedId = safeName.toLowerCase().replace(/\s+/g, '_');
+            const catalogData = catalog[normalizedId];
+            const cleanValue = (typeof meta.value === 'number' && !Number.isNaN(meta.value)) ? meta.value : undefined;
+            const descriptionText = (meta.description || '').toLowerCase();
+            const isFinancialInstrument = FINANCIAL_KEYWORDS.some(keyword => lowerName.includes(keyword) || descriptionText.includes(keyword)) || meta.type === 'financial';
+
+            let itemData = catalogData ? { ...catalogData } : {
+                name: safeName.charAt(0).toUpperCase() + safeName.slice(1),
+                icon: meta.icon || '📦',
+                type: meta.type || 'general',
+                desc: meta.description || ''
+            };
+
+            if (meta.description && !itemData.desc) itemData.desc = meta.description;
+            if (meta.icon && !itemData.icon) itemData.icon = meta.icon;
+            if (cleanValue !== undefined) itemData.value = cleanValue;
+
+            const existingItem = inventory.find(i =>
+                i.id === normalizedId ||
+                i.id === safeName ||
+                (typeof i.id === 'string' && i.id.replace(/\s+/g, '_') === normalizedId)
+            );
+
+            const categoryKey = guessPropertyCategory({
+                explicitCategory: meta.category || itemData.category || existingItem?.category,
+                itemType: meta.type || itemData.type,
+                fallbackType: itemData.type,
+                lowerName,
+                descriptionText,
+                existingCategory: existingItem?.category
+            });
+
+            if (existingItem) {
+                existingItem.count += qty;
+                if (meta.description && !existingItem.description) existingItem.description = meta.description;
+                if (cleanValue !== undefined) existingItem.value = cleanValue;
+                if (meta.icon && !existingItem.icon) existingItem.icon = meta.icon;
+                if (!existingItem.name && itemData.name) existingItem.name = itemData.name;
+                if (!existingItem.type && itemData.type) existingItem.type = itemData.type;
+                existingItem.category = categoryKey || existingItem.category;
+                if (isFinancialInstrument || existingItem.financial) {
+                    existingItem.financial = true;
+                    if (!Number.isFinite(existingItem.balance)) {
+                        existingItem.balance = Number.isFinite(existingItem.value) ? existingItem.value : 0;
+                    }
+                    if (cleanValue !== undefined) {
+                        existingItem.balance += cleanValue;
+                    }
+                    existingItem.value = existingItem.balance;
+                }
+            } else {
+                const initialBalance = isFinancialInstrument ? (cleanValue !== undefined ? cleanValue : 0) : undefined;
+                inventory.push({
+                    id: normalizedId,
+                    count: qty,
+                    name: meta.name || itemData.name || safeName,
+                    description: meta.description || itemData.desc,
+                    value: isFinancialInstrument ? initialBalance : (cleanValue !== undefined ? cleanValue : itemData.value),
+                    icon: itemData.icon,
+                    type: meta.type || itemData.type,
+                    balance: initialBalance,
+                    financial: isFinancialInstrument,
+                    category: categoryKey
+                });
+            }
+
+            const displayName = meta.name || itemData.name || safeName;
+            addStoryEntry(`🏠 ${property.name}: aggiunto ${displayName} x${qty}`, 'mechanic');
+            if (!options?.silent) {
+                notify(`Inventario di ${property.name}: ${displayName} x${qty}`, 'success');
+            }
+            updateCharacterUI();
+        }
+
+        function findPropertyInventoryItem(propertyName, nameOrId) {
+            const property = getPropertyByName(propertyName);
+            if (!property) return null;
+            const inventory = ensurePropertyInventory(propertyName);
+            if (!inventory) return null;
+            const normalized = normalizeKey(nameOrId);
+            return inventory.find(item => {
+                const itemId = typeof item.id === 'string' ? normalizeKey(item.id) : null;
+                const itemName = normalizeKey(item.name || '');
+                return itemId === normalized || itemName === normalized;
+            }) || null;
+        }
+
+        function removeItemFromPropertyInventory(propertyName, target, qty = 1) {
+            const property = getPropertyByName(propertyName);
+            if (!property) {
+                addStoryEntry(`⚠️ Proprietà non trovata: ${propertyName}`, 'system');
+                return null;
+            }
+            const inventory = ensurePropertyInventory(propertyName);
+            if (!inventory) return null;
+
+            const item = typeof target === 'object' ? target : findPropertyInventoryItem(propertyName, target);
+            if (!item) return null;
+
+            const fallbackName = item.name || (typeof item.id === 'string' ? item.id.replace(/_/g, ' ') : 'Oggetto');
+            const previousCount = item.count || 0;
+            const removeQty = (qty === undefined || qty === null) ? previousCount : qty;
+            const actualRemoved = Math.min(removeQty, previousCount);
+
+            item.count = Math.max(0, previousCount - actualRemoved);
+            let removedAll = false;
+            if (item.count <= 0) {
+                removedAll = true;
+                property.inventory = inventory.filter(i => i !== item);
+            }
+            updateCharacterUI();
+
+            return {
+                property,
+                removed: actualRemoved,
+                remaining: removedAll ? 0 : item.count,
+                itemName: fallbackName,
+                removedAll,
+                originalCount: previousCount
+            };
+        }
+        
         function getPropertyCondition(condition) {
             for (const c of PROPERTY_CONDITIONS) {
                 if (condition >= c.min) return c;
@@ -4201,6 +4585,8 @@
                 if (meta.type) existing.type = meta.type;
                 if (meta.income) existing.income = meta.income;
                 if (meta.baseValue) existing.baseValue = meta.baseValue;
+                if (!Array.isArray(existing.inventory)) existing.inventory = [];
+                existing.inventory.forEach(ensurePropertyItemCategory);
                 existing.lastUpdated = G.worldMemory.turnCount;
             } else {
                 // Stima valore base in base al tipo
@@ -4227,7 +4613,8 @@
                     lastMaintenance: G.worldMemory.turnCount,
                     lastUpdated: G.worldMemory.turnCount,
                     acquiredAt: G.worldMemory.turnCount,
-                    events: []
+                    events: [],
+                    inventory: []
                 });
                 addStoryEntry(`🏰 Nuova proprietà: ${name}`, 'memory-update');
             }
@@ -4471,7 +4858,51 @@
 
         function buildWorldMemorySummary() {
             const wm = G.worldMemory;
+            const c = G.character;
             let summary = '';
+
+            // === IDENTITÀ DEL PROTAGONISTA (persistente) ===
+            if (c) {
+                summary += '\n🎭 IDENTITÀ DEL PROTAGONISTA:\n';
+                summary += `Nome: ${c.name || 'Sconosciuto'}\n`;
+                if (c.origin) summary += `Origine: ${c.origin}\n`;
+                if (c.archetype) summary += `Archetipo/Classe: ${c.archetype}\n`;
+                summary += `Livello: ${c.exp?.lvl || 1}\n`;
+                
+                // Stats principali
+                if (c.stats) {
+                    const statNames = { for: 'Forza', des: 'Destrezza', cos: 'Costituzione', int: 'Intelligenza', sag: 'Saggezza', car: 'Carisma' };
+                    const statsStr = Object.entries(c.stats)
+                        .map(([k, v]) => `${statNames[k] || k}: ${v}`)
+                        .join(', ');
+                    summary += `Stats: ${statsStr}\n`;
+                }
+                
+                // Tratti distintivi
+                if (c.traits && c.traits.length > 0) {
+                    summary += `Tratti: ${c.traits.join(', ')}\n`;
+                }
+                
+                // Background se disponibile
+                if (c.background) {
+                    summary += `Background: ${c.background}\n`;
+                }
+                
+                // Esperienza e progresso
+                summary += `Esperienza: ${c.exp?.cur || 0}/${c.exp?.next || 100}\n`;
+                
+                // Stato economico sintetico
+                const currSymbol = c.currency?.symbol || c.currency?.short || '💰';
+                if (c.gold < 0) {
+                    summary += `💸 SITUAZIONE FINANZIARIA: IN DEBITO di ${Math.abs(c.gold)} ${currSymbol}\n`;
+                } else if (c.gold < 50) {
+                    summary += `💰 Risorse: ${c.gold} ${currSymbol} (POVERO)\n`;
+                } else if (c.gold < 500) {
+                    summary += `💰 Risorse: ${c.gold} ${currSymbol} (modesto)\n`;
+                } else {
+                    summary += `💰 Risorse: ${c.gold} ${currSymbol}\n`;
+                }
+            }
 
             if (wm.npcs.length > 0) {
                 summary += '\n👥 PERSONAGGI CONOSCIUTI:\n';
@@ -5247,11 +5678,17 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
    NON scrivere "Hai ottenuto..." nel testo narrativo, il sistema lo farà in automatico leggendo i tag.
 
 ⏱️ **TEMPO E FATICA REALISTICI**
-- Ogni risposta deve far avanzare il tempo con [TEMPO:+X] in minuti. Calibra X in base all'azione (es. scavare un fosso per ore = [TEMPO:+480]).
-- Le azioni faticose consumano energia con [MECCANICA: stamina=-X]; usa valori alti (30-50) per lavori duri e fallisci l'azione se la stamina scende sotto 20.
-- Se l'attività richiede più tempo del previsto, suddividi la scena oppure esplicita che il personaggio si ferma per riposare e riporta gli effetti.
+- Fai avanzare il tempo con [TEMPO:...]. Formati supportati:
+  - Minuti: [TEMPO:+30] o [TEMPO: 30 minuti]
+  - Ore: [TEMPO: 2 ore] o [TEMPO:+120]
+  - Giorni: [TEMPO: 3 giorni] o [TEMPO:+4320]
+  - Combinati: [TEMPO: 1 giorno, 5 ore]
+  - Settimane/Mesi: [TEMPO: 1 settimana] [TEMPO: 2 mesi]
+- Calibra il tempo in base all'azione: una chiacchierata = 15 min, un viaggio = ore/giorni, una lunga attesa = settimane.
+- Le azioni faticose consumano energia con [MECCANICA: stamina=-X]; usa valori alti (30-50) per lavori duri.
+- Se l'attività richiede più tempo del previsto, suddividi la scena oppure esplicita che il personaggio si ferma per riposare.
 - Ricorda di segnalare altri costi (soldi, risorse) con i relativi tag [MECCANICA: soldi=±X] e simili.
-- ricorda che il personaggio deve mangiare e riposare regolarmente per evitare penalità.
+- Ricorda che il personaggio deve mangiare e riposare regolarmente per evitare penalità.
 
 
 🎒 **LOOT SOLO OGGETTI REALI**
@@ -5277,6 +5714,34 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 - Se il giocatore fa manutenzione o riparazioni, aumenta la condizione; se la trascura, peggiorerà nel tempo.
 - Eventi casuali possono colpire le proprietà: furti, danni atmosferici, incendi, ma anche miglioramenti fortuiti.
 - Le proprietà commerciali (business) possono generare entrate se ben tenute (condizione 50%+), o perdite se trascurate.
+
+📦 **MAGAZZINO PROPRIETÀ (Sistema Inventario Locale)**
+- Le proprietà possono avere un inventario separato da quello personale del giocatore.
+- Usa [LOOT_PROPRIETA: Nome Proprietà|Oggetto|categoria=strumentali/produzione/vendibili|Quantità|Descrizione|Valore|Icona] per stoccare beni.
+- Categorie disponibili:
+  - strumentali: attrezzi, macchinari, attrezzature (es. bancone, forno, scaffali)
+  - produzione: materie prime, ingredienti, semilavorati (es. grano, malto, legname)
+  - vendibili: prodotti finiti pronti alla vendita (es. pane, birra, armi forgiate)
+- Se un bene viene consegnato al protagonista ma appartiene al locale, usa [LOOT_PROPRIETA] non [LOOT].
+- Per consumare/usare/vendere oggetti dalla proprietà, usa:
+  - [CONSUMA_OGGETTO_PROPRIETA: Nome Proprietà|Oggetto|Quantità]
+  - [USA_OGGETTO_PROPRIETA: Nome Proprietà|Oggetto|Quantità]
+  - [VENDI_OGGETTO_PROPRIETA: Nome Proprietà|Oggetto|Quantità]
+  - [SCARTA_OGGETTO_PROPRIETA: Nome Proprietà|Oggetto|Quantità]
+- NON usare [LOOT_PROPRIETA] per contanti: usa sempre [MECCANICA: soldi=±X].
+
+⭐ **ESPERIENZA E PROGRESSIONE**
+- Assegna esperienza (EXP) al giocatore quando compie azioni significative:
+  - Completamento di quest/obiettivi: +20 a +50 EXP
+  - Vittoria in combattimento/sfida: +10 a +30 EXP
+  - Soluzione creativa di problemi: +15 EXP
+  - Prima esplorazione di luoghi importanti: +5 a +10 EXP
+  - Negoziazione riuscita o diplomazia: +5 a +15 EXP
+  - Scoperta di segreti/informazioni cruciali: +10 EXP
+  - Azioni eroiche o memorabili: +20 a +40 EXP
+- Usa il tag [MECCANICA: exp=+X] per assegnare esperienza.
+- NON assegnare EXP per azioni banali (camminare, parlare normalmente, acquisti semplici).
+- Il sistema gestisce automaticamente il level-up quando l'EXP raggiunge la soglia.
 
 🌍 **MONDO VIVO (PNG AUTONOMI CON STATISTICHE)**
 - Ogni PNG ha personalità, obiettivi, routine, LIVELLO e STATISTICHE proprie.
@@ -5421,14 +5886,56 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 addStoryEntry(analysisContent, 'analysis');
             }
 
-            // Extract time changes
-            const timeRe = /\[TEMPO:\s*\+?(\d+)\]/gi;
+            // Extract time changes (supporta minuti, ore, giorni, settimane, mesi)
+            // Formati: [TEMPO:+60] [TEMPO: 2 ore] [TEMPO: 3 giorni] [TEMPO: 1 giorno, 5 ore] [TEMPO: 1 settimana]
+            const timeRe = /\[TEMPO:\s*([^\]]+)\]/gi;
             while ((m = timeRe.exec(response)) !== null) {
-                const mins = parseInt(m[1]);
-                advanceTime(mins);
-                const timeStr = mins >= 1440 ? `${Math.floor(mins/1440)} giorno/i` : 
-                               mins >= 60 ? `${Math.floor(mins/60)} ora/e` : `${mins} minuti`;
-                addStoryEntry(`⏰ Passa ${timeStr}...`, 'system');
+                const rawTime = m[1].trim();
+                let totalMinutes = 0;
+                
+                // Prova prima il formato numerico semplice (minuti)
+                const simpleNum = parseInt(rawTime.replace(/[+\s]/g, ''));
+                if (!isNaN(simpleNum) && /^\+?\d+$/.test(rawTime.replace(/\s/g, ''))) {
+                    totalMinutes = simpleNum;
+                } else {
+                    // Parse formato testuale: "X giorni", "Y ore", "Z minuti", "W settimane", "N mesi"
+                    const patterns = [
+                        { regex: /(\d+)\s*(?:mes[ei]|month)/gi, multiplier: 43200 },  // 1 mese = 30 giorni
+                        { regex: /(\d+)\s*(?:settiman[ae]|week)/gi, multiplier: 10080 }, // 1 settimana = 7 giorni
+                        { regex: /(\d+)\s*(?:giorn[oi]|day)/gi, multiplier: 1440 },   // 1 giorno = 24 ore
+                        { regex: /(\d+)\s*(?:or[ae]|hour)/gi, multiplier: 60 },       // 1 ora = 60 minuti
+                        { regex: /(\d+)\s*(?:minut[oi]|min)/gi, multiplier: 1 }       // minuti
+                    ];
+                    
+                    patterns.forEach(({ regex, multiplier }) => {
+                        let match;
+                        while ((match = regex.exec(rawTime)) !== null) {
+                            totalMinutes += parseInt(match[1]) * multiplier;
+                        }
+                    });
+                    
+                    // Se non ha trovato nulla, prova a interpretare come numero puro
+                    if (totalMinutes === 0) {
+                        const fallbackNum = parseInt(rawTime.replace(/\D/g, ''));
+                        if (!isNaN(fallbackNum)) totalMinutes = fallbackNum;
+                    }
+                }
+                
+                if (totalMinutes > 0) {
+                    advanceTime(totalMinutes);
+                    
+                    // Formatta il messaggio in modo leggibile
+                    let timeStr = '';
+                    const days = Math.floor(totalMinutes / 1440);
+                    const hours = Math.floor((totalMinutes % 1440) / 60);
+                    const mins = totalMinutes % 60;
+                    
+                    if (days > 0) timeStr += `${days} giorno/i `;
+                    if (hours > 0) timeStr += `${hours} ora/e `;
+                    if (mins > 0 && days === 0) timeStr += `${mins} minuti`;
+                    
+                    addStoryEntry(`⏰ Passa ${timeStr.trim()}...`, 'system');
+                }
             }
 
             // Extract mechanics
@@ -5564,6 +6071,111 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 addAbility(name, desc);
             }
 
+            // Extract LOOT_PROPRIETA (beni stoccati nelle proprietà)
+            // Formato: [LOOT_PROPRIETA: Nome Proprietà|Oggetto|categoria=strumentali/produzione/vendibili|Quantità|Descrizione|Valore|Icona]
+            const propertyLootRe = /\[LOOT_PROPRIETA:\s*([^\]]+)\]/gi;
+            while ((m = propertyLootRe.exec(response)) !== null) {
+                const raw = m[1];
+                const parts = raw.split('|').map(p => p.trim());
+                const propertyName = parts[0] || '';
+                const itemName = parts[1] || '';
+                if (!propertyName || !itemName) {
+                    addStoryEntry('⚠️ Tag [LOOT_PROPRIETA] incompleto. Usa [LOOT_PROPRIETA: Nome Proprietà|Oggetto|categoria=...|Quantità|Descrizione|Valore|Icona]', 'system');
+                    continue;
+                }
+
+                let idx = 2;
+                let qty = 1;
+                let categoryKey = null;
+                if (parts[idx]) {
+                    const maybeCategory = extractPropertyCategoryToken(parts[idx]);
+                    if (maybeCategory) {
+                        categoryKey = maybeCategory;
+                        idx++;
+                    }
+                }
+                if (parts[idx]) {
+                    const parsedQty = parseInt(parts[idx], 10);
+                    if (!Number.isNaN(parsedQty) && parsedQty > 0) {
+                        qty = parsedQty;
+                        idx++;
+                    }
+                }
+                if (parts[idx] && !categoryKey) {
+                    const maybeCategory = extractPropertyCategoryToken(parts[idx]);
+                    if (maybeCategory) {
+                        categoryKey = maybeCategory;
+                        idx++;
+                    }
+                }
+                const description = parts[idx] || '';
+                if (description) idx++;
+                let value;
+                let icon = '';
+                if (parts[idx]) {
+                    const parsedVal = parseInt(parts[idx], 10);
+                    if (!Number.isNaN(parsedVal)) {
+                        value = parsedVal;
+                        idx++;
+                    } else {
+                        icon = parts[idx];
+                        idx++;
+                    }
+                }
+                if (value === undefined && parts[idx]) {
+                    const parsedVal = parseInt(parts[idx], 10);
+                    if (!Number.isNaN(parsedVal)) {
+                        value = parsedVal;
+                        idx++;
+                    }
+                }
+                if (!icon && parts[idx]) {
+                    icon = parts[idx];
+                }
+
+                addLootToPropertyInventory(propertyName, itemName, qty, { description, value, icon, category: categoryKey });
+            }
+
+            // Extract Property Inventory Commands (CONSUMA/USA/SCARTA/VENDI_OGGETTO_PROPRIETA)
+            const propertyInventoryCmdRe = /\[((?:CONSUMA|USA|UTILIZZA|SCARTA|DROP|VENDI)(?:_OGGETTO)?_PROPRIETA):\s*([^|\]]+)\|([^|\]]+)(?:\|([^\]]+))?\]/gi;
+            while ((m = propertyInventoryCmdRe.exec(response)) !== null) {
+                const command = (m[1] || '').trim().toUpperCase();
+                const propertyName = (m[2] || '').trim();
+                const itemId = (m[3] || '').trim();
+                const qtyRaw = (m[4] || '').trim();
+                const qtyParsed = qtyRaw ? parseInt(qtyRaw.replace(/[^0-9-]/g, ''), 10) : undefined;
+                const qty = Number.isFinite(qtyParsed) ? Math.abs(qtyParsed) : undefined;
+                if (!propertyName || !itemId) {
+                    addStoryEntry('⚠️ Tag proprietà incompleto. Usa ad esempio [CONSUMA_OGGETTO_PROPRIETA: Villa Aurora|Bottiglia di vino|1]', 'system');
+                    continue;
+                }
+
+                const removal = removeItemFromPropertyInventory(propertyName, itemId, Number.isFinite(qty) && qty > 0 ? qty : undefined);
+                if (!removal) {
+                    addStoryEntry(`⚠️ Oggetto non trovato nell'inventario di proprietà (${command}): ${itemId} @ ${propertyName}`, 'system');
+                    continue;
+                }
+                if (removal.removed <= 0) {
+                    addStoryEntry(`⚠️ Nessuna quantità rimossa da ${propertyName}: ${itemId}`, 'system');
+                    continue;
+                }
+
+                const commandKey = command.replace('_OGGETTO', '');
+                const commandMap = {
+                    'CONSUMA_PROPRIETA': { icon: '🥄', verb: 'Consumati' },
+                    'USA_PROPRIETA': { icon: '⚙️', verb: 'Usati' },
+                    'UTILIZZA_PROPRIETA': { icon: '⚙️', verb: 'Usati' },
+                    'SCARTA_PROPRIETA': { icon: '🗑️', verb: 'Scartati' },
+                    'DROP_PROPRIETA': { icon: '🗑️', verb: 'Scartati' },
+                    'VENDI_PROPRIETA': { icon: '💼', verb: 'Venduti' }
+                };
+                const meta = commandMap[commandKey] || { icon: '🗑️', verb: 'Rimossi' };
+                const countLabel = removal.removed > 1 ? `${removal.removed}x ` : '';
+                const suffix = removal.remaining > 0 ? ` (restano ${removal.remaining})` : ' (esaurito)';
+                const propertyLabel = removal.property?.name || propertyName;
+                addStoryEntry(`${meta.icon} ${propertyLabel}: ${meta.verb} ${countLabel}${removal.itemName}${suffix}`, 'system');
+            }
+
             // Extract Events
             const eventRe = /\[EVENTO:\s*([^\]]+)\]/gi;
             while ((m = eventRe.exec(response)) !== null) {
@@ -5584,6 +6196,8 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[TEMPO:[^\]]*\]/gi, '')
                 .replace(/\[MECCANICA:[^\]]*\]/gi, '')
                 .replace(/\[LOOT:[^\]]*\]/gi, '')
+                .replace(/\[LOOT_PROPRIETA:[^\]]*\]/gi, '')
+                .replace(/\[(?:CONSUMA|USA|UTILIZZA|SCARTA|DROP|VENDI)(?:_OGGETTO)?_PROPRIETA:[^\]]*\]/gi, '')
                 .replace(/\[SUGGERIMENTO:[^\]]*\]/gi, '')
                 .replace(/\[NPC:[^\]]*\]/gi, '')
                 .replace(/\[NPC_STATS:[^\]]*\]/gi, '')
@@ -5692,60 +6306,202 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
         }
 
         async function generateStorySummary() {
-            // Auto-generate a smart summary every N turns
+            // Auto-generate a comprehensive narrative summary every N turns
             const wm = G.worldMemory;
-            const recentEvents = wm.events.slice(-15);
-            if (recentEvents.length < 5) return;
+            const c = G.character;
+            const recentEvents = wm.events.slice(-20);
+            if (recentEvents.length < 3) return;
             
-            // Raggruppa eventi per importanza
-            const importantEvents = recentEvents.filter(e => 
-                e.summary.includes('!') || 
-                e.summary.toLowerCase().includes('quest') ||
-                e.summary.toLowerCase().includes('morto') ||
-                e.summary.toLowerCase().includes('combattimento') ||
-                e.summary.toLowerCase().includes('scoperto') ||
-                e.summary.toLowerCase().includes('livello')
-            );
-            
-            // Costruisci riassunto strutturato
             let summary = '';
             
-            // Eventi chiave
-            if (importantEvents.length > 0) {
-                summary += 'EVENTI CHIAVE: ' + importantEvents.slice(-5).map(e => e.summary).join('; ') + '. ';
+            // 1. IDENTITÀ E SITUAZIONE ATTUALE DEL PROTAGONISTA
+            summary += `📜 CRONACA DI ${(c?.name || 'L\'AVVENTURIERO').toUpperCase()}\n\n`;
+            
+            if (c) {
+                const originDesc = c.origin ? `di origini ${c.origin.toLowerCase()}` : '';
+                const archetypeDesc = c.archetype ? `, ${c.archetype.toLowerCase()} di professione` : '';
+                summary += `Il protagonista${originDesc}${archetypeDesc} è attualmente al livello ${c.exp?.lvl || 1}. `;
+                
+                // Stato economico narrativo
+                if (c.gold < 0) {
+                    summary += `Si trova in grave difficoltà economica, con un debito di ${Math.abs(c.gold)} che pesa sulla sua coscienza. `;
+                } else if (c.gold < 50) {
+                    summary += `Le sue risorse sono scarse, con appena ${c.gold} in tasca. `;
+                } else if (c.gold > 1000) {
+                    summary += `Ha accumulato una discreta ricchezza di ${c.gold}. `;
+                }
+                
+                // Condizione fisica narrativa
+                const healthPercent = (c.health.cur / c.health.max) * 100;
+                if (healthPercent < 30) {
+                    summary += `Il suo corpo porta i segni di ferite gravi che richiedono cure. `;
+                } else if (healthPercent < 60) {
+                    summary += `Alcune ferite ancora lo tormentano. `;
+                }
+                
+                summary += '\n\n';
             }
             
-            // Progressione quest
+            // 2. ARCO NARRATIVO - Cosa è successo finora
+            summary += '📖 SVILUPPO DELLA STORIA:\n';
+            
+            // Raggruppa eventi per tipologia
+            const combatEvents = recentEvents.filter(e => 
+                /combatt|battaglia|sconfitt|vittoria|mort[eo]|attacc|ferit/i.test(e.summary)
+            );
+            const discoveryEvents = recentEvents.filter(e => 
+                /scopert|trovato|esplorat|raggiungt|entrat|arrivat/i.test(e.summary)
+            );
+            const socialEvents = recentEvents.filter(e => 
+                /parlat|incontrat|alleat|negozia|accordo|promess/i.test(e.summary)
+            );
+            const questEvents = recentEvents.filter(e => 
+                /quest|missione|obiettivo|complet|incaric/i.test(e.summary)
+            );
+            
+            // Costruisci narrazione fluida degli eventi
+            if (questEvents.length > 0) {
+                const questNarrative = questEvents.slice(-3).map(e => e.summary).join('. ');
+                summary += `• Progressione obiettivi: ${questNarrative}. `;
+            }
+            
+            if (combatEvents.length > 0) {
+                const combatNarrative = combatEvents.slice(-3).map(e => e.summary).join('. ');
+                summary += `• Conflitti affrontati: ${combatNarrative}. `;
+            }
+            
+            if (discoveryEvents.length > 0) {
+                const discoveryNarrative = discoveryEvents.slice(-3).map(e => e.summary).join('. ');
+                summary += `• Esplorazioni e scoperte: ${discoveryNarrative}. `;
+            }
+            
+            if (socialEvents.length > 0) {
+                const socialNarrative = socialEvents.slice(-3).map(e => e.summary).join('. ');
+                summary += `• Interazioni significative: ${socialNarrative}. `;
+            }
+            
+            // Eventi recenti generici se non categorizzati
+            const uncategorized = recentEvents.filter(e => 
+                !combatEvents.includes(e) && !discoveryEvents.includes(e) && 
+                !socialEvents.includes(e) && !questEvents.includes(e)
+            );
+            if (uncategorized.length > 0 && summary.length < 500) {
+                const otherNarrative = uncategorized.slice(-5).map(e => e.summary).join('. ');
+                summary += `• Altri avvenimenti: ${otherNarrative}. `;
+            }
+            
+            summary += '\n\n';
+            
+            // 3. RELAZIONI E ALLEANZE
+            const meaningfulNPCs = wm.npcs.filter(n => n.description || n.relationship || n.interactionCount > 1);
+            if (meaningfulNPCs.length > 0) {
+                summary += '👥 PERSONAGGI RILEVANTI:\n';
+                
+                const allies = meaningfulNPCs.filter(n => 
+                    /amic|alleat|fidato|compagn|mentor/i.test(n.relationship || '')
+                );
+                const enemies = meaningfulNPCs.filter(n => 
+                    /nemic|ostile|avversar|rivale|antagonist/i.test(n.relationship || '')
+                );
+                const neutral = meaningfulNPCs.filter(n => 
+                    !allies.includes(n) && !enemies.includes(n)
+                );
+                
+                if (allies.length > 0) {
+                    summary += `• Alleati e amici: ${allies.map(n => {
+                        let desc = n.name;
+                        if (n.description) desc += ` (${n.description.substring(0, 50)})`;
+                        return desc;
+                    }).join('; ')}. `;
+                }
+                
+                if (enemies.length > 0) {
+                    summary += `• Nemici e rivali: ${enemies.map(n => {
+                        let desc = n.name;
+                        if (n.description) desc += ` (${n.description.substring(0, 50)})`;
+                        return desc;
+                    }).join('; ')}. `;
+                }
+                
+                if (neutral.length > 0 && neutral.length <= 5) {
+                    summary += `• Altri conosciuti: ${neutral.map(n => n.name).join(', ')}. `;
+                } else if (neutral.length > 5) {
+                    summary += `• Altri ${neutral.length} personaggi conosciuti. `;
+                }
+                
+                summary += '\n\n';
+            }
+            
+            // 4. QUEST E OBIETTIVI
             const activeQuests = wm.quests.filter(q => q.status === 'active');
             const completedQuests = wm.quests.filter(q => q.status === 'completed');
-            if (activeQuests.length) {
-                summary += `QUEST ATTIVE: ${activeQuests.map(q => q.name).join(', ')}. `;
-            }
-            if (completedQuests.length) {
-                summary += `COMPLETATE: ${completedQuests.map(q => q.name).join(', ')}. `;
+            
+            if (activeQuests.length > 0 || completedQuests.length > 0) {
+                summary += '📋 OBIETTIVI:\n';
+                
+                if (activeQuests.length > 0) {
+                    summary += `• In corso: ${activeQuests.map(q => {
+                        let desc = q.name;
+                        if (q.description) desc += ` - ${q.description.substring(0, 60)}`;
+                        if (q.progress) desc += ` [${q.progress}]`;
+                        return desc;
+                    }).join('; ')}. `;
+                }
+                
+                if (completedQuests.length > 0) {
+                    summary += `• Completate: ${completedQuests.map(q => q.name).join(', ')}. `;
+                }
+                
+                summary += '\n\n';
             }
             
-            // Relazioni NPC significative
-            const allies = wm.npcs.filter(n => 
-                n.relationship?.toLowerCase().includes('amico') || 
-                n.relationship?.toLowerCase().includes('alleato')
-            );
-            const enemies = wm.npcs.filter(n => 
-                n.relationship?.toLowerCase().includes('nemico') || 
-                n.relationship?.toLowerCase().includes('ostile')
-            );
-            if (allies.length) {
-                summary += `ALLEATI: ${allies.map(n => n.name).join(', ')}. `;
-            }
-            if (enemies.length) {
-                summary += `NEMICI: ${enemies.map(n => n.name).join(', ')}. `;
+            // 5. LUOGHI SIGNIFICATIVI
+            if (wm.locations.length > 0) {
+                summary += '🗺️ LUOGHI VISITATI:\n';
+                const recentLocations = wm.locations.slice(-8);
+                summary += recentLocations.map(l => {
+                    let desc = `• ${l.name}`;
+                    if (l.description) desc += `: ${l.description.substring(0, 80)}`;
+                    return desc;
+                }).join('\n');
+                summary += '\n\n';
             }
             
-            // Timeline recente
-            const recentSummaries = recentEvents.slice(-5).map(e => e.summary).join('; ');
-            summary += `RECENTEMENTE: ${recentSummaries}`;
+            // 6. PROPRIETÀ E BENI
+            if (wm.properties?.length > 0) {
+                summary += '🏰 PATRIMONIO:\n';
+                wm.properties.forEach(p => {
+                    const cond = getPropertyCondition(p.condition || 50);
+                    summary += `• ${p.name} (${cond.label}): ${p.description || 'Nessuna descrizione'}`;
+                    if (p.inventory?.length > 0) {
+                        const totalItems = p.inventory.reduce((sum, i) => sum + (i.count || 1), 0);
+                        summary += ` [Magazzino: ${totalItems} articoli]`;
+                    }
+                    summary += '. ';
+                });
+                summary += '\n\n';
+            }
             
-            wm.storySummary = summary;
+            // 7. ABILITÀ E OGGETTI SPECIALI
+            if (wm.acquiredAbilities.length > 0 || wm.acquiredItems.length > 0) {
+                summary += '✨ ACQUISIZIONI SPECIALI:\n';
+                if (wm.acquiredAbilities.length > 0) {
+                    summary += `• Abilità: ${wm.acquiredAbilities.map(a => a.name).join(', ')}. `;
+                }
+                if (wm.acquiredItems.length > 0) {
+                    summary += `• Oggetti unici: ${wm.acquiredItems.map(i => i.name).join(', ')}. `;
+                }
+                summary += '\n\n';
+            }
+            
+            // 8. ULTIMI AVVENIMENTI (cronologia recente)
+            summary += '⏳ ULTIMI AVVENIMENTI:\n';
+            const last5Events = recentEvents.slice(-5);
+            last5Events.forEach((e, i) => {
+                summary += `${i + 1}. ${e.summary}\n`;
+            });
+            
+            wm.storySummary = summary.trim();
             wm.lastSummaryTurn = wm.turnCount;
         }
 
