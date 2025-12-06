@@ -298,6 +298,82 @@
         .mini-bar-fill.stamina { background: linear-gradient(90deg, #1565c0, #42a5f5); }
         .mini-bar-fill.hunger { background: linear-gradient(90deg, #f57c00, #ffb74d); }
 
+        /* Info Panels (Finanze, Famiglia, Dipendenti) */
+        .topbar-info-panels {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .info-panel {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid rgba(0,0,0,0.1);
+            min-width: 90px;
+        }
+        .info-panel:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .info-panel.finances { border-left: 3px solid #f4a100; }
+        .info-panel.family { border-left: 3px solid #e91e63; }
+        .info-panel.employees { border-left: 3px solid #2196f3; }
+        .info-panel .info-icon { font-size: 1.3em; }
+        .info-panel .info-content { display: flex; flex-direction: column; }
+        .info-panel .info-label { font-size: 0.65em; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.5px; }
+        .info-panel .info-value { font-size: 0.85em; font-weight: 600; color: var(--ink); font-family: 'Cinzel', serif; }
+        .info-panel.negative .info-value { color: #c00; }
+        .info-panel.positive .info-value { color: #2e7d32; }
+        
+        /* Quick Modal Styles */
+        .quick-modal-content { margin: 15px 0; }
+        .finances-detail h4, .finances-detail h5 { margin: 12px 0 8px; color: var(--ink); }
+        .fin-section { background: rgba(0,0,0,0.03); padding: 8px; border-radius: 6px; margin-bottom: 8px; }
+        .fin-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.9em; }
+        .fin-row.total { border-top: 1px solid var(--ink-light); margin-top: 6px; padding-top: 8px; font-weight: 600; }
+        .fin-row .positive { color: #2e7d32; }
+        .fin-row .negative { color: #c00; }
+        .fin-section.net { background: var(--parchment-dark); }
+        .family-member, .employee { background: rgba(0,0,0,0.03); padding: 10px; border-radius: 6px; margin-bottom: 8px; }
+        .member-header { font-size: 1em; margin-bottom: 5px; }
+        .member-info, .member-desc { font-size: 0.85em; color: var(--ink-light); }
+        .member-income { color: #2e7d32; font-size: 0.85em; }
+        .member-expense { color: #c00; font-size: 0.85em; }
+        .emp-property h5 { margin: 10px 0 5px; color: var(--ink); }
+        .employee { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .emp-name { font-weight: 600; }
+        .emp-role { color: var(--ink-light); }
+        .emp-comp { font-size: 0.85em; }
+        .emp-salary { font-size: 0.85em; color: #c00; }
+        
+        /* Chronicle View */
+        .chronicle-view { padding: 10px; max-height: 400px; overflow-y: auto; }
+        .chronicle-header { 
+            display: flex; justify-content: space-between; align-items: center;
+            background: linear-gradient(135deg, var(--parchment-dark), var(--parchment));
+            padding: 12px 15px; border-radius: 8px; margin-bottom: 15px;
+            border: 1px solid var(--gold);
+        }
+        .chronicle-protagonist { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .chronicle-protagonist strong { font-size: 1.1em; color: var(--ink); font-family: 'Cinzel', serif; }
+        .chr-origin, .chr-archetype { font-size: 0.8em; color: var(--ink-light); }
+        .chr-level { background: var(--gold); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: 600; }
+        .chronicle-turn { font-size: 0.85em; color: var(--ink-light); }
+        .chronicle-content { line-height: 1.6; }
+        .chronicle-section { 
+            background: rgba(0,0,0,0.02); padding: 12px; border-radius: 6px; 
+            margin-bottom: 10px; border-left: 3px solid var(--gold);
+        }
+        .chronicle-section-title { font-weight: 600; color: var(--ink); margin-bottom: 6px; font-size: 0.95em; }
+        .chronicle-section-content { font-size: 0.85em; color: var(--ink-light); }
+        .chronicle-empty { text-align: center; padding: 30px; color: var(--ink-light); }
+        .chronicle-empty p { margin: 8px 0; }
+
         /* Story Area */
         .story-container {
             flex: 1;
@@ -1754,10 +1830,28 @@
                     </div>
                 </div>
 
-                <div class="topbar-buttons">
-                    <button class="topbar-btn" id="btn-wait" title="Aspetta">⏰</button>
-                    <button class="topbar-btn" id="btn-rest" title="Riposa">😴</button>
-                    <button class="topbar-btn" id="btn-eat" title="Mangia">🍖</button>
+                <div class="topbar-info-panels">
+                    <div class="info-panel finances" id="panel-finances" title="Clicca per dettagli finanziari">
+                        <span class="info-icon">💰</span>
+                        <div class="info-content">
+                            <span class="info-label">Finanze</span>
+                            <span class="info-value" id="finances-summary">--</span>
+                        </div>
+                    </div>
+                    <div class="info-panel family" id="panel-family" title="Clicca per gestire famiglia">
+                        <span class="info-icon">👨‍👩‍👧</span>
+                        <div class="info-content">
+                            <span class="info-label">Famiglia</span>
+                            <span class="info-value" id="family-summary">--</span>
+                        </div>
+                    </div>
+                    <div class="info-panel employees" id="panel-employees" title="Clicca per gestire dipendenti">
+                        <span class="info-icon">👷</span>
+                        <div class="info-content">
+                            <span class="info-label">Dipendenti</span>
+                            <span class="info-value" id="employees-summary">--</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1892,13 +1986,17 @@
                 </div>
 
                 <div class="tabs">
-                    <button class="tab active" data-tab="npcs">👥 NPC</button>
+                    <button class="tab active" data-tab="chronicle">📖 Cronaca</button>
+                    <button class="tab" data-tab="npcs">👥 NPC</button>
                     <button class="tab" data-tab="locations">📍 Luoghi</button>
                     <button class="tab" data-tab="quests">📋 Quest</button>
                     <button class="tab" data-tab="events">📜 Eventi</button>
                 </div>
 
-                <div class="tab-content active" id="tab-npcs">
+                <div class="tab-content active" id="tab-chronicle">
+                    <div id="memory-chronicle" class="chronicle-view"></div>
+                </div>
+                <div class="tab-content" id="tab-npcs">
                     <div id="memory-npcs-list"></div>
                 </div>
                 <div class="tab-content" id="tab-locations">
@@ -2169,6 +2267,8 @@
                 acquiredItems: [],  // { id, name, description, icon, acquiredAt }
                 acquiredAbilities: [], // { id, name, description, acquiredAt }
                 properties: [],     // { id, name, description, notes, acquiredAt }
+                family: [],         // { id, name, relation, age, status, description, income, expenses }
+                employees: [],      // { id, name, role, property, salary, skill, morale, hiredAt }
                 storySummary: '',   // Riassunto compresso della storia
                 lastSummaryTurn: 0,
                 turnCount: 0
@@ -3903,6 +4003,7 @@
             if ($('inventory-abilities')) $('inventory-abilities').innerHTML = invAbilitiesHtml || abilityFallback;
             
             checkStatusEffects();
+            updateInfoPanels();
         }
 
         function getEmptyDetailsHtml() {
@@ -4092,12 +4193,71 @@
         // ==================== WORLD MEMORY ====================
         function updateMemoryUI() {
             const wm = G.worldMemory;
+            const c = G.character;
 
             // Stats
             $('mem-npc-count').textContent = wm.npcs.length;
             $('mem-loc-count').textContent = wm.locations.length;
             $('mem-quest-count').textContent = wm.quests.length;
             $('mem-event-count').textContent = wm.events.length;
+
+            // Chronicle - Narrative summary of the world
+            const chronicleEl = $('memory-chronicle');
+            if (chronicleEl) {
+                let chronicleHtml = '';
+                
+                // Se non c'è ancora una cronaca, generiamola
+                if (!wm.storySummary && wm.events.length >= 3) {
+                    generateStorySummary();
+                }
+                
+                if (wm.storySummary) {
+                    // Formatta il summary in HTML leggibile
+                    chronicleHtml = `<div class="chronicle-content">
+                        ${wm.storySummary
+                            .split('\n\n')
+                            .map(section => {
+                                if (section.startsWith('📜') || section.startsWith('📖') || 
+                                    section.startsWith('👥') || section.startsWith('📋') ||
+                                    section.startsWith('🗺️') || section.startsWith('🏰') ||
+                                    section.startsWith('✨') || section.startsWith('👨‍👩‍👧') ||
+                                    section.startsWith('👷') || section.startsWith('⏳')) {
+                                    const lines = section.split('\n');
+                                    const title = lines[0];
+                                    const content = lines.slice(1).join('<br>');
+                                    return `<div class="chronicle-section">
+                                        <div class="chronicle-section-title">${title}</div>
+                                        <div class="chronicle-section-content">${content || '<em>Nessuna informazione</em>'}</div>
+                                    </div>`;
+                                }
+                                return `<p>${section}</p>`;
+                            })
+                            .join('')}
+                    </div>`;
+                } else {
+                    chronicleHtml = `<div class="chronicle-empty">
+                        <p>📜 <strong>La cronaca del mondo</strong></p>
+                        <p>La storia è appena iniziata. Dopo alcuni turni, qui apparirà un riassunto narrativo degli eventi, personaggi, luoghi e progressi.</p>
+                        <p><em>Continua la tua avventura per costruire la cronaca!</em></p>
+                    </div>`;
+                }
+                
+                // Aggiungi info personaggio in cima
+                if (c) {
+                    const headerHtml = `<div class="chronicle-header">
+                        <div class="chronicle-protagonist">
+                            <strong>${c.name || 'Eroe'}</strong>
+                            ${c.origin ? `<span class="chr-origin">${c.origin}</span>` : ''}
+                            ${c.archetype ? `<span class="chr-archetype">${c.archetype}</span>` : ''}
+                            <span class="chr-level">Lv. ${c.exp?.lvl || 1}</span>
+                        </div>
+                        <div class="chronicle-turn">Turno ${wm.turnCount || 0}</div>
+                    </div>`;
+                    chronicleHtml = headerHtml + chronicleHtml;
+                }
+                
+                chronicleEl.innerHTML = chronicleHtml;
+            }
 
             // NPCs - con dettagli estesi (personalità, obiettivi, stato, posizione)
             const npcsHtml = wm.npcs.length ? wm.npcs.map(npc => {
@@ -4245,6 +4405,338 @@
                     notes
                 });
             }
+        }
+
+        // ==================== SISTEMA FAMIGLIA ====================
+        function addFamilyMember(name, relation, meta = {}) {
+            if (!G.worldMemory.family) G.worldMemory.family = [];
+            const existing = G.worldMemory.family.find(f => f.name.toLowerCase() === name.toLowerCase());
+            if (existing) {
+                if (meta.age !== undefined) existing.age = meta.age;
+                if (meta.status) existing.status = meta.status;
+                if (meta.description) existing.description = meta.description;
+                if (meta.income !== undefined) existing.income = meta.income;
+                if (meta.expenses !== undefined) existing.expenses = meta.expenses;
+                if (meta.occupation) existing.occupation = meta.occupation;
+                if (meta.health) existing.health = meta.health;
+                if (meta.mood) existing.mood = meta.mood;
+            } else {
+                G.worldMemory.family.push({
+                    id: Date.now(),
+                    name,
+                    relation, // moglie, marito, figlio, figlia, padre, madre, fratello, sorella, etc.
+                    age: meta.age || null,
+                    status: meta.status || 'alive', // alive, dead, missing, estranged
+                    description: meta.description || '',
+                    occupation: meta.occupation || '',
+                    income: meta.income || 0, // contributo economico
+                    expenses: meta.expenses || 0, // costo mantenimento
+                    health: meta.health || 'good', // good, sick, injured, critical
+                    mood: meta.mood || 'content', // happy, content, worried, sad, angry
+                    joinedAt: G.worldMemory.turnCount
+                });
+                addStoryEntry(`👨‍👩‍👧 Nuovo membro famiglia: ${name} (${relation})`, 'memory-update');
+            }
+            updateInfoPanels();
+        }
+
+        function removeFamilyMember(name, reason = 'left') {
+            if (!G.worldMemory.family) return false;
+            const idx = G.worldMemory.family.findIndex(f => f.name.toLowerCase() === name.toLowerCase());
+            if (idx >= 0) {
+                const member = G.worldMemory.family[idx];
+                if (reason === 'dead') {
+                    member.status = 'dead';
+                    addStoryEntry(`💀 ${member.name} (${member.relation}) è deceduto/a`, 'memory-update');
+                } else {
+                    G.worldMemory.family.splice(idx, 1);
+                    addStoryEntry(`👨‍👩‍👧 ${member.name} ha lasciato la famiglia`, 'memory-update');
+                }
+                updateInfoPanels();
+                return true;
+            }
+            return false;
+        }
+
+        function getFamilyFinances() {
+            if (!G.worldMemory.family) return { totalIncome: 0, totalExpenses: 0, net: 0, members: 0 };
+            const living = G.worldMemory.family.filter(f => f.status === 'alive');
+            const totalIncome = living.reduce((sum, f) => sum + (f.income || 0), 0);
+            const totalExpenses = living.reduce((sum, f) => sum + (f.expenses || 0), 0);
+            return {
+                totalIncome,
+                totalExpenses,
+                net: totalIncome - totalExpenses,
+                members: living.length
+            };
+        }
+
+        // ==================== SISTEMA DIPENDENTI ====================
+        function addEmployee(name, role, property, salary, meta = {}) {
+            if (!G.worldMemory.employees) G.worldMemory.employees = [];
+            const existing = G.worldMemory.employees.find(e => e.name.toLowerCase() === name.toLowerCase());
+            if (existing) {
+                if (role) existing.role = role;
+                if (property) existing.property = property;
+                if (salary !== undefined) existing.salary = salary;
+                if (meta.skill !== undefined) existing.skill = meta.skill;
+                if (meta.morale !== undefined) existing.morale = meta.morale;
+                if (meta.description) existing.description = meta.description;
+                if (meta.status) existing.status = meta.status;
+            } else {
+                G.worldMemory.employees.push({
+                    id: Date.now(),
+                    name,
+                    role, // cuoco, cameriere, contadino, guardia, artigiano, commesso, etc.
+                    property, // nome della proprietà dove lavora
+                    salary, // stipendio periodico
+                    skill: meta.skill ?? 50, // 0-100 competenza
+                    morale: meta.morale ?? 70, // 0-100 morale
+                    description: meta.description || '',
+                    status: meta.status || 'active', // active, sick, vacation, fired
+                    hiredAt: G.worldMemory.turnCount
+                });
+                addStoryEntry(`👷 Nuovo dipendente: ${name} (${role}) @ ${property}`, 'memory-update');
+            }
+            updateInfoPanels();
+        }
+
+        function removeEmployee(name, reason = 'fired') {
+            if (!G.worldMemory.employees) return false;
+            const idx = G.worldMemory.employees.findIndex(e => e.name.toLowerCase() === name.toLowerCase());
+            if (idx >= 0) {
+                const emp = G.worldMemory.employees[idx];
+                G.worldMemory.employees.splice(idx, 1);
+                const reasonText = reason === 'fired' ? 'licenziato' : reason === 'quit' ? 'si è dimesso' : 'non lavora più';
+                addStoryEntry(`👷 ${emp.name} (${emp.role}) ${reasonText}`, 'memory-update');
+                updateInfoPanels();
+                return true;
+            }
+            return false;
+        }
+
+        function getEmployeesFinances() {
+            if (!G.worldMemory.employees) return { totalSalaries: 0, count: 0, avgSkill: 0, avgMorale: 0 };
+            const active = G.worldMemory.employees.filter(e => e.status === 'active');
+            const totalSalaries = active.reduce((sum, e) => sum + (e.salary || 0), 0);
+            const avgSkill = active.length > 0 ? Math.round(active.reduce((sum, e) => sum + (e.skill || 50), 0) / active.length) : 0;
+            const avgMorale = active.length > 0 ? Math.round(active.reduce((sum, e) => sum + (e.morale || 50), 0) / active.length) : 0;
+            return {
+                totalSalaries,
+                count: active.length,
+                avgSkill,
+                avgMorale,
+                byProperty: getEmployeesByProperty()
+            };
+        }
+
+        function getEmployeesByProperty() {
+            if (!G.worldMemory.employees) return {};
+            const byProp = {};
+            G.worldMemory.employees.filter(e => e.status === 'active').forEach(e => {
+                const prop = e.property || 'Senza proprietà';
+                if (!byProp[prop]) byProp[prop] = { employees: [], totalSalary: 0 };
+                byProp[prop].employees.push(e);
+                byProp[prop].totalSalary += e.salary || 0;
+            });
+            return byProp;
+        }
+
+        // ==================== BILANCIO FINANZIARIO COMPLETO ====================
+        function getFullFinancialSummary() {
+            const c = G.character;
+            const propBonus = getPropertiesBonus();
+            const familyFin = getFamilyFinances();
+            const empFin = getEmployeesFinances();
+            
+            // Entrate
+            const propertyIncome = propBonus.totalIncome || 0;
+            const familyIncome = familyFin.totalIncome || 0;
+            const totalIncome = propertyIncome + familyIncome;
+            
+            // Uscite
+            const familyExpenses = familyFin.totalExpenses || 0;
+            const employeeSalaries = empFin.totalSalaries || 0;
+            const totalExpenses = familyExpenses + employeeSalaries;
+            
+            // Bilancio netto
+            const netBalance = totalIncome - totalExpenses;
+            
+            return {
+                cash: c?.gold || 0,
+                patrimony: propBonus.totalValue || 0,
+                income: {
+                    properties: propertyIncome,
+                    family: familyIncome,
+                    total: totalIncome
+                },
+                expenses: {
+                    family: familyExpenses,
+                    employees: employeeSalaries,
+                    total: totalExpenses
+                },
+                net: netBalance,
+                family: familyFin,
+                employees: empFin
+            };
+        }
+
+        function updateInfoPanels() {
+            const fin = getFullFinancialSummary();
+            const c = G.character;
+            const currSymbol = c?.currency?.short || '💰';
+            
+            // Panel Finanze
+            const finPanel = $('panel-finances');
+            const finSummary = $('finances-summary');
+            if (finPanel && finSummary) {
+                let finText = '';
+                if (fin.cash < 0) {
+                    finText = `Debito: ${Math.abs(fin.cash)}`;
+                    finPanel.classList.add('negative');
+                    finPanel.classList.remove('positive');
+                } else {
+                    finText = fin.cash.toLocaleString('it-IT');
+                    if (fin.net !== 0) {
+                        finText += ` (${fin.net >= 0 ? '+' : ''}${fin.net}/p)`;
+                    }
+                    finPanel.classList.remove('negative');
+                    if (fin.net > 0) finPanel.classList.add('positive');
+                    else finPanel.classList.remove('positive');
+                }
+                finSummary.textContent = finText;
+            }
+            
+            // Panel Famiglia
+            const famPanel = $('panel-family');
+            const famSummary = $('family-summary');
+            if (famPanel && famSummary) {
+                const famCount = fin.family.members || 0;
+                if (famCount === 0) {
+                    famSummary.textContent = 'Nessuna';
+                } else {
+                    let famText = `${famCount} membri`;
+                    if (fin.family.net !== 0) {
+                        famText += ` (${fin.family.net >= 0 ? '+' : ''}${fin.family.net})`;
+                    }
+                    famSummary.textContent = famText;
+                }
+            }
+            
+            // Panel Dipendenti
+            const empPanel = $('panel-employees');
+            const empSummary = $('employees-summary');
+            if (empPanel && empSummary) {
+                const empCount = fin.employees.count || 0;
+                if (empCount === 0) {
+                    empSummary.textContent = 'Nessuno';
+                } else {
+                    let empText = `${empCount}`;
+                    if (fin.employees.totalSalaries > 0) {
+                        empText += ` (-${fin.employees.totalSalaries})`;
+                    }
+                    empSummary.textContent = empText;
+                }
+            }
+        }
+
+        function showFinancesDetail() {
+            const fin = getFullFinancialSummary();
+            const c = G.character;
+            const curr = c?.currency?.short || '💰';
+            
+            let html = `<div class="finances-detail">
+                <h4>💰 Bilancio Finanziario</h4>
+                <div class="fin-section">
+                    <div class="fin-row"><span>Contanti:</span><span class="${fin.cash < 0 ? 'negative' : ''}">${fin.cash.toLocaleString('it-IT')} ${curr}</span></div>
+                    <div class="fin-row"><span>Patrimonio proprietà:</span><span>${fin.patrimony.toLocaleString('it-IT')} ${curr}</span></div>
+                </div>
+                <h5>📈 Entrate mensili</h5>
+                <div class="fin-section">
+                    <div class="fin-row"><span>Da proprietà:</span><span>+${fin.income.properties} ${curr}</span></div>
+                    <div class="fin-row"><span>Da famiglia:</span><span>+${fin.income.family} ${curr}</span></div>
+                    <div class="fin-row total"><span>Totale entrate:</span><span class="positive">+${fin.income.total} ${curr}</span></div>
+                </div>
+                <h5>📉 Uscite mensili</h5>
+                <div class="fin-section">
+                    <div class="fin-row"><span>Spese famiglia:</span><span>-${fin.expenses.family} ${curr}</span></div>
+                    <div class="fin-row"><span>Stipendi dipendenti:</span><span>-${fin.expenses.employees} ${curr}</span></div>
+                    <div class="fin-row total"><span>Totale uscite:</span><span class="negative">-${fin.expenses.total} ${curr}</span></div>
+                </div>
+                <div class="fin-section net">
+                    <div class="fin-row total ${fin.net >= 0 ? 'positive' : 'negative'}">
+                        <span>Bilancio netto:</span><span>${fin.net >= 0 ? '+' : ''}${fin.net} ${curr}/mese</span>
+                    </div>
+                </div>
+            </div>`;
+            
+            showQuickModal('Finanze', html);
+        }
+
+        function showFamilyDetail() {
+            const wm = G.worldMemory;
+            if (!wm.family || wm.family.length === 0) {
+                showQuickModal('Famiglia', '<p>Non hai ancora familiari. Potrebbero essere introdotti nella storia.</p>');
+                return;
+            }
+            
+            let html = '<div class="family-detail">';
+            wm.family.forEach(f => {
+                const statusBadge = f.status === 'alive' ? '💚' : f.status === 'dead' ? '💀' : '⚠️';
+                html += `<div class="family-member">
+                    <div class="member-header">${statusBadge} <strong>${f.name}</strong> <em>(${f.relation})</em></div>
+                    ${f.age ? `<div class="member-info">Età: ${f.age} anni</div>` : ''}
+                    ${f.description ? `<div class="member-desc">${f.description}</div>` : ''}
+                    ${f.income ? `<div class="member-income">Reddito: +${f.income}/mese</div>` : ''}
+                    ${f.expenses ? `<div class="member-expense">Spese: -${f.expenses}/mese</div>` : ''}
+                </div>`;
+            });
+            html += '</div>';
+            
+            showQuickModal('Famiglia', html);
+        }
+
+        function showEmployeesDetail() {
+            const wm = G.worldMemory;
+            if (!wm.employees || wm.employees.length === 0) {
+                showQuickModal('Dipendenti', '<p>Non hai dipendenti. Assumi personale per le tue proprietà!</p>');
+                return;
+            }
+            
+            const byProp = getEmployeesByProperty();
+            let html = '<div class="employees-detail">';
+            Object.entries(byProp).forEach(([propName, emps]) => {
+                html += `<div class="emp-property">
+                    <h5>🏠 ${propName}</h5>`;
+                emps.forEach(e => {
+                    const statusBadge = e.status === 'active' ? '✅' : e.status === 'fired' ? '❌' : '⚠️';
+                    html += `<div class="employee">
+                        <span class="emp-name">${statusBadge} ${e.name}</span>
+                        <span class="emp-role">${e.role}</span>
+                        <span class="emp-comp">Competenza: ${e.competence || 50}%</span>
+                        <span class="emp-salary">Stipendio: ${e.salary || 0}/mese</span>
+                    </div>`;
+                });
+                html += '</div>';
+            });
+            html += '</div>';
+            
+            showQuickModal('Dipendenti', html);
+        }
+
+        function showQuickModal(title, content) {
+            // Usa un modal generico per info veloci
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay quick-modal active';
+            modal.innerHTML = `
+                <div class="modal" style="max-width: 450px;">
+                    <h3>${title}</h3>
+                    <div class="quick-modal-content">${content}</div>
+                    <button class="btn secondary" onclick="this.closest('.modal-overlay').remove()">Chiudi</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.onclick = e => { if (e.target === modal) modal.remove(); };
         }
 
         function addQuest(name, description, status = 'active', progress = '') {
@@ -4807,6 +5299,54 @@
             return { total, details, totalValue, totalIncome };
         }
 
+        // ==================== SISTEMA TRACCIAMENTO SOLDI ====================
+        function logTransaction(amount, reason, balance) {
+            if (!G.worldMemory.transactions) G.worldMemory.transactions = [];
+            G.worldMemory.transactions.push({
+                turn: G.worldMemory.turnCount,
+                amount,
+                reason,
+                balance,
+                timestamp: Date.now()
+            });
+            // Mantieni solo le ultime 50 transazioni
+            if (G.worldMemory.transactions.length > 50) {
+                G.worldMemory.transactions = G.worldMemory.transactions.slice(-50);
+            }
+        }
+
+        // ==================== RIMUOVI OGGETTI INVENTARIO ====================
+        function removeFromInventory(itemId, qty = 1) {
+            const inv = G.character.inventory;
+            const normalizedId = itemId.toLowerCase().replace(/\s+/g, '_');
+            
+            const idx = inv.findIndex(i => 
+                i.id === normalizedId || 
+                i.id === itemId ||
+                (i.name && i.name.toLowerCase().replace(/\s+/g, '_') === normalizedId) ||
+                (i.name && i.name.toLowerCase() === itemId.toLowerCase())
+            );
+            
+            if (idx === -1) {
+                console.warn('Item not found in inventory:', itemId);
+                return { success: false, removed: 0, remaining: 0, itemName: itemId };
+            }
+            
+            const item = inv[idx];
+            const toRemove = Math.min(qty, item.count);
+            item.count -= toRemove;
+            
+            const itemName = item.name || itemId;
+            const remaining = item.count;
+            
+            if (item.count <= 0) {
+                inv.splice(idx, 1);
+            }
+            
+            updateCharacterUI();
+            return { success: true, removed: toRemove, remaining, itemName };
+        }
+
         function addLootToInventory(itemId, qty = 1, meta = {}) {
             const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
             const safeName = (itemId || 'oggetto').toString().trim();
@@ -4984,7 +5524,18 @@
             }
 
             if (wm.storySummary) {
-                summary += '\n📖 RIASSUNTO STORIA:\n' + wm.storySummary + '\n';
+                // Limita la lunghezza del riassunto per non sovraccaricare il prompt
+                const maxSummaryLen = 2000;
+                const summaryText = wm.storySummary.length > maxSummaryLen 
+                    ? wm.storySummary.substring(0, maxSummaryLen) + '...[troncato]'
+                    : wm.storySummary;
+                summary += '\n📖 RIASSUNTO STORIA:\n' + summaryText + '\n';
+            }
+
+            // Limita la lunghezza totale del summary
+            const maxTotalLen = 4000;
+            if (summary.length > maxTotalLen) {
+                summary = summary.substring(0, maxTotalLen) + '\n...[memoria troncata per brevità]';
             }
 
             return summary;
@@ -5130,9 +5681,12 @@
             G.worldMemory = JSON.parse(JSON.stringify(s.worldMemory || {
                 npcs: [], locations: [], quests: [], events: [],
                 acquiredItems: [], acquiredAbilities: [], properties: [],
+                family: [], employees: [],
                 storySummary: '', lastSummaryTurn: 0, turnCount: 0
             }));
             G.worldMemory.properties = G.worldMemory.properties || [];
+            G.worldMemory.family = G.worldMemory.family || [];
+            G.worldMemory.employees = G.worldMemory.employees || [];
             applyStarterProperties(G.currentStory);
             G.isPlaying = true;
             
@@ -5169,6 +5723,8 @@
                 acquiredItems: [],
                 acquiredAbilities: [],
                 properties: [],
+                family: [],
+                employees: [],
                 storySummary: '',
                 lastSummaryTurn: 0,
                 turnCount: 0
@@ -5195,6 +5751,7 @@
             updateCharacterUI();
             updateQuickActions();
             updateTimeDisplay();
+            updateInfoPanels(); // Aggiorna pannelli finanze, famiglia, dipendenti
 
             $('story-scroll').innerHTML = '';
             G.storyLog.forEach(e => addStoryEntry(e.text, e.type, false));
@@ -5559,11 +6116,12 @@
                 if (last?.textContent?.includes('scrivendo')) last.remove();
 
                 parseAIResponse(response);
+                updateInfoPanels(); // Aggiorna pannelli dopo modifiche AI
                 G.history.push({ role: 'user', content: action });
                 G.history.push({ role: 'assistant', content: response });
 
-                // Periodic story summary (every 10 turns)
-                if (G.worldMemory.turnCount - G.worldMemory.lastSummaryTurn >= 10) {
+                // Periodic story summary (every 5 turns for deeper narrative memory)
+                if (G.worldMemory.turnCount - G.worldMemory.lastSummaryTurn >= 5) {
                     generateStorySummary();
                 }
 
@@ -5696,9 +6254,20 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 - Non aggiungere nell'inventario elementi scenografici o non possedibili (es. "vista dalla finestra", mobili fissati, parti dell'ambiente, sensazioni).
 - Gli oggetti che restano nel luogo vanno descritti nella narrazione senza usare [LOOT].
 
-💰 **CAPITALE DISPONIBILE**
-- All'inizio della partita devi dichiarare chiaramente quante risorse economiche, contanti o crediti possiede il protagonista e come sono conservate (cassa, libro mastro, eredità, titoli, ecc.).
-- Se il capitale iniziale differisce da quello indicato in DATI GIOCO, calcola la differenza e usa subito [MECCANICA: soldi=±X] (o il tag equivalente della valuta) per allineare il saldo.
+🔧 **USO E CONSUMO OGGETTI**
+- Quando il giocatore usa un oggetto dall'inventario, usa [USA: Nome Oggetto|Quantità] o [CONSUMA: Nome Oggetto|Quantità].
+- L'oggetto verrà automaticamente rimosso o decrementato dall'inventario.
+- Esempio: Il giocatore beve una pozione → [CONSUMA: Pozione di cura|1]
+- Esempio: Il giocatore usa una chiave → [USA: Chiave arrugginita|1]
+- Se l'oggetto non è presente nell'inventario, il sistema segnalerà l'errore.
+- IMPORTANTE: Non permettere azioni che richiedono oggetti che il giocatore non possiede!
+
+💰 **GESTIONE DENARO (TRACCIAMENTO RIGOROSO)**
+- Il sistema tiene traccia di TUTTE le transazioni. Ogni modifica viene registrata.
+- Mostra SEMPRE il saldo corrente dopo ogni transazione: [MECCANICA: soldi=-50] mostrerà "(-50, Saldo: 150)".
+- PRIMA di ogni acquisto/spesa, verifica nell'[ANALISI] che il giocatore abbia abbastanza soldi.
+- NON raddoppiare le somme: se il giocatore inizia con 100 e spende 30, ha 70. Non aggiungere o sottrarre nuovamente.
+- Se il capitale iniziale differisce da quello indicato in DATI GIOCO, calcola la differenza e usa subito [MECCANICA: soldi=±X] per allineare il saldo.
 - Quando il denaro è registrato in documenti o libri mastri, cita il supporto nella narrazione e, se appropriato, fornisci l'oggetto con [LOOT: Libro mastro|1|Contiene ...].
 - Ricorda che le valute possono essere espresse in euro, monete d'oro, fiorini o altre unità: usa sempre il tag meccanico per aggiornare il totale.
 
@@ -5730,6 +6299,33 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
   - [SCARTA_OGGETTO_PROPRIETA: Nome Proprietà|Oggetto|Quantità]
 - NON usare [LOOT_PROPRIETA] per contanti: usa sempre [MECCANICA: soldi=±X].
 
+👨‍👩‍👧 **FAMIGLIA**
+- Il protagonista può avere una famiglia (moglie/marito, figli, genitori, fratelli, ecc.).
+- Usa [FAMIGLIA: nome|relazione|età|stato|descrizione|occupazione|reddito|spese] per registrare membri.
+  - Relazioni: moglie, marito, figlio, figlia, padre, madre, fratello, sorella, nonno, nonna, zio, zia, cugino, cugina
+  - Stato: alive, dead, missing, estranged (vivo, morto, disperso, distante)
+  - Reddito: contributo economico mensile (se lavorano)
+  - Spese: costo di mantenimento mensile
+  - Esempio: [FAMIGLIA: Maria|moglie|28|alive|Donna dolce e premurosa|casalinga|0|30]
+  - Esempio: [FAMIGLIA: Giovanni|figlio|8|alive|Bambino vivace|studente|0|20]
+- I membri della famiglia influenzano la storia: bisogni, eventi, richieste.
+- Usa [MORTE_FAMILIARE: nome] se un membro muore.
+
+👷 **DIPENDENTI E PERSONALE**
+- Se il protagonista ha proprietà, può assumere dipendenti.
+- Usa [DIPENDENTE: nome|ruolo|proprietà|stipendio|competenza|morale|descrizione] per assumere.
+  - Ruoli: cameriere, cuoco, contadino, guardia, artigiano, commesso, maggiordomo, giardiniere, stalliere, ecc.
+  - Proprietà: nome della proprietà dove lavora
+  - Stipendio: paga periodica
+  - Competenza: 0-100 (quanto è bravo)
+  - Morale: 0-100 (quanto è motivato)
+  - Esempio: [DIPENDENTE: Carlo|cameriere|Taverna del Sole|25|60|75|Giovane sveglio ma inesperto]
+  - Esempio: [DIPENDENTE: Rosa|cuoca|Taverna del Sole|40|85|80|Esperta chef locale]
+- Dipendenti con alta competenza migliorano i guadagni della proprietà.
+- Dipendenti con basso morale lavorano male o se ne vanno.
+- Usa [LICENZIA: nome] per licenziare un dipendente.
+- Gli stipendi vengono scalati automaticamente dal bilancio.
+
 ⭐ **ESPERIENZA E PROGRESSIONE**
 - Assegna esperienza (EXP) al giocatore quando compie azioni significative:
   - Completamento di quest/obiettivi: +20 a +50 EXP
@@ -5742,6 +6338,33 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 - Usa il tag [MECCANICA: exp=+X] per assegnare esperienza.
 - NON assegnare EXP per azioni banali (camminare, parlare normalmente, acquisti semplici).
 - Il sistema gestisce automaticamente il level-up quando l'EXP raggiunge la soglia.
+
+📜 **CRONACA DEL MONDO (Sistema Eventi)**
+- Registra SEMPRE gli avvenimenti significativi per costruire la memoria narrativa.
+- Usa [EVENTO: descrizione breve ma significativa dell'accaduto] per ogni evento importante.
+- QUANDO usare [EVENTO:]:
+  - Combattimenti: [EVENTO: Sconfitto il brigante che minacciava la strada]
+  - Scoperte: [EVENTO: Trovato l'ingresso segreto della cripta]
+  - Incontri: [EVENTO: Alleanza stretta con il mercante Lorenzo]
+  - Scelte morali: [EVENTO: Risparmiata la vita al ladro pentito]
+  - Cambiamenti: [EVENTO: La taverna ha aperto le porte per la prima volta]
+  - Tragedie: [EVENTO: La tempesta ha danneggiato il raccolto]
+  - Successi: [EVENTO: Primo guadagno dalla vendita di birra]
+  - Fallimenti: [EVENTO: Negoziazione fallita con il barone]
+- OGNI risposta dovrebbe contenere almeno 1-3 tag [EVENTO:] per registrare cosa è successo.
+- Gli eventi formano la cronaca della storia e aiutano a ricordare il passato.
+- Sii specifico: "Combattuto contro lupi" è meglio di "Combattimento".
+
+📋 **QUEST E OBIETTIVI**
+- Usa [QUEST: nome|descrizione|stato|progresso] per gestire le missioni.
+  - Stato: active, completed, failed
+  - Esempio: [QUEST: La spada perduta|Trova la spada dell'antico re|active|Indizio: ultima vista nella foresta]
+- Aggiorna le quest quando ci sono progressi o si completano.
+
+📍 **LUOGHI E MAPPE**
+- Usa [LUOGO: nome|descrizione] per registrare luoghi visitati.
+- Descrivi i luoghi con dettagli sensoriali e atmosfera.
+- Esempio: [LUOGO: Foresta dei Sussurri|Bosco antico dove il vento sembra parlare]
 
 🌍 **MONDO VIVO (PNG AUTONOMI CON STATISTICHE)**
 - Ogni PNG ha personalità, obiettivi, routine, LIVELLO e STATISTICHE proprie.
@@ -5860,12 +6483,46 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             };
 
             const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+            
+            // Debug: log della risposta completa
+            console.log('API Response status:', res.status, res.statusText);
+            
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
+                console.error('API Error data:', errData);
                 throw new Error(errData.error?.message || `Errore API: ${res.status}`);
             }
             const data = await res.json();
-            return data.choices[0].message.content;
+            
+            // Debug: log della struttura della risposta
+            console.log('API Response data:', JSON.stringify(data).substring(0, 500));
+            
+            // Verifica che ci sia una risposta valida
+            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+                console.error('Invalid API response structure:', data);
+                throw new Error('Risposta API non valida. Riprova.');
+            }
+            
+            const message = data.choices[0].message;
+            // Alcuni modelli (come DeepSeek R1) mettono il contenuto in "reasoning" invece di "content"
+            let content = message.content || '';
+            
+            // Se content è vuoto ma c'è reasoning, usa quello
+            if (!content && message.reasoning) {
+                console.log('Using reasoning field instead of content');
+                content = message.reasoning;
+            }
+            
+            // Fallback: cerca in altri campi possibili
+            if (!content && message.text) {
+                content = message.text;
+            }
+            
+            console.log('AI Response received, length:', content.length);
+            if (content.length < 20) {
+                console.warn('AI Response very short:', content);
+            }
+            return content;
         }
 
         function parseAIResponse(response) {
@@ -5971,6 +6628,20 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 addLootToInventory(itemName, qty, { description, value, icon });
             }
 
+            // Extract USE/CONSUME from personal inventory
+            const useItemRe = /\[(?:USA|CONSUMA|UTILIZZA|DROP|SCARTA):\s*([^|\]]+)(?:\|(\d+))?\]/gi;
+            while ((m = useItemRe.exec(response)) !== null) {
+                const itemName = (m[1] || '').trim();
+                const qty = parseInt(m[2]) || 1;
+                const removal = removeFromInventory(itemName, qty);
+                if (removal.success) {
+                    const suffix = removal.remaining > 0 ? ` (restano ${removal.remaining})` : ' (esaurito)';
+                    addStoryEntry(`🔧 Usato: ${removal.itemName} x${removal.removed}${suffix}`, 'mechanic');
+                } else {
+                    addStoryEntry(`⚠️ Oggetto non trovato nell'inventario: ${itemName}`, 'system');
+                }
+            }
+
             // Extract NPC Stats (nuovo formato: nome|livello|for,des,cos,int,sag,car|minaccia)
             const npcStatsRe = /\[NPC_STATS:\s*([^|\]]+)\|([^|\]]+)\|([^|\]]+)\|([^|\]]+)\]/gi;
             while ((m = npcStatsRe.exec(response)) !== null) {
@@ -6061,6 +6732,53 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const baseValue = parseInt(m[6]) || undefined;
                 const income = parseInt(m[7]) || undefined;
                 addProperty(name, desc, notes, { type, condition, baseValue, income });
+            }
+
+            // Extract Family Members
+            // Formato: [FAMIGLIA: nome|relazione|età|stato|descrizione|occupazione|reddito|spese]
+            const familyRe = /\[FAMIGLIA:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = familyRe.exec(response)) !== null) {
+                const name = (m[1] || '').trim();
+                const relation = (m[2] || '').trim();
+                const age = parseInt(m[3]) || null;
+                const status = (m[4] || 'alive').trim();
+                const description = (m[5] || '').trim();
+                const occupation = (m[6] || '').trim();
+                const income = parseInt(m[7]) || 0;
+                const expenses = parseInt(m[8]) || 0;
+                if (name && relation) {
+                    addFamilyMember(name, relation, { age, status, description, occupation, income, expenses });
+                }
+            }
+
+            // Extract Employees
+            // Formato: [DIPENDENTE: nome|ruolo|proprietà|stipendio|competenza|morale|descrizione]
+            const employeeRe = /\[DIPENDENTE:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = employeeRe.exec(response)) !== null) {
+                const name = (m[1] || '').trim();
+                const role = (m[2] || '').trim();
+                const property = (m[3] || '').trim();
+                const salary = parseInt(m[4]) || 0;
+                const skill = parseInt(m[5]) || 50;
+                const morale = parseInt(m[6]) || 70;
+                const description = (m[7] || '').trim();
+                if (name && role) {
+                    addEmployee(name, role, property, salary, { skill, morale, description });
+                }
+            }
+
+            // Extract Employee removal
+            const fireEmployeeRe = /\[LICENZIA:\s*([^\]]+)\]/gi;
+            while ((m = fireEmployeeRe.exec(response)) !== null) {
+                const name = m[1].trim();
+                removeEmployee(name, 'fired');
+            }
+
+            // Extract Family member death/departure
+            const familyDeathRe = /\[MORTE_FAMILIARE:\s*([^\]]+)\]/gi;
+            while ((m = familyDeathRe.exec(response)) !== null) {
+                const name = m[1].trim();
+                removeFamilyMember(name, 'dead');
             }
 
             // Extract Abilities
@@ -6207,8 +6925,13 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
+                .replace(/\[FAMIGLIA:[^\]]*\]/gi, '')
+                .replace(/\[DIPENDENTE:[^\]]*\]/gi, '')
+                .replace(/\[LICENZIA:[^\]]*\]/gi, '')
+                .replace(/\[MORTE_FAMILIARE:[^\]]*\]/gi, '')
                 .replace(/\[EVENTO:[^\]]*\]/gi, '')
                 .replace(/\[SCELTA:[^\]]*\]/gi, '')
+                .replace(/\[(?:USA|CONSUMA|UTILIZZA|DROP|SCARTA):[^\]]*\]/gi, '')
                 .replace(/#{1,6}\s*/g, '')
                 .replace(/\*\*([^*]+)\*\*/g, '$1')
                 .replace(/\_\_([^_]+)\_\_/g, '$1')
@@ -6219,7 +6942,24 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .trim();
 
             if (!clean || clean.length < 10) {
-                clean = "Il narratore sembra confuso... Riprova con un'altra azione.";
+                console.warn('AI response too short or empty. Original:', response);
+                console.warn('Cleaned result:', clean);
+                // Se la risposta originale ha contenuto, ma è stata tutta pulita,
+                // potrebbe esserci un problema con i tag
+                if (response && response.length > 50) {
+                    // Prova a estrarre qualcosa di leggibile
+                    clean = response
+                        .replace(/\[[^\]]*\]/g, '') // Rimuovi tutti i tag
+                        .replace(/#{1,6}\s*/g, '')
+                        .replace(/\*\*([^*]+)\*\*/g, '$1')
+                        .replace(/\n{3,}/g, '\n\n')
+                        .trim();
+                    if (clean.length < 10) {
+                        clean = "Il narratore sta elaborando... Prova a ripetere l'azione.";
+                    }
+                } else {
+                    clean = "Il narratore sembra confuso... Riprova con un'altra azione.";
+                }
             }
 
             addStoryEntry(clean, 'narrator');
@@ -6260,10 +7000,13 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     const deltaGold = c.gold - prevGold;
                     const currSymbol = c.currency?.symbol || c.currency?.short || '💰';
                     
+                    // Log della transazione per tracciamento
+                    logTransaction(deltaGold, 'meccanica', c.gold);
+                    
                     if (c.gold < 0) {
-                        addStoryEntry(`🔴 DEBITO: ${currSymbol} ${deltaGold.toLocaleString('it-IT')} (Totale: ${c.gold.toLocaleString('it-IT')})`, 'mechanic');
+                        addStoryEntry(`🔴 DEBITO: ${currSymbol} ${deltaGold.toLocaleString('it-IT')} (Saldo: ${c.gold.toLocaleString('it-IT')})`, 'mechanic');
                     } else {
-                        addStoryEntry(`${currSymbol} ${deltaGold >= 0 ? '+' : ''}${deltaGold.toLocaleString('it-IT')}`, 'mechanic');
+                        addStoryEntry(`${currSymbol} ${deltaGold >= 0 ? '+' : ''}${deltaGold.toLocaleString('it-IT')} (Saldo: ${c.gold.toLocaleString('it-IT')})`, 'mechanic');
                     }
                     break;
                 case 'exp': case 'experience':
@@ -6288,19 +7031,33 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             const c = G.character;
             while (c.exp.cur >= c.exp.need) {
                 c.exp.cur -= c.exp.need;
-                c.level++;
+                c.level = (c.level || 1) + 1;
+                c.exp.lvl = c.level; // Sincronizza exp.lvl con level
                 c.exp.need = Math.floor(c.exp.need * 1.5);
+                
+                // Aumenta stats principali
                 c.health.max += 5;
                 c.health.cur = c.health.max;
+                c.stamina.max += 10;
+                c.stamina.cur = c.stamina.max;
+                
+                // Aumenta attributi base (ogni 2 livelli +1 a stat casuale)
+                if (c.stats && c.level % 2 === 0) {
+                    const statKeys = Object.keys(c.stats);
+                    const randomStat = statKeys[Math.floor(Math.random() * statKeys.length)];
+                    c.stats[randomStat] += 1;
+                    const statNames = { for: 'Forza', des: 'Destrezza', cos: 'Costituzione', int: 'Intelligenza', sag: 'Saggezza', car: 'Carisma' };
+                    addStoryEntry(`📈 +1 ${statNames[randomStat] || randomStat}!`, 'mechanic');
+                }
+                
                 if (c.secondary) {
                     const bonus = c.secondary.levelUpBonus || 0;
                     if (bonus) c.secondary.max += bonus;
                     c.secondary.cur = c.secondary.max;
                 }
-                c.stamina.max += 10;
-                c.stamina.cur = c.stamina.max;
+                
                 notify(`🎉 Livello ${c.level}!`, 'success');
-                addStoryEntry(`🎉 LIVELLO ${c.level}! Stats aumentate!`, 'mechanic');
+                addStoryEntry(`🎉 LIVELLO ${c.level}! HP max +5, Stamina max +10. Bonus competenza: +${getProficiencyBonus()}`, 'mechanic');
                 addEvent(`Il protagonista è salito al livello ${c.level}!`);
             }
         }
@@ -6494,7 +7251,42 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 summary += '\n\n';
             }
             
-            // 8. ULTIMI AVVENIMENTI (cronologia recente)
+            // 8. FAMIGLIA
+            if (wm.family && wm.family.length > 0) {
+                summary += '👨‍👩‍👧 FAMIGLIA:\n';
+                wm.family.forEach(f => {
+                    let desc = `• ${f.name} (${f.role})`;
+                    if (f.age) desc += `, ${f.age} anni`;
+                    if (f.status && f.status !== 'active') desc += ` [${f.status}]`;
+                    if (f.description) desc += `: ${f.description}`;
+                    summary += desc + '\n';
+                });
+                summary += '\n';
+            }
+            
+            // 9. DIPENDENTI
+            if (wm.employees && wm.employees.length > 0) {
+                summary += '👷 DIPENDENTI:\n';
+                const byProperty = {};
+                wm.employees.forEach(e => {
+                    const prop = e.property || 'Generici';
+                    if (!byProperty[prop]) byProperty[prop] = [];
+                    byProperty[prop].push(e);
+                });
+                Object.entries(byProperty).forEach(([prop, emps]) => {
+                    summary += `• ${prop}:\n`;
+                    emps.forEach(e => {
+                        let desc = `  - ${e.name} (${e.role})`;
+                        if (e.competence) desc += `, competenza ${e.competence}%`;
+                        if (e.salary) desc += `, stipendio ${e.salary}💰`;
+                        if (e.status && e.status !== 'active') desc += ` [${e.status}]`;
+                        summary += desc + '\n';
+                    });
+                });
+                summary += '\n';
+            }
+            
+            // 10. ULTIMI AVVENIMENTI (cronologia recente)
             summary += '⏳ ULTIMI AVVENIMENTI:\n';
             const last5Events = recentEvents.slice(-5);
             last5Events.forEach((e, i) => {
@@ -6592,9 +7384,11 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             $('btn-inventory').onclick = () => { updateCharacterUI(); openModal('modal-inventory'); };
             $('btn-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
             $('btn-memory').onclick = () => { updateMemoryUI(); openModal('modal-memory'); };
-            $('btn-wait').onclick = () => { updateTimeDisplay(); openModal('modal-wait'); };
-            $('btn-rest').onclick = doRest;
-            $('btn-eat').onclick = doEat;
+            
+            // Info panels click handlers
+            if ($('panel-finances')) $('panel-finances').onclick = showFinancesDetail;
+            if ($('panel-family')) $('panel-family').onclick = showFamilyDetail;
+            if ($('panel-employees')) $('panel-employees').onclick = showEmployeesDetail;
 
             // WAIT MODAL HANDLERS
             $$('.wait-btn').forEach(btn => {
