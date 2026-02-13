@@ -2222,6 +2222,7 @@
                         <option value="groq">Groq (Llama 3.1 - Veloce)</option>
                         <option value="openrouter">OpenRouter (Gemma 3 27B it Free)</option>
                         <option value="deepseek">OpenRouter (mimo-v2-flash:free)</option>
+                        <option value="openrouter-free">OpenRouter (openrouter/free)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -2243,6 +2244,7 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/@openrouter/sdk"></script>
     <script>
         // ==================== GAME STATE ====================
         const G = {
@@ -6451,7 +6453,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if (s.model === 'openrouter' && s.openrouterKey) {
                 endpoint = 'https://openrouter.ai/api/v1/chat/completions';
                 model = 'google/gemma-3-27b-it:free'; // Tier gratuito consigliato
-                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.openrouterKey}` };
+                headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.openrouterKey}` };
             } else if (s.model === 'deepseek') {
                 const chimeraKey = s.kimeraKey || s.openrouterKey;
                 if (!chimeraKey) {
@@ -6459,11 +6461,48 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 }
                 endpoint = 'https://openrouter.ai/api/v1/chat/completions';
                 model = 'tngtech/deepseek-r1t2-chimera:free';
-                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${chimeraKey}` };
+                headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${chimeraKey}` };
+            } else if (s.model === 'openrouter-free' && s.openrouterKey) {
+                // Usa la SDK OpenRouter per il modello openrouter/free
+                if (typeof OpenRouter !== 'undefined') {
+                    const { OpenRouter: OR } = window;
+                    const openrouter = new OR.default({ apiKey: s.openrouterKey });
+                    
+                    const stream = await openrouter.chat.completions.create({
+                        model: 'openrouter/free',
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            ...recentHistory,
+                            { role: 'user', content: userMsg }
+                        ],
+                        stream: true,
+                        temperature: 0.7,
+                        max_tokens: 1500
+                    });
+                    
+                    let fullContent = '';
+                    for await (const chunk of stream) {
+                        const content = chunk.choices[0]?.delta?.content;
+                        if (content) {
+                            fullContent += content;
+                        }
+                        if (chunk.usage) {
+                            console.log('OpenRouter - Reasoning tokens:', chunk.usage.reasoning_tokens || 0);
+                        }
+                    }
+                    
+                    console.log('OpenRouter response received via SDK');
+                    return fullContent || '⚠️ Nessuna risposta ricevuta.';
+                } else {
+                    // Fallback: usa fetch diretto se SDK non disponibile
+                    endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+                    model = 'openrouter/free';
+                    headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.openrouterKey}` };
+                }
             } else if (s.groqKey) {
                 endpoint = 'https://api.groq.com/openai/v1/chat/completions';
                 model = 'llama-3.1-8b-instant'; // Consiglio il 70b per logica migliore, o 8b per velocità
-                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.groqKey}` };
+                headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.groqKey}` };
             } else {
                 throw new Error('Configura le API keys nelle Impostazioni!');
             }
