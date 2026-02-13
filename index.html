@@ -643,6 +643,61 @@
             color: white;
         }
 
+        /* Action Buttons Bar */
+        .action-bar {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            padding-bottom: 2px;
+        }
+        .action-bar::-webkit-scrollbar { display: none; }
+
+        .action-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 14px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.8em;
+            background: linear-gradient(180deg, #fff, #f0ead6);
+            border: 2px solid var(--gold-dark);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
+            color: var(--ink);
+            font-weight: 600;
+        }
+        .action-btn:active {
+            transform: scale(0.95);
+            background: var(--gold);
+            color: white;
+        }
+        .action-btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .action-btn .action-cost {
+            font-size: 0.75em;
+            opacity: 0.7;
+            font-weight: 400;
+        }
+        .action-btn.rest { border-color: #1565c0; }
+        .action-btn.rest:active { background: #1565c0; }
+        .action-btn.eat { border-color: #f57c00; }
+        .action-btn.eat:active { background: #f57c00; }
+        .action-btn.heal { border-color: #c62828; }
+        .action-btn.heal:active { background: #c62828; }
+        .action-btn.wait { border-color: #7b1fa2; }
+        .action-btn.wait:active { background: #7b1fa2; }
+        .action-btn.train { border-color: #2e7d32; }
+        .action-btn.train:active { background: #2e7d32; }
+
         .input-row {
             display: flex;
             gap: 10px;
@@ -1697,76 +1752,237 @@
             font-size: 1.1em;
         }
 
-        /* Mobile Responsive */
+        /* ==================== MOBILE RESPONSIVE ==================== */
         @media (max-width: 900px) {
-            .game-topbar { padding: 10px 8px; }
-            .topbar-row { flex-direction: column; align-items: stretch; gap: 6px; }
-            .topbar-buttons { width: 100%; justify-content: space-between; }
-            .time-display { width: 100%; justify-content: space-between; }
-            .mini-stats { width: 100%; justify-content: space-between; }
-            .mini-bar { flex: 1; min-width: 0; height: 14px; }
-            .mini-bar + .mini-bar { margin-left: 6px; }
-            .mini-bar::before { left: 8px; transform: none; }
-            .mini-bar::after { right: 8px; }
+            .game-topbar {
+                padding: 6px 6px;
+                gap: 4px;
+            }
+            .topbar-row {
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+            .topbar-buttons {
+                gap: 3px;
+            }
+            .topbar-btn {
+                padding: 6px 10px;
+                font-size: 1em;
+                min-width: 34px;
+                border-radius: 10px;
+            }
+            .time-display {
+                padding: 4px 10px;
+                gap: 6px;
+                flex: 1;
+                min-width: 0;
+            }
+            .time-icon { font-size: 1.1em; }
+            .time-main { font-size: 0.85em; }
+            .time-sub { font-size: 0.68em; }
+            .time-location { font-size: 0.65em; }
+            .mini-stats {
+                width: 100%;
+                justify-content: space-between;
+                gap: 6px;
+            }
+            .mini-bar {
+                flex: 1;
+                min-width: 0;
+                height: 14px;
+            }
+            .mini-bar::before { left: 6px; transform: none; font-size: 0.62em; }
+            .mini-bar::after { font-size: 0.62em; right: 4px; }
+            .topbar-info-panels {
+                width: 100%;
+                gap: 4px;
+            }
+            .info-panel {
+                padding: 4px 8px;
+                min-width: 0;
+                flex: 1;
+            }
+            .info-label { font-size: 0.6em; }
+            .info-value { font-size: 0.7em; }
+            .info-icon { font-size: 0.9em; }
             .story-container { overflow: visible; }
-            .story-scroll { padding: 12px 12px 120px; }
-            .story-entry { padding: 12px 14px 10px; font-size: 1.02em; line-height: 1.7; }
-            .story-entry-head { align-items: flex-start; }
+            .story-scroll {
+                padding: 10px 10px 100px;
+                -webkit-overflow-scrolling: touch;
+            }
+            .story-entry {
+                padding: 10px 12px 8px;
+                font-size: 0.98em;
+                line-height: 1.65;
+            }
             .input-area {
-                padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+                padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
                 position: sticky;
                 bottom: 0;
                 left: 0;
                 right: 0;
-                background: linear-gradient(180deg, rgba(212, 196, 160, 0.96), rgba(196, 180, 144, 0.92));
+                background: linear-gradient(180deg, rgba(212,196,160,0.97), rgba(196,180,144,0.95));
                 border-top-width: 1px;
-                backdrop-filter: blur(6px);
-                box-shadow: 0 -12px 24px rgba(0,0,0,0.22);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                box-shadow: 0 -8px 20px rgba(0,0,0,0.2);
+            }
+            .action-bar {
+                gap: 5px;
+                margin-bottom: 6px;
+            }
+            .action-btn {
+                padding: 7px 11px;
+                font-size: 0.75em;
             }
             .quick-actions {
-                gap: 8px;
+                gap: 5px;
                 flex-wrap: nowrap;
                 overflow-x: auto;
-                padding-bottom: 6px;
-                margin-bottom: 10px;
+                padding-bottom: 4px;
+                margin-bottom: 6px;
                 scrollbar-width: none;
                 -ms-overflow-style: none;
             }
             .quick-actions::-webkit-scrollbar { display: none; }
+            .quick-btn {
+                padding: 5px 10px;
+                font-size: 0.78em;
+            }
             .input-row {
-                gap: 8px;
+                gap: 6px;
                 align-items: center;
                 background: rgba(255,255,255,0.94);
-                padding: 10px;
-                border-radius: 16px;
+                padding: 6px 8px;
+                border-radius: 14px;
                 border: 1px solid rgba(0,0,0,0.08);
-                box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             }
-            .input-row input { font-size: 1.05em; padding: 12px; }
-            .input-row button { min-width: 90px; }
+            .input-row input {
+                font-size: 1em;
+                padding: 10px 12px;
+                border-radius: 20px;
+            }
+            .input-row button {
+                min-width: 50px;
+                padding: 10px 16px;
+                font-size: 0.9em;
+            }
+            .suggestions-area { padding: 8px 10px; }
+            .suggestion-btn { padding: 6px 10px; font-size: 0.85em; }
         }
 
         @media (max-width: 600px) {
-            body { font-size: 15px; }
+            body { font-size: 14px; }
             .home-container { padding: 0 10px; }
-            .home-title { font-size: 2em; }
-            .home-btn { padding: 14px 20px; font-size: 1em; }
-            .time-display { flex-wrap: wrap; gap: 6px; }
-            .mini-stats { flex-direction: column; gap: 12px; }
-            .mini-bar { height: 16px; }
-            .mini-bar::before { top: -16px; font-size: 0.65em; }
-            .mini-bar::after { font-size: 0.7em; }
-            .mini-bar + .mini-bar { margin-left: 0; }
-            .story-scroll { padding: 10px 10px 130px; }
-            .quick-actions { gap: 6px; }
-            .input-row { flex-direction: column; gap: 8px; padding: 12px; }
-            .input-row button { width: 100%; min-height: 48px; }
-            .story-entry-head { flex-direction: column; align-items: flex-start; gap: 4px; }
-            .story-time { font-size: 0.78em; }
-            .modal { max-height: 90vh; }
+            .home-title { font-size: 1.8em; }
+            .home-subtitle { font-size: 0.85em; }
+            .home-btn { padding: 12px 18px; font-size: 0.95em; }
+            .game-topbar { padding: 4px 4px; gap: 3px; }
+            .topbar-btn {
+                padding: 5px 8px;
+                font-size: 0.9em;
+                min-width: 30px;
+                border-radius: 8px;
+            }
+            .time-display {
+                padding: 3px 8px;
+                border-radius: 12px;
+            }
+            .time-block { gap: 0; }
+            .time-main { font-size: 0.8em; }
+            .time-sub { font-size: 0.6em; }
+            .time-location { font-size: 0.58em; }
+            .mini-bar {
+                height: 12px;
+            }
+            .mini-bar::before { display: none; }
+            .mini-bar::after { font-size: 0.58em; }
+            .topbar-info-panels { display: none; }
+            .story-scroll { padding: 8px 8px 110px; }
+            .story-entry {
+                padding: 8px 10px 6px;
+                font-size: 0.93em;
+                line-height: 1.6;
+                border-radius: 8px;
+            }
+            .story-entry-head {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 2px;
+            }
+            .story-time { font-size: 0.72em; }
+            .action-bar {
+                gap: 4px;
+                margin-bottom: 5px;
+            }
+            .action-btn {
+                padding: 6px 10px;
+                font-size: 0.72em;
+                border-width: 1.5px;
+                border-radius: 16px;
+            }
+            .action-btn .action-cost { display: none; }
+            .quick-actions { gap: 4px; margin-bottom: 5px; }
+            .quick-btn {
+                padding: 4px 8px;
+                font-size: 0.72em;
+                border-radius: 12px;
+            }
+            .input-area {
+                padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+            }
+            .input-row {
+                padding: 5px 6px;
+                gap: 5px;
+                border-radius: 12px;
+            }
+            .input-row input {
+                padding: 9px 10px;
+                font-size: 0.95em;
+                border-radius: 16px;
+            }
+            .input-row button {
+                min-width: 44px;
+                padding: 9px 14px;
+                font-size: 0.85em;
+                border-radius: 16px;
+            }
+            .modal {
+                max-height: 92vh;
+                border-radius: 12px;
+                border-width: 2px;
+            }
+            .modal-header { padding: 12px 15px; font-size: 1em; }
+            .modal-body { padding: 12px 15px; }
             .inv-container { flex-direction: column; }
-            .inv-left-col { border-right: none; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 15px; }
-            .inv-grid { grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); }
+            .inv-left-col {
+                border-right: none;
+                border-bottom: 1px solid rgba(0,0,0,0.1);
+                padding-bottom: 12px;
+            }
+            .inv-grid {
+                grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+                gap: 4px;
+            }
+            .inv-slot { width: 52px; height: 52px; font-size: 1.3em; }
+            .equip-slots { flex-direction: column; }
+            .equip-slot { padding: 8px 10px; }
+            .status-effects { gap: 4px; }
+            .status-effect { padding: 2px 6px; font-size: 0.68em; }
+        }
+
+        @media (max-width: 380px) {
+            .game-topbar { padding: 3px 3px; gap: 2px; }
+            .topbar-btn { padding: 4px 6px; font-size: 0.85em; min-width: 28px; }
+            .time-display { padding: 2px 6px; }
+            .time-main { font-size: 0.75em; }
+            .mini-bar { height: 10px; }
+            .action-btn { padding: 5px 8px; font-size: 0.68em; }
+            .quick-btn { padding: 3px 6px; font-size: 0.68em; }
+            .input-row input { padding: 8px; font-size: 0.9em; }
+            .input-row button { padding: 8px 12px; min-width: 40px; }
+            .story-entry { font-size: 0.88em; padding: 6px 8px 5px; }
         }
 
         /* ==================== EQUIPMENT SYSTEM ==================== */
@@ -2188,6 +2404,13 @@
             </div>
 
             <div class="input-area">
+                <div class="action-bar" id="action-bar">
+                    <button class="action-btn rest" id="btn-rest" title="Riposa 8 ore">😴 Riposa</button>
+                    <button class="action-btn eat" id="btn-eat" title="Mangia">🍖 Mangia</button>
+                    <button class="action-btn heal" id="btn-heal" title="Curati">❤️‍🩹 Cura</button>
+                    <button class="action-btn wait" id="btn-wait" title="Aspetta">⏰ Aspetta</button>
+                    <button class="action-btn train" id="btn-train" title="Allenati">💪 Allenati</button>
+                </div>
                 <div class="quick-actions" id="quick-actions"></div>
                 <div class="input-row">
                     <input type="text" id="action-input" placeholder="Cosa fai?" autocomplete="off">
@@ -3817,59 +4040,201 @@
 
         function doRest() {
             if (!G.character) return;
+            if (G.isProcessing) { notify('Attendi...', 'error'); return; }
+            const c = G.character;
             
+            // Riposo completo: 8 ore
             advanceTime(480);
-            G.character.stamina.cur = G.character.stamina.max;
-            G.character.health.cur = Math.min(G.character.health.max, G.character.health.cur + 20);
-            G.character.hunger.cur = Math.max(0, G.character.hunger.cur - 20);
+            const oldStam = c.stamina.cur;
+            const oldHp = c.health.cur;
+            c.stamina.cur = c.stamina.max;
+            c.hunger.cur = Math.max(0, c.hunger.cur - 25);
             
-            addStoryEntry(`😴 Hai riposato per 8 ore. Energia ripristinata! Ora sono le ${getTimeString()}.`, 'system');
+            // Guarigione in base alla fame: se ben nutrito guarisci di più
+            let hpRegen = 15;
+            if (c.hunger.cur > 60) hpRegen = 30;
+            else if (c.hunger.cur > 30) hpRegen = 20;
+            else if (c.hunger.cur <= 10) hpRegen = 5;
+            c.health.cur = Math.min(c.health.max, c.health.cur + hpRegen);
+            
+            // Ricarica parziale risorsa secondaria
+            if (c.secondary && c.secondary.max > 0) {
+                const secRegen = Math.ceil(c.secondary.max * 0.3);
+                c.secondary.cur = Math.min(c.secondary.max, c.secondary.cur + secRegen);
+            }
+            
+            const stamGain = c.stamina.cur - oldStam;
+            const hpGain = c.health.cur - oldHp;
+            let msg = `😴 Hai riposato per 8 ore.`;
+            if (stamGain > 0) msg += ` ⚡+${stamGain} Energia.`;
+            if (hpGain > 0) msg += ` ❤️+${hpGain} HP.`;
+            msg += ` 🍖-25 Sazietà. Ora sono le ${getTimeString()}.`;
+            addStoryEntry(msg, 'mechanic');
             updateCharacterUI();
             
-            generateAI(`Il protagonista ha dormito per 8 ore. Ora è ${getFullTimeString()}. Descrivi brevemente come si sveglia e cosa trova.`);
+            generateAI(`Il protagonista ha dormito per 8 ore. Ora è ${getFullTimeString()}. Si sveglia con ${c.health.cur}/${c.health.max} HP e stamina piena. Descrivi brevemente come si sveglia e cosa trova. Usa [POSIZIONE:] per la posizione.`);
         }
 
         function doEat() {
             if (!G.character) return;
+            if (G.isProcessing) { notify('Attendi...', 'error'); return; }
+            const c = G.character;
+            const catalog = getItemCatalog({ genre: c.genre, story: G.currentStory });
+            const currencyLabel = c.currency?.short || 'soldi';
             
-            const catalog = getItemCatalog({ genre: G.character.genre, story: G.currentStory });
-            const currencyLabel = G.character.currency?.short || 'soldi';
-            const foodIdx = G.character.inventory.findIndex(i => {
-                if (!i) return false;
-                const data = catalog[i.id];
-                return data?.effect?.hunger || data?.effect?.stamina;
+            // Cerca cibo nell'inventario (priorità: effetto fame più grande)
+            let bestFoodIdx = -1;
+            let bestHunger = 0;
+            c.inventory.forEach((item, idx) => {
+                if (!item) return;
+                const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
+                const data = catalog[normalizedId] || catalog[item.id] || {};
+                const hungerVal = data?.effect?.hunger || 0;
+                const isFood = hungerVal > 0 || (item.name && /cibo|pane|frutto|mela|carne|pesce|formaggio|pasto|razione/i.test(item.name));
+                if (isFood && hungerVal >= bestHunger) {
+                    bestFoodIdx = idx;
+                    bestHunger = hungerVal || 30;
+                }
             });
             
-            if (foodIdx === -1) {
-                if (G.character.gold >= 5) {
-                    G.character.gold -= 5;
-                    G.character.hunger.cur = Math.min(G.character.hunger.max, G.character.hunger.cur + 50);
-                    addStoryEntry(`🍖 Compri e mangi un pasto. (-5 ${currencyLabel}, +50 sazietà)`, 'mechanic');
-                    advanceTime(30);
-                    updateCharacterUI();
-                    generateAI(`Il protagonista ha comprato e mangiato un pasto. Descrivi brevemente la scena.`);
-                } else {
-                    notify('Non hai cibo né soldi per comprarlo!', 'error');
-                }
-            } else {
-                const item = G.character.inventory[foodIdx];
+            if (bestFoodIdx !== -1) {
+                const item = c.inventory[bestFoodIdx];
                 const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
-                const data = catalog[normalizedId] || catalog[item.id];
+                const data = catalog[normalizedId] || catalog[item.id] || {};
+                const hungerGain = data?.effect?.hunger || 30;
+                const staminaGain = data?.effect?.stamina || 5;
                 
-                if (data?.effect?.hunger) {
-                    G.character.hunger.cur = Math.min(G.character.hunger.max, G.character.hunger.cur + data.effect.hunger);
-                }
-                if (data?.effect?.stamina) {
-                    G.character.stamina.cur = Math.min(G.character.stamina.max, G.character.stamina.cur + data.effect.stamina);
-                }
+                c.hunger.cur = Math.min(c.hunger.max, c.hunger.cur + hungerGain);
+                c.stamina.cur = Math.min(c.stamina.max, c.stamina.cur + staminaGain);
                 
                 item.count--;
-                if (item.count <= 0) G.character.inventory.splice(foodIdx, 1);
+                if (item.count <= 0) c.inventory.splice(bestFoodIdx, 1);
                 
-                addStoryEntry(`🍖 Mangi ${data?.name || 'cibo'}. (+${data?.effect?.hunger || 0} sazietà)`, 'mechanic');
+                addStoryEntry(`🍖 Mangi ${item.name || data?.name || 'cibo'}. (+${hungerGain} sazietà, +${staminaGain} energia)`, 'mechanic');
                 advanceTime(15);
                 updateCharacterUI();
+            } else if (c.gold >= 5) {
+                // Compra un pasto
+                c.gold -= 5;
+                c.hunger.cur = Math.min(c.hunger.max, c.hunger.cur + 50);
+                c.stamina.cur = Math.min(c.stamina.max, c.stamina.cur + 10);
+                addStoryEntry(`🍖 Compri e mangi un pasto. (-5 ${currencyLabel}, +50 sazietà, +10 energia)`, 'mechanic');
+                advanceTime(30);
+                updateCharacterUI();
+                generateAI(`Il protagonista ha comprato e mangiato un pasto. Descrivi brevemente la scena.`);
+            } else {
+                // Cerca frutti/bacche (azione gratuita ma minore)
+                if (Math.random() < 0.6) {
+                    c.hunger.cur = Math.min(c.hunger.max, c.hunger.cur + 15);
+                    addStoryEntry(`🫐 Trovi qualcosa da mangiare nei dintorni. (+15 sazietà)`, 'mechanic');
+                    advanceTime(20);
+                    updateCharacterUI();
+                } else {
+                    notify('Non hai cibo, soldi, e non trovi nulla da mangiare qui!', 'error');
+                }
             }
+        }
+
+        function doCure() {
+            if (!G.character) return;
+            if (G.isProcessing) { notify('Attendi...', 'error'); return; }
+            const c = G.character;
+            const catalog = getItemCatalog({ genre: c.genre, story: G.currentStory });
+            const currencyLabel = c.currency?.short || 'soldi';
+            
+            if (c.health.cur >= c.health.max) {
+                notify('Sei già in piena salute!', 'info');
+                return;
+            }
+            
+            // Cerca medicine/pozioni nell'inventario
+            let healIdx = -1;
+            let healAmount = 0;
+            c.inventory.forEach((item, idx) => {
+                if (!item) return;
+                const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
+                const data = catalog[normalizedId] || catalog[item.id] || {};
+                const hpVal = data?.effect?.health || data?.effect?.hp || 0;
+                const isHeal = hpVal > 0 || (item.name && /pozion|benda|cura|medic|erba|unguento|elisir|antidoto/i.test(item.name));
+                if (isHeal && hpVal >= healAmount) {
+                    healIdx = idx;
+                    healAmount = hpVal || 25;
+                }
+            });
+            
+            if (healIdx !== -1) {
+                const item = c.inventory[healIdx];
+                c.health.cur = Math.min(c.health.max, c.health.cur + healAmount);
+                item.count--;
+                if (item.count <= 0) c.inventory.splice(healIdx, 1);
+                addStoryEntry(`❤️‍🩹 Usi ${item.name || 'medicina'}. (+${healAmount} HP)`, 'mechanic');
+                advanceTime(5);
+                updateCharacterUI();
+            } else if (c.gold >= 15) {
+                // Paga per cure
+                const heal = Math.min(c.health.max - c.health.cur, 40);
+                c.gold -= 15;
+                c.health.cur = Math.min(c.health.max, c.health.cur + heal);
+                addStoryEntry(`❤️‍🩹 Paghi per delle cure. (-15 ${currencyLabel}, +${heal} HP)`, 'mechanic');
+                advanceTime(30);
+                updateCharacterUI();
+                generateAI(`Il protagonista si è fatto curare. Descrivi brevemente la scena della cura.`);
+            } else {
+                // Auto-cura base (bendaggi improvvisati)
+                if (c.stamina.cur >= 20) {
+                    const heal = Math.min(c.health.max - c.health.cur, 10);
+                    c.stamina.cur -= 15;
+                    c.health.cur = Math.min(c.health.max, c.health.cur + heal);
+                    addStoryEntry(`🩹 Ti fasci le ferite con quello che hai. (-15 energia, +${heal} HP)`, 'mechanic');
+                    advanceTime(15);
+                    updateCharacterUI();
+                } else {
+                    notify('Non hai medicine, soldi, né energia per auto-curarti!', 'error');
+                }
+            }
+        }
+
+        function doTrain() {
+            if (!G.character) return;
+            if (G.isProcessing) { notify('Attendi...', 'error'); return; }
+            const c = G.character;
+            
+            if (c.stamina.cur < 30) {
+                notify('Troppo stanco per allenarti! Riposa prima.', 'error');
+                return;
+            }
+            if (c.hunger.cur < 20) {
+                notify('Troppo affamato per allenarti! Mangia prima.', 'error');
+                return;
+            }
+            
+            c.stamina.cur -= 25;
+            c.hunger.cur = Math.max(0, c.hunger.cur - 15);
+            
+            // Guadagna EXP dall'allenamento
+            const expGain = 5 + Math.floor(Math.random() * 8);
+            c.exp.cur += expGain;
+            
+            addStoryEntry(`💪 Ti alleni duramente. (-25 energia, -15 sazietà, +${expGain} EXP)`, 'mechanic');
+            advanceTime(90);
+            checkLevelUp();
+            updateCharacterUI();
+            
+            generateAI(`Il protagonista si è allenato per circa 1.5 ore. Ha guadagnato esperienza. Descrivi brevemente la sessione di allenamento in base al genere e all'archetipo.`);
+        }
+
+        function updateActionBar() {
+            if (!G.character) return;
+            const c = G.character;
+            const restBtn = $('btn-rest');
+            const eatBtn = $('btn-eat');
+            const healBtn = $('btn-heal');
+            const trainBtn = $('btn-train');
+            
+            if (restBtn) restBtn.disabled = G.isProcessing;
+            if (eatBtn) eatBtn.disabled = G.isProcessing;
+            if (healBtn) healBtn.disabled = G.isProcessing || c.health.cur >= c.health.max;
+            if (trainBtn) trainBtn.disabled = G.isProcessing || c.stamina.cur < 30 || c.hunger.cur < 20;
         }
 
         // ==================== QUICK ACTIONS ====================
