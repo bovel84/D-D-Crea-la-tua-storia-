@@ -1768,6 +1768,328 @@
             .inv-left-col { border-right: none; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 15px; }
             .inv-grid { grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); }
         }
+
+        /* ==================== EQUIPMENT SYSTEM ==================== */
+        .equipment-section {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: linear-gradient(135deg, rgba(201,162,39,0.08), rgba(201,162,39,0.03));
+            border-radius: 10px;
+            border: 1px solid rgba(201,162,39,0.2);
+        }
+        .equipment-section h4 {
+            margin-bottom: 10px;
+            font-family: 'Cinzel', serif;
+            color: var(--gold-dark);
+        }
+        .equip-slots {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .equip-slot {
+            background: rgba(255,255,255,0.8);
+            border: 2px dashed rgba(0,0,0,0.15);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            min-height: 90px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.2s;
+            cursor: default;
+        }
+        .equip-slot.filled {
+            border-style: solid;
+            border-color: var(--gold);
+            background: rgba(201,162,39,0.1);
+            cursor: pointer;
+        }
+        .equip-slot.filled:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(201,162,39,0.3);
+        }
+        .equip-slot-icon { font-size: 1.8em; }
+        .equip-slot-label {
+            font-family: 'Cinzel', serif;
+            font-size: 0.7em;
+            text-transform: uppercase;
+            color: var(--ink-light);
+            letter-spacing: 0.5px;
+        }
+        .equip-slot-name {
+            font-size: 0.8em;
+            font-weight: 600;
+            color: var(--ink);
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .equip-slot-bonus {
+            font-size: 0.7em;
+            color: var(--emerald);
+        }
+        .equip-badge {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 0.35em;
+            background: var(--gold);
+            color: #fff;
+            padding: 1px 4px;
+            border-radius: 6px;
+            font-weight: 700;
+        }
+
+        /* ==================== LEVEL UP MODAL ==================== */
+        .levelup-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 400;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .levelup-overlay.active { display: flex; }
+        .levelup-content {
+            background: linear-gradient(135deg, var(--parchment), #e8d8b8);
+            border: 3px solid var(--gold);
+            border-radius: 15px;
+            max-width: 450px;
+            width: 100%;
+            padding: 25px;
+            text-align: center;
+            animation: levelupPop 0.5s ease;
+            box-shadow: 0 0 60px rgba(201,162,39,0.4);
+        }
+        @keyframes levelupPop {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .levelup-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2em;
+            color: var(--gold-dark);
+            margin-bottom: 5px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+        }
+        .levelup-subtitle {
+            color: var(--ink-light);
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+        .levelup-points {
+            font-family: 'Cinzel', serif;
+            font-size: 1.1em;
+            color: var(--gold-dark);
+            margin-bottom: 15px;
+        }
+        .levelup-attrs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .levelup-attr {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.6);
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .levelup-attr.boosted {
+            border-color: var(--gold);
+            background: rgba(201,162,39,0.15);
+        }
+        .levelup-attr-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .levelup-attr-name {
+            font-family: 'Cinzel', serif;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        .levelup-attr-val {
+            font-size: 0.8em;
+            color: var(--ink-light);
+        }
+        .levelup-attr button {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid var(--gold-dark);
+            background: white;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .levelup-attr button:hover:not(:disabled) {
+            background: var(--gold);
+            color: white;
+        }
+        .levelup-attr button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* ==================== JOURNAL / DIARIO ==================== */
+        .journal-entries {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+        .journal-entry {
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.7);
+            border-left: 3px solid var(--gold-dark);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            position: relative;
+        }
+        .journal-entry-meta {
+            font-size: 0.75em;
+            color: var(--ink-light);
+            margin-bottom: 4px;
+        }
+        .journal-entry-text {
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        .journal-entry-delete {
+            position: absolute;
+            top: 5px;
+            right: 8px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.8em;
+            color: var(--ink-light);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .journal-entry:hover .journal-entry-delete { opacity: 1; }
+        .journal-input-area {
+            display: flex;
+            gap: 8px;
+        }
+        .journal-input-area textarea {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid var(--ink-light);
+            border-radius: 8px;
+            font-family: 'Crimson Text', serif;
+            font-size: 0.95em;
+            resize: none;
+            min-height: 60px;
+        }
+        .journal-input-area textarea:focus {
+            outline: none;
+            border-color: var(--gold);
+        }
+
+        /* ==================== LOCATION INDICATOR ==================== */
+        .time-location {
+            font-size: 0.7em;
+            color: var(--gold);
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* ==================== GAME OVER OVERLAY ==================== */
+        .gameover-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .gameover-overlay.active { display: flex; }
+        .gameover-content {
+            text-align: center;
+            max-width: 400px;
+            animation: fadeIn 1s ease;
+        }
+        .gameover-skull {
+            font-size: 5em;
+            animation: float 3s ease-in-out infinite;
+        }
+        .gameover-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2.5em;
+            color: var(--blood);
+            text-shadow: 0 0 30px rgba(139,0,0,0.5);
+            margin: 15px 0 10px;
+        }
+        .gameover-text {
+            color: var(--parchment-dark);
+            font-size: 1.1em;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .gameover-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ==================== STATUS EFFECTS ==================== */
+        .status-effects {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .status-effect {
+            font-size: 0.75em;
+            padding: 2px 6px;
+            border-radius: 10px;
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+        .status-effect.danger {
+            background: rgba(139,0,0,0.2);
+            color: #ff4444;
+        }
+        .status-effect.warning {
+            background: rgba(255,140,0,0.2);
+            color: #ff8c00;
+        }
+        @keyframes statusPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* ==================== STAT FLASH ANIMATION ==================== */
+        .stat-flash {
+            animation: statFlash 0.6s ease;
+        }
+        @keyframes statFlash {
+            0% { filter: brightness(1); }
+            30% { filter: brightness(1.5); }
+            100% { filter: brightness(1); }
+        }
     </style>
 </head>
 <body>
@@ -1776,7 +2098,7 @@
         <div class="home-container">
             <div class="home-logo">🐉</div>
             <h1 class="home-title">Cronache del Destino</h1>
-            <p class="home-subtitle">Un'avventura narrata dall'IA • v4.0</p>
+            <p class="home-subtitle">Un'avventura narrata dall'IA • v7.0</p>
 
             <div class="home-menu">
                 <button class="home-btn primary" id="btn-continue" disabled>▶️ Continua</button>
@@ -1807,6 +2129,7 @@
                     <div class="time-block">
                         <span class="time-main" id="time-text">08:00</span>
                         <span class="time-sub" id="time-date">Luned? 1 Marzo (Primavera)</span>
+                        <span class="time-location" id="time-location">📍 Sconosciuto</span>
                     </div>
                 </div>
 
@@ -1828,6 +2151,7 @@
                     <div class="mini-bar" data-label="🍖" data-value="--">
                         <div class="mini-bar-fill hunger" id="mini-hunger" style="width: 100%"></div>
                     </div>
+                    <div class="status-effects" id="status-effects"></div>
                 </div>
 
                 <div class="topbar-info-panels">
@@ -1885,6 +2209,27 @@
                     <div class="char-portrait" id="char-portrait">⚔️</div>
                     <div class="char-name" id="char-name">Nome</div>
                     <div class="char-class" id="char-class">Classe</div>
+                </div>
+
+                <div class="equipment-section">
+                    <h4>🗡️ Equipaggiamento</h4>
+                    <div class="equip-slots" id="equip-slots">
+                        <div class="equip-slot" id="equip-weapon" onclick="unequipSlot('weapon')">
+                            <div class="equip-slot-icon">⚔️</div>
+                            <div class="equip-slot-label">Arma</div>
+                            <div class="equip-slot-name">Vuoto</div>
+                        </div>
+                        <div class="equip-slot" id="equip-armor" onclick="unequipSlot('armor')">
+                            <div class="equip-slot-icon">🛡️</div>
+                            <div class="equip-slot-label">Armatura</div>
+                            <div class="equip-slot-name">Vuoto</div>
+                        </div>
+                        <div class="equip-slot" id="equip-accessory" onclick="unequipSlot('accessory')">
+                            <div class="equip-slot-icon">💍</div>
+                            <div class="equip-slot-label">Accessorio</div>
+                            <div class="equip-slot-name">Vuoto</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="stat-group">
@@ -1991,6 +2336,7 @@
                     <button class="tab" data-tab="locations">📍 Luoghi</button>
                     <button class="tab" data-tab="quests">📋 Quest</button>
                     <button class="tab" data-tab="events">📜 Eventi</button>
+                    <button class="tab" data-tab="journal">📓 Diario</button>
                 </div>
 
                 <div class="tab-content active" id="tab-chronicle">
@@ -2008,6 +2354,40 @@
                 <div class="tab-content" id="tab-events">
                     <div id="memory-events-list"></div>
                 </div>
+                <div class="tab-content" id="tab-journal">
+                    <div class="journal-entries" id="journal-entries">
+                        <div class="memory-empty" id="journal-empty">📓 Il tuo diario è vuoto. Annota i tuoi pensieri e le tue strategie!</div>
+                    </div>
+                    <div class="journal-input-area">
+                        <textarea id="journal-text" placeholder="Scrivi un appunto nel tuo diario..."></textarea>
+                        <button class="btn primary" id="btn-add-journal" style="align-self:flex-end;">📝</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Level Up Modal -->
+    <div class="levelup-overlay" id="levelup-overlay">
+        <div class="levelup-content">
+            <div style="font-size:3em;margin-bottom:5px;">⬆️</div>
+            <div class="levelup-title">Livello <span id="levelup-level">2</span>!</div>
+            <div class="levelup-subtitle">Scegli come migliorare il tuo personaggio</div>
+            <div class="levelup-points">Punti disponibili: <strong id="levelup-points-count">2</strong></div>
+            <div class="levelup-attrs" id="levelup-attrs"></div>
+            <button class="btn primary" id="btn-confirm-levelup" style="width:100%;" disabled>✨ Conferma Miglioramenti</button>
+        </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div class="gameover-overlay" id="gameover-overlay">
+        <div class="gameover-content">
+            <div class="gameover-skull">💀</div>
+            <div class="gameover-title">Sei Caduto</div>
+            <div class="gameover-text" id="gameover-text">La tua avventura finisce qui... ma ogni fine è un nuovo inizio.</div>
+            <div class="gameover-buttons">
+                <button class="btn primary" id="btn-gameover-load">📂 Carica Salvataggio</button>
+                <button class="btn secondary" id="btn-gameover-home">🏠 Menu Principale</button>
             </div>
         </div>
     </div>
@@ -2286,7 +2666,9 @@
             selectedArchetype: null,
             editingStory: null,
             isPlaying: false,
-            isProcessing: false
+            isProcessing: false,
+            currentLocation: 'Sconosciuto',
+            levelUpPending: null
         };
 
         const DAYS = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
@@ -3362,8 +3744,7 @@
             
             // Morte
             if (c.health.cur <= 0) {
-                addStoryEntry('💀 SEI MORTO! La tua avventura finisce qui...', 'system');
-                G.isPlaying = false;
+                triggerGameOver('Le tue ferite sono troppo gravi... la tua avventura finisce qui.');
                 return;
             }
             
@@ -3374,9 +3755,8 @@
                 
                 if (debtLevel >= startingGold * 100) {
                     // Debito catastrofico - Fallimento totale
-                    addStoryEntry(`💀 BANCAROTTA TOTALE! I debiti di ${debtLevel.toLocaleString('it-IT')} ${currSymbol} ti hanno distrutto. Game Over.`, 'system');
                     c.health.cur = 0;
-                    G.isPlaying = false;
+                    triggerGameOver(`BANCAROTTA TOTALE! I debiti di ${debtLevel.toLocaleString('it-IT')} ${currSymbol} ti hanno distrutto.`);
                 } else if (debtLevel >= startingGold * 50) {
                     // Debito grave - Avviso finale
                     if (!c._debtWarning3) {
@@ -4006,6 +4386,9 @@
             
             checkStatusEffects();
             updateInfoPanels();
+            updateEquipmentUI();
+            updateStatusEffects();
+            updateLocationDisplay();
         }
 
         function getEmptyDetailsHtml() {
@@ -4135,6 +4518,8 @@
                     <div class="item-actions">
                         ${type === 'consumable' ? 
                             `<button class="btn primary btn-use" onclick="useInventoryItem(${index})">Usa Oggetto</button>` : 
+                            (type === 'weapon' || type === 'gear' || type === 'armor' || type === 'accessory') ?
+                            `<button class="btn primary btn-use" onclick="equipItem(${index})">${item.equipped ? '✅ Equipaggiato' : '🗡️ Equipaggia'}</button>` :
                             `<button class="btn secondary btn-use" disabled>Non usabile</button>`
                         }
                     </div>
@@ -4190,6 +4575,303 @@
                 addStoryEntry(`[Usato ${data.name}]`, 'mechanic');
                 updateCharacterUI();
             }
+        }
+
+        // ==================== EQUIPMENT SYSTEM ====================
+        const EQUIP_SLOTS = {
+            weapon: { label: 'Arma', icon: '⚔️', types: ['weapon'] },
+            armor: { label: 'Armatura', icon: '🛡️', types: ['gear', 'armor'] },
+            accessory: { label: 'Accessorio', icon: '💍', types: ['accessory', 'ring', 'amulet', 'general'] }
+        };
+
+        function getEquipmentBonuses() {
+            const c = G.character;
+            if (!c || !c.equipment) return {};
+            const bonuses = {};
+            Object.values(c.equipment).forEach(item => {
+                if (!item || !item.effect) return;
+                Object.entries(item.effect).forEach(([key, val]) => {
+                    const k = key.toLowerCase();
+                    bonuses[k] = (bonuses[k] || 0) + (Number(val) || 0);
+                });
+            });
+            return bonuses;
+        }
+
+        function equipItem(index) {
+            const c = G.character;
+            if (!c) return;
+            const item = c.inventory[index];
+            if (!item) return;
+            
+            const itemType = (item.type || 'general').toLowerCase();
+            let targetSlot = null;
+            for (const [slot, info] of Object.entries(EQUIP_SLOTS)) {
+                if (info.types.includes(itemType)) {
+                    targetSlot = slot;
+                    break;
+                }
+            }
+            if (!targetSlot) targetSlot = 'accessory';
+            
+            // Unequip current item in that slot
+            if (c.equipment[targetSlot]) {
+                unequipSlot(targetSlot, true);
+            }
+            
+            // Mark item as equipped
+            c.equipment[targetSlot] = {
+                id: item.id,
+                name: item.name || item.id,
+                icon: item.icon || '📦',
+                type: item.type,
+                effect: item.effect || {},
+                value: item.value,
+                description: item.description
+            };
+            item.equipped = true;
+            
+            notify(`Equipaggiato: ${item.name || item.id}`, 'success');
+            addStoryEntry(`🗡️ Equipaggiato: ${item.name || item.id}`, 'mechanic');
+            updateCharacterUI();
+        }
+
+        function unequipSlot(slot, silent = false) {
+            const c = G.character;
+            if (!c || !c.equipment || !c.equipment[slot]) return;
+            
+            const equipped = c.equipment[slot];
+            // Find in inventory and mark unequipped
+            const item = c.inventory.find(i => i.id === equipped.id && i.equipped);
+            if (item) item.equipped = false;
+            
+            c.equipment[slot] = null;
+            if (!silent) {
+                notify(`Rimosso: ${equipped.name}`, 'info');
+                updateCharacterUI();
+            }
+        }
+
+        function updateEquipmentUI() {
+            const c = G.character;
+            if (!c) return;
+            
+            Object.entries(EQUIP_SLOTS).forEach(([slot, info]) => {
+                const el = $(`equip-${slot}`);
+                if (!el) return;
+                const equipped = c.equipment?.[slot];
+                
+                if (equipped) {
+                    el.classList.add('filled');
+                    el.innerHTML = `
+                        <div class="equip-slot-icon">${equipped.icon || info.icon}</div>
+                        <div class="equip-slot-label">${info.label}</div>
+                        <div class="equip-slot-name">${equipped.name}</div>
+                        ${equipped.effect ? `<div class="equip-slot-bonus">${Object.entries(equipped.effect).map(([k,v]) => `${k}:${v>=0?'+':''}${v}`).join(' ')}</div>` : ''}
+                    `;
+                } else {
+                    el.classList.remove('filled');
+                    el.innerHTML = `
+                        <div class="equip-slot-icon">${info.icon}</div>
+                        <div class="equip-slot-label">${info.label}</div>
+                        <div class="equip-slot-name">Vuoto</div>
+                    `;
+                }
+            });
+        }
+
+        // ==================== LEVEL-UP WITH CHOICE ====================
+        function showLevelUpModal(newLevel) {
+            G.levelUpPending = { level: newLevel, points: 2, choices: {} };
+            
+            const attrs = G.character.attrs;
+            const attrNames = { for: 'Forza', des: 'Destrezza', cos: 'Costituzione', int: 'Intelligenza', sag: 'Saggezza', car: 'Carisma',
+                                str: 'Forza', dex: 'Destrezza', con: 'Costituzione', wis: 'Saggezza', cha: 'Carisma',
+                                res: 'Resistenza', tat: 'Tattica', lea: 'Leadership', dip: 'Diplomazia', esp: 'Spionaggio',
+                                vel: 'Velocità', tec: 'Tecnica', fis: 'Fisico', men: 'Mentale', nav: 'Navigazione' };
+            
+            $('levelup-level').textContent = newLevel;
+            $('levelup-points-count').textContent = '2';
+            
+            const grid = $('levelup-attrs');
+            grid.innerHTML = Object.entries(attrs).map(([key, val]) => `
+                <div class="levelup-attr" id="lu-attr-${key}" data-attr="${key}">
+                    <div class="levelup-attr-info">
+                        <div class="levelup-attr-name">${attrNames[key] || key.toUpperCase()}</div>
+                        <div class="levelup-attr-val">${val} → <span id="lu-val-${key}">${val}</span></div>
+                    </div>
+                    <button onclick="levelUpBoost('${key}')">+</button>
+                </div>
+            `).join('');
+            
+            $('btn-confirm-levelup').disabled = true;
+            $('levelup-overlay').classList.add('active');
+        }
+
+        function levelUpBoost(attrKey) {
+            const pending = G.levelUpPending;
+            if (!pending || pending.points <= 0) return;
+            
+            pending.choices[attrKey] = (pending.choices[attrKey] || 0) + 1;
+            pending.points--;
+            
+            // Update display
+            const baseVal = G.character.attrs[attrKey];
+            const boost = pending.choices[attrKey] || 0;
+            $(`lu-val-${attrKey}`).textContent = baseVal + boost;
+            $(`lu-attr-${attrKey}`).classList.add('boosted');
+            $('levelup-points-count').textContent = pending.points;
+            
+            // Disable all + buttons if no points left
+            if (pending.points <= 0) {
+                $$('.levelup-attr button').forEach(b => b.disabled = true);
+                $('btn-confirm-levelup').disabled = false;
+            }
+        }
+
+        function confirmLevelUp() {
+            const pending = G.levelUpPending;
+            if (!pending || pending.points > 0) return;
+            
+            const c = G.character;
+            const attrNames = { for: 'Forza', des: 'Destrezza', cos: 'Costituzione', int: 'Intelligenza', sag: 'Saggezza', car: 'Carisma',
+                                str: 'Forza', dex: 'Destrezza', con: 'Costituzione', wis: 'Saggezza', cha: 'Carisma' };
+            
+            // Apply choices
+            Object.entries(pending.choices).forEach(([attr, boost]) => {
+                if (c.attrs[attr] !== undefined) {
+                    c.attrs[attr] += boost;
+                    addStoryEntry(`📈 +${boost} ${attrNames[attr] || attr.toUpperCase()}!`, 'mechanic');
+                }
+            });
+            
+            $('levelup-overlay').classList.remove('active');
+            G.levelUpPending = null;
+            updateCharacterUI();
+        }
+
+        // ==================== JOURNAL / DIARIO ====================
+        function getJournal() {
+            if (!G.worldMemory.journal) G.worldMemory.journal = [];
+            return G.worldMemory.journal;
+        }
+
+        function addJournalEntry(text) {
+            if (!text || !text.trim()) return;
+            const journal = getJournal();
+            journal.push({
+                id: Date.now(),
+                text: text.trim(),
+                turn: G.worldMemory.turnCount,
+                time: getTimeString(),
+                date: `${G.time.day}/${G.time.month}/${G.time.year}`
+            });
+            updateJournalUI();
+            notify('Appunto salvato!', 'success');
+        }
+
+        function removeJournalEntry(id) {
+            const journal = getJournal();
+            const idx = journal.findIndex(e => e.id === id);
+            if (idx >= 0) journal.splice(idx, 1);
+            updateJournalUI();
+        }
+
+        function updateJournalUI() {
+            const journal = getJournal();
+            const container = $('journal-entries');
+            if (!container) return;
+            
+            if (journal.length === 0) {
+                container.innerHTML = '<div class="memory-empty" id="journal-empty">📓 Il tuo diario è vuoto. Annota i tuoi pensieri e le tue strategie!</div>';
+                return;
+            }
+            
+            container.innerHTML = journal.slice().reverse().map(e => `
+                <div class="journal-entry">
+                    <div class="journal-entry-meta">📅 ${e.date} ${e.time} · Turno ${e.turn}</div>
+                    <div class="journal-entry-text">${e.text.replace(/\n/g, '<br>')}</div>
+                    <button class="journal-entry-delete" onclick="removeJournalEntry(${e.id})" title="Elimina">✕</button>
+                </div>
+            `).join('');
+        }
+
+        // ==================== LOCATION TRACKING ====================
+        function setLocation(locationName) {
+            if (!locationName || !locationName.trim()) return;
+            G.currentLocation = locationName.trim();
+            updateLocationDisplay();
+        }
+
+        function updateLocationDisplay() {
+            const el = $('time-location');
+            if (el) {
+                el.textContent = `📍 ${G.currentLocation || 'Sconosciuto'}`;
+                el.title = G.currentLocation || 'Posizione sconosciuta';
+            }
+        }
+
+        // ==================== GAME OVER ====================
+        function triggerGameOver(reason = '') {
+            const overlay = $('gameover-overlay');
+            if (!overlay) return;
+            
+            const textEl = $('gameover-text');
+            if (textEl) {
+                if (reason) {
+                    textEl.textContent = reason;
+                } else if (G.character) {
+                    const name = G.character.name || 'L\'avventuriero';
+                    textEl.textContent = `${name} ha esalato il suo ultimo respiro. La sua storia viene sussurrata dal vento...`;
+                }
+            }
+            overlay.classList.add('active');
+        }
+
+        function closeGameOver() {
+            const overlay = $('gameover-overlay');
+            if (overlay) overlay.classList.remove('active');
+        }
+
+        // ==================== AUTO-SAVE ====================
+        function autoSave() {
+            if (!G.isPlaying || !G.character) return;
+            // Save to a special auto-save slot (slot 0)
+            G.saves[0] = {
+                character: JSON.parse(JSON.stringify(G.character)),
+                story: JSON.parse(JSON.stringify(G.currentStory)),
+                storyLog: JSON.parse(JSON.stringify(G.storyLog)),
+                history: JSON.parse(JSON.stringify(G.history)),
+                time: JSON.parse(JSON.stringify(G.time)),
+                worldMemory: JSON.parse(JSON.stringify(G.worldMemory)),
+                currentLocation: G.currentLocation || 'Sconosciuto'
+            };
+            save();
+        }
+
+        // ==================== STATUS EFFECTS DISPLAY ====================
+        function updateStatusEffects() {
+            const c = G.character;
+            if (!c) return;
+            const el = $('status-effects');
+            if (!el) return;
+            
+            const effects = [];
+            
+            if (c.hunger.cur <= 20) effects.push({ icon: '🍖', text: 'Affamato!', cls: 'danger' });
+            else if (c.hunger.cur <= 40) effects.push({ icon: '🍖', text: 'Fame', cls: 'warning' });
+            
+            if (c.stamina.cur <= 20) effects.push({ icon: '💤', text: 'Esausto!', cls: 'danger' });
+            else if (c.stamina.cur <= 40) effects.push({ icon: '😴', text: 'Stanco', cls: 'warning' });
+            
+            if (c.health.cur <= c.health.max * 0.2) effects.push({ icon: '🩸', text: 'Critico!', cls: 'danger' });
+            else if (c.health.cur <= c.health.max * 0.5) effects.push({ icon: '🩹', text: 'Ferito', cls: 'warning' });
+            
+            if (c.gold < 0) effects.push({ icon: '💸', text: 'Debito', cls: 'danger' });
+            
+            el.innerHTML = effects.map(e => 
+                `<span class="status-effect ${e.cls}" title="${e.text}">${e.icon}</span>`
+            ).join('');
         }
 
         // ==================== WORLD MEMORY ====================
@@ -5411,6 +6093,20 @@
                 if (c.archetype) summary += `Archetipo/Classe: ${c.archetype}\n`;
                 summary += `Livello: ${c.exp?.lvl || 1}\n`;
                 
+                // Equipment
+                if (c.equipment) {
+                    const eqParts = [];
+                    if (c.equipment.weapon) eqParts.push(`Arma: ${c.equipment.weapon.name || c.equipment.weapon.id}`);
+                    if (c.equipment.armor) eqParts.push(`Armatura: ${c.equipment.armor.name || c.equipment.armor.id}`);
+                    if (c.equipment.accessory) eqParts.push(`Accessorio: ${c.equipment.accessory.name || c.equipment.accessory.id}`);
+                    if (eqParts.length > 0) summary += `🛡️ Equipaggiamento: ${eqParts.join(' | ')}\n`;
+                }
+                
+                // Posizione corrente
+                if (G.currentLocation && G.currentLocation !== 'Sconosciuto') {
+                    summary += `📍 Posizione: ${G.currentLocation}\n`;
+                }
+                
                 // Stats principali
                 if (c.stats) {
                     const statNames = { for: 'Forza', des: 'Destrezza', cos: 'Costituzione', int: 'Intelligenza', sag: 'Saggezza', car: 'Carisma' };
@@ -5657,7 +6353,8 @@
                 storyLog: JSON.parse(JSON.stringify(G.storyLog)),
                 history: JSON.parse(JSON.stringify(G.history)),
                 time: JSON.parse(JSON.stringify(G.time)),
-                worldMemory: JSON.parse(JSON.stringify(G.worldMemory))
+                worldMemory: JSON.parse(JSON.stringify(G.worldMemory)),
+                currentLocation: G.currentLocation || 'Sconosciuto'
             };
             
             save();
@@ -5689,6 +6386,7 @@
             G.worldMemory.properties = G.worldMemory.properties || [];
             G.worldMemory.family = G.worldMemory.family || [];
             G.worldMemory.employees = G.worldMemory.employees || [];
+            G.currentLocation = s.currentLocation || 'Sconosciuto';
             applyStarterProperties(G.currentStory);
             G.isPlaying = true;
             
@@ -5869,6 +6567,9 @@
             // Tempo base minimo - il grosso lo decide l'IA con [TEMPO: +X]
             advanceTime(5);
             G.worldMemory.turnCount++;
+            
+            // Auto-save ogni 5 turni
+            if (G.worldMemory.turnCount % 5 === 0) autoSave();
             
             // Consumo automatico risorse per turno (simulazione bisogni)
             applyTurnConsumption();
@@ -6201,6 +6902,8 @@ ${story.desc || ''}
 DATI GIOCO: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur} | Soldi ${formatCurrency(c.gold)} | Livello ${c.level || 1} | EXP ${c.exp?.cur || 0}/${c.exp?.need || 100}
 BONUS COMPETENZA: +${getProficiencyBonus()} (basato sul livello)
 ATTRIBUTI: ${Object.entries(c.attrs || {}).map(([k, v]) => `${k.toUpperCase()}:${v}(${mod(v) >= 0 ? '+' : ''}${mod(v)})`).join(' | ')}
+EQUIPAGGIAMENTO: ${c.equipment?.weapon ? (c.equipment.weapon.name || 'Arma') : 'Nessuna arma'} | ${c.equipment?.armor ? (c.equipment.armor.name || 'Armatura') : 'Nessuna armatura'} | ${c.equipment?.accessory ? (c.equipment.accessory.name || 'Accessorio') : 'Nessun accessorio'}
+POSIZIONE ATTUALE: ${G.currentLocation || 'Sconosciuto'}
 INVENTARIO: ${inventoryList}
 
 ⛔ **REGOLA FONDAMENTALE (CONTROLLI NASCOSTI)**
@@ -6365,8 +7068,10 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 
 📍 **LUOGHI E MAPPE**
 - Usa [LUOGO: nome|descrizione] per registrare luoghi visitati.
+- Usa [POSIZIONE: nome_luogo] per segnalare dove si trova attualmente il protagonista.
+- Ogni volta che il protagonista si sposta, usa [POSIZIONE: nome_luogo] per aggiornare la posizione.
 - Descrivi i luoghi con dettagli sensoriali e atmosfera.
-- Esempio: [LUOGO: Foresta dei Sussurri|Bosco antico dove il vento sembra parlare]
+- Esempio: [LUOGO: Foresta dei Sussurri|Bosco antico dove il vento sembra parlare] [POSIZIONE: Foresta dei Sussurri]
 
 🌍 **MONDO VIVO (PNG AUTONOMI CON STATISTICHE)**
 - Ogni PNG ha personalità, obiettivi, routine, LIVELLO e STATISTICHE proprie.
@@ -6431,7 +7136,8 @@ Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa
                 const worldEventContext = worldEvent ? `\n[EVENTO MONDO: ${worldEvent.text}]` : '';
                 
                 userMsg = `[Stato: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur}/100 | Fame ${c.hunger.cur}/100 | Soldi ${formatCurrency(c.gold)}${physicalState}]
-[Ora: ${getTimeString()} - ${period.name}]${worldEventContext}
+[Ora: ${getTimeString()} - ${period.name}]
+[Posizione: ${G.currentLocation || 'Sconosciuto'}]${worldEventContext}
 Il giocatore dichiara: "${action}"
 
 ISTRUZIONI TURNO:
@@ -6734,7 +7440,14 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const name = m[1].trim();
                 const desc = m[2].trim();
                 addLocation(name, desc);
+                setLocation(name);
                 addStoryEntry(`📍 Luogo scoperto: ${name}`, 'memory-update');
+            }
+
+            // Extract Position/Location changes
+            const posRe = /\[POSIZIONE:\s*([^\]]+)\]/gi;
+            while ((m = posRe.exec(response)) !== null) {
+                setLocation(m[1].trim());
             }
 
             // Extract Quests
@@ -6969,6 +7682,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[LICENZIA:[^\]]*\]/gi, '')
                 .replace(/\[MORTE_FAMILIARE:[^\]]*\]/gi, '')
                 .replace(/\[EVENTO:[^\]]*\]/gi, '')
+                .replace(/\[POSIZIONE:[^\]]*\]/gi, '')
                 .replace(/\[SCELTA:[^\]]*\]/gi, '')
                 .replace(/\[(?:USA|CONSUMA|UTILIZZA|DROP|SCARTA):[^\]]*\]/gi, '')
                 .replace(/#{1,6}\s*/g, '')
@@ -7079,15 +7793,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 c.health.cur = c.health.max;
                 c.stamina.max += 10;
                 c.stamina.cur = c.stamina.max;
-                
-                // Aumenta attributi base (ogni 2 livelli +1 a stat casuale)
-                if (c.stats && c.level % 2 === 0) {
-                    const statKeys = Object.keys(c.stats);
-                    const randomStat = statKeys[Math.floor(Math.random() * statKeys.length)];
-                    c.stats[randomStat] += 1;
-                    const statNames = { for: 'Forza', des: 'Destrezza', cos: 'Costituzione', int: 'Intelligenza', sag: 'Saggezza', car: 'Carisma' };
-                    addStoryEntry(`📈 +1 ${statNames[randomStat] || randomStat}!`, 'mechanic');
-                }
+                c.hunger.cur = c.hunger.max; // Sazietà piena al level up
                 
                 if (c.secondary) {
                     const bonus = c.secondary.levelUpBonus || 0;
@@ -7098,6 +7804,9 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 notify(`🎉 Livello ${c.level}!`, 'success');
                 addStoryEntry(`🎉 LIVELLO ${c.level}! HP max +5, Stamina max +10. Bonus competenza: +${getProficiencyBonus()}`, 'mechanic');
                 addEvent(`Il protagonista è salito al livello ${c.level}!`);
+                
+                // Show level-up choice modal for attribute increase
+                showLevelUpModal(c.level);
             }
         }
 
@@ -7557,8 +8266,40 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     $$('.tab-content').forEach(c => c.classList.remove('active'));
                     tab.classList.add('active');
                     $(`tab-${tab.dataset.tab}`).classList.add('active');
+                    if (tab.dataset.tab === 'journal') updateJournalUI();
                 };
             });
+
+            // Level-Up Confirm
+            if ($('btn-confirm-levelup')) {
+                $('btn-confirm-levelup').onclick = confirmLevelUp;
+            }
+
+            // Journal
+            if ($('btn-add-journal')) {
+                $('btn-add-journal').onclick = () => {
+                    const input = $('journal-text');
+                    if (input && input.value.trim()) {
+                        addJournalEntry(input.value.trim());
+                        input.value = '';
+                    }
+                };
+            }
+
+            // Game Over buttons
+            if ($('btn-gameover-load')) {
+                $('btn-gameover-load').onclick = () => {
+                    closeGameOver();
+                    updateSavesUI();
+                    openModal('modal-saves');
+                };
+            }
+            if ($('btn-gameover-home')) {
+                $('btn-gameover-home').onclick = () => {
+                    closeGameOver();
+                    showScreen('home-screen');
+                };
+            }
         }
 
         document.addEventListener('DOMContentLoaded', init);
