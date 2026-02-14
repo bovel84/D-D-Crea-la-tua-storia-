@@ -2891,7 +2891,9 @@
             isPlaying: false,
             isProcessing: false,
             currentLocation: 'Sconosciuto',
-            levelUpPending: null
+            levelUpPending: null,
+            storyBatchMode: false,
+            pendingStoryScroll: false
         };
 
         const DAYS = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
@@ -3827,10 +3829,20 @@
             if (G.character && minutes > 0) {
                 // Consumo risorse BILANCIATO e realistico
                 // Una persona può stare sveglia ~16 ore e senza cibo ~24 ore prima di problemi seri
-                // Stamina: 100 in 16 ore = ~6.25/ora, arrotondiamo a 4/ora (più tollerante)
-                // Fame: 100 in 24 ore = ~4.2/ora, arrotondiamo a 3/ora (più tollerante)
-                const staminaLoss = Math.ceil(hoursElapsed * 4);
-                const hungerLoss = Math.ceil(hoursElapsed * 3);
+                // Stamina: 100 in 16 ore = ~6.25/ora, usiamo 4/ora (più tollerante)
+                // Fame: 100 in 24 ore = ~4.2/ora, usiamo 3/ora (più tollerante)
+                // Importante: accumulo frazionario per evitare che 5 minuti consumino sempre 1 punto.
+                if (!G.character._metabolismCarry) {
+                    G.character._metabolismCarry = { stamina: 0, hunger: 0 };
+                }
+                const carry = G.character._metabolismCarry;
+                carry.stamina += hoursElapsed * 4;
+                carry.hunger += hoursElapsed * 3;
+
+                const staminaLoss = Math.floor(carry.stamina);
+                const hungerLoss = Math.floor(carry.hunger);
+                carry.stamina -= staminaLoss;
+                carry.hunger -= hungerLoss;
                 
                 const oldStamina = G.character.stamina.cur;
                 const oldHunger = G.character.hunger.cur;
@@ -6881,10 +6893,21 @@
             `;
 
             $('story-scroll').appendChild(div);
-            // Porta il nuovo messaggio in alto per leggerlo dall'inizio senza dover scrollare manualmente
-            div.scrollIntoView({ block: 'start' });
+            if (G.storyBatchMode) {
+                G.pendingStoryScroll = true;
+            } else {
+                // Porta il nuovo messaggio in alto per leggerlo dall'inizio senza dover scrollare manualmente
+                div.scrollIntoView({ block: 'start' });
+            }
 
             if (log) G.storyLog.push({ text, type, time: Date.now() });
+        }
+
+        function flushStoryBatchScroll() {
+            if (!G.pendingStoryScroll) return;
+            const last = $('story-scroll')?.lastElementChild;
+            if (last) last.scrollIntoView({ block: 'start' });
+            G.pendingStoryScroll = false;
         }
 
         function displaySuggestions(suggestions) {
@@ -6928,6 +6951,10 @@
             $('suggestions-area').style.display = 'none';
             input.value = '';
             addStoryEntry(`➤ ${action}`, 'player');
+
+            // Shortcut intelligenti per bisogni base: applicano subito recuperi reali
+            // (energia/sazietà) tramite le azioni dedicate.
+            if (handleBasicNeedAction(action)) return;
             
             // Tempo base minimo - il grosso lo decide l'IA con [TEMPO: +X]
             advanceTime(5);
@@ -6944,6 +6971,30 @@
             
             generateAI(action);
         }
+
+        function handleBasicNeedAction(actionText) {
+            if (!G.character) return false;
+            const txt = (actionText || '').toLowerCase();
+
+            const restIntent = /(\bripos|\bdorm|\bsonnell|\bsleep\b|\brest\b)/i.test(txt);
+            const eatIntent = /(\bmangi|\bcibo\b|\bpasto\b|\bfame\b|\beat\b|\bmeal\b)/i.test(txt);
+
+            if (restIntent) {
+                doRest();
+                G.worldMemory.turnCount++;
+                if (G.worldMemory.turnCount % 5 === 0) autoSave();
+                return true;
+            }
+
+            if (eatIntent) {
+                doEat();
+                G.worldMemory.turnCount++;
+                if (G.worldMemory.turnCount % 5 === 0) autoSave();
+                return true;
+            }
+
+            return false;
+        }
         
         function applyTurnConsumption() {
             // Consumo base per turno - MOLTO RIDOTTO
@@ -6952,28 +7003,13 @@
             const c = G.character;
             if (!c) return;
             
-            // Consumo minimo per turno (1 fame ogni ~5 turni in media)
-            // Solo se il personaggio è attivo (non a riposo)
-            if (Math.random() < 0.2) { // 20% chance di consumare 1 fame per turno
+            // Consumo simbolico molto raro: evita doppio consumo rispetto al tempo reale
+            if (Math.random() < 0.05) { // 5% chance di consumare 1 fame per turno
                 c.hunger.cur = Math.max(0, c.hunger.cur - 1);
             }
             
-            // Controllo effetti negativi da fame/stanchezza
-            // Penalità HP solo se COMPLETAMENTE a zero, e ridotte
-            if (c.hunger.cur <= 0) {
-                // Fame critica: perdi HP lentamente
-                const hpLoss = 1;
-                c.health.cur = Math.max(1, c.health.cur - hpLoss);
-                addStoryEntry(`💀 La fame ti consuma! -${hpLoss} HP`, 'mechanic');
-            }
-            
-            if (c.stamina.cur <= 0) {
-                // Stanchezza critica: azioni compromesse ma meno letale
-                if (Math.random() < 0.5) { // 50% chance di perdere HP
-                    c.health.cur = Math.max(1, c.health.cur - 1);
-                    addStoryEntry(`💀 L'esaurimento ti abbatte! -1 HP`, 'mechanic');
-                }
-            }
+            // Le penalità HP da fame/stanchezza sono già gestite in advanceTime()
+            // in base alle ore realmente passate, per evitare morti troppo rapide a turni brevi.
             
             // Rigenera stamina se ben nutrito (fame > 60)
             if (c.hunger.cur > 60 && c.stamina.cur < c.stamina.max) {
@@ -7174,6 +7210,7 @@
             if (G.isProcessing || !G.currentStory) return;
             G.isProcessing = true;
             $('btn-send').disabled = true;
+            updateActionBar();
 
             addStoryEntry('<span class="loading-dots">Il narratore sta scrivendo</span>', 'system');
 
@@ -7197,10 +7234,11 @@
                 const last = $('story-scroll').lastChild;
                 if (last?.textContent?.includes('scrivendo')) last.remove();
                 addStoryEntry(`⚠️ Errore: ${err.message}`, 'system');
+            } finally {
+                G.isProcessing = false;
+                $('btn-send').disabled = false;
+                updateActionBar();
             }
-
-            G.isProcessing = false;
-            $('btn-send').disabled = false;
         }
 
         async function callAI(action, isStart) {
@@ -7209,6 +7247,7 @@
             const c = G.character;
             const genreCfg = getGenreConfig(story);
             const period = getTimePeriod();
+            const recentHistory = G.history.slice(-10);
 
             const lengths = { short: '100-200 parole', medium: '200-350 parole', long: '350-500 parole' };
 
@@ -7578,9 +7617,6 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 throw new Error('Configura le API keys nelle Impostazioni!');
             }
 
-            // Increased history window
-            const recentHistory = G.history.slice(-10);
-
             const body = {
                 model,
                 messages: [
@@ -7636,6 +7672,16 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
         }
 
         function parseAIResponse(response) {
+            if (typeof response !== 'string') {
+                response = response == null ? '' : String(response);
+            }
+
+            let memoryChanged = false;
+            let uiStateChanged = false;
+            G.storyBatchMode = true;
+
+            try {
+
             // 1. ESTRAZIONE ANALISI (Nuova parte)
             const analysisRe = /\[ANALISI\]([\s\S]*?)\[\/ANALISI\]/gi;
             let m;
@@ -7690,6 +7736,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 
                 if (totalMinutes > 0) {
                     advanceTime(totalMinutes);
+                    uiStateChanged = true;
                     
                     // Formatta il messaggio in modo leggibile
                     let timeStr = '';
@@ -7707,8 +7754,15 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
 
             // Extract mechanics
             const mechRe = /\[MECCANICA:\s*([^\]]+)\]/gi;
+            let mechanicsApplied = 0;
             while ((m = mechRe.exec(response)) !== null) {
-                applyMechanic(m[1]);
+                applyMechanic(m[1], true);
+                mechanicsApplied++;
+            }
+            if (mechanicsApplied > 0) {
+                updateCharacterUI();
+                checkStatusEffects();
+                uiStateChanged = true;
             }
 
             // Extract LOOT (inventory items)
@@ -7736,6 +7790,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     continue;
                 }
                 addLootToInventory(itemName, qty, { description, value, icon });
+                uiStateChanged = true;
             }
 
             // Extract USE/CONSUME from personal inventory
@@ -7747,6 +7802,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 if (removal.success) {
                     const suffix = removal.remaining > 0 ? ` (restano ${removal.remaining})` : ' (esaurito)';
                     addStoryEntry(`🔧 Usato: ${removal.itemName} x${removal.removed}${suffix}`, 'mechanic');
+                    uiStateChanged = true;
                 } else {
                     addStoryEntry(`⚠️ Oggetto non trovato nell'inventario: ${itemName}`, 'system');
                 }
@@ -7773,6 +7829,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 
                 addNPC(name, '', '', { level, stats, threat });
                 addStoryEntry(`👤 ${name} [Lv${level} ${threat}] stats registrate`, 'system');
+                memoryChanged = true;
             }
 
             // Extract NPCs (formato esteso: nome|desc|rel|personalità|obiettivo|stato|posizione)
@@ -7787,6 +7844,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const location = (m[7] || '').trim();
                 addNPC(name, desc, rel, { personality, goals, status, location });
                 addStoryEntry(`👥 NPC registrato: ${name}`, 'memory-update');
+                memoryChanged = true;
             }
             
             // Extract NPC Interactions (nuovo tag per interazioni significative)
@@ -7797,6 +7855,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const interactionType = (m[2] || '').trim();
                 const details = (m[3] || '').trim();
                 recordNPCInteraction(npcName, interactionType, details);
+                memoryChanged = true;
             }
 
             // Extract Locations
@@ -7807,12 +7866,14 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 addLocation(name, desc);
                 setLocation(name);
                 addStoryEntry(`📍 Luogo scoperto: ${name}`, 'memory-update');
+                memoryChanged = true;
             }
 
             // Extract Position/Location changes
             const posRe = /\[POSIZIONE:\s*([^\]]+)\]/gi;
             while ((m = posRe.exec(response)) !== null) {
                 setLocation(m[1].trim());
+                memoryChanged = true;
             }
 
             // Extract Quests
@@ -7827,6 +7888,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 } else {
                     addStoryEntry(`📋 Nuova quest: ${name}`, 'memory-update');
                 }
+                memoryChanged = true;
             }
 
             // Extract Special Items
@@ -7836,6 +7898,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const desc = m[2].trim();
                 const icon = m[3].trim();
                 addSpecialItem(name, desc, icon);
+                memoryChanged = true;
             }
 
             // Extract Properties / Assets (formato esteso: nome|desc|note|tipo|condizione|valore|reddito)
@@ -7849,6 +7912,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const baseValue = parseInt(m[6]) || undefined;
                 const income = parseInt(m[7]) || undefined;
                 addProperty(name, desc, notes, { type, condition, baseValue, income });
+                memoryChanged = true;
             }
 
             // Extract Family Members
@@ -7865,6 +7929,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const expenses = parseInt(m[8]) || 0;
                 if (name && relation) {
                     addFamilyMember(name, relation, { age, status, description, occupation, income, expenses });
+                    memoryChanged = true;
                 }
             }
 
@@ -7881,6 +7946,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const description = (m[7] || '').trim();
                 if (name && role) {
                     addEmployee(name, role, property, salary, { skill, morale, description });
+                    memoryChanged = true;
                 }
             }
 
@@ -7889,6 +7955,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             while ((m = fireEmployeeRe.exec(response)) !== null) {
                 const name = m[1].trim();
                 removeEmployee(name, 'fired');
+                memoryChanged = true;
             }
 
             // Extract Family member death/departure
@@ -7896,6 +7963,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             while ((m = familyDeathRe.exec(response)) !== null) {
                 const name = m[1].trim();
                 removeFamilyMember(name, 'dead');
+                memoryChanged = true;
             }
 
             // Extract Abilities
@@ -7904,6 +7972,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const name = m[1].trim();
                 const desc = m[2].trim();
                 addAbility(name, desc);
+                memoryChanged = true;
             }
 
             // Extract LOOT_PROPRIETA (beni stoccati nelle proprietà)
@@ -7969,6 +8038,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 }
 
                 addLootToPropertyInventory(propertyName, itemName, qty, { description, value, icon, category: categoryKey });
+                memoryChanged = true;
             }
 
             // Extract Property Inventory Commands (CONSUMA/USA/SCARTA/VENDI_OGGETTO_PROPRIETA)
@@ -8009,6 +8079,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const suffix = removal.remaining > 0 ? ` (restano ${removal.remaining})` : ' (esaurito)';
                 const propertyLabel = removal.property?.name || propertyName;
                 addStoryEntry(`${meta.icon} ${propertyLabel}: ${meta.verb} ${countLabel}${removal.itemName}${suffix}`, 'system');
+                memoryChanged = true;
             }
 
             // Extract Events
@@ -8016,6 +8087,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             while ((m = eventRe.exec(response)) !== null) {
                 const summary = m[1].trim();
                 addEvent(summary);
+                memoryChanged = true;
             }
 
             // Extract suggestions
@@ -8082,12 +8154,16 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
 
             addStoryEntry(clean, 'narrator');
             displaySuggestions(suggestions);
-            updateCharacterUI();
+            if (!uiStateChanged) updateCharacterUI();
             updateTimeDisplay();
-            updateMemoryUI();
+            if (memoryChanged) updateMemoryUI();
+            } finally {
+                G.storyBatchMode = false;
+                flushStoryBatchScroll();
+            }
         }
 
-        function applyMechanic(mech) {
+        function applyMechanic(mech, suppressUiUpdate = false) {
             const [type, valRaw] = mech.split('=').map(s => s.trim());
             // Rimuovi punti e virgole usati come separatori migliaia (es. 10.000.000 o 10,000,000)
             const valClean = (valRaw || '').replace(/[.,\s]/g, '').toLowerCase();
@@ -8098,8 +8174,10 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if (matchesSecondaryKey(normalizedType, c.secondary)) {
                 adjustSecondary(v, c);
                 addStoryEntry(formatSecondaryDelta(v, c.secondary), 'mechanic');
-                updateCharacterUI();
-                checkStatusEffects();
+                if (!suppressUiUpdate) {
+                    updateCharacterUI();
+                    checkStatusEffects();
+                }
                 return;
             }
 
@@ -8141,8 +8219,10 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     addStoryEntry(`🍖 ${v >= 0 ? '+' : ''}${v} Sazietà`, 'mechanic');
                     break;
             }
-            updateCharacterUI();
-            checkStatusEffects(); // Controlla subito lo stato
+            if (!suppressUiUpdate) {
+                updateCharacterUI();
+                checkStatusEffects(); // Controlla subito lo stato
+            }
         }
 
         function checkLevelUp() {
@@ -8497,6 +8577,13 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             $('btn-inventory').onclick = () => { updateCharacterUI(); openModal('modal-inventory'); };
             $('btn-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
             $('btn-memory').onclick = () => { updateMemoryUI(); openModal('modal-memory'); };
+
+            // ACTION BAR
+            if ($('btn-rest')) $('btn-rest').onclick = doRest;
+            if ($('btn-eat')) $('btn-eat').onclick = doEat;
+            if ($('btn-heal')) $('btn-heal').onclick = doCure;
+            if ($('btn-wait')) $('btn-wait').onclick = () => openModal('modal-wait');
+            if ($('btn-train')) $('btn-train').onclick = doTrain;
             
             // Info panels click handlers
             if ($('panel-finances')) $('panel-finances').onclick = showFinancesDetail;
