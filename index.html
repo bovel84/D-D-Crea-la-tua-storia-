@@ -2551,6 +2551,8 @@
                     <div class="memory-stat"><span class="memory-stat-icon">📍</span> Luoghi: <strong id="mem-loc-count">0</strong></div>
                     <div class="memory-stat"><span class="memory-stat-icon">📋</span> Quest: <strong id="mem-quest-count">0</strong></div>
                     <div class="memory-stat"><span class="memory-stat-icon">📜</span> Eventi: <strong id="mem-event-count">0</strong></div>
+                    <div class="memory-stat"><span class="memory-stat-icon">🏳️</span> Fazioni: <strong id="mem-faction-count">0</strong></div>
+                    <div class="memory-stat"><span class="memory-stat-icon">🔐</span> Segreti: <strong id="mem-secret-count">0</strong></div>
                 </div>
 
                 <div class="tabs">
@@ -2559,6 +2561,7 @@
                     <button class="tab" data-tab="locations">📍 Luoghi</button>
                     <button class="tab" data-tab="quests">📋 Quest</button>
                     <button class="tab" data-tab="events">📜 Eventi</button>
+                    <button class="tab" data-tab="archive">🧭 Bussola</button>
                     <button class="tab" data-tab="journal">📓 Diario</button>
                 </div>
 
@@ -2576,6 +2579,10 @@
                 </div>
                 <div class="tab-content" id="tab-events">
                     <div id="memory-events-list"></div>
+                </div>
+                <div class="tab-content" id="tab-archive">
+                    <div id="memory-compass"></div>
+                    <div id="memory-long-term-archive"></div>
                 </div>
                 <div class="tab-content" id="tab-journal">
                     <div class="journal-entries" id="journal-entries">
@@ -2826,7 +2833,40 @@
                         <option value="openrouter">OpenRouter (Gemma 3 27B it Free)</option>
                         <option value="deepseek">OpenRouter (mimo-v2-flash:free)</option>
                         <option value="openrouter-free">OpenRouter (openrouter/free)</option>
+                        <option value="ollama-cloud">Ollama Cloud / endpoint personalizzato</option>
                     </select>
+                </div>
+                <div id="ollama-settings" style="display:none; padding: 12px; margin-bottom: 14px; border: 1px solid var(--gold-dark); border-radius: 8px; background: rgba(201,162,39,0.08);">
+                    <div class="form-group">
+                        <label class="form-label">☁️ Modello Ollama primario</label>
+                        <select class="form-select" id="set-ollama-model"></select>
+                        <div id="ollama-model-info" style="margin-top:6px; color:var(--ink-light); font-size:0.9em;"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">🔁 Ordine fallback</label>
+                        <input type="text" class="form-input" id="set-ollama-fallback" placeholder="qwen2.5, mistral">
+                        <small style="display:block; margin-top:4px; color:var(--ink-light);">ID separati da virgola. Il modello primario viene provato sempre per primo.</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">🌐 URL base Ollama</label>
+                        <input type="url" class="form-input" id="set-ollama-endpoint" placeholder="https://ollama.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">🔌 Porta personalizzata (opzionale)</label>
+                        <input type="number" min="1" max="65535" class="form-input" id="set-ollama-port" placeholder="11434">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">🔑 API Key Ollama (se richiesta)</label>
+                        <input type="password" class="form-input" id="set-ollama-key" placeholder="API key Ollama...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">🔧 Protocollo API</label>
+                        <select class="form-select" id="set-ollama-api-style">
+                            <option value="auto">Automatico</option>
+                            <option value="native">Ollama nativo (/api/chat)</option>
+                            <option value="openai">Compatibile OpenAI (/v1/chat/completions)</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">📏 Lunghezza Risposte</label>
@@ -2848,6 +2888,9 @@
     </div>
 
     <script src="https://unpkg.com/@openrouter/sdk"></script>
+    <script src="js/memory-manager.js"></script>
+    <script src="js/narrative-master.js"></script>
+    <script src="js/ollama-cloud.js"></script>
     <script>
         // ==================== GAME STATE ====================
         const G = {
@@ -2863,23 +2906,14 @@
                 minute: 0,
                 dayName: 'Lunedì'
             },
-            // === NUOVO: World Memory System ===
-            worldMemory: {
-                npcs: [],           // { id, name, description, relationship, lastSeen, metAt }
-                locations: [],      // { id, name, description, discovered, notes }
-                quests: [],         // { id, name, description, status, progress }
-                events: [],         // { id, summary, turn, importance }
-                acquiredItems: [],  // { id, name, description, icon, acquiredAt }
-                acquiredAbilities: [], // { id, name, description, acquiredAt }
-                properties: [],     // { id, name, description, notes, acquiredAt }
-                family: [],         // { id, name, relation, age, status, description, income, expenses }
-                employees: [],      // { id, name, role, property, salary, skill, morale, hiredAt }
-                storySummary: '',   // Riassunto compresso della storia
-                lastSummaryTurn: 0,
-                turnCount: 0
-            },
+            // Memoria multilivello; il formato precedente viene migrato in modo additivo.
+            worldMemory: CronacheMemory.createDefaultMemory(),
             settings: {
-                groqKey: '', openrouterKey: '', kimeraKey: '', model: 'groq', length: 'medium', autoRoll: true
+                groqKey: '', openrouterKey: '', kimeraKey: '', model: 'groq', length: 'medium', autoRoll: true,
+                ollama: {
+                    endpoint: 'https://ollama.com', port: '', apiKey: '', apiStyle: 'auto',
+                    primaryModel: 'llama3.1', fallbackOrder: ['qwen2.5', 'mistral']
+                }
             },
             stories: [],
             saves: Array(6).fill(null),
@@ -2895,6 +2929,16 @@
             storyBatchMode: false,
             pendingStoryScroll: false
         };
+
+        const memoryManager = new CronacheMemory.AdvancedMemoryManager({
+            shortTermMessages: 10,
+            retrievalLimit: 5,
+            compressionThreshold: 6000,
+            mediumTermTokens: 500
+        });
+        const narrativeMaster = new CronacheNarrative.NarrativeMasterEngine();
+        const ollamaClient = new CronacheOllama.OllamaCloudClient({ timeoutMs: 45000 });
+        G.worldMemory.narrativeCompass = narrativeMaster.createDefaultCompass();
 
         const DAYS = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
         const MONTHS = [
@@ -3765,6 +3809,12 @@
             return result;
         }
 
+        function migrateSavedWorldMemory(memory) {
+            const migrated = memoryManager.migrate(memory || {});
+            migrated.narrativeCompass = narrativeMaster.migrate(migrated.narrativeCompass);
+            return migrated;
+        }
+
         function save() {
             localStorage.setItem('dnd_v4', JSON.stringify({
                 stories: G.stories, saves: G.saves, settings: G.settings
@@ -4280,8 +4330,15 @@
             if (d) {
                 const p = JSON.parse(d);
                 G.stories = p.stories || [];
-                G.saves = p.saves || Array(6).fill(null);
-                G.settings = { ...G.settings, ...p.settings };
+                G.saves = (p.saves || Array(6).fill(null)).map(slot => slot ? {
+                    ...slot,
+                    worldMemory: migrateSavedWorldMemory(slot.worldMemory)
+                } : null);
+                G.settings = {
+                    ...G.settings,
+                    ...p.settings,
+                    ollama: { ...G.settings.ollama, ...(p.settings?.ollama || {}) }
+                };
             }
             // Migrazione: assicurati che la storia business abbia la proprietà eredita
             let storiesChanged = false;
@@ -5253,6 +5310,7 @@
 
         // ==================== WORLD MEMORY ====================
         function updateMemoryUI() {
+            G.worldMemory = migrateSavedWorldMemory(G.worldMemory);
             const wm = G.worldMemory;
             const c = G.character;
 
@@ -5261,6 +5319,8 @@
             $('mem-loc-count').textContent = wm.locations.length;
             $('mem-quest-count').textContent = wm.quests.length;
             $('mem-event-count').textContent = wm.events.length;
+            if ($('mem-faction-count')) $('mem-faction-count').textContent = wm.factions.length;
+            if ($('mem-secret-count')) $('mem-secret-count').textContent = wm.revealedSecrets.length;
 
             // Chronicle - Narrative summary of the world
             const chronicleEl = $('memory-chronicle');
@@ -5385,6 +5445,43 @@
                 </div>
             `).join('') : '<div class="memory-empty">Nessun evento registrato</div>';
             $('memory-events-list').innerHTML = eventsHtml;
+
+            // Narrative compass + archivio strutturato a lungo termine.
+            const compass = narrativeMaster.migrate(wm.narrativeCompass);
+            if ($('memory-compass')) {
+                $('memory-compass').innerHTML = `
+                    <div class="memory-section">
+                        <div class="memory-section-title">🧭 Narrative Compass</div>
+                        <div class="memory-card">
+                            <div class="memory-card-desc">${CronacheNarrative.formatCompass(compass).replace(/\n/g, '<br>')}</div>
+                            <div class="memory-card-meta">Ultimo ciclo: turno ${compass.lastDecision?.turn ?? wm.turnCount} · Tick mondo ${compass.worldTick}</div>
+                        </div>
+                    </div>
+                    <div class="memory-section">
+                        <div class="memory-section-title">🗜️ Memoria a medio termine</div>
+                        <div class="memory-card">
+                            <div class="memory-card-desc">${wm.mediumTerm.summary || 'La scena non è ancora stata compressa.'}</div>
+                            <div class="memory-card-meta">${wm.mediumTerm.compressedMessages || 0} messaggi consolidati · massimo 500 token</div>
+                        </div>
+                    </div>`;
+            }
+
+            if ($('memory-long-term-archive')) {
+                const groups = [
+                    ['🏳️ Fazioni', wm.factions, item => `${item.name || item.title}: ${item.description || item.relationship || ''}`],
+                    ['⚖️ Decisioni del giocatore', wm.playerDecisions, item => item.summary || item.description],
+                    ['🎯 Obiettivi narrativi', wm.narrativeGoals, item => `${item.name || item.title}: ${item.description || item.progress || ''}`],
+                    ['🔐 Segreti svelati', wm.revealedSecrets, item => `${item.name || item.title || 'Segreto'}: ${item.description || item.summary || item.secret || ''}`]
+                ];
+                $('memory-long-term-archive').innerHTML = groups.map(([title, items, render]) => `
+                    <div class="memory-section">
+                        <div class="memory-section-title">${title}</div>
+                        ${items.length ? items.slice(-20).reverse().map(item => `
+                            <div class="memory-card"><div class="memory-card-desc">${render(item)}</div></div>
+                        `).join('') : '<div class="memory-empty">Nessun elemento registrato</div>'}
+                    </div>
+                `).join('');
+            }
         }
 
         function addNPC(name, description, relationship = '', meta = {}) {
@@ -5827,6 +5924,29 @@
             if (G.worldMemory.events.length > 50) {
                 G.worldMemory.events = G.worldMemory.events.slice(-50);
             }
+        }
+
+        function upsertLongTermMemory(field, identity, data) {
+            if (!Array.isArray(G.worldMemory[field])) G.worldMemory[field] = [];
+            const key = String(identity || '').trim().toLowerCase();
+            if (!key) return null;
+            const list = G.worldMemory[field];
+            const existing = list.find(item =>
+                String(item.name || item.title || item.summary || '').trim().toLowerCase() === key
+            );
+            if (existing) {
+                Object.assign(existing, data, { updatedAtTurn: G.worldMemory.turnCount });
+                return existing;
+            }
+            const created = {
+                id: `${field}-${Date.now()}-${list.length}`,
+                ...data,
+                createdAtTurn: G.worldMemory.turnCount,
+                updatedAtTurn: G.worldMemory.turnCount
+            };
+            list.push(created);
+            if (list.length > 100) G.worldMemory[field] = list.slice(-100);
+            return created;
         }
 
         function addSpecialItem(name, description, icon = '🔮') {
@@ -6754,15 +6874,7 @@
             G.storyLog = JSON.parse(JSON.stringify(s.storyLog || []));
             G.history = JSON.parse(JSON.stringify(s.history || []));
             G.time = JSON.parse(JSON.stringify(s.time || { day: 1, month: 1, year: 1400, hour: 8, minute: 0, dayName: 'Lunedì' }));
-            G.worldMemory = JSON.parse(JSON.stringify(s.worldMemory || {
-                npcs: [], locations: [], quests: [], events: [],
-                acquiredItems: [], acquiredAbilities: [], properties: [],
-                family: [], employees: [],
-                storySummary: '', lastSummaryTurn: 0, turnCount: 0
-            }));
-            G.worldMemory.properties = G.worldMemory.properties || [];
-            G.worldMemory.family = G.worldMemory.family || [];
-            G.worldMemory.employees = G.worldMemory.employees || [];
+            G.worldMemory = migrateSavedWorldMemory(s.worldMemory);
             G.currentLocation = s.currentLocation || 'Sconosciuto';
             applyStarterProperties(G.currentStory);
             G.isPlaying = true;
@@ -6792,20 +6904,7 @@
             G.time = getStartTimeForStory(G.currentStory);
             
             // Reset world memory
-            G.worldMemory = {
-                npcs: [],
-                locations: [],
-                quests: [],
-                events: [],
-                acquiredItems: [],
-                acquiredAbilities: [],
-                properties: [],
-                family: [],
-                employees: [],
-                storySummary: '',
-                lastSummaryTurn: 0,
-                turnCount: 0
-            };
+            G.worldMemory = migrateSavedWorldMemory(memoryManager.createDefault());
 
             // Applica proprietà iniziali definite dalla storia
             applyStarterProperties(G.currentStory);
@@ -7222,13 +7321,25 @@
 
                 parseAIResponse(response);
                 updateInfoPanels(); // Aggiorna pannelli dopo modifiche AI
+                G.worldMemory = migrateSavedWorldMemory(G.worldMemory);
+                narrativeMaster.updateCompass(action, response, G.worldMemory, G.currentStory);
+                updateMediumTermMemory(action, response);
                 G.history.push({ role: 'user', content: action });
                 G.history.push({ role: 'assistant', content: response });
+
+                // Compressione narrativa: conserva gli ultimi 10 messaggi e consolida il resto.
+                const compression = memoryManager.compress(G.history, G.worldMemory);
+                G.history = compression.history;
+                G.worldMemory = compression.memory;
+                if (compression.compressed) {
+                    console.info(`Memoria narrativa compressa: ${compression.compressedMessages} messaggi, ${compression.summaryTokens} token stimati.`);
+                }
 
                 // Periodic story summary (every 5 turns for deeper narrative memory)
                 if (G.worldMemory.turnCount - G.worldMemory.lastSummaryTurn >= 5) {
                     generateStorySummary();
                 }
+                if (G.worldMemory.turnCount > 0 && G.worldMemory.turnCount % 5 === 0) autoSave();
 
             } catch (err) {
                 const last = $('story-scroll').lastChild;
@@ -7247,7 +7358,17 @@
             const c = G.character;
             const genreCfg = getGenreConfig(story);
             const period = getTimePeriod();
-            const recentHistory = G.history.slice(-10);
+            G.worldMemory = migrateSavedWorldMemory(G.worldMemory);
+            const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory);
+            const recentHistory = layeredMemory.shortTerm;
+            const masterTurn = narrativeMaster.decide(action, {
+                memory: G.worldMemory,
+                character: c,
+                story,
+                time: G.time,
+                currentLocation: G.currentLocation
+            });
+            G.worldMemory.narrativeCompass = masterTurn.compass;
 
             const lengths = { short: '100-200 parole', medium: '200-350 parole', long: '350-500 parole' };
 
@@ -7470,6 +7591,13 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
   - Esempio: [QUEST: La spada perduta|Trova la spada dell'antico re|active|Indizio: ultima vista nella foresta]
 - Aggiorna le quest quando ci sono progressi o si completano.
 
+🗃️ **ARCHIVIO NARRATIVO A LUNGO TERMINE**
+- Registra una fazione nuova o modificata con [FAZIONE: nome|descrizione|relazione col protagonista].
+- Registra solo le scelte davvero significative con [DECISIONE: sintesi|importanza], dove importanza è normal, high o critical.
+- Mantieni gli obiettivi di trama con [OBIETTIVO_NARRATIVO: nome|descrizione|stato|progresso].
+- Registra un segreto con [SEGRETO: nome|descrizione] SOLTANTO quando è stato effettivamente svelato al giocatore.
+- Non inventare fatti in contrasto con i cinque ricordi recuperati. Se il contrasto è certo, usa il fatto persistente; se è una reale ambiguità, chiedi una precisazione dentro la scena.
+
 📍 **LUOGHI E MAPPE**
 - Usa [LUOGO: nome|descrizione] per registrare luoghi visitati.
 - Usa [POSIZIONE: nome_luogo] per segnalare dove si trova attualmente il protagonista.
@@ -7506,6 +7634,12 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 🧠 MEMORIA MONDO:
 ${worldMemorySummary}
 ${buildNPCContext()}
+
+🗂️ MEMORIA MULTILIVELLO E RETRIEVAL:
+${layeredMemory.prompt}
+
+🧭 MASTER A 360 GRADI:
+${masterTurn.prompt}
 
 ${criticalConditions}
 
@@ -7556,6 +7690,32 @@ ISTRUZIONI TURNO:
 5. Descrivi le conseguenze PROPORZIONATE al risultato del tiro (successo critico = bonus, fallimento critico = disastro).
 6. Usa i tag appropriati [MECCANICA/LOOT/NPC/TEMPO] e consuma energia per sforzi fisici.
 ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}`;
+            }
+
+            const requestMessages = [
+                { role: 'system', content: systemPrompt },
+                ...recentHistory,
+                { role: 'user', content: userMsg }
+            ];
+
+            if (s.model === 'ollama-cloud') {
+                const config = s.ollama || {};
+                const preferredModels = [
+                    config.primaryModel || 'llama3.1',
+                    ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
+                ];
+                const result = await ollamaClient.generate(requestMessages, {
+                    endpoint: config.endpoint || 'https://ollama.com',
+                    port: config.port || '',
+                    apiKey: config.apiKey || '',
+                    apiStyle: config.apiStyle || 'auto',
+                    preferredModels,
+                    maxTokens: { short: 800, medium: 1500, long: 2200 }[s.length] || 1500
+                });
+                if (result.attemptedModels.length > 1) {
+                    console.warn(`Fallback Ollama riuscito con ${result.model}; tentativi: ${result.attemptedModels.join(' → ')}`);
+                }
+                return result.content;
             }
 
             let endpoint, model, headers;
@@ -7619,11 +7779,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
 
             const body = {
                 model,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    ...recentHistory,
-                    { role: 'user', content: userMsg }
-                ],
+                messages: requestMessages,
                 temperature: 0.7, // Leggermente più basso per essere più rigoroso
                 max_tokens: 1500
             };
@@ -7877,17 +8033,65 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             }
 
             // Extract Quests
-            const questRe = /\[QUEST:\s*([^|]+)\|([^|]+)\|([^\]]+)\]/gi;
+            const questRe = /\[QUEST:\s*([^|]+)\|([^|]+)\|([^|\]]+)(?:\|([^\]]+))?\]/gi;
             while ((m = questRe.exec(response)) !== null) {
                 const name = m[1].trim();
                 const desc = m[2].trim();
                 const status = m[3].trim().toLowerCase();
-                addQuest(name, desc, status);
+                const progress = (m[4] || '').trim();
+                addQuest(name, desc, status, progress);
                 if (status === 'completed') {
                     addStoryEntry(`📋 Quest completata: ${name}`, 'memory-update');
                 } else {
                     addStoryEntry(`📋 Nuova quest: ${name}`, 'memory-update');
                 }
+                memoryChanged = true;
+            }
+
+            // Memoria a lungo termine estesa.
+            const factionRe = /\[FAZIONE:\s*([^|\]]+)(?:\|([^|\]]*))?(?:\|([^\]]*))?\]/gi;
+            while ((m = factionRe.exec(response)) !== null) {
+                const name = (m[1] || '').trim();
+                upsertLongTermMemory('factions', name, {
+                    name,
+                    description: (m[2] || '').trim(),
+                    relationship: (m[3] || '').trim()
+                });
+                memoryChanged = true;
+            }
+
+            const decisionRe = /\[DECISIONE:\s*([^|\]]+)(?:\|([^\]]+))?\]/gi;
+            while ((m = decisionRe.exec(response)) !== null) {
+                const summary = (m[1] || '').trim();
+                upsertLongTermMemory('playerDecisions', summary, {
+                    summary,
+                    importance: (m[2] || 'normal').trim(),
+                    turn: G.worldMemory.turnCount
+                });
+                memoryChanged = true;
+            }
+
+            const narrativeGoalRe = /\[OBIETTIVO_NARRATIVO:\s*([^|\]]+)(?:\|([^|\]]*))?(?:\|([^|\]]*))?(?:\|([^\]]*))?\]/gi;
+            while ((m = narrativeGoalRe.exec(response)) !== null) {
+                const name = (m[1] || '').trim();
+                upsertLongTermMemory('narrativeGoals', name, {
+                    name,
+                    description: (m[2] || '').trim(),
+                    status: (m[3] || 'active').trim(),
+                    progress: (m[4] || '').trim()
+                });
+                memoryChanged = true;
+            }
+
+            const secretRe = /\[SEGRETO:\s*([^|\]]+)(?:\|([^\]]*))?\]/gi;
+            while ((m = secretRe.exec(response)) !== null) {
+                const name = (m[1] || '').trim();
+                upsertLongTermMemory('revealedSecrets', name, {
+                    name,
+                    description: (m[2] || '').trim(),
+                    revealedAtTurn: G.worldMemory.turnCount,
+                    importance: 'high'
+                });
                 memoryChanged = true;
             }
 
@@ -8111,6 +8315,10 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[INTERAZIONE:[^\]]*\]/gi, '')
                 .replace(/\[LUOGO:[^\]]*\]/gi, '')
                 .replace(/\[QUEST:[^\]]*\]/gi, '')
+                .replace(/\[FAZIONE:[^\]]*\]/gi, '')
+                .replace(/\[DECISIONE:[^\]]*\]/gi, '')
+                .replace(/\[OBIETTIVO_NARRATIVO:[^\]]*\]/gi, '')
+                .replace(/\[SEGRETO:[^\]]*\]/gi, '')
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
@@ -8490,11 +8698,68 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             wm.lastSummaryTurn = wm.turnCount;
         }
 
+        function updateMediumTermMemory(action, response) {
+            const wm = G.worldMemory;
+            const cleanResponse = String(response || '')
+                .replace(/\[ANALISI\][\s\S]*?\[\/ANALISI\]/gi, '')
+                .replace(/\[[A-ZÀ-Ü_]+\s*:[^\]]+\]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            const recentEvents = (wm.events || []).slice(-6).map(event => event.summary).filter(Boolean);
+            const activeQuests = (wm.quests || []).filter(quest => quest.status === 'active').slice(-4);
+            const sections = [
+                `Scena corrente: ${G.currentLocation || 'Sconosciuto'}, ${getFullTimeString()}.`,
+                action ? `Ultima azione del giocatore: ${action}.` : '',
+                cleanResponse ? `Esito recente: ${cleanResponse}` : '',
+                recentEvents.length ? `Eventi rilevanti: ${recentEvents.join('; ')}.` : '',
+                activeQuests.length ? `Trame aperte: ${activeQuests.map(quest => `${quest.name}${quest.progress ? ` (${quest.progress})` : ''}`).join('; ')}.` : ''
+            ].filter(Boolean);
+            const summary = CronacheMemory.truncateToTokens(sections.join('\n'), 500);
+            wm.sceneSummary = summary;
+            wm.mediumTerm = {
+                ...(wm.mediumTerm || {}),
+                summary,
+                updatedAtTurn: wm.turnCount,
+                compressedMessages: wm.mediumTerm?.compressedMessages || 0
+            };
+        }
+
         function ensureStoryGenres() {
             G.stories = (G.stories || []).map(s => {
                 if (!s.genre) s.genre = resolveGenreKey(s);
                 return s;
             });
+        }
+
+        function updateOllamaModelInfo() {
+            const model = CronacheOllama.getModel($('set-ollama-model')?.value);
+            const info = $('ollama-model-info');
+            if (!info) return;
+            info.textContent = model
+                ? `Contesto consigliato: ${model.contextSize.toLocaleString('it-IT')} token · temperature ${model.temperature}, top_p ${model.topP}, top_k ${model.topK}. ${model.notes}`
+                : '';
+        }
+
+        function updateOllamaSettingsVisibility() {
+            const panel = $('ollama-settings');
+            if (panel) panel.style.display = $('set-model')?.value === 'ollama-cloud' ? 'block' : 'none';
+        }
+
+        function initializeOllamaSettings() {
+            const config = G.settings.ollama || {};
+            $('set-ollama-model').innerHTML = CronacheOllama.OLLAMA_MODELS.map(model =>
+                `<option value="${model.id}">${model.displayName} (${model.contextSize.toLocaleString('it-IT')} token)</option>`
+            ).join('');
+            $('set-ollama-model').value = config.primaryModel || 'llama3.1';
+            $('set-ollama-fallback').value = (config.fallbackOrder || ['qwen2.5', 'mistral']).join(', ');
+            $('set-ollama-endpoint').value = config.endpoint || 'https://ollama.com';
+            $('set-ollama-port').value = config.port || '';
+            $('set-ollama-key').value = config.apiKey || '';
+            $('set-ollama-api-style').value = config.apiStyle || 'auto';
+            $('set-ollama-model').onchange = updateOllamaModelInfo;
+            $('set-model').onchange = updateOllamaSettingsVisibility;
+            updateOllamaModelInfo();
+            updateOllamaSettingsVisibility();
         }
 
         function renderCreationOptions() {
@@ -8560,6 +8825,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             $('set-model').value = G.settings.model || 'groq';
             $('set-length').value = G.settings.length || 'medium';
             $('set-autoroll').checked = G.settings.autoRoll !== false;
+            initializeOllamaSettings();
 
             renderCreationOptions();
 
@@ -8687,6 +8953,20 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 G.settings.model = $('set-model').value;
                 G.settings.length = $('set-length').value;
                 G.settings.autoRoll = $('set-autoroll').checked;
+                const primaryModel = $('set-ollama-model').value || 'llama3.1';
+                const validModelIds = new Set(CronacheOllama.OLLAMA_MODELS.map(model => model.id));
+                const fallbackOrder = $('set-ollama-fallback').value
+                    .split(',')
+                    .map(value => value.trim())
+                    .filter(value => value && value !== primaryModel && validModelIds.has(value));
+                G.settings.ollama = {
+                    endpoint: $('set-ollama-endpoint').value.trim() || 'https://ollama.com',
+                    port: $('set-ollama-port').value.trim(),
+                    apiKey: $('set-ollama-key').value.trim(),
+                    apiStyle: $('set-ollama-api-style').value || 'auto',
+                    primaryModel,
+                    fallbackOrder
+                };
                 save();
                 notify('Impostazioni salvate!', 'success');
             };
