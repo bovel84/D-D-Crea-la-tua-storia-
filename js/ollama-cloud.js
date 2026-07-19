@@ -35,6 +35,20 @@
     const DEFAULT_FALLBACK_ORDER = Object.freeze(['deepseek-v3.1:671b', 'qwen3-coder:480b', 'gpt-oss:20b']);
     const RETRYABLE_STATUSES = new Set([400, 404, 408, 409, 425, 429, 500, 502, 503, 504]);
 
+    function isValidModelId(value) {
+        return /^[a-zA-Z0-9._:@/-]+$/.test(String(value || '').trim());
+    }
+
+    function customModel(modelId) {
+        const id = String(modelId || '').trim();
+        if (!isValidModelId(id)) return null;
+        return {
+            id, apiId: id, displayName: `${id} · ID personalizzato`, localCloudId: `${id}-cloud`,
+            contextSize: 32768, temperature: 0.7, topP: 0.9, topK: 40,
+            notes: 'ID inserito manualmente: verifica che sia abilitato per la tua API key.'
+        };
+    }
+
     function mergeCatalog(discoveredModels) {
         const catalog = OLLAMA_MODELS.map(model => ({ ...model }));
         const known = new Set(catalog.map(model => model.id));
@@ -66,19 +80,28 @@
         const seen = new Set();
         (Array.isArray(values) ? values : []).forEach(value => {
             const model = getModel(String(value || '').trim(), catalog);
-            if (!model || seen.has(model.id)) return;
-            seen.add(model.id);
-            result.push(model);
+            const resolved = model || customModel(value);
+            if (!resolved || seen.has(resolved.id)) return;
+            seen.add(resolved.id);
+            result.push(resolved);
         });
         return result;
     }
 
     function resolveEndpoint(config) {
-        const configured = String(config?.endpoint || OLLAMA_CLOUD_ENDPOINT).trim().replace(/\/$/, '');
-        if (configured !== OLLAMA_CLOUD_ENDPOINT) {
-            throw new Error('Cronache del Destino usa esclusivamente Ollama Cloud: imposta un’API key per https://ollama.com. Endpoint locali e porte personalizzate non sono supportati.');
+        const configured = String(config?.proxyUrl || config?.endpoint || '').trim();
+        if (!configured) {
+            throw new Error('Inserisci il collegamento HTTPS del tuo proxy Ollama compatibile CORS. GitHub Pages non può chiamare ollama.com direttamente.');
         }
-        return { style: 'native', url: `${OLLAMA_CLOUD_ENDPOINT}/api/chat` };
+        let url;
+        try { url = new URL(configured); } catch (_) { throw new Error('Il collegamento Ollama non è un URL valido.'); }
+        if (url.protocol !== 'https:') throw new Error('Il collegamento Ollama deve usare HTTPS.');
+        const path = url.pathname.replace(/\/$/, '').replace(/\/(api\/(chat|tags)|api)$/i, '');
+        url.pathname = path || '/';
+        url.search = '';
+        url.hash = '';
+        const base = url.toString().replace(/\/$/, '');
+        return { style: 'native', url: `${base}/api/chat`, tagsUrl: `${base}/api/tags` };
     }
 
     function buildHeaders(apiKey) {
@@ -99,13 +122,14 @@
         return data?.error?.message || data?.error || data?.message || `Errore Ollama HTTP ${response.status}`;
     }
 
-    async function fetchCloudModels(apiKey, fetchImpl) {
+    async function fetchCloudModels(apiKey, fetchImpl, proxyUrl) {
         const key = String(apiKey || '').trim();
         const request = fetchImpl || (typeof fetch === 'function' ? fetch.bind(globalThis) : null);
         if (!key) throw new Error('Inserisci prima una API key Ollama Cloud.');
         if (!request) throw new Error('Fetch API non disponibile per aggiornare il catalogo Ollama Cloud.');
 
-        const response = await request(`${OLLAMA_CLOUD_ENDPOINT}/api/tags`, {
+        const endpoint = resolveEndpoint({ proxyUrl });
+        const response = await request(endpoint.tagsUrl, {
             headers: { Authorization: `Bearer ${key}` }
         });
         const data = await response.json().catch(() => ({}));
@@ -256,6 +280,7 @@
         mergeCatalog,
         fetchCloudModels,
         OLLAMA_CLOUD_ENDPOINT,
-        resolveEndpoint
+        resolveEndpoint,
+        isValidModelId
     };
 });

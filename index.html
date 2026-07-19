@@ -2817,14 +2817,21 @@
                 <div class="form-group">
                     <label class="form-label">🔑 API Key Groq</label>
                     <input type="password" class="form-input" id="set-groq-key" placeholder="Inserisci la tua API key Groq...">
+                    <input type="url" class="form-input" id="set-groq-url" style="margin-top:7px;" placeholder="URL API Groq (opzionale)">
+                    <input type="text" class="form-input" id="set-groq-model" style="margin-top:7px;" placeholder="Modello Groq (es. llama-3.3-70b-versatile)">
                 </div>
                 <div class="form-group">
                     <label class="form-label">🔑 API Key OpenRouter</label>
                     <input type="password" class="form-input" id="set-openrouter-key" placeholder="Inserisci la tua API key OpenRouter...">
+                    <input type="url" class="form-input" id="set-openrouter-url" style="margin-top:7px;" placeholder="URL API OpenRouter (opzionale)">
+                    <input type="text" class="form-input" id="set-openrouter-model" style="margin-top:7px;" placeholder="Modello OpenRouter (es. openrouter/free)">
                 </div>
                 <div class="form-group">
                     <label class="form-label">🔑 API Key Kimera (DeepSeek)</label>
                     <input type="password" class="form-input" id="set-kimera-key" placeholder="Inserisci la tua API key Kimera...">
+                    <input type="url" class="form-input" id="set-kimera-url" style="margin-top:7px;" placeholder="URL API Kimera compatibile OpenAI (opzionale)">
+                    <input type="text" class="form-input" id="set-kimera-model" style="margin-top:7px;" placeholder="Modello Kimera (es. tngtech/deepseek-r1t2-chimera:free)">
+                    <small style="display:block; margin-top:4px; color:var(--ink-light);">Per Groq, OpenRouter e Kimera l'URL deve rispondere a <code>/chat/completions</code> e consentire CORS.</small>
                 </div>
                 <div class="form-group">
                     <label class="form-label">🤖 Modello AI</label>
@@ -2840,6 +2847,7 @@
                     <div class="form-group">
                         <label class="form-label">☁️ Modello Ollama primario</label>
                         <select class="form-select" id="set-ollama-model"></select>
+                        <input type="text" class="form-input" id="set-ollama-custom-model" style="margin-top:7px;" placeholder="ID modello Ollama libero (ha priorità sul menu)">
                         <div id="ollama-model-info" style="margin-top:6px; color:var(--ink-light); font-size:0.9em;"></div>
                     </div>
                     <div class="form-group">
@@ -2848,8 +2856,9 @@
                         <small style="display:block; margin-top:4px; color:var(--ink-light);">ID separati da virgola. Il modello primario viene provato sempre per primo.</small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">🌐 Endpoint Cloud</label>
-                        <div class="form-input" style="opacity:0.8; cursor:not-allowed;">https://ollama.com/api · solo remoto, nessun modello locale</div>
+                        <label class="form-label">🌐 Collegamento HTTPS al proxy Ollama</label>
+                        <input type="url" class="form-input" id="set-ollama-proxy-url" placeholder="https://tuo-proxy.example.com">
+                        <small style="display:block; margin-top:4px; color:var(--ink-light);">Il proxy deve offrire <code>/api/chat</code> e <code>/api/tags</code>, inoltrare la chiave e abilitare CORS. L'URL diretto ollama.com non funziona da GitHub Pages.</small>
                     </div>
                     <div class="form-group">
                         <label class="form-label">🔑 API Key Ollama Cloud</label>
@@ -2857,7 +2866,7 @@
                         <small style="display:block; margin-top:4px; color:var(--ink-light);">Crea una chiave su ollama.com. La chiave resta solo nel browser di questo dispositivo.</small>
                     </div>
                     <div class="form-group">
-                        <button class="btn secondary" id="btn-refresh-ollama-models" type="button" style="width:100%;">☁️ Aggiorna modelli disponibili per la mia API key</button>
+                        <button class="btn secondary" id="btn-refresh-ollama-models" type="button" style="width:100%;">☁️ Aggiorna modelli dal collegamento</button>
                         <small id="ollama-catalog-status" style="display:block; margin-top:4px; color:var(--ink-light);">Mostra i modelli Cloud abilitati per il tuo account.</small>
                     </div>
                 </div>
@@ -2902,7 +2911,7 @@
             // Memoria multilivello; il formato precedente viene migrato in modo additivo.
             worldMemory: CronacheMemory.createDefaultMemory(),
             settings: {
-                groqKey: '', openrouterKey: '', kimeraKey: '', model: 'groq', length: 'medium', autoRoll: true,
+                groqKey: '', groqUrl: '', groqModel: '', openrouterKey: '', openrouterUrl: '', openrouterModel: '', kimeraKey: '', kimeraUrl: '', kimeraModel: '', model: 'groq', length: 'medium', autoRoll: true,
                 ollama: {
                     endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT, apiKey: '',
                     primaryModel: 'gpt-oss:120b', fallbackOrder: CronacheOllama.DEFAULT_FALLBACK_ORDER
@@ -3815,14 +3824,16 @@
             const knownIds = new Set(CronacheOllama.OLLAMA_MODELS.map(model => model.id));
             const discoveredModels = CronacheOllama.mergeCatalog(source.discoveredModels)
                 .filter(model => !knownIds.has(model.id));
-            const allowed = new Set(CronacheOllama.mergeCatalog(discoveredModels).map(model => model.id));
-            const primaryModel = allowed.has(source.primaryModel) ? source.primaryModel : 'gpt-oss:120b';
+            const customModel = CronacheOllama.isValidModelId(source.customModel) ? source.customModel.trim() : '';
+            const primaryModel = customModel || (CronacheOllama.isValidModelId(source.primaryModel) ? source.primaryModel : 'gpt-oss:120b');
             const fallbackOrder = (Array.isArray(source.fallbackOrder) ? source.fallbackOrder : CronacheOllama.DEFAULT_FALLBACK_ORDER)
-                .filter(id => allowed.has(id) && id !== primaryModel);
+                .filter(id => CronacheOllama.isValidModelId(id) && id !== primaryModel);
             return {
                 endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT,
+                proxyUrl: String(source.proxyUrl || '').trim(),
                 apiKey: source.apiKey || '',
                 primaryModel,
+                customModel,
                 fallbackOrder: fallbackOrder.length ? fallbackOrder : CronacheOllama.DEFAULT_FALLBACK_ORDER.filter(id => id !== primaryModel),
                 discoveredModels
             };
@@ -7718,7 +7729,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
                 ];
                 const result = await ollamaClient.generate(requestMessages, {
-                    endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT,
+                    proxyUrl: config.proxyUrl,
                     apiKey: config.apiKey || '',
                     preferredModels,
                     discoveredModels: config.discoveredModels,
@@ -7733,20 +7744,20 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             let endpoint, model, headers;
 
             if (s.model === 'openrouter' && s.openrouterKey) {
-                endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-                model = 'google/gemma-3-27b-it:free'; // Tier gratuito consigliato
+                endpoint = s.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
+                model = s.openrouterModel || 'google/gemma-3-27b-it:free';
                 headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.openrouterKey}` };
             } else if (s.model === 'deepseek') {
                 const chimeraKey = s.kimeraKey || s.openrouterKey;
                 if (!chimeraKey) {
                     throw new Error('Configura la Kimera (o OpenRouter) API key per usare DeepSeek.');
                 }
-                endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-                model = 'tngtech/deepseek-r1t2-chimera:free';
+                endpoint = s.kimeraUrl || s.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
+                model = s.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free';
                 headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${chimeraKey}` };
             } else if (s.model === 'openrouter-free' && s.openrouterKey) {
                 // Usa la SDK OpenRouter per il modello openrouter/free
-                if (typeof OpenRouter !== 'undefined') {
+                if (typeof OpenRouter !== 'undefined' && !s.openrouterUrl && !s.openrouterModel) {
                     const { OpenRouter: OR } = window;
                     const openrouter = new OR.default({ apiKey: s.openrouterKey });
                     
@@ -7777,13 +7788,13 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     return fullContent || '⚠️ Nessuna risposta ricevuta.';
                 } else {
                     // Fallback: usa fetch diretto se SDK non disponibile
-                    endpoint = 'https://openrouter.ai/api/v1/chat/completions';
-                    model = 'openrouter/free';
+                    endpoint = s.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
+                    model = s.openrouterModel || 'openrouter/free';
                     headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.openrouterKey}` };
                 }
             } else if (s.groqKey) {
-                endpoint = 'https://api.groq.com/openai/v1/chat/completions';
-                model = 'llama-3.1-8b-instant'; // Consiglio il 70b per logica migliore, o 8b per velocità
+                endpoint = s.groqUrl || 'https://api.groq.com/openai/v1/chat/completions';
+                model = s.groqModel || 'llama-3.1-8b-instant';
                 headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.groqKey}` };
             } else {
                 throw new Error('Configura le API keys nelle Impostazioni!');
@@ -8744,7 +8755,10 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
         }
 
         function updateOllamaModelInfo() {
-            const model = CronacheOllama.getModel($('set-ollama-model')?.value, G.settings.ollama?.discoveredModels);
+            const customId = $('set-ollama-custom-model')?.value.trim();
+            const model = customId
+                ? { contextSize: 32768, temperature: 0.7, topP: 0.9, topK: 40, notes: `ID personalizzato: ${customId}.` }
+                : CronacheOllama.getModel($('set-ollama-model')?.value, G.settings.ollama?.discoveredModels);
             const info = $('ollama-model-info');
             if (!info) return;
             info.textContent = model
@@ -8775,8 +8789,13 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
 
         async function refreshOllamaCloudModels() {
             const apiKey = $('set-ollama-key').value.trim();
+            const proxyUrl = $('set-ollama-proxy-url').value.trim();
             if (!apiKey) {
                 notify('Inserisci prima la API key Ollama Cloud.', 'error');
+                return;
+            }
+            if (!proxyUrl) {
+                notify('Inserisci prima il collegamento HTTPS del proxy Ollama.', 'error');
                 return;
             }
             const button = $('btn-refresh-ollama-models');
@@ -8784,10 +8803,11 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             button.disabled = true;
             if (status) status.textContent = 'Recupero dei modelli Cloud abilitati…';
             try {
-                const discoveredModels = await CronacheOllama.fetchCloudModels(apiKey);
+                const discoveredModels = await CronacheOllama.fetchCloudModels(apiKey, undefined, proxyUrl);
                 G.settings.ollama = normalizeOllamaCloudSettings({
                     ...G.settings.ollama,
                     apiKey,
+                    proxyUrl,
                     discoveredModels
                 });
                 renderOllamaModelOptions(G.settings.ollama);
@@ -8806,13 +8826,15 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             const config = normalizeOllamaCloudSettings(G.settings.ollama);
             G.settings.ollama = config;
             renderOllamaModelOptions(config);
-            const validModelIds = new Set(getOllamaCloudCatalog(config).map(model => model.id));
-            const primaryModel = validModelIds.has(config.primaryModel) ? config.primaryModel : 'gpt-oss:120b';
+            const primaryModel = config.primaryModel || 'gpt-oss:120b';
             $('set-ollama-fallback').value = (config.fallbackOrder || CronacheOllama.DEFAULT_FALLBACK_ORDER)
-                .filter(id => validModelIds.has(id) && id !== primaryModel)
+                .filter(id => CronacheOllama.isValidModelId(id) && id !== primaryModel)
                 .join(', ');
             $('set-ollama-key').value = config.apiKey || '';
+            $('set-ollama-proxy-url').value = config.proxyUrl || '';
+            $('set-ollama-custom-model').value = config.customModel || '';
             $('set-ollama-model').onchange = updateOllamaModelInfo;
+            $('set-ollama-custom-model').oninput = updateOllamaModelInfo;
             $('set-model').onchange = updateOllamaSettingsVisibility;
             $('btn-refresh-ollama-models').onclick = refreshOllamaCloudModels;
             updateOllamaModelInfo();
@@ -8877,8 +8899,14 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             }
 
             $('set-groq-key').value = G.settings.groqKey || '';
+            $('set-groq-url').value = G.settings.groqUrl || '';
+            $('set-groq-model').value = G.settings.groqModel || '';
             $('set-openrouter-key').value = G.settings.openrouterKey || '';
+            $('set-openrouter-url').value = G.settings.openrouterUrl || '';
+            $('set-openrouter-model').value = G.settings.openrouterModel || '';
             $('set-kimera-key').value = G.settings.kimeraKey || '';
+            $('set-kimera-url').value = G.settings.kimeraUrl || '';
+            $('set-kimera-model').value = G.settings.kimeraModel || '';
             $('set-model').value = G.settings.model || 'groq';
             $('set-length').value = G.settings.length || 'medium';
             $('set-autoroll').checked = G.settings.autoRoll !== false;
@@ -9005,22 +9033,30 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             // SETTINGS
             $('btn-save-settings').onclick = () => {
                 G.settings.groqKey = $('set-groq-key').value;
+                G.settings.groqUrl = $('set-groq-url').value.trim();
+                G.settings.groqModel = $('set-groq-model').value.trim();
                 G.settings.openrouterKey = $('set-openrouter-key').value;
+                G.settings.openrouterUrl = $('set-openrouter-url').value.trim();
+                G.settings.openrouterModel = $('set-openrouter-model').value.trim();
                 G.settings.kimeraKey = $('set-kimera-key').value;
+                G.settings.kimeraUrl = $('set-kimera-url').value.trim();
+                G.settings.kimeraModel = $('set-kimera-model').value.trim();
                 G.settings.model = $('set-model').value;
                 G.settings.length = $('set-length').value;
                 G.settings.autoRoll = $('set-autoroll').checked;
-                const primaryModel = $('set-ollama-model').value || 'gpt-oss:120b';
+                const customModel = $('set-ollama-custom-model').value.trim();
+                const primaryModel = customModel || $('set-ollama-model').value || 'gpt-oss:120b';
                 const currentCloudConfig = normalizeOllamaCloudSettings(G.settings.ollama);
-                const validModelIds = new Set(getOllamaCloudCatalog(currentCloudConfig).map(model => model.id));
                 const fallbackOrder = $('set-ollama-fallback').value
                     .split(',')
                     .map(value => value.trim())
-                    .filter(value => value && value !== primaryModel && validModelIds.has(value));
+                    .filter(value => CronacheOllama.isValidModelId(value) && value !== primaryModel);
                 G.settings.ollama = normalizeOllamaCloudSettings({
                     ...currentCloudConfig,
                     apiKey: $('set-ollama-key').value.trim(),
+                    proxyUrl: $('set-ollama-proxy-url').value.trim(),
                     primaryModel,
+                    customModel,
                     fallbackOrder
                 });
                 save();
