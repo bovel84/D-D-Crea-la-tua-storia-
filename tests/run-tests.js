@@ -96,22 +96,26 @@ test('rileva una contraddizione con un NPC morto', () => {
 
 test('il catalogo contiene solo modelli Ollama Cloud remoti', () => {
     const ids = new Set(ollamaApi.OLLAMA_MODELS.map(model => model.id));
-    ['gpt-oss:120b', 'deepseek-v3.1:671b', 'qwen3-coder:480b', 'gpt-oss:20b']
+    ['gpt-oss:120b', 'deepseek-v4-flash', 'qwen3.5:397b', 'gpt-oss:20b']
         .forEach(id => assert.ok(ids.has(id), `Modello mancante: ${id}`));
     assert.ok(ollamaApi.OLLAMA_MODELS.every(model => model.localCloudId.endsWith('-cloud')));
 });
 
-test('usa il collegamento Ollama nativo integrato', () => {
+test('usa direttamente Ollama Cloud nell’app e consente un proxy esplicito', () => {
     assert.equal(
         ollamaApi.resolveEndpoint().url,
+        'https://ollama.com/api/chat'
+    );
+    assert.equal(ollamaApi.resolveEndpoint().tagsUrl, 'https://ollama.com/api/tags');
+    assert.equal(
+        ollamaApi.resolveEndpoint({ nativeProxy: '/api/ollama/' }).url,
         '/api/ollama/chat'
     );
-    assert.equal(ollamaApi.resolveEndpoint().tagsUrl, '/api/ollama/tags');
 });
 
 test('recupera e normalizza i modelli disponibili per la API key Cloud', async () => {
     const models = await ollamaApi.fetchCloudModels('test-key', async (url, options) => {
-        assert.equal(url, '/api/ollama/tags');
+        assert.equal(url, 'https://ollama.com/api/tags');
         assert.equal(options.headers.Authorization, 'Bearer test-key');
         return {
             ok: true,
@@ -139,10 +143,10 @@ test('usa il modello successivo quando Ollama è sovraccarico', async () => {
     const client = new ollamaApi.OllamaCloudClient({ fetch: fakeFetch, timeoutMs: 1000 });
     const result = await client.generate([{ role: 'user', content: 'Continua' }], {
         apiKey: 'test-key',
-        preferredModels: ['gpt-oss:120b', 'deepseek-v3.1:671b']
+        preferredModels: ['gpt-oss:120b', 'deepseek-v4-flash']
     });
-    assert.deepEqual(calls, ['gpt-oss:120b', 'deepseek-v3.1:671b']);
-    assert.equal(result.model, 'deepseek-v3.1:671b');
+    assert.deepEqual(calls, ['gpt-oss:120b', 'deepseek-v4-flash']);
+    assert.equal(result.model, 'deepseek-v4-flash');
     assert.equal(result.content, 'La storia continua.');
 });
 
