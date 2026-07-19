@@ -137,6 +137,8 @@ L'app web usa esclusivamente l'API remota ufficiale `https://ollama.com/api`: no
 
 Il client invia richieste native a `/api/chat` con `temperature`, `top_p`, `top_k`, `num_ctx` e `num_predict` dentro `options`.
 
+Il catalogo iniziale mostra i modelli Cloud consigliati. Dopo aver incollato la API key, il pulsante **Aggiorna modelli disponibili per la mia API key** richiama `/api/tags` e aggiunge al menu tutti i modelli abilitati per quello specifico account. Questo evita di mostrare una lista fissa o modelli locali non disponibili dal cellulare.
+
 Il fallback prova in ordine il modello primario e gli ID indicati dall'utente. Passa al successivo su timeout, risposta vuota, modello non disponibile, rate limit o errore 5xx. Su `401` o `403` interrompe subito, perché cambiare modello non risolve una credenziale errata.
 
 L'endpoint cloud ufficiale è `https://ollama.com/api`, con autenticazione Bearer. Riferimenti: [Ollama Cloud](https://docs.ollama.com/cloud), [autenticazione](https://docs.ollama.com/api/authentication), [API chat](https://docs.ollama.com/api/chat).

@@ -35,15 +35,37 @@
     const DEFAULT_FALLBACK_ORDER = Object.freeze(['deepseek-v3.1:671b', 'qwen3-coder:480b', 'gpt-oss:20b']);
     const RETRYABLE_STATUSES = new Set([400, 404, 408, 409, 425, 429, 500, 502, 503, 504]);
 
-    function getModel(modelId) {
-        return OLLAMA_MODELS.find(model => model.id === modelId || model.apiId === modelId) || null;
+    function mergeCatalog(discoveredModels) {
+        const catalog = OLLAMA_MODELS.map(model => ({ ...model }));
+        const known = new Set(catalog.map(model => model.id));
+        (Array.isArray(discoveredModels) ? discoveredModels : []).forEach(model => {
+            const apiId = String(model?.apiId || model?.id || '').trim().replace(/-cloud$/, '');
+            if (!apiId || known.has(apiId)) return;
+            known.add(apiId);
+            catalog.push({
+                id: apiId,
+                apiId,
+                displayName: model.displayName || `${apiId} · Cloud`,
+                localCloudId: model.localCloudId || `${apiId}-cloud`,
+                contextSize: Number(model.contextSize) || 32768,
+                temperature: Number.isFinite(Number(model.temperature)) ? Number(model.temperature) : 0.7,
+                topP: Number.isFinite(Number(model.topP)) ? Number(model.topP) : 0.9,
+                topK: Number.isFinite(Number(model.topK)) ? Number(model.topK) : 40,
+                notes: model.notes || 'Disponibile per questa API key Ollama Cloud.'
+            });
+        });
+        return catalog;
     }
 
-    function uniqueModels(values) {
+    function getModel(modelId, catalog) {
+        return mergeCatalog(catalog).find(model => model.id === modelId || model.apiId === modelId) || null;
+    }
+
+    function uniqueModels(values, catalog) {
         const result = [];
         const seen = new Set();
         (Array.isArray(values) ? values : []).forEach(value => {
-            const model = getModel(String(value || '').trim());
+            const model = getModel(String(value || '').trim(), catalog);
             if (!model || seen.has(model.id)) return;
             seen.add(model.id);
             result.push(model);
@@ -75,6 +97,37 @@
 
     function errorMessage(data, response) {
         return data?.error?.message || data?.error || data?.message || `Errore Ollama HTTP ${response.status}`;
+    }
+
+    async function fetchCloudModels(apiKey, fetchImpl) {
+        const key = String(apiKey || '').trim();
+        const request = fetchImpl || (typeof fetch === 'function' ? fetch.bind(globalThis) : null);
+        if (!key) throw new Error('Inserisci prima una API key Ollama Cloud.');
+        if (!request) throw new Error('Fetch API non disponibile per aggiornare il catalogo Ollama Cloud.');
+
+        const response = await request(`${OLLAMA_CLOUD_ENDPOINT}/api/tags`, {
+            headers: { Authorization: `Bearer ${key}` }
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(errorMessage(data, response));
+
+        return (Array.isArray(data.models) ? data.models : []).map(raw => {
+            const apiId = String(raw?.name || raw?.model || '').trim().replace(/-cloud$/, '');
+            if (!apiId) return null;
+            const details = raw.details || {};
+            const size = details.parameter_size ? ` · ${details.parameter_size}` : '';
+            return {
+                id: apiId,
+                apiId,
+                displayName: `${apiId}${size} · Cloud`,
+                localCloudId: `${apiId}-cloud`,
+                contextSize: Number(details.context_length || raw.context_length) || 32768,
+                temperature: 0.7,
+                topP: 0.9,
+                topK: 40,
+                notes: details.family ? `Modello Cloud rilevato: famiglia ${details.family}.` : 'Disponibile per questa API key Ollama Cloud.'
+            };
+        }).filter(Boolean);
     }
 
     class OllamaRequestError extends Error {
@@ -168,7 +221,8 @@
             if (!String(settings.apiKey || '').trim()) {
                 throw new Error('Configura una API key Ollama Cloud nelle Impostazioni prima di avviare il Master.');
             }
-            const preferred = uniqueModels(settings.preferredModels?.length ? settings.preferredModels : DEFAULT_FALLBACK_ORDER);
+            const catalog = mergeCatalog(settings.discoveredModels);
+            const preferred = uniqueModels(settings.preferredModels?.length ? settings.preferredModels : DEFAULT_FALLBACK_ORDER, catalog);
             if (!preferred.length) throw new Error('Configura almeno un modello Ollama valido.');
 
             const failures = [];
@@ -199,6 +253,8 @@
         OllamaRequestError,
         getModel,
         uniqueModels,
+        mergeCatalog,
+        fetchCloudModels,
         OLLAMA_CLOUD_ENDPOINT,
         resolveEndpoint
     };

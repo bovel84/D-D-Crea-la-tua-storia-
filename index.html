@@ -2856,6 +2856,10 @@
                         <input type="password" class="form-input" id="set-ollama-key" placeholder="API key Ollama...">
                         <small style="display:block; margin-top:4px; color:var(--ink-light);">Crea una chiave su ollama.com. La chiave resta solo nel browser di questo dispositivo.</small>
                     </div>
+                    <div class="form-group">
+                        <button class="btn secondary" id="btn-refresh-ollama-models" type="button" style="width:100%;">☁️ Aggiorna modelli disponibili per la mia API key</button>
+                        <small id="ollama-catalog-status" style="display:block; margin-top:4px; color:var(--ink-light);">Mostra i modelli Cloud abilitati per il tuo account.</small>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">📏 Lunghezza Risposte</label>
@@ -3808,7 +3812,10 @@
         // al catalogo Cloud ufficiale senza toccare le altre impostazioni.
         function normalizeOllamaCloudSettings(config) {
             const source = config || {};
-            const allowed = new Set(CronacheOllama.OLLAMA_MODELS.map(model => model.id));
+            const knownIds = new Set(CronacheOllama.OLLAMA_MODELS.map(model => model.id));
+            const discoveredModels = CronacheOllama.mergeCatalog(source.discoveredModels)
+                .filter(model => !knownIds.has(model.id));
+            const allowed = new Set(CronacheOllama.mergeCatalog(discoveredModels).map(model => model.id));
             const primaryModel = allowed.has(source.primaryModel) ? source.primaryModel : 'gpt-oss:120b';
             const fallbackOrder = (Array.isArray(source.fallbackOrder) ? source.fallbackOrder : CronacheOllama.DEFAULT_FALLBACK_ORDER)
                 .filter(id => allowed.has(id) && id !== primaryModel);
@@ -3816,7 +3823,8 @@
                 endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT,
                 apiKey: source.apiKey || '',
                 primaryModel,
-                fallbackOrder: fallbackOrder.length ? fallbackOrder : CronacheOllama.DEFAULT_FALLBACK_ORDER.filter(id => id !== primaryModel)
+                fallbackOrder: fallbackOrder.length ? fallbackOrder : CronacheOllama.DEFAULT_FALLBACK_ORDER.filter(id => id !== primaryModel),
+                discoveredModels
             };
         }
 
@@ -7713,6 +7721,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT,
                     apiKey: config.apiKey || '',
                     preferredModels,
+                    discoveredModels: config.discoveredModels,
                     maxTokens: { short: 800, medium: 1500, long: 2200 }[s.length] || 1500
                 });
                 if (result.attemptedModels.length > 1) {
@@ -8735,7 +8744,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
         }
 
         function updateOllamaModelInfo() {
-            const model = CronacheOllama.getModel($('set-ollama-model')?.value);
+            const model = CronacheOllama.getModel($('set-ollama-model')?.value, G.settings.ollama?.discoveredModels);
             const info = $('ollama-model-info');
             if (!info) return;
             info.textContent = model
@@ -8748,21 +8757,64 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if (panel) panel.style.display = $('set-model')?.value === 'ollama-cloud' ? 'block' : 'none';
         }
 
+        function getOllamaCloudCatalog(config = G.settings.ollama) {
+            return CronacheOllama.mergeCatalog(config?.discoveredModels);
+        }
+
+        function renderOllamaModelOptions(config = G.settings.ollama) {
+            const catalog = getOllamaCloudCatalog(config);
+            const select = $('set-ollama-model');
+            select.innerHTML = catalog.map(model =>
+                `<option value="${model.id}">${model.displayName} (${model.contextSize.toLocaleString('it-IT')} token)</option>`
+            ).join('');
+            const primary = catalog.some(model => model.id === config.primaryModel) ? config.primaryModel : 'gpt-oss:120b';
+            select.value = primary;
+            const status = $('ollama-catalog-status');
+            if (status) status.textContent = `${catalog.length} modelli Cloud disponibili nel catalogo locale. Aggiorna con la tua API key per leggere l’offerta del tuo account.`;
+        }
+
+        async function refreshOllamaCloudModels() {
+            const apiKey = $('set-ollama-key').value.trim();
+            if (!apiKey) {
+                notify('Inserisci prima la API key Ollama Cloud.', 'error');
+                return;
+            }
+            const button = $('btn-refresh-ollama-models');
+            const status = $('ollama-catalog-status');
+            button.disabled = true;
+            if (status) status.textContent = 'Recupero dei modelli Cloud abilitati…';
+            try {
+                const discoveredModels = await CronacheOllama.fetchCloudModels(apiKey);
+                G.settings.ollama = normalizeOllamaCloudSettings({
+                    ...G.settings.ollama,
+                    apiKey,
+                    discoveredModels
+                });
+                renderOllamaModelOptions(G.settings.ollama);
+                updateOllamaModelInfo();
+                if (status) status.textContent = `Catalogo aggiornato: ${discoveredModels.length} modelli restituiti da Ollama Cloud.`;
+                notify('Modelli Ollama Cloud aggiornati.', 'success');
+            } catch (error) {
+                if (status) status.textContent = 'Impossibile aggiornare il catalogo Cloud.';
+                notify(`Errore Ollama Cloud: ${error.message}`, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
         function initializeOllamaSettings() {
             const config = normalizeOllamaCloudSettings(G.settings.ollama);
             G.settings.ollama = config;
-            $('set-ollama-model').innerHTML = CronacheOllama.OLLAMA_MODELS.map(model =>
-                `<option value="${model.id}">${model.displayName} (${model.contextSize.toLocaleString('it-IT')} token)</option>`
-            ).join('');
-            const validModelIds = new Set(CronacheOllama.OLLAMA_MODELS.map(model => model.id));
+            renderOllamaModelOptions(config);
+            const validModelIds = new Set(getOllamaCloudCatalog(config).map(model => model.id));
             const primaryModel = validModelIds.has(config.primaryModel) ? config.primaryModel : 'gpt-oss:120b';
-            $('set-ollama-model').value = primaryModel;
             $('set-ollama-fallback').value = (config.fallbackOrder || CronacheOllama.DEFAULT_FALLBACK_ORDER)
                 .filter(id => validModelIds.has(id) && id !== primaryModel)
                 .join(', ');
             $('set-ollama-key').value = config.apiKey || '';
             $('set-ollama-model').onchange = updateOllamaModelInfo;
             $('set-model').onchange = updateOllamaSettingsVisibility;
+            $('btn-refresh-ollama-models').onclick = refreshOllamaCloudModels;
             updateOllamaModelInfo();
             updateOllamaSettingsVisibility();
         }
@@ -8959,17 +9011,18 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 G.settings.length = $('set-length').value;
                 G.settings.autoRoll = $('set-autoroll').checked;
                 const primaryModel = $('set-ollama-model').value || 'gpt-oss:120b';
-                const validModelIds = new Set(CronacheOllama.OLLAMA_MODELS.map(model => model.id));
+                const currentCloudConfig = normalizeOllamaCloudSettings(G.settings.ollama);
+                const validModelIds = new Set(getOllamaCloudCatalog(currentCloudConfig).map(model => model.id));
                 const fallbackOrder = $('set-ollama-fallback').value
                     .split(',')
                     .map(value => value.trim())
                     .filter(value => value && value !== primaryModel && validModelIds.has(value));
-                G.settings.ollama = {
-                    endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT,
+                G.settings.ollama = normalizeOllamaCloudSettings({
+                    ...currentCloudConfig,
                     apiKey: $('set-ollama-key').value.trim(),
                     primaryModel,
                     fallbackOrder
-                };
+                });
                 save();
                 notify('Impostazioni salvate!', 'success');
             };

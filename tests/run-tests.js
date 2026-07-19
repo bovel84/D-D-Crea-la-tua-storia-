@@ -108,6 +108,23 @@ test('forza l’endpoint remoto ufficiale e rifiuta localhost', () => {
     assert.throws(() => ollamaApi.resolveEndpoint({ endpoint: 'http://localhost:11434' }), /esclusivamente Ollama Cloud/);
 });
 
+test('recupera e normalizza i modelli disponibili per la API key Cloud', async () => {
+    const models = await ollamaApi.fetchCloudModels('test-key', async (url, options) => {
+        assert.equal(url, 'https://ollama.com/api/tags');
+        assert.equal(options.headers.Authorization, 'Bearer test-key');
+        return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+                models: [{ name: 'gemma3:27b', details: { family: 'gemma', parameter_size: '27B', context_length: 131072 } }]
+            })
+        };
+    });
+    assert.equal(models[0].id, 'gemma3:27b');
+    assert.equal(models[0].contextSize, 131072);
+    assert.ok(ollamaApi.getModel('gemma3:27b', models));
+});
+
 test('usa il modello successivo quando Ollama è sovraccarico', async () => {
     const calls = [];
     const fakeFetch = async (_url, options) => {
