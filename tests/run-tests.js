@@ -100,17 +100,18 @@ test('il catalogo contiene solo modelli Ollama Cloud remoti', () => {
     assert.ok(ollamaApi.OLLAMA_MODELS.every(model => model.localCloudId.endsWith('-cloud')));
 });
 
-test('forza l’endpoint remoto ufficiale e rifiuta localhost', () => {
+test('normalizza il collegamento HTTPS del proxy Ollama', () => {
     assert.equal(
-        ollamaApi.resolveEndpoint({}).url,
-        'https://ollama.com/api/chat'
+        ollamaApi.resolveEndpoint({ proxyUrl: 'https://proxy.example.com/api' }).url,
+        'https://proxy.example.com/api/chat'
     );
-    assert.throws(() => ollamaApi.resolveEndpoint({ endpoint: 'http://localhost:11434' }), /esclusivamente Ollama Cloud/);
+    assert.equal(ollamaApi.resolveEndpoint({ proxyUrl: 'https://proxy.example.com/api/chat' }).tagsUrl, 'https://proxy.example.com/api/tags');
+    assert.throws(() => ollamaApi.resolveEndpoint({ proxyUrl: 'http://localhost:11434' }), /HTTPS/);
 });
 
 test('recupera e normalizza i modelli disponibili per la API key Cloud', async () => {
     const models = await ollamaApi.fetchCloudModels('test-key', async (url, options) => {
-        assert.equal(url, 'https://ollama.com/api/tags');
+        assert.equal(url, 'https://proxy.example.com/api/tags');
         assert.equal(options.headers.Authorization, 'Bearer test-key');
         return {
             ok: true,
@@ -119,7 +120,7 @@ test('recupera e normalizza i modelli disponibili per la API key Cloud', async (
                 models: [{ name: 'gemma3:27b', details: { family: 'gemma', parameter_size: '27B', context_length: 131072 } }]
             })
         };
-    });
+    }, 'https://proxy.example.com');
     assert.equal(models[0].id, 'gemma3:27b');
     assert.equal(models[0].contextSize, 131072);
     assert.ok(ollamaApi.getModel('gemma3:27b', models));
@@ -137,13 +138,26 @@ test('usa il modello successivo quando Ollama è sovraccarico', async () => {
     };
     const client = new ollamaApi.OllamaCloudClient({ fetch: fakeFetch, timeoutMs: 1000 });
     const result = await client.generate([{ role: 'user', content: 'Continua' }], {
-        endpoint: 'https://ollama.com',
+        proxyUrl: 'https://proxy.example.com',
         apiKey: 'test-key',
         preferredModels: ['gpt-oss:120b', 'deepseek-v3.1:671b']
     });
     assert.deepEqual(calls, ['gpt-oss:120b', 'deepseek-v3.1:671b']);
     assert.equal(result.model, 'deepseek-v3.1:671b');
     assert.equal(result.content, 'La storia continua.');
+});
+
+test('accetta un ID modello Ollama inserito manualmente', async () => {
+    const client = new ollamaApi.OllamaCloudClient({
+        fetch: async (_url, options) => ({
+            ok: true, status: 200,
+            json: async () => ({ message: { content: JSON.parse(options.body).model } })
+        })
+    });
+    const result = await client.generate([{ role: 'user', content: 'test' }], {
+        proxyUrl: 'https://proxy.example.com', apiKey: 'test-key', preferredModels: ['modello-privato:70b']
+    });
+    assert.equal(result.content, 'modello-privato:70b');
 });
 
 (async () => {
