@@ -8,6 +8,7 @@
     // Catalogo per l'API remota ufficiale. Il browser usa la funzione
     // serverless interna, così nell'interfaccia bastano chiave e modello.
     const OLLAMA_CLOUD_ENDPOINT = 'https://ollama.com';
+    const OLLAMA_CLOUD_API = `${OLLAMA_CLOUD_ENDPOINT}/api`;
     const OLLAMA_NATIVE_PROXY = '/api/ollama';
     const OLLAMA_MODELS = Object.freeze([
         {
@@ -16,14 +17,14 @@
             notes: 'Scelta generale per campagne lunghe, scene complesse e coerenza narrativa.'
         },
         {
-            id: 'deepseek-v3.1:671b', displayName: 'DeepSeek V3.1 671B · Cloud', apiId: 'deepseek-v3.1:671b', localCloudId: 'deepseek-v3.1:671b-cloud', contextSize: 131072,
+            id: 'deepseek-v4-flash', displayName: 'DeepSeek V4 Flash · Cloud', apiId: 'deepseek-v4-flash', localCloudId: 'deepseek-v4-flash-cloud', contextSize: 131072,
             temperature: 0.65, topP: 0.9, topK: 40,
-            notes: 'Più analitico; indicato per investigazioni, enigmi e conseguenze strategiche.'
+            notes: 'Modello analitico aggiornato; indicato per investigazioni, enigmi e conseguenze strategiche.'
         },
         {
-            id: 'qwen3-coder:480b', displayName: 'Qwen3 Coder 480B · Cloud', apiId: 'qwen3-coder:480b', localCloudId: 'qwen3-coder:480b-cloud', contextSize: 131072,
+            id: 'qwen3.5:397b', displayName: 'Qwen 3.5 397B · Cloud', apiId: 'qwen3.5:397b', localCloudId: 'qwen3.5:397b-cloud', contextSize: 131072,
             temperature: 0.65, topP: 0.9, topK: 40,
-            notes: 'Molto affidabile nel seguire istruzioni e tag; utile per le meccaniche del Master.'
+            notes: 'Molto affidabile nel seguire istruzioni e mantenere campagne narrative complesse.'
         },
         {
             id: 'gpt-oss:20b', displayName: 'GPT-OSS 20B · Cloud', apiId: 'gpt-oss:20b', localCloudId: 'gpt-oss:20b-cloud', contextSize: 131072,
@@ -32,7 +33,7 @@
         }
     ]);
 
-    const DEFAULT_FALLBACK_ORDER = Object.freeze(['deepseek-v3.1:671b', 'qwen3-coder:480b', 'gpt-oss:20b']);
+    const DEFAULT_FALLBACK_ORDER = Object.freeze(['qwen3.5:397b', 'deepseek-v4-flash', 'gpt-oss:20b']);
     const RETRYABLE_STATUSES = new Set([400, 404, 408, 409, 425, 429, 500, 502, 503, 504]);
 
     function isValidModelId(value) {
@@ -89,7 +90,12 @@
     }
 
     function resolveEndpoint(config) {
-        const base = String(config?.nativeProxy || OLLAMA_NATIVE_PROXY).trim().replace(/\/$/, '');
+        // L'APK e gli hosting statici non possono eseguire la rotta serverless relativa
+        // /api/ollama: in quel caso il POST finisce sul server statico e restituisce 405.
+        // Ollama Cloud espone direttamente la stessa API nativa su ollama.com/api.
+        // Un proxy same-origin resta utilizzabile solo se configurato esplicitamente.
+        const configuredProxy = String(config?.nativeProxy || '').trim();
+        const base = (configuredProxy || OLLAMA_CLOUD_API).replace(/\/$/, '');
         return { style: 'native', url: `${base}/chat`, tagsUrl: `${base}/tags` };
     }
 
