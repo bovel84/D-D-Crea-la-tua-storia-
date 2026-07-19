@@ -2833,7 +2833,7 @@
                         <option value="openrouter">OpenRouter (Gemma 3 27B it Free)</option>
                         <option value="deepseek">OpenRouter (mimo-v2-flash:free)</option>
                         <option value="openrouter-free">OpenRouter (openrouter/free)</option>
-                        <option value="ollama-cloud">Ollama Cloud / endpoint personalizzato</option>
+                        <option value="ollama-cloud">Ollama Cloud (solo remoto)</option>
                     </select>
                 </div>
                 <div id="ollama-settings" style="display:none; padding: 12px; margin-bottom: 14px; border: 1px solid var(--gold-dark); border-radius: 8px; background: rgba(201,162,39,0.08);">
@@ -2844,28 +2844,17 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">🔁 Ordine fallback</label>
-                        <input type="text" class="form-input" id="set-ollama-fallback" placeholder="qwen2.5, mistral">
+                        <input type="text" class="form-input" id="set-ollama-fallback" placeholder="deepseek-v3.1:671b, qwen3-coder:480b">
                         <small style="display:block; margin-top:4px; color:var(--ink-light);">ID separati da virgola. Il modello primario viene provato sempre per primo.</small>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">🌐 URL base Ollama</label>
-                        <input type="url" class="form-input" id="set-ollama-endpoint" placeholder="https://ollama.com">
+                        <label class="form-label">🌐 Endpoint Cloud</label>
+                        <div class="form-input" style="opacity:0.8; cursor:not-allowed;">https://ollama.com/api · solo remoto, nessun modello locale</div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">🔌 Porta personalizzata (opzionale)</label>
-                        <input type="number" min="1" max="65535" class="form-input" id="set-ollama-port" placeholder="11434">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">🔑 API Key Ollama (se richiesta)</label>
+                        <label class="form-label">🔑 API Key Ollama Cloud</label>
                         <input type="password" class="form-input" id="set-ollama-key" placeholder="API key Ollama...">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">🔧 Protocollo API</label>
-                        <select class="form-select" id="set-ollama-api-style">
-                            <option value="auto">Automatico</option>
-                            <option value="native">Ollama nativo (/api/chat)</option>
-                            <option value="openai">Compatibile OpenAI (/v1/chat/completions)</option>
-                        </select>
+                        <small style="display:block; margin-top:4px; color:var(--ink-light);">Crea una chiave su ollama.com. La chiave resta solo nel browser di questo dispositivo.</small>
                     </div>
                 </div>
                 <div class="form-group">
@@ -2911,8 +2900,8 @@
             settings: {
                 groqKey: '', openrouterKey: '', kimeraKey: '', model: 'groq', length: 'medium', autoRoll: true,
                 ollama: {
-                    endpoint: 'https://ollama.com', port: '', apiKey: '', apiStyle: 'auto',
-                    primaryModel: 'llama3.1', fallbackOrder: ['qwen2.5', 'mistral']
+                    endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT, apiKey: '',
+                    primaryModel: 'gpt-oss:120b', fallbackOrder: CronacheOllama.DEFAULT_FALLBACK_ORDER
                 }
             },
             stories: [],
@@ -3815,6 +3804,22 @@
             return migrated;
         }
 
+        // I vecchi salvataggi potevano indicare modelli locali: vengono convertiti
+        // al catalogo Cloud ufficiale senza toccare le altre impostazioni.
+        function normalizeOllamaCloudSettings(config) {
+            const source = config || {};
+            const allowed = new Set(CronacheOllama.OLLAMA_MODELS.map(model => model.id));
+            const primaryModel = allowed.has(source.primaryModel) ? source.primaryModel : 'gpt-oss:120b';
+            const fallbackOrder = (Array.isArray(source.fallbackOrder) ? source.fallbackOrder : CronacheOllama.DEFAULT_FALLBACK_ORDER)
+                .filter(id => allowed.has(id) && id !== primaryModel);
+            return {
+                endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT,
+                apiKey: source.apiKey || '',
+                primaryModel,
+                fallbackOrder: fallbackOrder.length ? fallbackOrder : CronacheOllama.DEFAULT_FALLBACK_ORDER.filter(id => id !== primaryModel)
+            };
+        }
+
         function save() {
             localStorage.setItem('dnd_v4', JSON.stringify({
                 stories: G.stories, saves: G.saves, settings: G.settings
@@ -4337,7 +4342,7 @@
                 G.settings = {
                     ...G.settings,
                     ...p.settings,
-                    ollama: { ...G.settings.ollama, ...(p.settings?.ollama || {}) }
+                    ollama: normalizeOllamaCloudSettings({ ...G.settings.ollama, ...(p.settings?.ollama || {}) })
                 };
             }
             // Migrazione: assicurati che la storia business abbia la proprietà eredita
@@ -7699,16 +7704,14 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             ];
 
             if (s.model === 'ollama-cloud') {
-                const config = s.ollama || {};
+                const config = normalizeOllamaCloudSettings(s.ollama);
                 const preferredModels = [
-                    config.primaryModel || 'llama3.1',
+                    config.primaryModel || 'gpt-oss:120b',
                     ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
                 ];
                 const result = await ollamaClient.generate(requestMessages, {
-                    endpoint: config.endpoint || 'https://ollama.com',
-                    port: config.port || '',
+                    endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT,
                     apiKey: config.apiKey || '',
-                    apiStyle: config.apiStyle || 'auto',
                     preferredModels,
                     maxTokens: { short: 800, medium: 1500, long: 2200 }[s.length] || 1500
                 });
@@ -8746,16 +8749,18 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
         }
 
         function initializeOllamaSettings() {
-            const config = G.settings.ollama || {};
+            const config = normalizeOllamaCloudSettings(G.settings.ollama);
+            G.settings.ollama = config;
             $('set-ollama-model').innerHTML = CronacheOllama.OLLAMA_MODELS.map(model =>
                 `<option value="${model.id}">${model.displayName} (${model.contextSize.toLocaleString('it-IT')} token)</option>`
             ).join('');
-            $('set-ollama-model').value = config.primaryModel || 'llama3.1';
-            $('set-ollama-fallback').value = (config.fallbackOrder || ['qwen2.5', 'mistral']).join(', ');
-            $('set-ollama-endpoint').value = config.endpoint || 'https://ollama.com';
-            $('set-ollama-port').value = config.port || '';
+            const validModelIds = new Set(CronacheOllama.OLLAMA_MODELS.map(model => model.id));
+            const primaryModel = validModelIds.has(config.primaryModel) ? config.primaryModel : 'gpt-oss:120b';
+            $('set-ollama-model').value = primaryModel;
+            $('set-ollama-fallback').value = (config.fallbackOrder || CronacheOllama.DEFAULT_FALLBACK_ORDER)
+                .filter(id => validModelIds.has(id) && id !== primaryModel)
+                .join(', ');
             $('set-ollama-key').value = config.apiKey || '';
-            $('set-ollama-api-style').value = config.apiStyle || 'auto';
             $('set-ollama-model').onchange = updateOllamaModelInfo;
             $('set-model').onchange = updateOllamaSettingsVisibility;
             updateOllamaModelInfo();
@@ -8953,17 +8958,15 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 G.settings.model = $('set-model').value;
                 G.settings.length = $('set-length').value;
                 G.settings.autoRoll = $('set-autoroll').checked;
-                const primaryModel = $('set-ollama-model').value || 'llama3.1';
+                const primaryModel = $('set-ollama-model').value || 'gpt-oss:120b';
                 const validModelIds = new Set(CronacheOllama.OLLAMA_MODELS.map(model => model.id));
                 const fallbackOrder = $('set-ollama-fallback').value
                     .split(',')
                     .map(value => value.trim())
                     .filter(value => value && value !== primaryModel && validModelIds.has(value));
                 G.settings.ollama = {
-                    endpoint: $('set-ollama-endpoint').value.trim() || 'https://ollama.com',
-                    port: $('set-ollama-port').value.trim(),
+                    endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT,
                     apiKey: $('set-ollama-key').value.trim(),
-                    apiStyle: $('set-ollama-api-style').value || 'auto',
                     primaryModel,
                     fallbackOrder
                 };
