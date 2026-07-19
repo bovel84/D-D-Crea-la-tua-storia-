@@ -101,12 +101,12 @@ test('il catalogo contiene solo modelli Ollama Cloud remoti', () => {
     assert.ok(ollamaApi.OLLAMA_MODELS.every(model => model.localCloudId.endsWith('-cloud')));
 });
 
-test('usa direttamente Ollama Cloud nell’app e consente un proxy esplicito', () => {
+test('usa il proxy Vercel nell’app e consente un proxy esplicito', () => {
     assert.equal(
         ollamaApi.resolveEndpoint().url,
-        'https://ollama.com/api/chat'
+        'https://storia-app.vercel.app/api/ollama/chat'
     );
-    assert.equal(ollamaApi.resolveEndpoint().tagsUrl, 'https://ollama.com/api/tags');
+    assert.equal(ollamaApi.resolveEndpoint().tagsUrl, 'https://storia-app.vercel.app/api/ollama/tags');
     assert.equal(
         ollamaApi.resolveEndpoint({ nativeProxy: '/api/ollama/' }).url,
         '/api/ollama/chat'
@@ -115,7 +115,7 @@ test('usa direttamente Ollama Cloud nell’app e consente un proxy esplicito', (
 
 test('recupera e normalizza i modelli disponibili per la API key Cloud', async () => {
     const models = await ollamaApi.fetchCloudModels('test-key', async (url, options) => {
-        assert.equal(url, 'https://ollama.com/api/tags');
+        assert.equal(url, 'https://storia-app.vercel.app/api/ollama/tags');
         assert.equal(options.headers.Authorization, 'Bearer test-key');
         return {
             ok: true,
@@ -161,6 +161,25 @@ test('accetta un ID modello Ollama inserito manualmente', async () => {
         apiKey: 'test-key', preferredModels: ['modello-privato:70b']
     });
     assert.equal(result.content, 'modello-privato:70b');
+});
+
+test('il proxy risponde al preflight CORS della WebView', async () => {
+    const output = { statusCode: 0, headers: {}, body: null };
+    const response = {
+        status(code) { output.statusCode = code; return this; },
+        setHeader(name, value) { output.headers[name] = value; },
+        send(body) { output.body = body; return this; },
+        json(body) { output.body = JSON.stringify(body); return this; }
+    };
+    await ollamaProxyHandler({
+        method: 'OPTIONS',
+        query: { action: 'chat' },
+        headers: { origin: 'https://bovel84.github.io' }
+    }, response);
+    assert.equal(output.statusCode, 204);
+    assert.equal(output.headers['Access-Control-Allow-Origin'], '*');
+    assert.match(output.headers['Access-Control-Allow-Methods'], /POST/);
+    assert.match(output.headers['Access-Control-Allow-Headers'], /Authorization/);
 });
 
 test('il collegamento nativo inoltra chiave e richiesta a Ollama Cloud', async () => {

@@ -3,8 +3,19 @@ const ALLOWED_ACTIONS = new Set(['chat', 'tags']);
 
 module.exports = async function handler(request, response) {
     const action = String(request.query?.action || '').toLowerCase();
+
+    // Il frontend può essere eseguito da GitHub Pages o da una WebView Android,
+    // mentre il proxy vive su Vercel: autorizza il preflight CORS senza cookie.
+    response.setHeader('Access-Control-Allow-Origin', '*');
+    response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    response.setHeader('Access-Control-Max-Age', '86400');
+
     if (!ALLOWED_ACTIONS.has(action)) {
         return response.status(404).json({ error: 'Endpoint Ollama non disponibile.' });
+    }
+    if (request.method === 'OPTIONS') {
+        return response.status(204).send('');
     }
 
     const expectedMethod = action === 'tags' ? 'GET' : 'POST';

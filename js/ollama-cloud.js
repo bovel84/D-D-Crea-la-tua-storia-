@@ -9,7 +9,7 @@
     // serverless interna, così nell'interfaccia bastano chiave e modello.
     const OLLAMA_CLOUD_ENDPOINT = 'https://ollama.com';
     const OLLAMA_CLOUD_API = `${OLLAMA_CLOUD_ENDPOINT}/api`;
-    const OLLAMA_NATIVE_PROXY = '/api/ollama';
+    const OLLAMA_NATIVE_PROXY = 'https://storia-app.vercel.app/api/ollama';
     const OLLAMA_MODELS = Object.freeze([
         {
             id: 'gpt-oss:120b', displayName: 'GPT-OSS 120B · Cloud', apiId: 'gpt-oss:120b', localCloudId: 'gpt-oss:120b-cloud', contextSize: 131072,
@@ -95,7 +95,7 @@
         // Ollama Cloud espone direttamente la stessa API nativa su ollama.com/api.
         // Un proxy same-origin resta utilizzabile solo se configurato esplicitamente.
         const configuredProxy = String(config?.nativeProxy || '').trim();
-        const base = (configuredProxy || OLLAMA_CLOUD_API).replace(/\/$/, '');
+        const base = (configuredProxy || OLLAMA_NATIVE_PROXY || OLLAMA_CLOUD_API).replace(/\/$/, '');
         return { style: 'native', url: `${base}/chat`, tagsUrl: `${base}/tags` };
     }
 
