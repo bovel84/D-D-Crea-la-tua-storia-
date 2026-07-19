@@ -5,10 +5,10 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    // Catalogo per l'API REMOTA ufficiale. I tag "-cloud" servono quando si
-    // passa dall'installazione locale di Ollama; GitHub Pages usa invece
-    // direttamente https://ollama.com/api e non esegue mai modelli sul device.
+    // Catalogo per l'API remota ufficiale. Il browser usa la funzione
+    // serverless interna, così nell'interfaccia bastano chiave e modello.
     const OLLAMA_CLOUD_ENDPOINT = 'https://ollama.com';
+    const OLLAMA_NATIVE_PROXY = '/api/ollama';
     const OLLAMA_MODELS = Object.freeze([
         {
             id: 'gpt-oss:120b', displayName: 'GPT-OSS 120B · Cloud', apiId: 'gpt-oss:120b', localCloudId: 'gpt-oss:120b-cloud', contextSize: 131072,
@@ -54,7 +54,7 @@
         const known = new Set(catalog.map(model => model.id));
         (Array.isArray(discoveredModels) ? discoveredModels : []).forEach(model => {
             const apiId = String(model?.apiId || model?.id || '').trim().replace(/-cloud$/, '');
-            if (!apiId || known.has(apiId)) return;
+            if (!isValidModelId(apiId) || known.has(apiId)) return;
             known.add(apiId);
             catalog.push({
                 id: apiId,
@@ -89,19 +89,8 @@
     }
 
     function resolveEndpoint(config) {
-        const configured = String(config?.proxyUrl || config?.endpoint || '').trim();
-        if (!configured) {
-            throw new Error('Inserisci il collegamento HTTPS del tuo proxy Ollama compatibile CORS. GitHub Pages non può chiamare ollama.com direttamente.');
-        }
-        let url;
-        try { url = new URL(configured); } catch (_) { throw new Error('Il collegamento Ollama non è un URL valido.'); }
-        if (url.protocol !== 'https:') throw new Error('Il collegamento Ollama deve usare HTTPS.');
-        const path = url.pathname.replace(/\/$/, '').replace(/\/(api\/(chat|tags)|api)$/i, '');
-        url.pathname = path || '/';
-        url.search = '';
-        url.hash = '';
-        const base = url.toString().replace(/\/$/, '');
-        return { style: 'native', url: `${base}/api/chat`, tagsUrl: `${base}/api/tags` };
+        const base = String(config?.nativeProxy || OLLAMA_NATIVE_PROXY).trim().replace(/\/$/, '');
+        return { style: 'native', url: `${base}/chat`, tagsUrl: `${base}/tags` };
     }
 
     function buildHeaders(apiKey) {
@@ -122,13 +111,13 @@
         return data?.error?.message || data?.error || data?.message || `Errore Ollama HTTP ${response.status}`;
     }
 
-    async function fetchCloudModels(apiKey, fetchImpl, proxyUrl) {
+    async function fetchCloudModels(apiKey, fetchImpl) {
         const key = String(apiKey || '').trim();
         const request = fetchImpl || (typeof fetch === 'function' ? fetch.bind(globalThis) : null);
         if (!key) throw new Error('Inserisci prima una API key Ollama Cloud.');
         if (!request) throw new Error('Fetch API non disponibile per aggiornare il catalogo Ollama Cloud.');
 
-        const endpoint = resolveEndpoint({ proxyUrl });
+        const endpoint = resolveEndpoint();
         const response = await request(endpoint.tagsUrl, {
             headers: { Authorization: `Bearer ${key}` }
         });
@@ -137,7 +126,7 @@
 
         return (Array.isArray(data.models) ? data.models : []).map(raw => {
             const apiId = String(raw?.name || raw?.model || '').trim().replace(/-cloud$/, '');
-            if (!apiId) return null;
+            if (!isValidModelId(apiId)) return null;
             const details = raw.details || {};
             const size = details.parameter_size ? ` · ${details.parameter_size}` : '';
             return {
@@ -280,6 +269,7 @@
         mergeCatalog,
         fetchCloudModels,
         OLLAMA_CLOUD_ENDPOINT,
+        OLLAMA_NATIVE_PROXY,
         resolveEndpoint,
         isValidModelId
     };

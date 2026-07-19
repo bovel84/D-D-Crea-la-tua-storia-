@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const memoryApi = require('../js/memory-manager.js');
 const narrativeApi = require('../js/narrative-master.js');
 const ollamaApi = require('../js/ollama-cloud.js');
+const ollamaProxyHandler = require('../api/ollama/[action].js');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -100,18 +101,17 @@ test('il catalogo contiene solo modelli Ollama Cloud remoti', () => {
     assert.ok(ollamaApi.OLLAMA_MODELS.every(model => model.localCloudId.endsWith('-cloud')));
 });
 
-test('normalizza il collegamento HTTPS del proxy Ollama', () => {
+test('usa il collegamento Ollama nativo integrato', () => {
     assert.equal(
-        ollamaApi.resolveEndpoint({ proxyUrl: 'https://proxy.example.com/api' }).url,
-        'https://proxy.example.com/api/chat'
+        ollamaApi.resolveEndpoint().url,
+        '/api/ollama/chat'
     );
-    assert.equal(ollamaApi.resolveEndpoint({ proxyUrl: 'https://proxy.example.com/api/chat' }).tagsUrl, 'https://proxy.example.com/api/tags');
-    assert.throws(() => ollamaApi.resolveEndpoint({ proxyUrl: 'http://localhost:11434' }), /HTTPS/);
+    assert.equal(ollamaApi.resolveEndpoint().tagsUrl, '/api/ollama/tags');
 });
 
 test('recupera e normalizza i modelli disponibili per la API key Cloud', async () => {
     const models = await ollamaApi.fetchCloudModels('test-key', async (url, options) => {
-        assert.equal(url, 'https://proxy.example.com/api/tags');
+        assert.equal(url, '/api/ollama/tags');
         assert.equal(options.headers.Authorization, 'Bearer test-key');
         return {
             ok: true,
@@ -120,7 +120,7 @@ test('recupera e normalizza i modelli disponibili per la API key Cloud', async (
                 models: [{ name: 'gemma3:27b', details: { family: 'gemma', parameter_size: '27B', context_length: 131072 } }]
             })
         };
-    }, 'https://proxy.example.com');
+    });
     assert.equal(models[0].id, 'gemma3:27b');
     assert.equal(models[0].contextSize, 131072);
     assert.ok(ollamaApi.getModel('gemma3:27b', models));
@@ -138,7 +138,6 @@ test('usa il modello successivo quando Ollama è sovraccarico', async () => {
     };
     const client = new ollamaApi.OllamaCloudClient({ fetch: fakeFetch, timeoutMs: 1000 });
     const result = await client.generate([{ role: 'user', content: 'Continua' }], {
-        proxyUrl: 'https://proxy.example.com',
         apiKey: 'test-key',
         preferredModels: ['gpt-oss:120b', 'deepseek-v3.1:671b']
     });
@@ -155,9 +154,42 @@ test('accetta un ID modello Ollama inserito manualmente', async () => {
         })
     });
     const result = await client.generate([{ role: 'user', content: 'test' }], {
-        proxyUrl: 'https://proxy.example.com', apiKey: 'test-key', preferredModels: ['modello-privato:70b']
+        apiKey: 'test-key', preferredModels: ['modello-privato:70b']
     });
     assert.equal(result.content, 'modello-privato:70b');
+});
+
+test('il collegamento nativo inoltra chiave e richiesta a Ollama Cloud', async () => {
+    const originalFetch = global.fetch;
+    let upstreamCall;
+    global.fetch = async (url, options) => {
+        upstreamCall = { url, options };
+        return {
+            status: 200,
+            headers: { get: () => 'application/json' },
+            text: async () => '{"message":{"content":"ok"}}'
+        };
+    };
+    const output = { statusCode: 0, headers: {}, body: '' };
+    const response = {
+        status(code) { output.statusCode = code; return this; },
+        setHeader(name, value) { output.headers[name] = value; },
+        send(body) { output.body = body; return this; },
+        json(body) { output.body = JSON.stringify(body); return this; }
+    };
+    try {
+        await ollamaProxyHandler({
+            method: 'POST', query: { action: 'chat' },
+            headers: { authorization: 'Bearer test-key' },
+            body: { model: 'gpt-oss:120b', messages: [] }
+        }, response);
+    } finally {
+        global.fetch = originalFetch;
+    }
+    assert.equal(upstreamCall.url, 'https://ollama.com/api/chat');
+    assert.equal(upstreamCall.options.headers.Authorization, 'Bearer test-key');
+    assert.equal(JSON.parse(upstreamCall.options.body).model, 'gpt-oss:120b');
+    assert.equal(output.statusCode, 200);
 });
 
 (async () => {
