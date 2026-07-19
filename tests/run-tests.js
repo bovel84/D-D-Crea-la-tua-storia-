@@ -93,21 +93,19 @@ test('rileva una contraddizione con un NPC morto', () => {
     assert.equal(contradictions[0].type, 'npc_status');
 });
 
-test('il catalogo Ollama espone tutti i modelli richiesti', () => {
+test('il catalogo contiene solo modelli Ollama Cloud remoti', () => {
     const ids = new Set(ollamaApi.OLLAMA_MODELS.map(model => model.id));
-    ['llama3', 'llama3.1', 'mistral', 'mixtral', 'qwen2', 'qwen2.5', 'gemma2', 'phi3', 'command-r', 'deepseek-coder-v2']
+    ['gpt-oss:120b', 'deepseek-v3.1:671b', 'qwen3-coder:480b', 'gpt-oss:20b']
         .forEach(id => assert.ok(ids.has(id), `Modello mancante: ${id}`));
+    assert.ok(ollamaApi.OLLAMA_MODELS.every(model => model.localCloudId.endsWith('-cloud')));
 });
 
-test('risolve endpoint Ollama nativo e compatibile OpenAI', () => {
+test('forza l’endpoint remoto ufficiale e rifiuta localhost', () => {
     assert.equal(
-        ollamaApi.resolveEndpoint({ endpoint: 'https://ollama.com', apiStyle: 'native' }).url,
+        ollamaApi.resolveEndpoint({}).url,
         'https://ollama.com/api/chat'
     );
-    assert.equal(
-        ollamaApi.resolveEndpoint({ endpoint: 'http://localhost', port: '11434', apiStyle: 'openai' }).url,
-        'http://localhost:11434/v1/chat/completions'
-    );
+    assert.throws(() => ollamaApi.resolveEndpoint({ endpoint: 'http://localhost:11434' }), /esclusivamente Ollama Cloud/);
 });
 
 test('usa il modello successivo quando Ollama è sovraccarico', async () => {
@@ -123,11 +121,11 @@ test('usa il modello successivo quando Ollama è sovraccarico', async () => {
     const client = new ollamaApi.OllamaCloudClient({ fetch: fakeFetch, timeoutMs: 1000 });
     const result = await client.generate([{ role: 'user', content: 'Continua' }], {
         endpoint: 'https://ollama.com',
-        apiStyle: 'native',
-        preferredModels: ['llama3.1', 'mistral']
+        apiKey: 'test-key',
+        preferredModels: ['gpt-oss:120b', 'deepseek-v3.1:671b']
     });
-    assert.deepEqual(calls, ['llama3.1', 'mistral']);
-    assert.equal(result.model, 'mistral');
+    assert.deepEqual(calls, ['gpt-oss:120b', 'deepseek-v3.1:671b']);
+    assert.equal(result.model, 'deepseek-v3.1:671b');
     assert.equal(result.content, 'La storia continua.');
 });
 

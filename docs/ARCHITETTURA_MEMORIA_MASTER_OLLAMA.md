@@ -39,7 +39,7 @@ L'applicazione resta browser-only e non introduce dipendenze di runtime. I modul
 | `index.html` | Integrazione con stato, UI, prompt, parser dei tag, salvataggi e provider esistenti. |
 | `js/memory-manager.js` | Migrazione memoria, breve/medio/lungo termine, stima token, compressione e retrieval top 5. |
 | `js/narrative-master.js` | Ciclo decisionale, proattività, narrative compass e rilevamento contraddizioni. |
-| `js/ollama-cloud.js` | Catalogo modelli, parametri consigliati, endpoint personalizzato e fallback. |
+| `js/ollama-cloud.js` | Catalogo modelli Cloud, endpoint ufficiale obbligatorio e fallback. |
 | `tests/run-tests.js` | Test funzionali per memoria, Master e Ollama. |
 | `tests/check-html-script.js` | Controllo sintattico dello script inline. |
 | `package.json` | Comandi `npm test` e `npm run check`; nessuna dipendenza installata. |
@@ -124,28 +124,22 @@ I nuovi tag persistenti sono:
 
 `[SEGRETO]` deve essere emesso solo dopo una rivelazione effettiva al giocatore.
 
-### Ollama cloud e personalizzato
+### Ollama Cloud obbligatorio
 
-La configurazione permette di scegliere modello primario, ordine di fallback, URL base, porta, API key e protocollo. Sono inclusi:
+L'app web usa esclusivamente l'API remota ufficiale `https://ollama.com/api`: non accetta endpoint locali, porte locali o modelli installati sul dispositivo. Questa scelta è necessaria perché GitHub Pages gira nel browser del cellulare e non può raggiungere il server Ollama del computer. Sono inclusi i modelli Cloud pubblicati da Ollama; gli ID indicati qui sono quelli per l'API remota diretta (il suffisso `-cloud` è usato invece quando il cloud viene invocato tramite un'installazione locale di Ollama).
 
 | ID API | Contesto consigliato | Temperature | top_p | top_k | Uso narrativo |
 | --- | ---: | ---: | ---: | ---: | --- |
-| `llama3` | 8.192 | 0,75 | 0,90 | 40 | Scene lineari e dialoghi rapidi. |
-| `llama3.1` | 128.000 | 0,70 | 0,90 | 40 | Campagne lunghe; scelta generale. |
-| `mistral` | 32.768 | 0,75 | 0,90 | 40 | Azione e ritmo. |
-| `mixtral` | 32.768 | 0,70 | 0,90 | 50 | Cast ampi e intrecci. |
-| `qwen2` | 32.768 | 0,70 | 0,90 | 40 | Narrazione multilingue. |
-| `qwen2.5` | 128.000 | 0,65 | 0,90 | 40 | Coerenza e rispetto dei tag. |
-| `gemma2` | 8.192 | 0,80 | 0,95 | 50 | Prosa vivida e scene emotive. |
-| `phi3` | 128.000 | 0,65 | 0,90 | 30 | Sessioni rapide e compatte. |
-| `command-r` | 128.000 | 0,65 | 0,90 | 40 | Campagne con molto retrieval. |
-| `deepseek-coder-v2` | 128.000 | 0,55 | 0,90 | 30 | Enigmi, sistemi e investigazione. |
+| `gpt-oss:120b` | 131.072 | 0,70 | 0,90 | 40 | Scelta generale per campagne complesse. |
+| `deepseek-v3.1:671b` | 131.072 | 0,65 | 0,90 | 40 | Investigazione, enigmi e conseguenze strategiche. |
+| `qwen3-coder:480b` | 131.072 | 0,65 | 0,90 | 40 | Rispetto delle istruzioni e tag del Master. |
+| `gpt-oss:20b` | 131.072 | 0,75 | 0,90 | 40 | Scene brevi e fallback rapido. |
 
-Il client supporta l'API nativa Ollama e quella compatibile OpenAI. Per l'API nativa invia `temperature`, `top_p`, `top_k`, `num_ctx` e `num_predict` dentro `options`; per quella OpenAI invia i soli parametri compatibili.
+Il client invia richieste native a `/api/chat` con `temperature`, `top_p`, `top_k`, `num_ctx` e `num_predict` dentro `options`.
 
 Il fallback prova in ordine il modello primario e gli ID indicati dall'utente. Passa al successivo su timeout, risposta vuota, modello non disponibile, rate limit o errore 5xx. Su `401` o `403` interrompe subito, perché cambiare modello non risolve una credenziale errata.
 
-L'endpoint cloud ufficiale corrente è `https://ollama.com/api`, con autenticazione Bearer. La configurazione predefinita usa quindi URL base `https://ollama.com` e rilevamento automatico del protocollo, che in questo caso seleziona l'API nativa. Riferimenti: [autenticazione Ollama](https://docs.ollama.com/api/authentication), [API chat](https://docs.ollama.com/api/chat), [compatibilità OpenAI](https://docs.ollama.com/api/openai-compatibility).
+L'endpoint cloud ufficiale è `https://ollama.com/api`, con autenticazione Bearer. Riferimenti: [Ollama Cloud](https://docs.ollama.com/cloud), [autenticazione](https://docs.ollama.com/api/authentication), [API chat](https://docs.ollama.com/api/chat).
 
 ## 4. Esempio di flusso completo
 
@@ -185,8 +179,8 @@ Rischi e scelte deliberate:
 
 - La stima token è portabile ma approssimata; tokenizer diversi possono produrre conteggi differenti.
 - Il retrieval lessicale è leggero e deterministico, ma non coglie sinonimi quanto un sistema a embedding.
-- La disponibilità effettiva degli ID modello dipende dal server Ollama configurato. Il catalogo soddisfa gli ID richiesti e il fallback gestisce modelli assenti, ma un host può usare tag o varianti differenti.
-- Chiamare Ollama locale da una pagina aperta via HTTPS può essere bloccato da CORS o mixed content; in quel caso serve servire l'app localmente o configurare un proxy consentito.
+- Il catalogo riflette i modelli Cloud disponibili al momento dell'implementazione; Ollama può aggiornare l'offerta. In caso di modello rimosso, il fallback prova il successivo.
+- L'app rifiuta volutamente `localhost`, porte locali ed endpoint alternativi: evita che il cellulare tenti di usare un modello locale inesistente.
 - Le API key restano in `localStorage`, come le chiavi degli altri provider già presenti. Per uso multiutente o produzione vanno spostate in un backend sicuro.
 - Ollama Cloud non garantisce attualmente gli structured output; l'integrazione mantiene quindi il parser a tag già usato dal progetto invece di dipendere da JSON Schema.
 - Il salvataggio `dnd_v4` non cambia forma: `worldMemory` riceve campi additivi e una migrazione idempotente. Vecchi slot e impostazioni restano caricabili.

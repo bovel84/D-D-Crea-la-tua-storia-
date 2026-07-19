@@ -5,60 +5,34 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
+    // Catalogo per l'API REMOTA ufficiale. I tag "-cloud" servono quando si
+    // passa dall'installazione locale di Ollama; GitHub Pages usa invece
+    // direttamente https://ollama.com/api e non esegue mai modelli sul device.
+    const OLLAMA_CLOUD_ENDPOINT = 'https://ollama.com';
     const OLLAMA_MODELS = Object.freeze([
         {
-            id: 'llama3', displayName: 'Llama 3', apiId: 'llama3', contextSize: 8192,
-            temperature: 0.75, topP: 0.9, topK: 40,
-            notes: 'Narratore rapido e bilanciato; adatto a scene lineari e dialoghi.'
-        },
-        {
-            id: 'llama3.1', displayName: 'Llama 3.1', apiId: 'llama3.1', contextSize: 128000,
+            id: 'gpt-oss:120b', displayName: 'GPT-OSS 120B · Cloud', apiId: 'gpt-oss:120b', localCloudId: 'gpt-oss:120b-cloud', contextSize: 131072,
             temperature: 0.7, topP: 0.9, topK: 40,
-            notes: 'Scelta generale consigliata per campagne lunghe e continuità narrativa.'
+            notes: 'Scelta generale per campagne lunghe, scene complesse e coerenza narrativa.'
         },
         {
-            id: 'mistral', displayName: 'Mistral', apiId: 'mistral', contextSize: 32768,
+            id: 'deepseek-v3.1:671b', displayName: 'DeepSeek V3.1 671B · Cloud', apiId: 'deepseek-v3.1:671b', localCloudId: 'deepseek-v3.1:671b-cloud', contextSize: 131072,
+            temperature: 0.65, topP: 0.9, topK: 40,
+            notes: 'Più analitico; indicato per investigazioni, enigmi e conseguenze strategiche.'
+        },
+        {
+            id: 'qwen3-coder:480b', displayName: 'Qwen3 Coder 480B · Cloud', apiId: 'qwen3-coder:480b', localCloudId: 'qwen3-coder:480b-cloud', contextSize: 131072,
+            temperature: 0.65, topP: 0.9, topK: 40,
+            notes: 'Molto affidabile nel seguire istruzioni e tag; utile per le meccaniche del Master.'
+        },
+        {
+            id: 'gpt-oss:20b', displayName: 'GPT-OSS 20B · Cloud', apiId: 'gpt-oss:20b', localCloudId: 'gpt-oss:20b-cloud', contextSize: 131072,
             temperature: 0.75, topP: 0.9, topK: 40,
-            notes: 'Veloce e diretto; efficace per ritmo, azione e risposte concise.'
-        },
-        {
-            id: 'mixtral', displayName: 'Mixtral', apiId: 'mixtral', contextSize: 32768,
-            temperature: 0.7, topP: 0.9, topK: 50,
-            notes: 'Buono per intrecci, cast ampi e scene con più punti di vista.'
-        },
-        {
-            id: 'qwen2', displayName: 'Qwen 2', apiId: 'qwen2', contextSize: 32768,
-            temperature: 0.7, topP: 0.9, topK: 40,
-            notes: 'Versatile e multilingue; utile per ambientazioni culturali varie.'
-        },
-        {
-            id: 'qwen2.5', displayName: 'Qwen 2.5', apiId: 'qwen2.5', contextSize: 128000,
-            temperature: 0.65, topP: 0.9, topK: 40,
-            notes: 'Ottimo controllo delle istruzioni, coerenza e gestione dei tag di gioco.'
-        },
-        {
-            id: 'gemma2', displayName: 'Gemma 2', apiId: 'gemma2', contextSize: 8192,
-            temperature: 0.8, topP: 0.95, topK: 50,
-            notes: 'Prosa vivida e leggera; indicato per dialoghi e scene emotive brevi.'
-        },
-        {
-            id: 'phi3', displayName: 'Phi-3', apiId: 'phi3', contextSize: 128000,
-            temperature: 0.65, topP: 0.9, topK: 30,
-            notes: 'Compatto e rapido; adatto a sessioni con risorse limitate.'
-        },
-        {
-            id: 'command-r', displayName: 'Command R', apiId: 'command-r', contextSize: 128000,
-            temperature: 0.65, topP: 0.9, topK: 40,
-            notes: 'Forte sul retrieval: consigliato quando la memoria della campagna è ampia.'
-        },
-        {
-            id: 'deepseek-coder-v2', displayName: 'DeepSeek Coder V2', apiId: 'deepseek-coder-v2', contextSize: 128000,
-            temperature: 0.55, topP: 0.9, topK: 30,
-            notes: 'Più analitico; utile per enigmi, sistemi, investigazione e logica complessa.'
+            notes: 'Alternativa più rapida per scene brevi, dialoghi e fallback.'
         }
     ]);
 
-    const DEFAULT_FALLBACK_ORDER = Object.freeze(['llama3.1', 'qwen2.5', 'mistral']);
+    const DEFAULT_FALLBACK_ORDER = Object.freeze(['deepseek-v3.1:671b', 'qwen3-coder:480b', 'gpt-oss:20b']);
     const RETRYABLE_STATUSES = new Set([400, 404, 408, 409, 425, 429, 500, 502, 503, 504]);
 
     function getModel(modelId) {
@@ -77,29 +51,12 @@
         return result;
     }
 
-    function endpointWithPort(endpoint, port) {
-        const raw = String(endpoint || 'https://ollama.com').trim().replace(/\/$/, '');
-        try {
-            const url = new URL(raw);
-            if (port !== '' && port != null && Number.isFinite(Number(port))) url.port = String(Number(port));
-            return url.toString().replace(/\/$/, '');
-        } catch (error) {
-            throw new Error(`Endpoint Ollama non valido: ${raw}`);
-        }
-    }
-
     function resolveEndpoint(config) {
-        const base = endpointWithPort(config?.endpoint, config?.port);
-        let style = config?.apiStyle || 'auto';
-        if (style === 'auto') style = /\/v1\/?$/i.test(base) ? 'openai' : 'native';
-
-        if (style === 'openai') {
-            const root = /\/v1\/?$/i.test(base) ? base : `${base}/v1`;
-            return { style, url: `${root.replace(/\/$/, '')}/chat/completions` };
+        const configured = String(config?.endpoint || OLLAMA_CLOUD_ENDPOINT).trim().replace(/\/$/, '');
+        if (configured !== OLLAMA_CLOUD_ENDPOINT) {
+            throw new Error('Cronache del Destino usa esclusivamente Ollama Cloud: imposta un’API key per https://ollama.com. Endpoint locali e porte personalizzate non sono supportati.');
         }
-
-        const root = /\/api\/?$/i.test(base) ? base : `${base}/api`;
-        return { style: 'native', url: `${root.replace(/\/$/, '')}/chat` };
+        return { style: 'native', url: `${OLLAMA_CLOUD_ENDPOINT}/api/chat` };
     }
 
     function buildHeaders(apiKey) {
@@ -208,6 +165,9 @@
 
         async generate(messages, config) {
             const settings = config || {};
+            if (!String(settings.apiKey || '').trim()) {
+                throw new Error('Configura una API key Ollama Cloud nelle Impostazioni prima di avviare il Master.');
+            }
             const preferred = uniqueModels(settings.preferredModels?.length ? settings.preferredModels : DEFAULT_FALLBACK_ORDER);
             if (!preferred.length) throw new Error('Configura almeno un modello Ollama valido.');
 
@@ -239,7 +199,7 @@
         OllamaRequestError,
         getModel,
         uniqueModels,
-        endpointWithPort,
+        OLLAMA_CLOUD_ENDPOINT,
         resolveEndpoint
     };
 });
