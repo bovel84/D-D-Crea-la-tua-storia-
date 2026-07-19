@@ -39,7 +39,8 @@ L'applicazione resta browser-only e non introduce dipendenze di runtime. I modul
 | `index.html` | Integrazione con stato, UI, prompt, parser dei tag, salvataggi e provider esistenti. |
 | `js/memory-manager.js` | Migrazione memoria, breve/medio/lungo termine, stima token, compressione e retrieval top 5. |
 | `js/narrative-master.js` | Ciclo decisionale, proattività, narrative compass e rilevamento contraddizioni. |
-| `js/ollama-cloud.js` | Catalogo modelli Cloud, collegamento HTTPS/proxy, ID modello libero e fallback. |
+| `js/ollama-cloud.js` | Catalogo modelli Cloud, collegamento nativo, ID modello libero e fallback. |
+| `api/ollama/[action].js` | Funzione serverless che inoltra chat e catalogo a Ollama Cloud. |
 | `tests/run-tests.js` | Test funzionali per memoria, Master e Ollama. |
 | `tests/check-html-script.js` | Controllo sintattico dello script inline. |
 | `package.json` | Comandi `npm test` e `npm run check`; nessuna dipendenza installata. |
@@ -128,7 +129,9 @@ I nuovi tag persistenti sono:
 
 Per Groq, OpenRouter e Kimera le Impostazioni permettono di inserire API key, URL della API e ID modello. L'URL deve essere un endpoint HTTPS compatibile OpenAI `.../chat/completions` e deve consentire CORS.
 
-Anche Ollama ha campi per API key, ID modello libero e collegamento HTTPS. Da GitHub Pages non è possibile chiamare direttamente `https://ollama.com/api`, perché il browser blocca la risposta per CORS. Inserisci quindi l'URL di un tuo proxy HTTPS che inoltri a Ollama Cloud, esponga `/api/chat` e `/api/tags`, inoltri l'header `Authorization: Bearer` e abiliti CORS. Non viene mai eseguito un modello sul cellulare.
+Per Ollama l'utente inserisce soltanto API key e ID modello. L'app usa automaticamente le rotte interne `/api/ollama/chat` e `/api/ollama/tags`; la funzione serverless inoltra la richiesta a `https://ollama.com/api` con l'autenticazione Bearer. Non viene mai eseguito un modello sul cellulare.
+
+Questa parte richiede un hosting con funzioni serverless, come Vercel. GitHub Pages può pubblicare i file statici ma non può eseguire la rotta `/api/ollama`; sulla versione Pages il collegamento Ollama non può quindi funzionare.
 
 | ID API | Contesto consigliato | Temperature | top_p | top_k | Uso narrativo |
 | --- | ---: | ---: | ---: | ---: | --- |
@@ -139,11 +142,11 @@ Anche Ollama ha campi per API key, ID modello libero e collegamento HTTPS. Da Gi
 
 Il client Ollama invia richieste native a `/api/chat` con `temperature`, `top_p`, `top_k`, `num_ctx` e `num_predict` dentro `options`. L'ID scritto nel campo libero ha priorità sul menu e può essere anche un modello non presente nel catalogo.
 
-Il catalogo iniziale mostra i modelli Cloud consigliati. Dopo aver incollato chiave e collegamento, il pulsante **Aggiorna modelli dal collegamento** richiama `/api/tags` tramite il proxy e aggiunge al menu tutti i modelli abilitati per quell'account.
+Il catalogo iniziale mostra i modelli Cloud consigliati. Dopo aver incollato la chiave, il pulsante **Aggiorna modelli Ollama Cloud** richiama la rotta nativa e aggiunge al menu tutti i modelli abilitati per quell'account.
 
 Il fallback prova in ordine il modello primario e gli ID indicati dall'utente. Passa al successivo su timeout, risposta vuota, modello non disponibile, rate limit o errore 5xx. Su `401` o `403` interrompe subito, perché cambiare modello non risolve una credenziale errata.
 
-Il proxy inoltra le richieste all'endpoint Cloud `https://ollama.com/api`, con autenticazione Bearer. Riferimenti: [Ollama Cloud](https://docs.ollama.com/cloud), [autenticazione](https://docs.ollama.com/api/authentication), [API chat](https://docs.ollama.com/api/chat).
+La funzione serverless inoltra le richieste all'endpoint Cloud `https://ollama.com/api`, con autenticazione Bearer. Riferimenti: [Ollama Cloud](https://docs.ollama.com/cloud), [autenticazione](https://docs.ollama.com/api/authentication), [API chat](https://docs.ollama.com/api/chat).
 
 ## 4. Esempio di flusso completo
 
@@ -184,7 +187,7 @@ Rischi e scelte deliberate:
 - La stima token è portabile ma approssimata; tokenizer diversi possono produrre conteggi differenti.
 - Il retrieval lessicale è leggero e deterministico, ma non coglie sinonimi quanto un sistema a embedding.
 - Il catalogo riflette i modelli Cloud disponibili al momento dell'implementazione; Ollama può aggiornare l'offerta. In caso di modello rimosso, il fallback prova il successivo.
-- Gli URL personalizzati devono essere HTTPS e CORS-enabled. GitHub Pages non può raggiungere `localhost` del computer né l'API diretta di Ollama Cloud dal browser.
+- Ollama richiede un deployment serverless dell'intero repository; il solo URL GitHub Pages resta limitato ai provider che consentono chiamate dirette dal browser.
 - Le API key restano in `localStorage`, come le chiavi degli altri provider già presenti. Per uso multiutente o produzione vanno spostate in un backend sicuro.
 - Ollama Cloud non garantisce attualmente gli structured output; l'integrazione mantiene quindi il parser a tag già usato dal progetto invece di dipendere da JSON Schema.
 - Il salvataggio `dnd_v4` non cambia forma: `worldMemory` riceve campi additivi e una migrazione idempotente. Vecchi slot e impostazioni restano caricabili.

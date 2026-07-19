@@ -2,9 +2,9 @@
   "name": "cronache-del-destino",
   "version": "6.1.0",
   "private": true,
-  "description": "Motore GDR narrativo browser-only con memoria multilivello e provider Ollama.",
+  "description": "Motore GDR narrativo con memoria multilivello e collegamento serverless a Ollama Cloud.",
   "scripts": {
     "test": "node tests/run-tests.js",
-    "check": "node tests/check-html-script.js && node --check js/memory-manager.js && node --check js/narrative-master.js && node --check js/ollama-cloud.js"
+    "check": "node tests/check-html-script.js && node --check js/memory-manager.js && node --check js/narrative-master.js && node --check js/ollama-cloud.js && node --check 'api/ollama/[action].js'"
   }
 }
