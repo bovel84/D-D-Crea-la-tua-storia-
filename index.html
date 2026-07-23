@@ -2494,6 +2494,9 @@
 
                 <h4 style="margin-top: 15px;">✨ Abilità Acquisite</h4>
                 <div class="abilities-list" id="abilities-list"></div>
+
+                <h4 style="margin-top: 20px;">🌱 Vita, legami ed eredità</h4>
+                <div class="life-dashboard" id="life-dashboard"></div>
             </div>
         </div>
     </div>
@@ -2960,6 +2963,7 @@
     <script src="js/memory-manager.js"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
+    <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
     <script src="js/ollama-cloud.js"></script>
@@ -3011,6 +3015,7 @@
         });
         const narrativeMaster = new CronacheNarrative.NarrativeMasterEngine();
         const gameDirector = new CronacheDirector.GameDirector();
+        const lifeEngine = new CronacheLife.LifeLegacyEngine();
         const campaignVault = new CronacheVault.CampaignVault({ storage: localStorage, capacity: 3 });
         const ollamaClient = new CronacheOllama.OllamaCloudClient({ timeoutMs: 45000 });
         G.worldMemory.narrativeCompass = narrativeMaster.createDefaultCompass();
@@ -4555,7 +4560,8 @@
                 skills: {},
                 inventory: (genreCfg.starterInventory || []).map(i => ({ ...i })),
                 equipment: { weapon: null, armor: null, accessory: null },
-                gold: 100
+                gold: 100,
+                life: lifeEngine.createDefault()
             };
             Object.defineProperty(G.character, 'mana', {
                 get() { return this.secondary; },
@@ -4572,6 +4578,7 @@
         function updateCharacterUI() {
             if (!G.character) return;
             const c = G.character;
+            c.life = lifeEngine.migrate(c.life);
             const genreCfg = getGenreConfig({ genre: c.genre, setting: G.currentStory?.setting });
             const o = genreCfg.origins[c.origin] || { name: c.origin || 'Origine' };
             const a = genreCfg.archetypes[c.archetype] || { name: c.archetype || 'Archetipo', icon: '?', stat: genreCfg.stats?.[0]?.id };
@@ -4919,6 +4926,73 @@
             updateEquipmentUI();
             updateStatusEffects();
             updateLocationDisplay();
+            renderLifeDashboard();
+        }
+
+        function safeLifeText(value) {
+            const node = document.createElement('span');
+            node.textContent = String(value ?? '');
+            return node.innerHTML;
+        }
+
+        function renderLifeDashboard() {
+            const root = $('life-dashboard');
+            if (!root || !G.character) return;
+            const life = lifeEngine.migrate(G.character.life);
+            life.portfolio = lifeEngine.computePortfolio(G.worldMemory?.properties, G.worldMemory?.employees);
+            life.legacy = lifeEngine.computeLegacy(life, G.character, G.worldMemory || {});
+            G.character.life = life;
+
+            const domains = Object.entries(life.domains).map(([key, domain]) => {
+                const definition = CronacheLife.DOMAINS[key] || { label: key, icon: '✨' };
+                const needed = Math.max(1, domain.level * 100);
+                const progress = Math.min(100, Math.round((domain.xp / needed) * 100));
+                return '<div class="life-domain">' +
+                    '<div class="life-domain-head"><span>' + definition.icon + ' ' + safeLifeText(definition.label) + '</span><strong>Lv.' + domain.level + '</strong></div>' +
+                    '<div class="life-progress"><span style="width:' + progress + '%"></span></div>' +
+                    '<small>' + domain.xp + ' / ' + needed + ' XP</small></div>';
+            }).join('');
+
+            const bonds = Object.values(life.bonds)
+                .sort((a, b) => (b.trust + b.affection + b.respect) - (a.trust + a.affection + a.respect))
+                .slice(0, 8)
+                .map(bond => '<div class="life-bond-card"><strong>' + safeLifeText(bond.name) + '</strong>' +
+                    '<span class="life-chip">' + safeLifeText(CronacheLife.relationshipLabel(bond)) + '</span>' +
+                    '<small>🤝 ' + bond.trust + ' · ❤️ ' + bond.affection + ' · ⭐ ' + bond.respect + '</small>' +
+                    (bond.note ? '<p>' + safeLifeText(bond.note) + '</p>' : '') + '</div>')
+                .join('') || '<p class="life-empty">I rapporti importanti emergeranno dalle tue scelte.</p>';
+
+            const family = Object.values(life.familyNeeds)
+                .sort((a, b) => b.urgency - a.urgency)
+                .slice(0, 8)
+                .map(member => '<div class="life-family-card ' + (member.urgency >= 70 ? 'urgent' : '') + '">' +
+                    '<div><strong>' + safeLifeText(member.name) + '</strong><small>' + safeLifeText(member.mood || 'stabile') + '</small></div>' +
+                    '<span class="life-urgency">' + member.urgency + '%</span>' +
+                    '<p>' + safeLifeText(member.need || 'Nessun bisogno urgente') + '</p></div>')
+                .join('') || '<p class="life-empty">La famiglia e i suoi bisogni appariranno qui.</p>';
+
+            const properties = (G.worldMemory?.properties || []).map(property => {
+                const employees = (G.worldMemory?.employees || []).filter(employee => employee.property === property.name).length;
+                return '<div class="life-property-card"><strong>🏠 ' + safeLifeText(property.name || property.type || 'Proprietà') + '</strong>' +
+                    '<span>Condizione ' + Math.round(Number(property.condition) || 0) + '%</span>' +
+                    '<small>Valore ' + Math.round(Number(property.baseValue ?? property.value) || 0) + ' · Entrate ' + Math.round(Number(property.income) || 0) + ' · 👥 ' + employees + '</small></div>';
+            }).join('') || '<p class="life-empty">Nessuna proprietà posseduta.</p>';
+
+            const timeline = (life.timeline || []).slice(-5).reverse()
+                .map(item => '<li><strong>' + safeLifeText(item.title) + '</strong><span>' + safeLifeText(item.description) + '</span></li>')
+                .join('') || '<li class="life-empty">Le svolte della tua vita saranno registrate qui.</li>';
+
+            root.innerHTML =
+                '<section class="life-legacy-hero"><div><span class="life-kicker">EREDITÀ</span><h3>' + safeLifeText(life.legacy.tier) + '</h3>' +
+                '<p>Ogni relazione, impresa e scelta duratura costruisce ciò che lasci al mondo.</p></div>' +
+                '<div class="life-score-ring"><strong>' + life.legacy.score + '</strong><span>punti</span></div></section>' +
+                '<div class="life-summary-row"><span>✨ ' + life.talentPoints + ' punti talento</span><span>🤝 ' + Object.keys(life.bonds).length + ' legami</span><span>🏠 ' + life.portfolio.propertyCount + ' proprietà</span></div>' +
+                '<h5>Crescita personale</h5><div class="life-domain-grid">' + domains + '</div>' +
+                '<h5>Amicizie e relazioni</h5><div class="life-bond-grid">' + bonds + '</div>' +
+                '<h5>Famiglia</h5><div class="life-family-grid">' + family + '</div>' +
+                '<h5>Patrimonio</h5><div class="life-portfolio-summary"><strong>' + life.portfolio.totalValue + '</strong><span>valore totale</span><strong>' + life.portfolio.netIncome + '</strong><span>reddito netto</span></div>' +
+                '<div class="life-property-grid">' + properties + '</div>' +
+                '<h5>Momenti che contano</h5><ul class="life-timeline">' + timeline + '</ul>';
         }
 
         function getEmptyDetailsHtml() {
@@ -7626,6 +7700,8 @@
                 if (last?.textContent?.includes('scrivendo')) last.remove();
 
                 parseAIResponse(response);
+                lifeEngine.commitTurn(action, response, G.character, G.worldMemory);
+                updateCharacterUI();
                 const directorCommit = gameDirector.commitTurn(action, response, G.worldMemory, {
                     character: G.character,
                     story: G.currentStory,
@@ -8648,6 +8724,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[OBIETTIVO_NARRATIVO:[^\]]*\]/gi, '')
                 .replace(/\[SEGRETO:[^\]]*\]/gi, '')
                 .replace(/\[(?:CRONISTA|MONDO|PRESSIONE):[^\]]*\]/gi, '')
+                .replace(/\[(?:CRESCITA|LEGAME|FAMIGLIA_STATO|PROPRIETA_STATO):[^\]]*\]/gi, '')
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')

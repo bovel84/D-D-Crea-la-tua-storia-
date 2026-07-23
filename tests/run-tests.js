@@ -9,6 +9,7 @@ const experienceApi = require('../js/experience-v7.js');
 const directorApi = require('../js/game-director.js');
 const vaultApi = require('../js/campaign-vault.js');
 const campaignApi = require('../js/campaign-profile.js');
+const lifeApi = require('../js/life-legacy.js');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -447,6 +448,106 @@ test('normalizza e limita i testi liberi della Sessione Zero', () => {
     });
     assert.ok(profile.premise.length <= 1200);
     assert.equal(profile.boundaries.includes('\u0000'), false);
+});
+
+
+test('migra la vita del personaggio senza perdere campi futuri', () => {
+    const life = lifeApi.migrateLife({
+        customField: 42,
+        domains: { mind: { xp: 135 } },
+        bonds: { elara: { name: 'Elara', trust: 40 } }
+    });
+    assert.equal(life.schemaVersion, 1);
+    assert.equal(life.customField, 42);
+    assert.equal(life.domains.mind.level, 2);
+    assert.equal(life.bonds.elara.name, 'Elara');
+});
+
+test('la crescita assegna livelli, punti talento e traguardi', () => {
+    const life = lifeApi.createDefaultLife();
+    const gain = lifeApi.addGrowth(life, 'mind', 220, 'Ha risolto un enigma antico', 5);
+    assert.equal(gain.levelsGained, 2);
+    assert.equal(life.domains.mind.level, 3);
+    assert.equal(life.talentPoints, 2);
+    assert.equal(life.milestones.length, 1);
+});
+
+test('i legami evolvono su fiducia, affetto e rispetto', () => {
+    const life = lifeApi.createDefaultLife();
+    const bond = lifeApi.updateBond(life, {
+        name: 'Elara', type: 'amicizia', trust: 35, affection: 45, respect: 40, note: 'Ha mantenuto la promessa.'
+    }, 4);
+    assert.equal(bond.interactions, 1);
+    assert.equal(lifeApi.relationshipLabel(bond), 'Amico');
+});
+
+test('registra bisogni e urgenza della famiglia', () => {
+    const life = lifeApi.createDefaultLife();
+    const member = lifeApi.updateFamilyNeed(life, {
+        name: 'Marta', bond: 5, mood: 'preoccupata', need: 'Pagare il medico', urgency: 85
+    }, 8);
+    assert.equal(member.mood, 'preoccupata');
+    assert.equal(member.urgency, 85);
+    assert.equal(life.timeline[0].importance, 'high');
+});
+
+test('calcola valore e reddito netto del patrimonio', () => {
+    const portfolio = lifeApi.computePortfolio([
+        { baseValue: 1000, condition: 80, income: 120, maintenanceCost: 20 },
+        { baseValue: 500, condition: 60, income: 50, maintenanceCost: 10 }
+    ], [
+        { salary: 40, status: 'working' },
+        { salary: 999, status: 'fired' }
+    ]);
+    assert.equal(portfolio.totalValue, 1400);
+    assert.equal(portfolio.netIncome, 100);
+    assert.equal(portfolio.employeeCount, 1);
+});
+
+test('estrae gli aggiornamenti strutturati di vita e patrimonio', () => {
+    const tags = lifeApi.extractTags(
+        '[CRESCITA: mind|25|Studio intenso] ' +
+        '[LEGAME: Elara|amicizia|5|8|3|Una promessa mantenuta] ' +
+        '[FAMIGLIA_STATO: Marta|4|serena|Nessun bisogno|10] ' +
+        '[PROPRIETA_STATO: Officina|5|200|30|Nuovi macchinari]'
+    );
+    assert.equal(tags.growth[0].area, 'mind');
+    assert.equal(tags.bonds[0].affection, 8);
+    assert.equal(tags.family[0].urgency, 10);
+    assert.equal(tags.property[0].value, 200);
+});
+
+test('applica un turno a NPC, famiglia e proprietà persistenti', () => {
+    const character = { name: 'Aria', level: 2 };
+    const memory = {
+        turnCount: 9,
+        npcs: [{ name: 'Elara', relationship: 'alleata' }],
+        family: [{ name: 'Marta', mood: 'content' }],
+        properties: [{ name: 'Officina', condition: 70, baseValue: 1000, income: 80, maintenanceCost: 10 }],
+        employees: []
+    };
+    const result = lifeApi.commitTurn('Parlo con tutti',
+        '[CRESCITA: social|110|Ha ricomposto il conflitto] ' +
+        '[LEGAME: Elara|amicizia|10|10|5|Fiducia rinnovata] ' +
+        '[FAMIGLIA_STATO: Marta|5|serena|Riposo|15] ' +
+        '[PROPRIETA_STATO: Officina|5|100|20|Riparata]', character, memory);
+    assert.equal(result.applied.growth, 1);
+    assert.equal(character.life.domains.social.level, 2);
+    assert.equal(memory.npcs[0].bond.label, 'Alleato');
+    assert.equal(memory.family[0].need, 'Riposo');
+    assert.equal(memory.properties[0].condition, 75);
+    assert.equal(memory.properties[0].baseValue, 1100);
+});
+
+test('l’eredità cresce con esperienza, rapporti e proprietà', () => {
+    const life = lifeApi.createDefaultLife();
+    life.domains.leadership.xp = 500;
+    life.domains.leadership.level = 6;
+    life.bonds.elara = { name: 'Elara', type: 'amicizia', trust: 80, affection: 80, respect: 80 };
+    life.portfolio = lifeApi.computePortfolio([{ baseValue: 50000, condition: 100 }], []);
+    const legacy = lifeApi.computeLegacy(life, { level: 8 }, { family: [{ name: 'Marta', status: 'alive' }] });
+    assert.ok(legacy.score >= 180);
+    assert.notEqual(legacy.tier, 'Sconosciuto');
 });
 
 (async () => {
