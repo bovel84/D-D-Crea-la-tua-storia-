@@ -16,7 +16,7 @@
         ['rural', /rurale|agricol|contadin|fattoria|allevamento/i],
         ['pirate', /pirata|piratesco|corsar|bucaniere/i],
         ['spy', /spia|spionaggio|intelligence|servizi segreti|spy/i],
-        ['contemporary', /contemporaneo|moderno|giorni nostri|XXI secolo|21.? secolo/i],
+        ['contemporary', /contemporane[oaie]|modern[oaie]|giorni nostri|XXI secolo|21.? secolo/i],
         ['historical', /storico|antica roma|romano|rinascimento|medioevo|medieval|vittoriano|ottocento/i],
         ['fantasy', /fantasy|magia|draghi|medioevo fantastico/i]
     ];
