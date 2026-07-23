@@ -2869,14 +2869,16 @@
                         <textarea class="form-textarea compact" id="new-game-boundaries" placeholder="Es. crudeltà sugli animali, violenza grafica..."></textarea>
                     </label>
                 </div>
+                <div class="creation-context" id="creation-context" data-wizard-step="3"></div>
                 <div class="form-group" data-wizard-step="3">
-                    <label class="form-label">Origine</label>
+                    <label class="form-label">Origine <small>Scegli il passato del personaggio</small></label>
                     <div class="creation-grid" id="origin-grid"></div>
                 </div>
                 <div class="form-group" data-wizard-step="3">
-                    <label class="form-label">Archetipo</label>
+                    <label class="form-label">Professione / ruolo <small>Coerente con il periodo della storia</small></label>
                     <div class="creation-grid" id="archetype-grid"></div>
                 </div>
+                <div class="creation-loadout" id="creation-loadout" data-wizard-step="3"></div>
                 <button class="btn primary" id="btn-start-game" style="width: 100%;">⚔️ Inizia Avventura!</button>
             </div>
         </div>
@@ -2963,6 +2965,7 @@
     <script src="js/memory-manager.js"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
+    <script src="js/character-options.js"></script>
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
@@ -3572,24 +3575,11 @@
         const $$ = sel => document.querySelectorAll(sel);
 
         function resolveGenreKey(story) {
-            const raw = (story?.genre || '').toString().toLowerCase();
-            if (raw && GENRES[raw]) return raw;
-            const setting = (story?.setting || '').toString().toLowerCase();
-            if (setting.includes('sport') || setting.includes('calcio')) return 'sport';
-            if (setting.includes('business') || setting.includes('economia')) return 'business';
-            if (setting.includes('crime') || setting.includes('mafia') || setting.includes('gang')) return 'crime';
-            if (setting.includes('storico') || setting.includes('roma') || setting.includes('rinascimento')) return 'historical';
-            if (setting.includes('militare') || setting.includes('guerra') || setting.includes('war')) return 'military';
-            if (setting.includes('diplomatic') || setting.includes('diplomatico')) return 'diplomatic';
-            if (setting.includes('rurale') || setting.includes('agricolo') || setting.includes('contadino')) return 'rural';
-            if (setting.includes('pirata') || setting.includes('piratesco') || setting.includes('pirate')) return 'pirate';
-            if (setting.includes('spia') || setting.includes('spionaggio') || setting.includes('spy')) return 'spy';
-            if (setting.includes('contemporaneo') || setting.includes('moderno')) return 'contemporary';
-            return 'fantasy';
+            return CronacheCharacter.resolveGenreKey(story || {}, GENRES);
         }
 
         function getGenreConfig(story = G.currentStory) {
-            return GENRES[resolveGenreKey(story)] || GENRES.fantasy;
+            return CronacheCharacter.getGenreConfig(GENRES, story || {});
         }
 
         function getItemCatalog(source = {}) {
@@ -4558,7 +4548,9 @@
                 exp: { cur: 0, need: 100 },
                 attrs,
                 skills: {},
-                inventory: (genreCfg.starterInventory || []).map(i => ({ ...i })),
+                inventory: CronacheCharacter.getStarterInventory(genreCfg,
+                    Object.keys(genreCfg.origins).find(k => genreCfg.origins[k] === originData),
+                    Object.keys(genreCfg.archetypes).find(k => genreCfg.archetypes[k] === archetypeData)),
                 equipment: { weapon: null, armor: null, accessory: null },
                 gold: 100,
                 life: lifeEngine.createDefault()
@@ -9214,26 +9206,54 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             updateOllamaSettingsVisibility();
         }
 
+        function escapeCreationText(value) {
+            const node = document.createElement('span');
+            node.textContent = String(value ?? '');
+            return node.innerHTML;
+        }
+
+        function renderCreationLoadout(genreCfg) {
+            const root = $('creation-loadout');
+            if (!root) return;
+            const items = CronacheCharacter.getStarterInventory(genreCfg, G.selectedOrigin, G.selectedArchetype);
+            root.innerHTML = '<div class="creation-loadout-title"><span>🎒 Dotazione iniziale</span><small>Dipende dalle scelte effettuate</small></div>' +
+                (items.length ? '<div class="creation-loadout-items">' + items.map(item =>
+                    '<span title="' + escapeCreationText(item.desc || '') + '">' +
+                    escapeCreationText(item.icon || '📦') + ' ' + escapeCreationText(item.name) + '</span>'
+                ).join('') + '</div>' : '<p>Nessun oggetto iniziale previsto.</p>');
+        }
+
         function renderCreationOptions() {
             const storyIdx = parseInt($('new-game-story').value) || 0;
             const story = G.stories[storyIdx] || G.stories[0] || {};
+            const genreKey = resolveGenreKey(story);
             const genreCfg = getGenreConfig(story);
             const originEntries = Object.entries(genreCfg.origins || {});
             const archeEntries = Object.entries(genreCfg.archetypes || {});
             if (!G.selectedOrigin || !genreCfg.origins[G.selectedOrigin]) G.selectedOrigin = originEntries[0]?.[0] || null;
             if (!G.selectedArchetype || !genreCfg.archetypes[G.selectedArchetype]) G.selectedArchetype = archeEntries[0]?.[0] || null;
+            const summary = CronacheCharacter.getChoiceSummary(genreCfg);
+            if ($('creation-context')) {
+                $('creation-context').innerHTML =
+                    '<div><strong>' + escapeCreationText(genreCfg.name || genreKey) + '</strong>' +
+                    (summary.eraLabel ? '<span>' + escapeCreationText(summary.eraLabel) + '</span>' : '') + '</div>' +
+                    '<small>' + summary.origins + ' origini · ' + summary.archetypes + ' ruoli · ' + summary.items + ' oggetti disponibili</small>';
+            }
             $('origin-grid').innerHTML = originEntries.map(([k, v]) => `
-                <div class="creation-option ${G.selectedOrigin === k ? 'selected' : ''}" data-origin="${k}" title="${v.desc}">
-                    <div class="creation-icon">${v.icon}</div>
-                    <div class="creation-name">${v.name}</div>
-                </div>
+                <button type="button" class="creation-option ${G.selectedOrigin === k ? 'selected' : ''}" data-origin="${k}" aria-pressed="${G.selectedOrigin === k}">
+                    <span class="creation-icon">${escapeCreationText(v.icon)}</span>
+                    <span class="creation-name">${escapeCreationText(v.name)}</span>
+                    <span class="creation-desc">${escapeCreationText(v.desc)}</span>
+                </button>
             `).join('');
             $('archetype-grid').innerHTML = archeEntries.map(([k, v]) => `
-                <div class="creation-option ${G.selectedArchetype === k ? 'selected' : ''}" data-archetype="${k}" title="${v.desc}">
-                    <div class="creation-icon">${v.icon}</div>
-                    <div class="creation-name">${v.name}</div>
-                </div>
+                <button type="button" class="creation-option ${G.selectedArchetype === k ? 'selected' : ''}" data-archetype="${k}" aria-pressed="${G.selectedArchetype === k}">
+                    <span class="creation-icon">${escapeCreationText(v.icon)}</span>
+                    <span class="creation-name">${escapeCreationText(v.name)}</span>
+                    <span class="creation-desc">${escapeCreationText(v.desc)}</span>
+                </button>
             `).join('');
+            renderCreationLoadout(genreCfg);
         }
 
         // ==================== DICE ====================
@@ -9373,6 +9393,9 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     $$('#origin-grid .creation-option').forEach(o => o.classList.remove('selected'));
                     opt.classList.add('selected');
                     G.selectedOrigin = opt.dataset.origin;
+                    opt.setAttribute('aria-pressed', 'true');
+                    const storyIdx = parseInt($('new-game-story').value) || 0;
+                    renderCreationLoadout(getGenreConfig(G.stories[storyIdx] || G.stories[0] || {}));
                 }
             };
             $('archetype-grid').onclick = e => {
@@ -9381,6 +9404,9 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     $$('#archetype-grid .creation-option').forEach(o => o.classList.remove('selected'));
                     opt.classList.add('selected');
                     G.selectedArchetype = opt.dataset.archetype;
+                    opt.setAttribute('aria-pressed', 'true');
+                    const storyIdx = parseInt($('new-game-story').value) || 0;
+                    renderCreationLoadout(getGenreConfig(G.stories[storyIdx] || G.stories[0] || {}));
                 }
             };
             $('btn-start-game').onclick = startNewGame;
