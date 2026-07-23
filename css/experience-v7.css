@@ -556,3 +556,67 @@
         text-align: right;
     }
 }
+
+/* Campaign Vault */
+.vault-control {
+    font-weight: 800;
+}
+
+.vault-control:not(:disabled) {
+    color: #fff8dc;
+    background: linear-gradient(180deg, #6b4a92, #4b2f69);
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+.vault-control:disabled {
+    opacity: 0.38;
+    filter: grayscale(1);
+}
+
+.vault-backup-panel {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 15px;
+    border: 1px solid rgba(107, 74, 146, 0.28);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 90% 10%, rgba(107, 74, 146, 0.12), transparent 35%),
+        rgba(255, 255, 255, 0.48);
+}
+
+.vault-backup-panel > div:first-child {
+    display: grid;
+    gap: 4px;
+}
+
+.vault-backup-panel strong {
+    font-family: 'Cinzel', serif;
+}
+
+.vault-backup-panel small {
+    color: var(--ink-light);
+    line-height: 1.35;
+}
+
+.vault-backup-panel .btn-row {
+    margin: 0;
+}
+
+.save-slot-info small {
+    display: inline-block;
+    margin-top: 3px;
+    color: var(--ink-light);
+    line-height: 1.35;
+}
+
+@media (max-width: 700px) {
+    .ux-v7-ready .game-topbar .topbar-buttons:first-child {
+        flex-wrap: nowrap;
+    }
+
+    .ux-v7-ready .vault-control {
+        min-width: 34px;
+        padding-inline: 7px;
+    }
+}
