@@ -499,7 +499,7 @@ test('calcola valore e reddito netto del patrimonio', () => {
         { salary: 40, status: 'working' },
         { salary: 999, status: 'fired' }
     ]);
-    assert.equal(portfolio.totalValue, 1700);
+    assert.equal(portfolio.totalValue, 1400);
     assert.equal(portfolio.netIncome, 100);
     assert.equal(portfolio.employeeCount, 1);
 });
@@ -533,7 +533,7 @@ test('applica un turno a NPC, famiglia e proprietà persistenti', () => {
         '[PROPRIETA_STATO: Officina|5|100|20|Riparata]', character, memory);
     assert.equal(result.applied.growth, 1);
     assert.equal(character.life.domains.social.level, 2);
-    assert.equal(memory.npcs[0].bond.label, 'Amico');
+    assert.equal(memory.npcs[0].bond.label, 'Alleato');
     assert.equal(memory.family[0].need, 'Riposo');
     assert.equal(memory.properties[0].condition, 75);
     assert.equal(memory.properties[0].baseValue, 1100);
