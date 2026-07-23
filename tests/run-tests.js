@@ -5,6 +5,7 @@ const memoryApi = require('../js/memory-manager.js');
 const narrativeApi = require('../js/narrative-master.js');
 const ollamaApi = require('../js/ollama-cloud.js');
 const ollamaProxyHandler = require('../api/ollama/[action].js');
+const experienceApi = require('../js/experience-v7.js');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -213,6 +214,32 @@ test('il collegamento nativo inoltra chiave e richiesta a Ollama Cloud', async (
     assert.equal(upstreamCall.options.headers.Authorization, 'Bearer test-key');
     assert.equal(JSON.parse(upstreamCall.options.body).model, 'gpt-oss:120b');
     assert.equal(output.statusCode, 200);
+});
+
+test('limita correttamente i passaggi della creazione guidata', () => {
+    assert.equal(experienceApi.clampStep(-3), 0);
+    assert.equal(experienceApi.clampStep(99), 2);
+    assert.equal(experienceApi.clampStep('1'), 1);
+    assert.equal(experienceApi.clampStep('non valido'), 0);
+});
+
+test('naviga nella creazione guidata senza modificare lo stato originale', () => {
+    const original = { step: 0, campaign: 'Astaria' };
+    const forward = experienceApi.nextWizardStep(original, 1);
+    const back = experienceApi.nextWizardStep(forward, -1);
+    assert.equal(original.step, 0);
+    assert.equal(forward.step, 1);
+    assert.equal(forward.campaign, 'Astaria');
+    assert.equal(back.step, 0);
+});
+
+test('riconosce quando il giocatore sta leggendo eventi precedenti', () => {
+    assert.equal(experienceApi.isNearBottom({
+        scrollHeight: 1000, scrollTop: 780, clientHeight: 200
+    }, 30), true);
+    assert.equal(experienceApi.isNearBottom({
+        scrollHeight: 1000, scrollTop: 300, clientHeight: 200
+    }, 30), false);
 });
 
 (async () => {
