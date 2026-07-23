@@ -4,9 +4,6 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-6.1.0-blue.svg)](https://github.com/bovel84/D-D-Crea-la-tua-storia-)
-[![Live](https://img.shields.io/badge/live-miniapps.ai-green.svg)](https://miniapps.ai/it/dd-character-creator)
-
-**Live**: [miniapps.ai/it/dd-character-creator](https://miniapps.ai/it/dd-character-creator)  
 **Licenza**: MIT © 2026 Andrea Cannas
 
 ---
