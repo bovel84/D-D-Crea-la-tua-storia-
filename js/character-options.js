@@ -16,8 +16,8 @@
         ['rural', /rurale|agricol|contadin|fattoria|allevamento/i],
         ['pirate', /pirata|piratesco|corsar|bucaniere/i],
         ['spy', /spia|spionaggio|intelligence|servizi segreti|spy/i],
-        ['historical', /storico|antica roma|romano|rinascimento|medioevo|medieval|vittoriano|ottocento/i],
         ['contemporary', /contemporaneo|moderno|giorni nostri|XXI secolo|21.? secolo/i],
+        ['historical', /storico|antica roma|romano|rinascimento|medioevo|medieval|vittoriano|ottocento/i],
         ['fantasy', /fantasy|magia|draghi|medioevo fantastico/i]
     ];
 
@@ -68,7 +68,9 @@
                 sports_bag: { name: 'Borsa Sportiva', icon: '🎒', type: 'container', desc: 'Abbigliamento tecnico e accessori essenziali.' },
                 notebook: { name: 'Taccuino', icon: '📓', type: 'tool', desc: 'Appunti, piste e informazioni raccolte.' },
                 recorder: { name: 'Registratore Digitale', icon: '🎙️', type: 'tool', desc: 'Registra interviste e prove sonore.' },
-                toolkit: { name: 'Kit Tecnico', icon: '🧰', type: 'tool', desc: 'Strumenti per diagnosi e riparazioni rapide.' }
+                toolkit: { name: 'Kit Tecnico', icon: '🧰', type: 'tool', desc: 'Strumenti per diagnosi e riparazioni rapide.' },
+                medkit: { name: 'Kit di Pronto Soccorso', icon: '🩹', type: 'consumable', desc: 'Bende, disinfettante e strumenti per le emergenze.', effect: { health: 20 } },
+                snack: { name: 'Snack', icon: '🍫', type: 'consumable', desc: 'Una riserva rapida di energia.', effect: { hunger: 20, stamina: 10 } }
             }
         },
         sport: {
