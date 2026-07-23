@@ -8,6 +8,7 @@ const ollamaProxyHandler = require('../api/ollama/[action].js');
 const experienceApi = require('../js/experience-v7.js');
 const directorApi = require('../js/game-director.js');
 const vaultApi = require('../js/campaign-vault.js');
+const campaignApi = require('../js/campaign-profile.js');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -220,7 +221,7 @@ test('il collegamento nativo inoltra chiave e richiesta a Ollama Cloud', async (
 
 test('limita correttamente i passaggi della creazione guidata', () => {
     assert.equal(experienceApi.clampStep(-3), 0);
-    assert.equal(experienceApi.clampStep(99), 2);
+    assert.equal(experienceApi.clampStep(99), 3);
     assert.equal(experienceApi.clampStep('1'), 1);
     assert.equal(experienceApi.clampStep('non valido'), 0);
 });
@@ -395,6 +396,57 @@ test('rifiuta un backup modificato dopo l’esportazione', () => {
         () => vaultApi.parsePortableBackup(JSON.stringify(raw)),
         /incompleto o modificato/
     );
+});
+
+test('la procedura guidata espone i quattro passaggi della Sessione Zero', () => {
+    assert.deepEqual(experienceApi.WIZARD_LABELS, ['Storia', 'Eroe', 'Stile', 'Destino']);
+    assert.equal(experienceApi.clampStep(12), 3);
+    assert.equal(experienceApi.nextWizardStep({ step: 2 }, 1).step, 3);
+});
+
+test('crea e migra un profilo campagna persistente', () => {
+    const profile = campaignApi.createProfile({
+        tone: 'dark',
+        focus: 'roleplay',
+        freedom: 'sandbox',
+        intensity: 'gentle',
+        premise: 'Inizio come apprendista.',
+        boundaries: 'Niente violenza grafica.'
+    });
+    assert.equal(profile.schemaVersion, 1);
+    assert.equal(profile.tone, 'dark');
+    assert.equal(profile.freedom, 'sandbox');
+    assert.ok(profile.createdAt);
+    const migrated = campaignApi.migrateProfile({ tone: 'inesistente', customField: 42 });
+    assert.equal(migrated.tone, 'adventurous');
+    assert.equal(migrated.customField, 42);
+});
+
+test('traduce la Sessione Zero in istruzioni persistenti per il Master', () => {
+    const prompt = campaignApi.buildPrompt({
+        tone: 'realistic',
+        focus: 'management',
+        freedom: 'sandbox',
+        intensity: 'standard',
+        premise: 'Costruire una compagnia commerciale dal nulla.',
+        boundaries: 'Niente crudeltà sugli animali.'
+    });
+    assert.match(prompt, /SESSIONE ZERO/);
+    assert.match(prompt, /Realistico/);
+    assert.match(prompt, /Gestionale/);
+    assert.match(prompt, /Sandbox/);
+    assert.match(prompt, /compagnia commerciale/);
+    assert.match(prompt, /Niente crudeltà sugli animali/);
+    assert.match(prompt, /Non introdurre questi contenuti/);
+});
+
+test('normalizza e limita i testi liberi della Sessione Zero', () => {
+    const profile = campaignApi.migrateProfile({
+        premise: 'A'.repeat(1500),
+        boundaries: 'tema\\u0000 vietato'
+    });
+    assert.ok(profile.premise.length <= 1200);
+    assert.equal(profile.boundaries.includes('\\u0000'), false);
 });
 
 (async () => {
