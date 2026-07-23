@@ -6,7 +6,7 @@
     'use strict';
 
     const STORAGE_KEY = 'cronache_ux_v7';
-    const WIZARD_LABELS = ['Storia', 'Eroe', 'Destino'];
+    const WIZARD_LABELS = ['Storia', 'Eroe', 'Stile', 'Destino'];
     const THINKING_MESSAGES = [
         'Il Master interpreta la tua scelta…',
         'Il mondo reagisce alle conseguenze…',
@@ -218,6 +218,7 @@
             const name = documentRef.getElementById('new-game-name');
             return name && name.value.trim() ? '' : 'Dai un nome al tuo personaggio.';
         }
+        if (step === 2) return '';
         const origin = documentRef.querySelector('#origin-grid .selected');
         const archetype = documentRef.querySelector('#archetype-grid .selected');
         if (!origin || !archetype) return 'Scegli origine e archetipo per iniziare.';
@@ -231,11 +232,11 @@
 
         const groups = Array.from(modal.querySelectorAll(':scope > .form-group'));
         if (groups.length < 4) return;
-        const panels = [
-            [groups[0]],
-            [groups[1]],
-            groups.slice(2)
-        ];
+        const annotated = groups.every(group => group.dataset.wizardStep !== undefined);
+        const panels = annotated
+            ? WIZARD_LABELS.map((_, index) => groups.filter(group => Number(group.dataset.wizardStep) === index))
+            : [[groups[0]], [groups[1]], [], groups.slice(2)];
+        if (panels.some(panel => panel.length === 0)) return;
         panels.forEach((panelGroups, index) => {
             const panel = createElement(documentRef, 'div', 'ux-wizard-panel');
             panel.dataset.wizardPanel = String(index);
