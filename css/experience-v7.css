@@ -1,0 +1,411 @@
+/* Cronache del Destino — UX layer v7
+ * Progressive enhancement: the game remains usable if this stylesheet is unavailable.
+ */
+
+:root {
+    --ux-surface: rgba(255, 250, 236, 0.96);
+    --ux-surface-dark: rgba(31, 19, 11, 0.96);
+    --ux-accent: #d7ad38;
+    --ux-accent-strong: #8b6914;
+    --ux-radius: 16px;
+    --ux-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.ux-skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 10000;
+    padding: 10px 14px;
+    border-radius: 10px;
+    color: #1f130b;
+    background: #fff4cb;
+    transform: translateY(-160%);
+    transition: transform 160ms ease;
+}
+
+.ux-skip-link:focus {
+    transform: translateY(0);
+}
+
+.ux-version-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 10px auto 22px;
+    padding: 6px 12px;
+    border: 1px solid rgba(201, 162, 39, 0.42);
+    border-radius: 999px;
+    color: var(--parchment-dark);
+    background: rgba(0, 0, 0, 0.26);
+    font-family: 'Cinzel', serif;
+    font-size: 0.76rem;
+    letter-spacing: 0.04em;
+}
+
+.ux-version-pill::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #5ee08a;
+    box-shadow: 0 0 9px rgba(94, 224, 138, 0.8);
+}
+
+.ux-v7-ready .home-container {
+    padding: clamp(20px, 6vw, 42px);
+    border: 1px solid rgba(201, 162, 39, 0.22);
+    border-radius: 28px;
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
+        rgba(20, 10, 6, 0.32);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.36);
+    backdrop-filter: blur(9px);
+}
+
+.ux-v7-ready .home-menu {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.ux-v7-ready .home-btn.primary,
+.ux-v7-ready #btn-continue {
+    grid-column: 1 / -1;
+}
+
+.ux-v7-ready .home-section {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.ux-v7-ready .home-section-title {
+    grid-column: 1 / -1;
+}
+
+.ux-focus-toggle {
+    position: relative;
+}
+
+.ux-focus-toggle[aria-pressed='true'] {
+    color: #fff8dc;
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+.ux-focus-mode .topbar-info-panels,
+.ux-focus-mode .action-bar,
+.ux-focus-mode .quick-actions {
+    display: none !important;
+}
+
+.ux-focus-mode .story-entry.system,
+.ux-focus-mode .story-entry.analysis,
+.ux-focus-mode .story-entry.memory-update {
+    display: none;
+}
+
+.ux-focus-mode .story-scroll {
+    padding-inline: max(18px, calc((100vw - 780px) / 2));
+}
+
+.ux-focus-mode .story-entry {
+    font-size: 1.08rem;
+}
+
+.ux-thinking {
+    display: none;
+    align-items: center;
+    gap: 9px;
+    min-height: 30px;
+    padding: 5px 12px;
+    color: var(--ink-light);
+    font-size: 0.86rem;
+}
+
+.ux-thinking.is-visible {
+    display: flex;
+}
+
+.ux-thinking-dots {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.ux-thinking-dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gold-dark);
+    animation: uxThinking 1s infinite ease-in-out;
+}
+
+.ux-thinking-dots i:nth-child(2) { animation-delay: 120ms; }
+.ux-thinking-dots i:nth-child(3) { animation-delay: 240ms; }
+
+@keyframes uxThinking {
+    0%, 70%, 100% { opacity: 0.35; transform: translateY(0); }
+    35% { opacity: 1; transform: translateY(-3px); }
+}
+
+.ux-scroll-latest {
+    position: absolute;
+    right: 16px;
+    bottom: 105px;
+    z-index: 80;
+    display: none;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 13px;
+    border: 1px solid rgba(201, 162, 39, 0.55);
+    border-radius: 999px;
+    color: #fff8dc;
+    background: rgba(44, 24, 16, 0.94);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+}
+
+.ux-scroll-latest.is-visible {
+    display: inline-flex;
+}
+
+.ux-input-hint {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 5px 5px;
+    color: var(--ink-light);
+    font-size: 0.72rem;
+}
+
+.ux-input-hint kbd {
+    padding: 1px 5px;
+    border: 1px solid rgba(44, 24, 16, 0.2);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.5);
+    font-family: inherit;
+}
+
+.ux-toast-region {
+    position: fixed;
+    right: 16px;
+    bottom: calc(18px + var(--ux-safe-bottom));
+    z-index: 11000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.ux-toast {
+    max-width: min(360px, calc(100vw - 32px));
+    padding: 11px 14px;
+    border: 1px solid rgba(201, 162, 39, 0.5);
+    border-radius: 12px;
+    color: #fff8dc;
+    background: rgba(31, 19, 11, 0.96);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.34);
+    animation: uxToastIn 180ms ease-out;
+}
+
+@keyframes uxToastIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.ux-wizard-progress {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.ux-wizard-step {
+    position: relative;
+    padding: 9px 6px;
+    border: 0;
+    border-radius: 10px;
+    color: var(--ink-light);
+    background: rgba(0, 0, 0, 0.045);
+    font: 600 0.76rem 'Cinzel', serif;
+}
+
+.ux-wizard-step.is-active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+}
+
+.ux-wizard-step.is-complete {
+    color: #2e6b45;
+    background: rgba(46, 139, 87, 0.14);
+}
+
+.ux-wizard-panel[hidden] {
+    display: none !important;
+}
+
+.ux-wizard-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.ux-wizard-actions .btn {
+    flex: 1;
+}
+
+.ux-wizard-error {
+    margin: 9px 0 0;
+    padding: 9px 11px;
+    border-left: 3px solid #a51f1f;
+    border-radius: 6px;
+    color: #6d1616;
+    background: rgba(165, 31, 31, 0.08);
+    font-size: 0.86rem;
+}
+
+.ux-v7-ready button:focus-visible,
+.ux-v7-ready input:focus-visible,
+.ux-v7-ready select:focus-visible,
+.ux-v7-ready textarea:focus-visible,
+.ux-v7-ready [tabindex]:focus-visible {
+    outline: 3px solid #f2c94c;
+    outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+    .ux-v7-ready .home-container {
+        padding: 20px 16px;
+        border-radius: 22px;
+    }
+
+    .ux-v7-ready .home-title {
+        font-size: clamp(1.9rem, 10vw, 2.45rem);
+    }
+
+    .ux-v7-ready .game-topbar {
+        padding-top: max(6px, env(safe-area-inset-top));
+    }
+
+    .ux-v7-ready .topbar-row:first-child {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
+    .ux-v7-ready .time-display {
+        min-width: 0;
+        padding: 6px 8px;
+    }
+
+    .ux-v7-ready .time-main,
+    .ux-v7-ready .time-sub,
+    .ux-v7-ready .time-location {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .ux-v7-ready .topbar-btn {
+        min-width: 36px;
+        padding: 7px 9px;
+    }
+
+    .ux-v7-ready .topbar-info-panels {
+        flex: 1;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .ux-v7-ready .info-panel {
+        min-width: 96px;
+    }
+
+    .ux-v7-ready .story-scroll {
+        padding: 12px 10px 18px;
+    }
+
+    .ux-v7-ready .story-entry {
+        padding: 13px 14px;
+        border-radius: 14px;
+    }
+
+    .ux-v7-ready .input-area {
+        padding-bottom: calc(7px + var(--ux-safe-bottom));
+    }
+
+    .ux-v7-ready .action-bar,
+    .ux-v7-ready .quick-actions {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        scrollbar-width: none;
+        scroll-snap-type: x proximity;
+    }
+
+    .ux-v7-ready .action-btn,
+    .ux-v7-ready .quick-action {
+        flex: 0 0 auto;
+        scroll-snap-align: start;
+    }
+
+    .ux-v7-ready #action-input {
+        min-height: 48px;
+        font-size: 16px;
+    }
+
+    .ux-v7-ready #btn-send {
+        min-width: 50px;
+        min-height: 48px;
+    }
+
+    .ux-input-hint {
+        display: none;
+    }
+
+    .ux-scroll-latest {
+        right: 10px;
+        bottom: calc(96px + var(--ux-safe-bottom));
+    }
+
+    .ux-v7-ready .modal {
+        width: 100%;
+        max-height: calc(100dvh - 18px);
+        margin-top: auto;
+        border-radius: 22px 22px 0 0;
+    }
+
+    .ux-v7-ready .modal-overlay {
+        align-items: flex-end;
+    }
+}
+
+@media (max-width: 440px) {
+    .ux-v7-ready .home-menu,
+    .ux-v7-ready .home-section {
+        grid-template-columns: 1fr;
+    }
+
+    .ux-v7-ready .home-menu > *,
+    .ux-v7-ready .home-section > * {
+        grid-column: 1;
+    }
+
+    .ux-v7-ready .mini-bar {
+        width: 62px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ux-v7-ready *,
+    .ux-v7-ready *::before,
+    .ux-v7-ready *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
