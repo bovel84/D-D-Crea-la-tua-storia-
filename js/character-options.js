@@ -93,14 +93,14 @@
         },
         business: {
             origins: {
-                intern: { name: 'Tirocinante', icon: '🪪', desc: 'Parte dal basso e osserva tutto', bonuses: { ana: 1, rel: 1, amb: 1 }, kit: ['company_badge'] },
-                family_business: { name: 'Impresa di famiglia', icon: '🏪', desc: 'Conosce clienti, sacrifici e continuità', bonuses: { rel: 2, amb: 1 }, kit: ['ledger'] },
-                self_taught: { name: 'Autodidatta', icon: '📚', desc: 'Competenze costruite fuori dai percorsi tradizionali', bonuses: { ana: 2, amb: 1 }, kit: ['laptop'] }
+                intern: { name: 'Tirocinante', icon: '🪪', desc: 'Parte dal basso e osserva tutto', bonuses: { int: 1, net: 1, car: 1 }, kit: ['company_badge'] },
+                family_business: { name: 'Impresa di famiglia', icon: '🏪', desc: 'Conosce clienti, sacrifici e continuità', bonuses: { net: 2, car: 1 }, kit: ['ledger'] },
+                self_taught: { name: 'Autodidatta', icon: '📚', desc: 'Competenze costruite fuori dai percorsi tradizionali', bonuses: { int: 2, luck: 1 }, kit: ['laptop'] }
             },
             archetypes: {
-                analyst: { name: 'Analista', icon: '📊', desc: 'Trasforma dati in decisioni', stat: 'ana', hp: 9, mp: 7, skills: ['Analisi', 'Valutazione'], kit: ['spreadsheet'] },
-                founder: { name: 'Fondatore', icon: '🚀', desc: 'Costruisce un’impresa dal nulla', stat: 'amb', hp: 10, mp: 8, skills: ['Strategia', 'Raccolta fondi'], kit: ['pitch_deck'] },
-                controller: { name: 'Controller', icon: '🧮', desc: 'Sorveglia costi, margini e obiettivi', stat: 'ana', hp: 10, mp: 6, skills: ['Budget', 'Controllo'], kit: ['ledger'] }
+                analyst: { name: 'Analista', icon: '📊', desc: 'Trasforma dati in decisioni', stat: 'int', hp: 9, mp: 7, skills: ['Analisi', 'Valutazione'], kit: ['spreadsheet'] },
+                founder: { name: 'Fondatore', icon: '🚀', desc: 'Costruisce un’impresa dal nulla', stat: 'car', hp: 10, mp: 8, skills: ['Strategia', 'Raccolta fondi'], kit: ['pitch_deck'] },
+                controller: { name: 'Controller', icon: '🧮', desc: 'Sorveglia costi, margini e obiettivi', stat: 'int', hp: 10, mp: 6, skills: ['Budget', 'Controllo'], kit: ['ledger'] }
             },
             items: {
                 company_badge: { name: 'Badge Aziendale', icon: '🪪', type: 'utility', desc: 'Accesso agli uffici e identità professionale.' },
@@ -112,14 +112,14 @@
         },
         crime: {
             origins: {
-                neighborhood: { name: 'Quartiere difficile', icon: '🏚️', desc: 'Conosce strade, silenzi e gerarchie', bonuses: { ast: 2, rep: 1 }, kit: ['burner_phone'] },
-                ex_convict: { name: 'Ex detenuto', icon: '⛓️', desc: 'Porta addosso reputazione e contatti', bonuses: { for: 1, rep: 2 }, kit: ['contact_book'] },
-                respectable: { name: 'Facciata rispettabile', icon: '🎩', desc: 'Una vita pulita che nasconde altro', bonuses: { car: 2, ast: 1 }, kit: ['clean_documents'] }
+                neighborhood: { name: 'Quartiere difficile', icon: '🏚️', desc: 'Conosce strade, silenzi e gerarchie', bonuses: { ast: 2, resp: 1 }, kit: ['burner_phone'] },
+                ex_convict: { name: 'Ex detenuto', icon: '⛓️', desc: 'Porta addosso reputazione e contatti', bonuses: { vio: 1, resp: 2 }, kit: ['contact_book'] },
+                respectable: { name: 'Facciata rispettabile', icon: '🎩', desc: 'Una vita pulita che nasconde altro', bonuses: { conn: 2, ast: 1 }, kit: ['clean_documents'] }
             },
             archetypes: {
-                fixer: { name: 'Facilitatore', icon: '☎️', desc: 'Conosce la persona giusta per ogni problema', stat: 'car', hp: 10, mp: 7, skills: ['Contatti', 'Mediazione'], kit: ['contact_book'] },
+                fixer: { name: 'Facilitatore', icon: '☎️', desc: 'Conosce la persona giusta per ogni problema', stat: 'conn', hp: 10, mp: 7, skills: ['Contatti', 'Mediazione'], kit: ['contact_book'] },
                 infiltrator: { name: 'Infiltrato', icon: '🎭', desc: 'Cambia identità e conquista fiducia', stat: 'ast', hp: 9, mp: 8, skills: ['Copertura', 'Inganno'], kit: ['clean_documents'] },
-                wheelman: { name: 'Pilota', icon: '🚘', desc: 'Porta tutti fuori prima che sia tardi', stat: 'dex', hp: 11, mp: 4, skills: ['Guida', 'Fuga'], kit: ['car_keys'] }
+                wheelman: { name: 'Pilota', icon: '🚘', desc: 'Porta tutti fuori prima che sia tardi', stat: 'ast', hp: 11, mp: 4, skills: ['Guida', 'Fuga'], kit: ['car_keys'] }
             },
             items: {
                 burner_phone: { name: 'Telefono usa e getta', icon: '📱', type: 'tool', desc: 'Comunicazioni difficili da collegare al proprietario.' },
@@ -149,14 +149,14 @@
         },
         diplomatic: {
             origins: {
-                civil_service: { name: 'Servizio pubblico', icon: '🏛️', desc: 'Procedure, istituzioni e responsabilità', bonuses: { dip: 2, ana: 1 }, kit: ['credentials'] },
-                diaspora: { name: 'Diaspora', icon: '🌍', desc: 'Vive tra lingue, culture e identità', bonuses: { cul: 2, dip: 1 }, kit: ['phrasebook'] },
-                think_tank: { name: 'Centro studi', icon: '🧠', desc: 'Analisi, scenari e reti di influenza', bonuses: { ana: 2, cul: 1 }, kit: ['briefing'] }
+                civil_service: { name: 'Servizio pubblico', icon: '🏛️', desc: 'Procedure, istituzioni e responsabilità', bonuses: { ret: 2, int: 1 }, kit: ['credentials'] },
+                diaspora: { name: 'Diaspora', icon: '🌍', desc: 'Vive tra lingue, culture e identità', bonuses: { car: 2, ret: 1 }, kit: ['phrasebook'] },
+                think_tank: { name: 'Centro studi', icon: '🧠', desc: 'Analisi, scenari e reti di influenza', bonuses: { int: 2, ret: 1 }, kit: ['briefing'] }
             },
             archetypes: {
-                mediator: { name: 'Mediatore', icon: '🕊️', desc: 'Riduce la distanza tra posizioni incompatibili', stat: 'dip', hp: 9, mp: 9, skills: ['Mediazione', 'Ascolto'], kit: ['credentials'] },
-                attaché: { name: 'Addetto diplomatico', icon: '🎖️', desc: 'Gestisce dossier, relazioni e protocollo', stat: 'ana', hp: 10, mp: 7, skills: ['Protocollo', 'Analisi'], kit: ['briefing'] },
-                envoy: { name: 'Inviato speciale', icon: '✈️', desc: 'Opera dove il tempo e la fiducia scarseggiano', stat: 'dip', hp: 10, mp: 8, skills: ['Negoziazione', 'Crisi'], kit: ['secure_phone'] }
+                mediator: { name: 'Mediatore', icon: '🕊️', desc: 'Riduce la distanza tra posizioni incompatibili', stat: 'ret', hp: 9, mp: 9, skills: ['Mediazione', 'Ascolto'], kit: ['credentials'] },
+                attaché: { name: 'Addetto diplomatico', icon: '🎖️', desc: 'Gestisce dossier, relazioni e protocollo', stat: 'int', hp: 10, mp: 7, skills: ['Protocollo', 'Analisi'], kit: ['briefing'] },
+                envoy: { name: 'Inviato speciale', icon: '✈️', desc: 'Opera dove il tempo e la fiducia scarseggiano', stat: 'car', hp: 10, mp: 8, skills: ['Negoziazione', 'Crisi'], kit: ['secure_phone'] }
             },
             items: {
                 credentials: { name: 'Credenziali Diplomatiche', icon: '🪪', type: 'utility', desc: 'Identità e autorizzazioni ufficiali.' },
@@ -167,14 +167,14 @@
         },
         rural: {
             origins: {
-                tenant: { name: 'Mezzadro', icon: '🌾', desc: 'Lavora terre che non possiede', bonuses: { res: 2, pra: 1 }, kit: ['hand_tools'] },
-                cooperative: { name: 'Cooperativa', icon: '🤝', desc: 'Condivide rischi, lavoro e risultati', bonuses: { com: 2, pra: 1 }, kit: ['ledger'] },
-                agronomist: { name: 'Tecnico agrario', icon: '🧪', desc: 'Unisce scienza e conoscenza del territorio', bonuses: { con: 2, pra: 1 }, kit: ['soil_kit'] }
+                tenant: { name: 'Mezzadro', icon: '🌾', desc: 'Lavora terre che non possiede', bonuses: { res: 2, agr: 1 }, kit: ['hand_tools'] },
+                cooperative: { name: 'Cooperativa', icon: '🤝', desc: 'Condivide rischi, lavoro e risultati', bonuses: { res: 1, agr: 2 }, kit: ['ledger'] },
+                agronomist: { name: 'Tecnico agrario', icon: '🧪', desc: 'Unisce scienza e conoscenza del territorio', bonuses: { agr: 3 }, kit: ['soil_kit'] }
             },
             archetypes: {
-                breeder: { name: 'Allevatore', icon: '🐑', desc: 'Cura animali, pascoli e cicli produttivi', stat: 'pra', hp: 12, mp: 4, skills: ['Allevamento', 'Veterinaria'], kit: ['feed_bag'] },
-                winemaker: { name: 'Viticoltore', icon: '🍇', desc: 'Trasforma territorio e tempo in valore', stat: 'con', hp: 10, mp: 6, skills: ['Viticoltura', 'Commercio'], kit: ['pruning_tools'] },
-                cooperative_leader: { name: 'Presidente di cooperativa', icon: '🗳️', desc: 'Media interessi e costruisce sviluppo locale', stat: 'com', hp: 10, mp: 7, skills: ['Leadership', 'Negoziazione'], kit: ['ledger'] }
+                breeder: { name: 'Allevatore', icon: '🐑', desc: 'Cura animali, pascoli e cicli produttivi', stat: 'res', hp: 12, mp: 4, skills: ['Allevamento', 'Veterinaria'], kit: ['feed_bag'] },
+                winemaker: { name: 'Viticoltore', icon: '🍇', desc: 'Trasforma territorio e tempo in valore', stat: 'agr', hp: 10, mp: 6, skills: ['Viticoltura', 'Commercio'], kit: ['pruning_tools'] },
+                cooperative_leader: { name: 'Presidente di cooperativa', icon: '🗳️', desc: 'Media interessi e costruisce sviluppo locale', stat: 'agr', hp: 10, mp: 7, skills: ['Leadership', 'Negoziazione'], kit: ['ledger'] }
             },
             items: {
                 hand_tools: { name: 'Attrezzi Agricoli', icon: '🧰', type: 'tool', desc: 'Strumenti essenziali per il lavoro quotidiano.' },
@@ -206,14 +206,14 @@
         },
         spy: {
             origins: {
-                military_intel: { name: 'Intelligence militare', icon: '🎖️', desc: 'Analisi operativa e catena di comando', bonuses: { int: 2, dis: 1 }, kit: ['secure_phone'] },
-                police: { name: 'Polizia investigativa', icon: '🕵️', desc: 'Indagini, fonti e procedure', bonuses: { int: 1, oss: 2 }, kit: ['credentials'] },
-                civilian_asset: { name: 'Risorsa civile', icon: '👤', desc: 'Accesso unico senza profilo operativo', bonuses: { cop: 2, dis: 1 }, kit: ['cover_documents'] }
+                military_intel: { name: 'Intelligence militare', icon: '🎖️', desc: 'Analisi operativa e catena di comando', bonuses: { tec: 2, ast: 1 }, kit: ['secure_phone'] },
+                police: { name: 'Polizia investigativa', icon: '🕵️', desc: 'Indagini, fonti e procedure', bonuses: { ast: 1, fur: 2 }, kit: ['credentials'] },
+                civilian_asset: { name: 'Risorsa civile', icon: '👤', desc: 'Accesso unico senza profilo operativo', bonuses: { cop: 2, ast: 1 }, kit: ['cover_documents'] }
             },
             archetypes: {
-                handler: { name: 'Ufficiale di collegamento', icon: '☎️', desc: 'Recluta e gestisce fonti umane', stat: 'dis', hp: 9, mp: 9, skills: ['Reclutamento', 'Psicologia'], kit: ['secure_phone'] },
-                surveillance: { name: 'Specialista sorveglianza', icon: '📷', desc: 'Osserva senza lasciare tracce', stat: 'oss', hp: 10, mp: 6, skills: ['Sorveglianza', 'Pedinamento'], kit: ['camera'] },
-                cyber_operator: { name: 'Operatore cyber', icon: '💻', desc: 'Penetra reti e protegge operazioni', stat: 'int', hp: 9, mp: 8, skills: ['Cyber', 'Crittografia'], kit: ['encrypted_laptop'] }
+                handler: { name: 'Ufficiale di collegamento', icon: '☎️', desc: 'Recluta e gestisce fonti umane', stat: 'ast', hp: 9, mp: 9, skills: ['Reclutamento', 'Psicologia'], kit: ['secure_phone'] },
+                surveillance: { name: 'Specialista sorveglianza', icon: '📷', desc: 'Osserva senza lasciare tracce', stat: 'fur', hp: 10, mp: 6, skills: ['Sorveglianza', 'Pedinamento'], kit: ['camera'] },
+                cyber_operator: { name: 'Operatore cyber', icon: '💻', desc: 'Penetra reti e protegge operazioni', stat: 'tec', hp: 9, mp: 8, skills: ['Cyber', 'Crittografia'], kit: ['encrypted_laptop'] }
             },
             items: {
                 secure_phone: { name: 'Telefono Cifrato', icon: '📱', type: 'tool', desc: 'Comunicazioni protette con la centrale.' },
