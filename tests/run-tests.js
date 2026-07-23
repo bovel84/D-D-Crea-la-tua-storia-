@@ -10,6 +10,7 @@ const directorApi = require('../js/game-director.js');
 const vaultApi = require('../js/campaign-vault.js');
 const campaignApi = require('../js/campaign-profile.js');
 const lifeApi = require('../js/life-legacy.js');
+const characterApi = require('../js/character-options.js');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -548,6 +549,91 @@ test('l’eredità cresce con esperienza, rapporti e proprietà', () => {
     const legacy = lifeApi.computeLegacy(life, { level: 8 }, { family: [{ name: 'Marta', status: 'alive' }] });
     assert.ok(legacy.score >= 180);
     assert.notEqual(legacy.tier, 'Sconosciuto');
+});
+
+
+test('corregge un genere storico incompatibile con un’ambientazione moderna', () => {
+    const genres = { fantasy: {}, contemporary: {}, historical: {}, crime: {} };
+    assert.equal(characterApi.resolveGenreKey({
+        genre: 'historical',
+        setting: 'Roma moderna, anno 2026'
+    }, genres), 'contemporary');
+    assert.equal(characterApi.resolveGenreKey({
+        genre: 'crime',
+        setting: 'Thriller criminale nella Roma moderna'
+    }, genres), 'crime');
+});
+
+test('seleziona personaggi storici coerenti con il periodo', () => {
+    const genres = {
+        fantasy: {},
+        historical: { name: 'Storico', origins: {}, archetypes: {}, items: {} }
+    };
+    const ancient = characterApi.getGenreConfig(genres, {
+        genre: 'historical', setting: 'Antica Roma imperiale'
+    });
+    const industrial = characterApi.getGenreConfig(genres, {
+        genre: 'historical', setting: 'Londra vittoriana durante la rivoluzione industriale'
+    });
+    assert.equal(ancient.eraKey, 'ancient');
+    assert.equal(ancient.archetypes.centurion.name, 'Centurione');
+    assert.equal(industrial.eraKey, 'industrial');
+    assert.equal(industrial.archetypes.centurion, undefined);
+    assert.equal(industrial.archetypes.engineer.name, 'Ingegnere');
+});
+
+test('amplia le scelte contemporanee oltre le opzioni di base', () => {
+    const genres = {
+        fantasy: {},
+        contemporary: {
+            name: 'Contemporaneo',
+            origins: { student: { name: 'Studente' } },
+            archetypes: { coder: { name: 'Sviluppatore' } },
+            items: {}
+        }
+    };
+    const config = characterApi.getGenreConfig(genres, {
+        genre: 'contemporary', setting: 'Milano moderna'
+    });
+    const summary = characterApi.getChoiceSummary(config);
+    assert.ok(summary.origins >= 6);
+    assert.ok(summary.archetypes >= 7);
+    assert.ok(config.archetypes.medic);
+    assert.ok(config.archetypes.investigator);
+});
+
+test('genera una dotazione iniziale diversa per origine e ruolo', () => {
+    const genres = {
+        fantasy: {},
+        contemporary: {
+            name: 'Contemporaneo',
+            origins: {},
+            archetypes: {},
+            items: {},
+            starterInventory: [{ name: 'Portafoglio', icon: '👛' }]
+        }
+    };
+    const config = characterApi.getGenreConfig(genres, {
+        genre: 'contemporary', setting: 'Giorni nostri'
+    });
+    const medic = characterApi.getStarterInventory(config, 'graduate', 'medic');
+    const journalist = characterApi.getStarterInventory(config, 'graduate', 'journalist');
+    assert.ok(medic.some(item => item.name === 'Kit di Pronto Soccorso'));
+    assert.ok(journalist.some(item => item.name === 'Registratore Digitale'));
+    assert.ok(medic.some(item => item.name === 'Computer Portatile'));
+    assert.notDeepEqual(medic.map(item => item.name), journalist.map(item => item.name));
+});
+
+test('non duplica gli oggetti condivisi tra origine e ruolo', () => {
+    const config = {
+        origins: { worker: { kit: ['phone'] } },
+        archetypes: { manager: { kit: ['phone'] } },
+        items: { phone: { name: 'Telefono', icon: '📱' } },
+        starterInventory: []
+    };
+    const inventory = characterApi.getStarterInventory(config, 'worker', 'manager');
+    assert.equal(inventory.length, 1);
+    assert.equal(inventory[0].count, 1);
 });
 
 (async () => {
