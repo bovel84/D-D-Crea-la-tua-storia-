@@ -443,10 +443,10 @@ test('traduce la Sessione Zero in istruzioni persistenti per il Master', () => {
 test('normalizza e limita i testi liberi della Sessione Zero', () => {
     const profile = campaignApi.migrateProfile({
         premise: 'A'.repeat(1500),
-        boundaries: 'tema\\u0000 vietato'
+        boundaries: 'tema\u0000 vietato'
     });
     assert.ok(profile.premise.length <= 1200);
-    assert.equal(profile.boundaries.includes('\\u0000'), false);
+    assert.equal(profile.boundaries.includes('\u0000'), false);
 });
 
 (async () => {
