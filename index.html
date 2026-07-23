@@ -2338,6 +2338,8 @@
                 <div class="topbar-buttons">
                     <button class="topbar-btn danger" id="btn-exit" title="Esci">🚪</button>
                     <button class="topbar-btn" id="btn-save-quick" title="Salva">💾</button>
+                    <button class="topbar-btn vault-control" id="btn-undo-turn" title="Annulla ultimo turno" aria-label="Annulla ultimo turno" disabled>↶</button>
+                    <button class="topbar-btn vault-control" id="btn-regenerate-turn" title="Rigenera ultima risposta" aria-label="Rigenera ultima risposta" disabled>⟳</button>
                     <button class="topbar-btn" id="btn-dice" title="Dadi">🎲</button>
                 </div>
 
@@ -2778,6 +2780,17 @@
                     <button class="btn secondary" id="btn-load-from-slot">📂 Carica</button>
                     <button class="btn danger" id="btn-delete-slot">🗑️</button>
                 </div>
+                <div class="vault-backup-panel">
+                    <div>
+                        <strong>🛡️ Backup campagna</strong>
+                        <small>Esporta storie e salvataggi senza includere le API key.</small>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn secondary" id="btn-export-vault" type="button">⬇️ Esporta</button>
+                        <button class="btn secondary" id="btn-import-vault" type="button">⬆️ Importa</button>
+                    </div>
+                    <input type="file" id="vault-file-input" accept="application/json,.json" hidden>
+                </div>
             </div>
         </div>
     </div>
@@ -2892,6 +2905,7 @@
     <script src="js/memory-manager.js"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/game-director.js"></script>
+    <script src="js/campaign-vault.js"></script>
     <script src="js/ollama-cloud.js"></script>
     <script src="js/experience-v7.js"></script>
     <script>
@@ -2941,6 +2955,7 @@
         });
         const narrativeMaster = new CronacheNarrative.NarrativeMasterEngine();
         const gameDirector = new CronacheDirector.GameDirector();
+        const campaignVault = new CronacheVault.CampaignVault({ storage: localStorage, capacity: 3 });
         const ollamaClient = new CronacheOllama.OllamaCloudClient({ timeoutMs: 45000 });
         G.worldMemory.narrativeCompass = narrativeMaster.createDefaultCompass();
 
@@ -6902,6 +6917,121 @@
             notify('Storia salvata!', 'success');
         }
 
+        // ==================== CAMPAIGN VAULT ====================
+        function restoreCampaignSnapshot(snapshot) {
+            if (!CronacheVault.isValidSnapshot(snapshot)) {
+                throw new Error('Checkpoint non valido.');
+            }
+            G.character = CronacheVault.clone(snapshot.character);
+            G.currentStory = CronacheVault.clone(snapshot.story);
+            G.storyLog = CronacheVault.clone(snapshot.storyLog || []);
+            G.history = CronacheVault.clone(snapshot.history || []);
+            G.time = CronacheVault.clone(snapshot.time);
+            G.worldMemory = migrateSavedWorldMemory(snapshot.worldMemory);
+            G.currentLocation = snapshot.currentLocation || 'Sconosciuto';
+            G.isPlaying = true;
+            closeAllModals();
+            startGameUI();
+        }
+
+        function updateVaultControls() {
+            const available = campaignVault.canUndo() && !G.isProcessing && G.isPlaying;
+            if ($('btn-undo-turn')) $('btn-undo-turn').disabled = !available;
+            if ($('btn-regenerate-turn')) $('btn-regenerate-turn').disabled = !available;
+            const snapshot = campaignVault.peek();
+            const label = snapshot ? CronacheVault.snapshotLabel(snapshot) : 'Nessun turno da ripristinare';
+            if ($('btn-undo-turn')) $('btn-undo-turn').title = `Annulla: ${label}`;
+            if ($('btn-regenerate-turn')) $('btn-regenerate-turn').title = `Rigenera: ${label}`;
+        }
+
+        function undoLastTurn() {
+            if (G.isProcessing) return;
+            const snapshot = campaignVault.pop();
+            if (!snapshot) {
+                notify('Nessun turno da annullare.', 'error');
+                return;
+            }
+            try {
+                restoreCampaignSnapshot(snapshot);
+                notify('Ultimo turno annullato.', 'success');
+            } catch (error) {
+                notify(`Impossibile annullare: ${error.message}`, 'error');
+            }
+            updateVaultControls();
+        }
+
+        function regenerateLastTurn() {
+            if (G.isProcessing) return;
+            const snapshot = campaignVault.pop();
+            if (!snapshot) {
+                notify('Nessuna risposta da rigenerare.', 'error');
+                return;
+            }
+            const action = snapshot.action;
+            try {
+                restoreCampaignSnapshot(snapshot);
+                updateVaultControls();
+                window.setTimeout(() => generateAI(action, false), 60);
+            } catch (error) {
+                notify(`Impossibile rigenerare: ${error.message}`, 'error');
+            }
+        }
+
+        function exportCampaignBackup() {
+            try {
+                const content = CronacheVault.createPortableBackup({
+                    stories: G.stories,
+                    saves: G.saves,
+                    settings: G.settings
+                });
+                const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const date = new Date().toISOString().slice(0, 10);
+                link.href = url;
+                link.download = `cronache-del-destino-backup-${date}.json`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+                notify('Backup esportato senza API key.', 'success');
+            } catch (error) {
+                notify(`Esportazione fallita: ${error.message}`, 'error');
+            }
+        }
+
+        async function importCampaignBackup(file) {
+            if (!file) return;
+            try {
+                const backup = CronacheVault.parsePortableBackup(await file.text());
+                if (!confirm('Importare il backup? Storie e slot attuali verranno sostituiti.')) return;
+                G.stories = backup.stories;
+                G.saves = backup.saves.slice(0, 6).map(slot => slot ? {
+                    ...slot,
+                    worldMemory: migrateSavedWorldMemory(slot.worldMemory)
+                } : null);
+                while (G.saves.length < 6) G.saves.push(null);
+                G.settings = {
+                    ...G.settings,
+                    ...backup.settings,
+                    ollama: {
+                        ...G.settings.ollama,
+                        ...(backup.settings.ollama || {})
+                    }
+                };
+                campaignVault.clear();
+                save();
+                updateHome();
+                updateSavesUI();
+                updateVaultControls();
+                notify('Backup importato correttamente.', 'success');
+            } catch (error) {
+                notify(`Importazione fallita: ${error.message}`, 'error');
+            } finally {
+                if ($('vault-file-input')) $('vault-file-input').value = '';
+            }
+        }
+
         // ==================== SAVES ====================
         function updateSavesUI() {
             let html = '';
@@ -6910,7 +7040,10 @@
                 let info = 'Vuoto';
                 if (s) {
                     const dateInfo = s.time ? `${s.time.day}/${s.time.month}/${s.time.year} ${s.time.hour.toString().padStart(2,'0')}:${s.time.minute.toString().padStart(2,'0')}` : '';
-                    info = `${s.character?.name || '?'} - ${s.story?.title || '?'} ${dateInfo ? '• ' + dateInfo : ''}`;
+                    const level = s.character?.level || s.character?.exp?.lvl || 1;
+                    const turn = s.worldMemory?.turnCount || 0;
+                    const location = s.currentLocation || 'Sconosciuto';
+                    info = `${s.character?.name || '?'} · Lv.${level} · Turno ${turn}<br><small>${s.story?.title || '?'} · 📍 ${location} ${dateInfo ? '· ' + dateInfo : ''}</small>`;
                 }
                 html += `
                     <div class="save-slot ${G.selectedSave === i ? 'selected' : ''}" data-idx="${i}">
@@ -6932,7 +7065,8 @@
                 history: JSON.parse(JSON.stringify(G.history)),
                 time: JSON.parse(JSON.stringify(G.time)),
                 worldMemory: JSON.parse(JSON.stringify(G.worldMemory)),
-                currentLocation: G.currentLocation || 'Sconosciuto'
+                currentLocation: G.currentLocation || 'Sconosciuto',
+                savedAt: new Date().toISOString()
             };
             
             save();
@@ -6959,6 +7093,7 @@
             G.currentLocation = s.currentLocation || 'Sconosciuto';
             applyStarterProperties(G.currentStory);
             G.isPlaying = true;
+            campaignVault.clear();
             
             closeAllModals();
             startGameUI();
@@ -6993,6 +7128,7 @@
             G.storyLog = [];
             G.history = [];
             G.isPlaying = true;
+            campaignVault.clear();
 
             closeAllModals();
             startGameUI();
@@ -7009,6 +7145,7 @@
             updateQuickActions();
             updateTimeDisplay();
             updateInfoPanels(); // Aggiorna pannelli finanze, famiglia, dipendenti
+            updateVaultControls();
 
             $('story-scroll').innerHTML = '';
             G.storyLog.forEach(e => addStoryEntry(e.text, e.type, false));
@@ -7388,6 +7525,18 @@
         // ==================== AI ====================
         async function generateAI(action, isStart = false) {
             if (G.isProcessing || !G.currentStory) return;
+            if (!isStart) {
+                campaignVault.capture({
+                    character: G.character,
+                    currentStory: G.currentStory,
+                    storyLog: G.storyLog,
+                    history: G.history,
+                    time: G.time,
+                    worldMemory: G.worldMemory,
+                    currentLocation: G.currentLocation
+                }, action);
+                updateVaultControls();
+            }
             G.isProcessing = true;
             $('btn-send').disabled = true;
             updateActionBar();
@@ -7438,6 +7587,7 @@
                 G.isProcessing = false;
                 $('btn-send').disabled = false;
                 updateActionBar();
+                updateVaultControls();
             }
         }
 
@@ -9088,6 +9238,11 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             };
             $('btn-save-to-slot').onclick = saveToSlot;
             $('btn-load-from-slot').onclick = loadFromSlot;
+            $('btn-undo-turn').onclick = undoLastTurn;
+            $('btn-regenerate-turn').onclick = regenerateLastTurn;
+            $('btn-export-vault').onclick = exportCampaignBackup;
+            $('btn-import-vault').onclick = () => $('vault-file-input').click();
+            $('vault-file-input').onchange = event => importCampaignBackup(event.target.files?.[0]);
             $('btn-delete-slot').onclick = () => {
                 if (G.selectedSave !== null && G.saves[G.selectedSave] && confirm('Eliminare questo salvataggio?')) {
                     G.saves[G.selectedSave] = null;
