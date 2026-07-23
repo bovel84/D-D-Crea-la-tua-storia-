@@ -6992,7 +6992,7 @@
             G.editingStory = story;
             $('edit-story-title').value = story?.title || '';
             $('edit-story-setting').value = story?.setting || 'Fantasy Medievale';
-            $('edit-story-genre').value = story?.genre || resolveGenreKey(story) || 'fantasy';
+            $('edit-story-genre').value = resolveGenreKey(story || {}) || 'fantasy';
             $('edit-story-difficulty').value = story?.difficulty || 'normal';
             $('edit-story-gold').value = story?.starterGold ?? '';
             $('edit-story-desc').value = story?.desc || '';
@@ -7245,7 +7245,7 @@
             }
 
             G.currentStory = JSON.parse(JSON.stringify(G.stories[storyIdx]));
-            if (!G.currentStory.genre) G.currentStory.genre = resolveGenreKey(G.currentStory);
+            G.currentStory.genre = resolveGenreKey(G.currentStory);
             G.currentStory.campaignProfile = CronacheCampaign.createProfile({
                 tone: $('new-game-tone')?.value,
                 focus: $('new-game-focus')?.value,
@@ -9123,10 +9123,10 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
         }
 
         function ensureStoryGenres() {
-            G.stories = (G.stories || []).map(s => {
-                if (!s.genre) s.genre = resolveGenreKey(s);
-                return s;
-            });
+            G.stories = (G.stories || []).map(story => ({
+                ...story,
+                genre: resolveGenreKey(story)
+            }));
         }
 
         function updateOllamaModelInfo() {
