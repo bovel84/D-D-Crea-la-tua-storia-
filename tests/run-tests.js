@@ -7,6 +7,7 @@ const ollamaApi = require('../js/ollama-cloud.js');
 const ollamaProxyHandler = require('../api/ollama/[action].js');
 const experienceApi = require('../js/experience-v7.js');
 const directorApi = require('../js/game-director.js');
+const vaultApi = require('../js/campaign-vault.js');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -308,6 +309,92 @@ test('mantiene compatibile e limitata la memoria del Game Director', () => {
     assert.equal(migrated.customField, 42);
     assert.equal(migrated.timeline.length, directorApi.MAX_TIMELINE);
     assert.equal(migrated.worldMoves.length, directorApi.MAX_WORLD_MOVES);
+});
+
+test('crea checkpoint completi e indipendenti della campagna', () => {
+    const game = {
+        character: { name: 'Elara', level: 3 },
+        currentStory: { title: 'Il porto' },
+        storyLog: [{ text: 'Inizio', type: 'narrator' }],
+        history: [{ role: 'user', content: 'Vado al porto' }],
+        time: { day: 2, hour: 9 },
+        worldMemory: { turnCount: 4 },
+        currentLocation: 'Porto'
+    };
+    const snapshot = vaultApi.buildSnapshot(game, 'Cerco la nave');
+    game.character.name = 'Modificato';
+    assert.equal(vaultApi.isValidSnapshot(snapshot), true);
+    assert.equal(snapshot.character.name, 'Elara');
+    assert.equal(snapshot.action, 'Cerco la nave');
+    assert.match(vaultApi.snapshotLabel(snapshot), /turno 4/);
+});
+
+test('il Campaign Vault conserva soltanto gli ultimi tre turni', () => {
+    const values = {};
+    const storage = {
+        getItem: key => values[key] || null,
+        setItem: (key, value) => { values[key] = value; },
+        removeItem: key => { delete values[key]; }
+    };
+    const vault = new vaultApi.CampaignVault({ storage, capacity: 3 });
+    for (let index = 0; index < 5; index++) {
+        vault.capture({
+            character: { name: 'Eroe' },
+            currentStory: { title: 'Campagna' },
+            storyLog: [],
+            history: [],
+            worldMemory: { turnCount: index }
+        }, `azione ${index}`);
+    }
+    assert.equal(vault.count(), 3);
+    assert.equal(vault.peek().action, 'azione 4');
+    assert.equal(vault.pop().action, 'azione 4');
+    assert.equal(vault.count(), 2);
+});
+
+test('il backup portabile esclude tutte le credenziali', () => {
+    const backupText = vaultApi.createPortableBackup({
+        stories: [{ title: 'Astaria' }],
+        saves: [null],
+        settings: {
+            model: 'ollama-cloud',
+            groqKey: 'segreto',
+            providers: [{ name: 'test', apiKey: 'nascosta', models: ['a', 'b'] }],
+            ollama: { apiKey: 'ollama-secret', primaryModel: 'qwen3.5:397b' }
+        }
+    });
+    const raw = JSON.parse(backupText);
+    assert.equal(raw.settings.model, 'ollama-cloud');
+    assert.equal(raw.settings.groqKey, undefined);
+    assert.equal(raw.settings.providers[0].apiKey, undefined);
+    assert.deepEqual(raw.settings.providers[0].models, ['a', 'b']);
+    assert.equal(raw.settings.ollama.apiKey, undefined);
+    assert.equal(raw.settings.ollama.primaryModel, 'qwen3.5:397b');
+});
+
+test('esporta e reimporta storie e salvataggi con checksum valido', () => {
+    const text = vaultApi.createPortableBackup({
+        stories: [{ id: 1, title: 'Astaria' }],
+        saves: [{ character: { name: 'Elara' } }],
+        settings: { length: 'medium' }
+    });
+    const restored = vaultApi.parsePortableBackup(text);
+    assert.equal(restored.stories[0].title, 'Astaria');
+    assert.equal(restored.saves[0].character.name, 'Elara');
+    assert.equal(restored.settings.length, 'medium');
+});
+
+test('rifiuta un backup modificato dopo l’esportazione', () => {
+    const raw = JSON.parse(vaultApi.createPortableBackup({
+        stories: [{ title: 'Originale' }],
+        saves: [],
+        settings: {}
+    }));
+    raw.stories[0].title = 'Alterata';
+    assert.throws(
+        () => vaultApi.parsePortableBackup(JSON.stringify(raw)),
+        /incompleto o modificato/
+    );
 });
 
 (async () => {
