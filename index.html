@@ -2803,19 +2803,74 @@
                 <button class="modal-close" data-close="modal-new-game">✕</button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
+                <div class="form-group" data-wizard-step="0">
                     <label class="form-label">Scegli una Storia</label>
                     <select class="form-select" id="new-game-story"></select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-wizard-step="1">
                     <label class="form-label">Nome Personaggio</label>
                     <input type="text" class="form-input" id="new-game-name" placeholder="Il tuo nome...">
                 </div>
-                <div class="form-group">
+                <div class="form-group session-zero-form" data-wizard-step="2">
+                    <div class="session-zero-heading">
+                        <span>🎭</span>
+                        <div>
+                            <strong>Sessione Zero</strong>
+                            <small>Definisci come vuoi vivere questa campagna. Potrai iniziare senza compilare la premessa.</small>
+                        </div>
+                    </div>
+                    <div class="session-zero-grid">
+                        <label>
+                            <span>Tono</span>
+                            <select class="form-select" id="new-game-tone">
+                                <option value="adventurous" selected>Avventuroso</option>
+                                <option value="heroic">Eroico</option>
+                                <option value="dark">Oscuro</option>
+                                <option value="realistic">Realistico</option>
+                                <option value="light">Leggero</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Focus</span>
+                            <select class="form-select" id="new-game-focus">
+                                <option value="balanced" selected>Bilanciato</option>
+                                <option value="roleplay">Interpretazione</option>
+                                <option value="exploration">Esplorazione</option>
+                                <option value="tactical">Tattico</option>
+                                <option value="management">Gestionale</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Libertà</span>
+                            <select class="form-select" id="new-game-freedom">
+                                <option value="balanced" selected>Equilibrata</option>
+                                <option value="guided">Guidata</option>
+                                <option value="sandbox">Sandbox</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Intensità</span>
+                            <select class="form-select" id="new-game-intensity">
+                                <option value="standard" selected>Standard</option>
+                                <option value="gentle">Morbida</option>
+                                <option value="intense">Intensa</option>
+                            </select>
+                        </label>
+                    </div>
+                    <label class="session-zero-wide">
+                        <span>Premessa personale <small>(opzionale)</small></span>
+                        <textarea class="form-textarea" id="new-game-premise" placeholder="Es. Voglio iniziare come apprendista senza poteri e costruire lentamente la mia reputazione."></textarea>
+                    </label>
+                    <label class="session-zero-wide">
+                        <span>Temi da evitare <small>(opzionale)</small></span>
+                        <textarea class="form-textarea compact" id="new-game-boundaries" placeholder="Es. crudeltà sugli animali, violenza grafica..."></textarea>
+                    </label>
+                </div>
+                <div class="form-group" data-wizard-step="3">
                     <label class="form-label">Origine</label>
                     <div class="creation-grid" id="origin-grid"></div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-wizard-step="3">
                     <label class="form-label">Archetipo</label>
                     <div class="creation-grid" id="archetype-grid"></div>
                 </div>
@@ -2904,6 +2959,7 @@
     <script src="https://unpkg.com/@openrouter/sdk"></script>
     <script src="js/memory-manager.js"></script>
     <script src="js/narrative-master.js"></script>
+    <script src="js/campaign-profile.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
     <script src="js/ollama-cloud.js"></script>
@@ -5515,6 +5571,7 @@
                     ? director.pressures[director.pressures.length - 1]
                     : { type: 'narrativa', level: director.scene.pressure, description: 'La tensione viene aggiornata a ogni turno.' };
                 const esc = CronacheDirector.escapeHtml;
+                const profile = CronacheCampaign.profileSummary(G.currentStory?.campaignProfile);
                 $('memory-director').innerHTML = `
                     <div class="director-hero">
                         <div>
@@ -5530,6 +5587,17 @@
                         <div class="director-agent"><span>🎭</span><strong>Master</strong><small>${esc(director.agents.master.status)}</small></div>
                         <div class="director-agent"><span>📖</span><strong>Cronista</strong><small>${esc(director.agents.chronicler.status)}</small></div>
                         <div class="director-agent"><span>🌍</span><strong>Mondo</strong><small>${esc(director.agents.world.status)}</small></div>
+                    </div>
+                    <div class="session-zero-summary">
+                        <div class="memory-section-title">🎭 Contratto della campagna</div>
+                        <div class="session-zero-summary-grid">
+                            <span><small>Tono</small><strong>${esc(profile.tone)}</strong></span>
+                            <span><small>Focus</small><strong>${esc(profile.focus)}</strong></span>
+                            <span><small>Libertà</small><strong>${esc(profile.freedom)}</strong></span>
+                            <span><small>Intensità</small><strong>${esc(profile.intensity)}</strong></span>
+                        </div>
+                        ${profile.premise ? `<div class="session-zero-note"><strong>Premessa:</strong> ${esc(profile.premise)}</div>` : ''}
+                        ${profile.boundaries ? `<div class="session-zero-boundaries"><strong>Limiti:</strong> ${esc(profile.boundaries)}</div>` : ''}
                     </div>
                     <div class="memory-section">
                         <div class="memory-section-title">⚡ Pressione della scena</div>
@@ -7112,6 +7180,14 @@
 
             G.currentStory = JSON.parse(JSON.stringify(G.stories[storyIdx]));
             if (!G.currentStory.genre) G.currentStory.genre = resolveGenreKey(G.currentStory);
+            G.currentStory.campaignProfile = CronacheCampaign.createProfile({
+                tone: $('new-game-tone')?.value,
+                focus: $('new-game-focus')?.value,
+                freedom: $('new-game-freedom')?.value,
+                intensity: $('new-game-intensity')?.value,
+                premise: $('new-game-premise')?.value,
+                boundaries: $('new-game-boundaries')?.value
+            });
             createCharacter(name, G.selectedOrigin, G.selectedArchetype);
             if (Number.isFinite(Number(G.currentStory.starterGold))) {
                 G.character.gold = Number(G.currentStory.starterGold);
@@ -7595,6 +7671,8 @@
             const s = G.settings;
             const story = G.currentStory;
             const c = G.character;
+            const campaignProfile = CronacheCampaign.migrateProfile(story.campaignProfile);
+            story.campaignProfile = campaignProfile;
             const genreCfg = getGenreConfig(story);
             const period = getTimePeriod();
             G.worldMemory = migrateSavedWorldMemory(G.worldMemory);
@@ -7671,6 +7749,8 @@ OBIETTIVO:
  
 
 ${story.desc || ''}
+
+${CronacheCampaign.buildPrompt(campaignProfile)}
 
 DATI GIOCO: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur} | Soldi ${formatCurrency(c.gold)} | Livello ${c.level || 1} | EXP ${c.exp?.cur || 0}/${c.exp?.need || 100}
 BONUS COMPETENZA: +${getProficiencyBonus()} (basato sul livello)

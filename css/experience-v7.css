@@ -218,7 +218,7 @@
 
 .ux-wizard-progress {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
     margin-bottom: 20px;
 }
@@ -618,5 +618,136 @@
     .ux-v7-ready .vault-control {
         min-width: 34px;
         padding-inline: 7px;
+    }
+}
+
+/* Session Zero */
+.session-zero-form {
+    display: grid;
+    gap: 16px;
+}
+
+.session-zero-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid rgba(201, 162, 39, 0.28);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(201, 162, 39, 0.13), rgba(107, 46, 155, 0.07));
+}
+
+.session-zero-heading > span {
+    font-size: 1.8rem;
+}
+
+.session-zero-heading > div {
+    display: grid;
+    gap: 3px;
+}
+
+.session-zero-heading strong {
+    font: 700 1rem 'Cinzel', serif;
+}
+
+.session-zero-heading small {
+    color: var(--ink-light);
+    line-height: 1.35;
+}
+
+.session-zero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 11px;
+}
+
+.session-zero-grid label,
+.session-zero-wide {
+    display: grid;
+    gap: 6px;
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.session-zero-grid label > span,
+.session-zero-wide > span {
+    font-family: 'Cinzel', serif;
+    font-size: 0.78rem;
+}
+
+.session-zero-wide small {
+    color: var(--ink-light);
+    font-family: inherit;
+    font-weight: 400;
+}
+
+.session-zero-wide .form-textarea {
+    min-height: 92px;
+}
+
+.session-zero-wide .form-textarea.compact {
+    min-height: 66px;
+}
+
+.session-zero-summary {
+    margin: 0 0 18px;
+    padding: 14px;
+    border: 1px solid rgba(107, 46, 155, 0.2);
+    border-radius: 14px;
+    background: rgba(107, 46, 155, 0.055);
+}
+
+.session-zero-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 9px;
+}
+
+.session-zero-summary-grid span {
+    display: grid;
+    gap: 3px;
+    padding: 9px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.62);
+}
+
+.session-zero-summary-grid small {
+    color: var(--ink-light);
+    font-size: 0.64rem;
+    text-transform: uppercase;
+}
+
+.session-zero-summary-grid strong {
+    font-size: 0.78rem;
+}
+
+.session-zero-note,
+.session-zero-boundaries {
+    margin-top: 9px;
+    padding: 9px 11px;
+    border-radius: 9px;
+    color: var(--ink-light);
+    background: rgba(255, 255, 255, 0.52);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.session-zero-boundaries {
+    border-left: 3px solid #6b2e9b;
+}
+
+@media (max-width: 560px) {
+    .session-zero-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .session-zero-summary-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .ux-wizard-step {
+        padding-inline: 3px;
+        font-size: 0.66rem;
     }
 }
