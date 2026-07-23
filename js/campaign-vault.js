@@ -28,7 +28,7 @@
     }
 
     function sanitizeSettings(value) {
-        if (!value || typeof value !== 'object') return {};
+        if (value === null || typeof value !== 'object') return clone(value);
         if (Array.isArray(value)) return value.map(sanitizeSettings);
         return Object.entries(value).reduce((safe, [key, entry]) => {
             if (/(?:api)?key|token|secret|password|authorization/i.test(key)) return safe;
