@@ -6,6 +6,7 @@ const narrativeApi = require('../js/narrative-master.js');
 const ollamaApi = require('../js/ollama-cloud.js');
 const ollamaProxyHandler = require('../api/ollama/[action].js');
 const experienceApi = require('../js/experience-v7.js');
+const directorApi = require('../js/game-director.js');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -240,6 +241,73 @@ test('riconosce quando il giocatore sta leggendo eventi precedenti', () => {
     assert.equal(experienceApi.isNearBottom({
         scrollHeight: 1000, scrollTop: 300, clientHeight: 200
     }, 30), false);
+});
+
+test('classifica gli intenti del Game Director', () => {
+    assert.equal(directorApi.classifyIntent('Parlo con il mercante e provo a convincerlo'), 'dialogo');
+    assert.equal(directorApi.classifyIntent('Cerco impronte vicino alla porta'), 'investigazione');
+    assert.equal(directorApi.classifyIntent('Compro le provviste e pago il conto'), 'economia');
+    assert.equal(directorApi.classifyIntent('Attacco la guardia'), 'conflitto');
+});
+
+test('il Game Director coordina pressione e attore in movimento', () => {
+    const director = new directorApi.GameDirector();
+    const plan = director.planTurn('Cerco una via di fuga', {
+        memory: {
+            npcs: [{ name: 'Elara', goals: 'raggiungere il porto', status: 'traveling', location: 'Locanda' }],
+            quests: []
+        },
+        character: {
+            health: { cur: 25, max: 100 },
+            stamina: { cur: 40, max: 100 },
+            hunger: { cur: 80, max: 100 }
+        },
+        currentLocation: 'Locanda'
+    });
+    assert.equal(plan.intent, 'investigazione');
+    assert.equal(plan.spotlight.name, 'Elara');
+    assert.ok(plan.pressure.level >= 70);
+    assert.match(plan.prompt, /TRE RUOLI, UNA SOLA RISPOSTA/);
+    assert.equal(plan.state.tick, 1);
+});
+
+test('estrae i tag separati di Cronista e Simulatore del mondo', () => {
+    const tags = directorApi.extractTags(
+        '[CRONISTA: Il patto|Elara accetta di collaborare|high] ' +
+        '[MONDO: Casa Vareth|Invia una spia al porto|traveling|hidden] ' +
+        '[PRESSIONE: minaccia|80|La spia è vicina]'
+    );
+    assert.equal(tags.chronicles[0].title, 'Il patto');
+    assert.equal(tags.chronicles[0].importance, 'high');
+    assert.equal(tags.worldMoves[0].visibility, 'hidden');
+    assert.equal(tags.pressures[0].level, 80);
+});
+
+test('registra il turno del Game Director nella memoria persistente', () => {
+    const memory = { turnCount: 7 };
+    const result = directorApi.commitTurn(
+        'Parlo con Elara',
+        'Elara accetta. [CRONISTA: Alleanza|Elara offre il proprio aiuto|critical] ' +
+        '[MONDO: Elara|Prepara il viaggio|working|visible]',
+        memory
+    );
+    assert.equal(result.recordedChronicles, 1);
+    assert.equal(result.recordedWorldMoves, 1);
+    assert.equal(memory.director.timeline[0].turn, 7);
+    assert.equal(memory.director.worldMoves[0].actor, 'Elara');
+    assert.equal(memory.director.agents.chronicler.status, 'updated');
+});
+
+test('mantiene compatibile e limitata la memoria del Game Director', () => {
+    const legacy = {
+        customField: 42,
+        timeline: Array.from({ length: 90 }, (_, index) => ({ title: String(index) })),
+        worldMoves: Array.from({ length: 55 }, (_, index) => ({ actor: String(index) }))
+    };
+    const migrated = directorApi.migrateDirectorState(legacy);
+    assert.equal(migrated.customField, 42);
+    assert.equal(migrated.timeline.length, directorApi.MAX_TIMELINE);
+    assert.equal(migrated.worldMoves.length, directorApi.MAX_WORLD_MOVES);
 });
 
 (async () => {

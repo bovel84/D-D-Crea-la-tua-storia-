@@ -2563,6 +2563,7 @@
                     <button class="tab" data-tab="quests">📋 Quest</button>
                     <button class="tab" data-tab="events">📜 Eventi</button>
                     <button class="tab" data-tab="archive">🧭 Bussola</button>
+                    <button class="tab" data-tab="director">🎬 Regia</button>
                     <button class="tab" data-tab="journal">📓 Diario</button>
                 </div>
 
@@ -2584,6 +2585,9 @@
                 <div class="tab-content" id="tab-archive">
                     <div id="memory-compass"></div>
                     <div id="memory-long-term-archive"></div>
+                </div>
+                <div class="tab-content" id="tab-director">
+                    <div id="memory-director"></div>
                 </div>
                 <div class="tab-content" id="tab-journal">
                     <div class="journal-entries" id="journal-entries">
@@ -2887,6 +2891,7 @@
     <script src="https://unpkg.com/@openrouter/sdk"></script>
     <script src="js/memory-manager.js"></script>
     <script src="js/narrative-master.js"></script>
+    <script src="js/game-director.js"></script>
     <script src="js/ollama-cloud.js"></script>
     <script src="js/experience-v7.js"></script>
     <script>
@@ -2935,6 +2940,7 @@
             mediumTermTokens: 500
         });
         const narrativeMaster = new CronacheNarrative.NarrativeMasterEngine();
+        const gameDirector = new CronacheDirector.GameDirector();
         const ollamaClient = new CronacheOllama.OllamaCloudClient({ timeoutMs: 45000 });
         G.worldMemory.narrativeCompass = narrativeMaster.createDefaultCompass();
 
@@ -3810,6 +3816,7 @@
         function migrateSavedWorldMemory(memory) {
             const migrated = memoryManager.migrate(memory || {});
             migrated.narrativeCompass = narrativeMaster.migrate(migrated.narrativeCompass);
+            migrated.director = gameDirector.migrate(migrated.director);
             return migrated;
         }
 
@@ -5481,6 +5488,62 @@
                             <div class="memory-card-desc">${wm.mediumTerm.summary || 'La scena non è ancora stata compressa.'}</div>
                             <div class="memory-card-meta">${wm.mediumTerm.compressedMessages || 0} messaggi consolidati · massimo 500 token</div>
                         </div>
+                    </div>`;
+            }
+
+            if ($('memory-director')) {
+                const director = gameDirector.migrate(wm.director);
+                const publicMoves = director.worldMoves.filter(move => move.visibility === 'visible').slice(-8).reverse();
+                const hiddenCount = director.worldMoves.filter(move => move.visibility !== 'visible').length;
+                const timeline = director.timeline.slice(-10).reverse();
+                const latestPressure = director.pressures.length
+                    ? director.pressures[director.pressures.length - 1]
+                    : { type: 'narrativa', level: director.scene.pressure, description: 'La tensione viene aggiornata a ogni turno.' };
+                const esc = CronacheDirector.escapeHtml;
+                $('memory-director').innerHTML = `
+                    <div class="director-hero">
+                        <div>
+                            <span class="director-kicker">GAME DIRECTOR</span>
+                            <div class="director-title">Tre ruoli, un mondo coerente</div>
+                            <div class="director-subtitle">Intento: ${esc(director.currentIntent)} · Tick ${director.tick}</div>
+                        </div>
+                        <div class="director-pressure" style="--director-pressure: ${latestPressure.level}%">
+                            <strong>${latestPressure.level}</strong><span>pressione</span>
+                        </div>
+                    </div>
+                    <div class="director-agent-grid">
+                        <div class="director-agent"><span>🎭</span><strong>Master</strong><small>${esc(director.agents.master.status)}</small></div>
+                        <div class="director-agent"><span>📖</span><strong>Cronista</strong><small>${esc(director.agents.chronicler.status)}</small></div>
+                        <div class="director-agent"><span>🌍</span><strong>Mondo</strong><small>${esc(director.agents.world.status)}</small></div>
+                    </div>
+                    <div class="memory-section">
+                        <div class="memory-section-title">⚡ Pressione della scena</div>
+                        <div class="memory-card">
+                            <div class="memory-card-title">${esc(latestPressure.type)} · ${latestPressure.level}/100</div>
+                            <div class="memory-card-desc">${esc(latestPressure.description || director.scene.focus)}</div>
+                            <div class="director-pressure-bar"><i style="width:${latestPressure.level}%"></i></div>
+                        </div>
+                    </div>
+                    <div class="memory-section">
+                        <div class="memory-section-title">🌍 Mondo in movimento</div>
+                        ${publicMoves.length ? publicMoves.map(move => `
+                            <div class="memory-card">
+                                <div class="memory-card-title">${esc(move.actor)}</div>
+                                <div class="memory-card-desc">${esc(move.action)}</div>
+                                <div class="memory-card-meta">Turno ${move.turn} · ${esc(move.status)}</div>
+                            </div>
+                        `).join('') : '<div class="memory-empty">Le conseguenze visibili appariranno qui.</div>'}
+                        ${hiddenCount ? `<div class="director-hidden">🕯️ ${hiddenCount} movimento/i del mondo restano fuori scena.</div>` : ''}
+                    </div>
+                    <div class="memory-section">
+                        <div class="memory-section-title">📖 Registro del Cronista</div>
+                        ${timeline.length ? timeline.map(item => `
+                            <div class="memory-card director-timeline ${esc(item.importance)}">
+                                <div class="memory-card-title">${esc(item.title)}</div>
+                                <div class="memory-card-desc">${esc(item.summary)}</div>
+                                <div class="memory-card-meta">Turno ${item.turn} · ${esc(item.importance)}</div>
+                            </div>
+                        `).join('') : '<div class="memory-empty">Il Cronista attende il primo turno.</div>'}
                     </div>`;
             }
 
@@ -7338,6 +7401,14 @@
                 if (last?.textContent?.includes('scrivendo')) last.remove();
 
                 parseAIResponse(response);
+                const directorCommit = gameDirector.commitTurn(action, response, G.worldMemory, {
+                    character: G.character,
+                    story: G.currentStory,
+                    time: G.time,
+                    currentLocation: G.currentLocation
+                });
+                G.worldMemory.director = directorCommit.state;
+                updateMemoryUI();
                 updateInfoPanels(); // Aggiorna pannelli dopo modifiche AI
                 G.worldMemory = migrateSavedWorldMemory(G.worldMemory);
                 narrativeMaster.updateCompass(action, response, G.worldMemory, G.currentStory);
@@ -7387,6 +7458,15 @@
                 currentLocation: G.currentLocation
             });
             G.worldMemory.narrativeCompass = masterTurn.compass;
+            const directorTurn = gameDirector.planTurn(action, {
+                director: G.worldMemory.director,
+                memory: G.worldMemory,
+                character: c,
+                story,
+                time: G.time,
+                currentLocation: G.currentLocation
+            });
+            G.worldMemory.director = directorTurn.state;
 
             const lengths = { short: '100-200 parole', medium: '200-350 parole', long: '350-500 parole' };
 
@@ -7658,6 +7738,8 @@ ${layeredMemory.prompt}
 
 🧭 MASTER A 360 GRADI:
 ${masterTurn.prompt}
+
+${directorTurn.prompt}
 
 ${criticalConditions}
 
@@ -8335,6 +8417,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[DECISIONE:[^\]]*\]/gi, '')
                 .replace(/\[OBIETTIVO_NARRATIVO:[^\]]*\]/gi, '')
                 .replace(/\[SEGRETO:[^\]]*\]/gi, '')
+                .replace(/\[(?:CRONISTA|MONDO|PRESSIONE):[^\]]*\]/gi, '')
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
