@@ -844,6 +844,23 @@ test('calcola vendite, margine, stipendi e risultato del periodo', () => {
     assert.equal(business.history.length, 1);
 });
 
+test('chiude automaticamente il periodo quando l’attività matura i turni necessari', () => {
+    const property = { id: 41, name: 'Negozio Automatico', type: 'business', businessCash: 100 };
+    const business = businessApi.createBusinessFromProperty(property, 0);
+    initializeBusinessForTest(business, { stock: 50, baseDemand: 10, salePrice: 12, unitCost: 4 });
+    business.settings.periodTurns = 3;
+    const result = businessApi.processPeriods({ businesses: [business] }, {
+        properties: [property], employees: [], turn: 3
+    }, () => 0.5);
+    assert.equal(result.reports.length, 1);
+    assert.ok(result.reports[0].report.revenue > 0);
+    assert.equal(result.management.businesses[0].period, 1);
+    assert.ok(result.management.businesses[0].cash > 100);
+    assert.equal(businessApi.processPeriods(result.management, {
+        properties: [property], employees: [], turn: 3
+    }, () => 0.5).reports.length, 0, 'non deve chiudere due volte lo stesso periodo');
+});
+
 test('evidenzia prodotti sotto scorta e ordini aperti', () => {
     const business = businessApi.createBusinessFromProperty({
         id: 5, name: 'Negozio Centro', type: 'business'
