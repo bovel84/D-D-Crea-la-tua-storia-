@@ -3984,6 +3984,38 @@
                     businessCash: p.businessCash,
                     preserveExisting: true
                 });
+
+                // Un'eredità può includere beni fisici, merce, anagrafiche e accordi.
+                // I vecchi starter registravano soltanto la proprietà: qui trasferiamo
+                // il verbale di consegna nei registri reali, in modo idempotente.
+                const property = getPropertyByName(name);
+                if (property && Array.isArray(p.inventory) && !property._starterInventoryImported) {
+                    p.inventory.forEach(item => addLootToPropertyInventory(name, item.name || item.id,
+                        Math.max(1, Number(item.count || item.quantity) || 1), item, { silent: true }));
+                    property._starterInventoryImported = true;
+                }
+                if (p.type !== 'business') return;
+                const management = syncBusinessManagement();
+                const business = (management.businesses || []).find(item =>
+                    CronacheBusiness.keyOf(item.propertyName) === CronacheBusiness.keyOf(name)
+                );
+                if (!business || business._starterLedgerImported) return;
+                (Array.isArray(p.suppliers) ? p.suppliers : []).forEach(supplier => {
+                    businessEngine.addSupplier(business, { ...supplier, source: 'inheritance' });
+                });
+                (Array.isArray(p.catalog) ? p.catalog : []).forEach(product => {
+                    businessEngine.addProduct(business, { ...product, source: 'inheritance', active: product.active !== false });
+                });
+                (Array.isArray(p.contracts) ? p.contracts : []).forEach(contract => {
+                    try { CronacheBusiness.upsertContract(business, { ...contract, source: 'inheritance' }, G.worldMemory.turnCount || 0); } catch (error) { console.warn('Contratto ereditato ignorato:', error.message); }
+                });
+                if ((p.catalog || []).length || (p.suppliers || []).length || (p.contracts || []).length) {
+                    business.profileNarrative = true;
+                    business.narrativeInitialized = true;
+                    business.initializedAtTurn = business.initializedAtTurn ?? (G.worldMemory.turnCount || 0);
+                    CronacheBusiness.addBusinessNote(business, '📜 Verbale di eredità importato: beni, rapporti e accordi iniziali sono ora gestiti.', G.worldMemory.turnCount || 0);
+                }
+                business._starterLedgerImported = true;
             });
         }
 
@@ -4484,14 +4516,38 @@
                         condition: property.condition ?? 65,
                         baseValue: property.baseValue ?? 3000,
                         income: property.income ?? 0,
-                        businessCash: property.businessCash ?? 0
+                        businessCash: property.businessCash ?? 120,
+                        inventory: property.inventory || [
+                            { name: 'Scaffalature e bancone', category: 'strumentali', count: 1, description: 'Arredi del vecchio emporio', value: 700, icon: '🗄️' },
+                            { name: 'Registro dei fornitori', category: 'strumentali', count: 1, description: 'Contatti e consegne annotate dalla famiglia', value: 80, icon: '📒' }
+                        ],
+                        catalog: property.catalog || [
+                            { name: 'Generi alimentari', category: 'alimentari', salePrice: 8, unitCost: 4, stock: 18, baseDemand: 7, reorderPoint: 5, targetStock: 24 },
+                            { name: 'Articoli per la casa', category: 'casa', salePrice: 12, unitCost: 6, stock: 12, baseDemand: 4, reorderPoint: 4, targetStock: 18 }
+                        ],
+                        suppliers: property.suppliers || [
+                            { name: 'Distribuzioni Bianchi', category: 'generi misti', reliability: 72, leadTurns: 2, status: 'active', notes: 'Rapporto storico della famiglia' }
+                        ],
+                        contracts: property.contracts || [
+                            { title: 'Fornitura continuativa', kind: 'fornitura', counterpartyType: 'fornitore', counterpartyName: 'Distribuzioni Bianchi', amount: 180, frequency: 'settimanale', status: 'active', notes: 'Accordo ereditato, rinnovabile a fine mese' }
+                        ]
                     };
                 });
                 if (!found) starterProperties.push({
                     id: 'starter-emporio-rossi', name: 'Emporio Rossi', type: 'business', condition: 65,
-                    baseValue: 3000, income: 0, businessCash: 0,
+                    baseValue: 3000, income: 0, businessCash: 120,
                     description: 'Il piccolo negozio di famiglia appena ereditato. Clientela locale fedele, margini stretti.',
-                    notes: 'Puoi investire per ampliarlo o venderlo per fare cassa.'
+                    notes: 'Puoi investire per ampliarlo o venderlo per fare cassa.',
+                    inventory: [
+                        { name: 'Scaffalature e bancone', category: 'strumentali', count: 1, description: 'Arredi del vecchio emporio', value: 700, icon: '🗄️' },
+                        { name: 'Registro dei fornitori', category: 'strumentali', count: 1, description: 'Contatti e consegne annotate dalla famiglia', value: 80, icon: '📒' }
+                    ],
+                    catalog: [
+                        { name: 'Generi alimentari', category: 'alimentari', salePrice: 8, unitCost: 4, stock: 18, baseDemand: 7, reorderPoint: 5, targetStock: 24 },
+                        { name: 'Articoli per la casa', category: 'casa', salePrice: 12, unitCost: 6, stock: 12, baseDemand: 4, reorderPoint: 4, targetStock: 18 }
+                    ],
+                    suppliers: [{ name: 'Distribuzioni Bianchi', category: 'generi misti', reliability: 72, leadTurns: 2, status: 'active', notes: 'Rapporto storico della famiglia' }],
+                    contracts: [{ title: 'Fornitura continuativa', kind: 'fornitura', counterpartyType: 'fornitore', counterpartyName: 'Distribuzioni Bianchi', amount: 180, frequency: 'settimanale', status: 'active', notes: 'Accordo ereditato, rinnovabile a fine mese' }]
                 });
                 if (JSON.stringify(starterProperties) !== JSON.stringify(s.starterProperties || [])) storiesChanged = true;
                 return { ...s, starterProperties };
@@ -4529,7 +4585,17 @@
                                 condition: 65,
                                 baseValue: 3000,
                                 income: 0,
-                                businessCash: 0
+                                businessCash: 120,
+                                inventory: [
+                                    { name: 'Scaffalature e bancone', category: 'strumentali', count: 1, description: 'Arredi del vecchio emporio', value: 700, icon: '🗄️' },
+                                    { name: 'Registro dei fornitori', category: 'strumentali', count: 1, description: 'Contatti e consegne annotate dalla famiglia', value: 80, icon: '📒' }
+                                ],
+                                catalog: [
+                                    { name: 'Generi alimentari', category: 'alimentari', salePrice: 8, unitCost: 4, stock: 18, baseDemand: 7, reorderPoint: 5, targetStock: 24 },
+                                    { name: 'Articoli per la casa', category: 'casa', salePrice: 12, unitCost: 6, stock: 12, baseDemand: 4, reorderPoint: 4, targetStock: 18 }
+                                ],
+                                suppliers: [{ name: 'Distribuzioni Bianchi', category: 'generi misti', reliability: 72, leadTurns: 2, status: 'active', notes: 'Rapporto storico della famiglia' }],
+                                contracts: [{ title: 'Fornitura continuativa', kind: 'fornitura', counterpartyType: 'fornitore', counterpartyName: 'Distribuzioni Bianchi', amount: 180, frequency: 'settimanale', status: 'active', notes: 'Accordo ereditato, rinnovabile a fine mese' }]
                             }
                         ]
                     }
@@ -6652,7 +6718,7 @@
             }
 
             // [CONTRATTO_NEGOZIO: attività|titolo|tipo|tipo_controparte|nome_controparte|importo|frequenza|stato|fine_turno_opzionale|note_opzionali]
-            const contractRe = /\[CONTRATTO_NEGOZIO:\s*([^\]]+)\]/gi;
+            const contractRe = /\[(?:CONTRATTO_NEGOZIO|ACCORDO_NEGOZIO|CONTRATTO):\s*([^\]]+)\]/gi;
             while ((m = contractRe.exec(businessResponse)) !== null) {
                 const fields = splitTagFields(m[1], 10);
                 events.push({
@@ -8994,10 +9060,11 @@ SCRIVI ${lengths[s.length]} di narrazione.`;
             if (isStart) {
                 userMsg = `Inizia la storia. È ${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}, ${period.name}.
 ${story.prologue || 'Il protagonista inizia la sua avventura.'}
-Descrivi la scena e l'equipaggiamento iniziale (usa [LOOT] per dare gli oggetti iniziali).
+Descrivi la scena e l'equipaggiamento personale iniziale (usa [LOOT] solo per gli oggetti personali). I beni che restano nel negozio devono usare [LOOT_PROPRIETA: nome attività|oggetto|categoria=strumentali/produzione/vendibili|quantità|descrizione|valore|icona].
 Metti in chiaro quanti ${c.currency?.short || 'soldi'} sono subito disponibili (${formatCurrency(c.gold)} secondo il sistema) e dove sono custoditi.
 Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa, libro mastro con 2000 fiorini) applica immediatamente [MECCANICA: soldi=±X] per riallineare il saldo e cita il registro o il contante come oggetto fisico con [LOOT: ...] quando opportuno.
-Ricorda: il denaro personale usa [MECCANICA: soldi], la cassa dell'attività usa [ATTIVITA_NEGOZIO] all'inizializzazione e [CASSA_NEGOZIO] dopo; non duplicare lo stesso importo.${businessTagDirective}${pendingBusinessDirective}`;
+Ricorda: il denaro personale usa [MECCANICA: soldi], la cassa dell'attività usa [ATTIVITA_NEGOZIO] all'inizializzazione e [CASSA_NEGOZIO] dopo; non duplicare lo stesso importo.
+Se il protagonista eredita o rileva un'attività, chiudi la prima risposta con un VERBALE DI CONSEGNA: ogni bene del locale usa [LOOT_PROPRIETA], ogni articolo vendibile usa [CATALOGO_NEGOZIO], ogni fornitore usa [FORNITORE_NEGOZIO] e ogni accordo esistente usa [CONTRATTO_NEGOZIO]. Non limitarti a raccontarli in prosa: ciò che dichiari deve avere il suo tag e risultare nei registri.${businessTagDirective}${pendingBusinessDirective}`;
             } else {
                 // Costruisci contesto stato fisico per l'IA
                 let physicalState = '';
@@ -9653,7 +9720,8 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[(?:CRESCITA|LEGAME|FAMIGLIA_STATO|PROPRIETA_STATO):[^\]]*\]/gi, '')
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
-                .replace(/\[(?:ATTIVITA|CATALOGO|VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|DIPENDENTE|CONTRATTO|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
+                .replace(/\[(?:ATTIVITA|CATALOGO|VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|DIPENDENTE|CONTRATTO|ACCORDO|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
+                .replace(/\[CONTRATTO:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
                 .replace(/\[FAMIGLIA:[^\]]*\]/gi, '')
                 .replace(/\[DIPENDENTE:[^\]]*\]/gi, '')
