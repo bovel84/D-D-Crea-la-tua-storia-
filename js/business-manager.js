@@ -10,7 +10,7 @@
     const MAX_HISTORY = 24;
     const MAX_NOTES = 24;
     const BUSINESS_WORDS = /impresa|azienda|negozio|bottega|officina|taverna|locanda|osteria|ristorante|farmacia|studio|laboratorio|emporio|mercato|banca|agenzia|fabbrica|attivit/i;
-    const GENERIC_ENTITY_WORDS = /^(?:(?:articolo|prodotto|servizio|merce|fornitore|cliente)(?:\s+(?:generico|generica|standard|principale|complementare|locale|base))?|clientela abituale)$/i;
+    const GENERIC_ENTITY_WORDS = /^(?:(?:articolo|prodotto|servizio|merce|fornitore|cliente|dipendente)(?:\s+(?:generico|generica|standard|principale|complementare|locale|base))?|clientela abituale)$/i;
 
     function clone(value) {
         return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -402,6 +402,67 @@
         return customer;
     }
 
+    function upsertEmployee(employees, input, turn = 0) {
+        if (!Array.isArray(employees)) throw new Error('Archivio dipendenti non valido.');
+        const name = clean(input?.name, 80);
+        const property = clean(input?.property, 120);
+        if (!name || GENERIC_ENTITY_WORDS.test(name)) throw new Error('Il dipendente deve avere un nome concreto.');
+
+        const existing = employees.find(employee =>
+            keyOf(employee.name) === keyOf(name) &&
+            (!property || keyOf(employee.property) === keyOf(property))
+        );
+        const role = clean(input?.role, 80);
+        const salaryProvided = input?.salary != null && input.salary !== '';
+        const skillProvided = input?.skill != null && input.skill !== '';
+        const moraleProvided = input?.morale != null && input.morale !== '';
+        const salary = salaryProvided ? parseNarrativeNumber(input.salary) : null;
+        const skill = skillProvided ? parseNarrativeNumber(input.skill) : null;
+        const morale = moraleProvided ? parseNarrativeNumber(input.morale) : null;
+        const statusProvided = input?.status != null && input.status !== '';
+        const status = statusProvided ? String(input.status).trim().toLowerCase() : '';
+        const allowedStatuses = ['active', 'sick', 'vacation', 'leave', 'fired'];
+
+        if ((salaryProvided && (salary == null || salary < 0)) ||
+            (skillProvided && (skill == null || skill < 0 || skill > 100)) ||
+            (moraleProvided && (morale == null || morale < 0 || morale > 100)) ||
+            (statusProvided && !allowedStatuses.includes(status))) {
+            throw new Error('DIPENDENTE_NEGOZIO contiene valori non validi.');
+        }
+        if (!existing && (!property || !role || !salaryProvided || !skillProvided || !moraleProvided)) {
+            throw new Error('DIPENDENTE_NEGOZIO incompleto: per una nuova assunzione servono attività, ruolo, stipendio, competenza e morale.');
+        }
+
+        if (existing) {
+            if (role) existing.role = role;
+            if (property) existing.property = property;
+            if (salaryProvided) existing.salary = roundMoney(salary);
+            if (skillProvided) existing.skill = clamp(skill, 0, 100);
+            if (moraleProvided) existing.morale = clamp(morale, 0, 100);
+            if (statusProvided) existing.status = status;
+            if (input.description != null && input.description !== '') existing.description = clean(input.description, 240);
+            existing.updatedAtTurn = Math.max(0, parseInt(turn, 10) || 0);
+            return { employee: existing, created: false };
+        }
+
+        const employee = {
+            id: `employee-${keyOf(property)}-${keyOf(name)}-${employees.length + 1}`,
+            name,
+            role,
+            property,
+            salary: roundMoney(salary),
+            skill: clamp(skill, 0, 100),
+            morale: clamp(morale, 0, 100),
+            description: clean(input?.description || '', 240),
+            status: status || 'active',
+            hiredAt: Math.max(0, parseInt(turn, 10) || 0),
+            updatedAtTurn: Math.max(0, parseInt(turn, 10) || 0),
+            source: input?.source || 'narration'
+        };
+        employees.push(employee);
+        return { employee, created: true };
+    }
+
     function findProductById(business, productId) {
         return business.products.find(item => item.id === productId) || null;
     }
@@ -720,6 +781,10 @@
         const lines = [];
         list.forEach(business => {
             const report = getReport(business, staff);
+            const businessStaff = staff.filter(employee =>
+                employee.status !== 'fired' &&
+                keyOf(employee.property) === keyOf(business.propertyName)
+            );
             const lowStock = (report.lowStock || []).map(p => p.name).join(', ');
             const products = business.products
                 .filter(p => p.active)
@@ -742,13 +807,20 @@
             if (lowStock) lines.push(`  ⚠️ sotto scorta: ${lowStock}`);
             if (pending) lines.push(`  ordini in arrivo: ${pending}`);
             if (business.suppliers && business.suppliers.length) {
-                const activeSup = business.suppliers.filter(s => s.status === 'active');
-                if (activeSup.length) lines.push(`  fornitori: ${activeSup.slice(0, 6).map(s => `${s.name} [${s.category}, affidabilità ${Math.round(s.reliability)}%]`).join('; ')}`);
+                lines.push(`  fornitori: ${business.suppliers.slice(0, 8).map(s =>
+                    `${s.name} [${s.category}, affidabilità ${Math.round(s.reliability)}%, consegna ${s.leadTurns} turni, sconto ${s.discount || 0}%, stato ${s.status || 'active'}${s.notes ? `, note ${s.notes}` : ''}]`
+                ).join('; ')}`);
             }
             if (business.customers && business.customers.length) {
-                lines.push(`  clienti noti: ${business.customers.slice(0, 6).map(c => `${c.name} (${c.segment}, fedeltà ${Math.round(c.loyalty)}%)`).join('; ')}`);
+                lines.push(`  clienti noti: ${business.customers.slice(0, 8).map(c =>
+                    `${c.name} (${c.segment}, fedeltà ${Math.round(c.loyalty)}%, soddisfazione ${Math.round(c.satisfaction)}%, visite ${c.visits || 0}${c.notes ? `, note ${c.notes}` : ''})`
+                ).join('; ')}`);
             }
-            if (report.employeeCount) lines.push(`  dipendenti: ${report.employeeCount} (competenza ${report.averageSkill}/100, morale ${report.averageMorale}/100, stipendi ${report.payroll} ${currency}/periodo)`);
+            if (businessStaff.length) {
+                lines.push(`  dipendenti: ${businessStaff.slice(0, 8).map(employee =>
+                    `${employee.name} (${employee.role || 'ruolo non definito'}, competenza ${Math.round(employee.skill ?? 50)}, morale ${Math.round(employee.morale ?? 70)}, stipendio ${employee.salary || 0}, stato ${employee.status || 'active'}${employee.description ? `, note ${employee.description}` : ''})`
+                ).join('; ')}`);
+            }
             if (business.notes && business.notes.length) {
                 const recent = business.notes.slice(-6).map(note => note.text).join(' | ');
                 lines.push(`  cronaca recente (narrati + modifiche del giocatore ✋): ${recent}`);
@@ -784,7 +856,7 @@
                 return;
             }
             business.processedNarrativeEvents = Array.isArray(business.processedNarrativeEvents) ? business.processedNarrativeEvents : [];
-            const stateEvent = ['profile', 'catalogProduct', 'renameProduct', 'customer', 'supplier', 'status', 'price'].includes(event.type);
+            const stateEvent = ['profile', 'catalogProduct', 'renameProduct', 'customer', 'supplier', 'employee', 'status', 'price'].includes(event.type);
             const fingerprint = `${stateEvent ? 'state' : turn}:${JSON.stringify(event)}`;
             if (business.processedNarrativeEvents.includes(fingerprint)) {
                 results.push({ ok: true, skipped: true, type: event.type, business: business.name, message: `${business.name}: evento già applicato` });
@@ -921,18 +993,23 @@
                     const segment = clean(event.segment, 40);
                     const loyaltyProvided = event.loyalty != null && event.loyalty !== '';
                     const satisfactionProvided = event.satisfaction != null && event.satisfaction !== '';
-                    const loyaltyValid = !loyaltyProvided || (Number.isFinite(Number(event.loyalty)) && Number(event.loyalty) >= 0 && Number(event.loyalty) <= 100);
-                    const satisfactionValid = !satisfactionProvided || (Number.isFinite(Number(event.satisfaction)) && Number(event.satisfaction) >= 0 && Number(event.satisfaction) <= 100);
-                    const fullCreate = segment && loyaltyProvided && satisfactionProvided;
+                    const loyalty = loyaltyProvided ? parseNarrativeNumber(event.loyalty) : null;
+                    const satisfaction = satisfactionProvided ? parseNarrativeNumber(event.satisfaction) : null;
+                    const loyaltyValid = !loyaltyProvided || (loyalty != null && loyalty >= 0 && loyalty <= 100);
+                    const satisfactionValid = !satisfactionProvided || (satisfaction != null && satisfaction >= 0 && satisfaction <= 100);
+                    const fullCreate = segment && loyaltyProvided;
                     if (!customerName || GENERIC_ENTITY_WORDS.test(customerName) || !loyaltyValid || !satisfactionValid || (!existingCustomer && !fullCreate)) {
                         results.push({ ok: false, type: 'customer', business: business.name, message: 'CLIENTE_NEGOZIO incompleto, generico o con valori non validi' });
                         break;
                     }
                     const customerInput = { name: customerName, source: 'narration' };
                     if (segment) customerInput.segment = segment;
-                    if (loyaltyProvided) customerInput.loyalty = clamp(event.loyalty, 0, 100);
-                    if (satisfactionProvided) customerInput.satisfaction = clamp(event.satisfaction, 0, 100);
-                    if (event.visits != null && event.visits !== '') customerInput.visits = Math.max(0, parseInt(event.visits, 10) || 0);
+                    if (loyaltyProvided) customerInput.loyalty = clamp(loyalty, 0, 100);
+                    if (satisfactionProvided) customerInput.satisfaction = clamp(satisfaction, 0, 100);
+                    if (event.visits != null && event.visits !== '') {
+                        const visits = parseNarrativeNumber(event.visits);
+                        if (visits != null) customerInput.visits = Math.max(0, Math.round(visits));
+                    }
                     if (event.notes != null && event.notes !== '') customerInput.notes = clean(event.notes, 240);
                     addCustomer(business, customerInput);
                     addBusinessNote(business, `Cliente dalla narrazione: ${customerInput.name}${event.notes ? ` — ${event.notes}` : ''}.`, turn);
@@ -947,9 +1024,12 @@
                     const leadProvided = event.leadTurns != null && event.leadTurns !== '';
                     const discountProvided = event.discount != null && event.discount !== '';
                     const statusProvided = event.status != null && event.status !== '';
-                    const reliabilityValid = !reliabilityProvided || (Number.isFinite(Number(event.reliability)) && Number(event.reliability) >= 0 && Number(event.reliability) <= 100);
-                    const leadValid = !leadProvided || (Number.isFinite(Number(event.leadTurns)) && Number(event.leadTurns) >= 0);
-                    const discountValid = !discountProvided || (Number.isFinite(Number(event.discount)) && Number(event.discount) >= 0 && Number(event.discount) <= 60);
+                    const reliability = reliabilityProvided ? parseNarrativeNumber(event.reliability) : null;
+                    const leadTurns = leadProvided ? parseNarrativeNumber(event.leadTurns) : null;
+                    const discount = discountProvided ? parseNarrativeNumber(event.discount) : null;
+                    const reliabilityValid = !reliabilityProvided || (reliability != null && reliability >= 0 && reliability <= 100);
+                    const leadValid = !leadProvided || (leadTurns != null && leadTurns >= 0);
+                    const discountValid = !discountProvided || (discount != null && discount >= 0 && discount <= 60);
                     const statusValid = !statusProvided || ['active', 'inactive'].includes(String(event.status).toLowerCase());
                     const fullCreate = supplierCategory && reliabilityProvided && leadProvided;
                     const supplierValid = supplierName && !GENERIC_ENTITY_WORDS.test(supplierName) && reliabilityValid && leadValid && discountValid && statusValid && (existingSupplier || fullCreate);
@@ -959,15 +1039,43 @@
                     }
                     const supplierInput = { name: supplierName, source: 'narration' };
                     if (supplierCategory) supplierInput.category = supplierCategory;
-                    if (reliabilityProvided) supplierInput.reliability = clamp(event.reliability, 0, 100);
-                    if (leadProvided) supplierInput.leadTurns = Math.max(0, parseInt(event.leadTurns, 10) || 0);
-                    if (event.discount != null && event.discount !== '') supplierInput.discount = clamp(event.discount, 0, 60);
+                    if (reliabilityProvided) supplierInput.reliability = clamp(reliability, 0, 100);
+                    if (leadProvided) supplierInput.leadTurns = Math.max(0, Math.round(leadTurns));
+                    if (discountProvided) supplierInput.discount = clamp(discount, 0, 60);
                     if (event.status != null && event.status !== '' && ['active', 'inactive'].includes(String(event.status).toLowerCase())) supplierInput.status = String(event.status).toLowerCase();
                     if (event.notes != null && event.notes !== '') supplierInput.notes = clean(event.notes, 240);
                     const supplier = addSupplier(business, supplierInput);
                     business.products.filter(product => product.source === 'narration' && !product.supplierId).forEach(product => { product.supplierId = supplier.id; });
                     addBusinessNote(business, `Fornitore dalla narrazione: ${supplierInput.name}${event.notes ? ` — ${event.notes}` : ''}.`, turn);
                     results.push({ ok: true, type: 'supplier', business: business.name, message: `${business.name}: fornitore ${supplierInput.name}` });
+                    break;
+                }
+                case 'employee': {
+                    try {
+                        const outcome = upsertEmployee(staff, {
+                            name: event.employeeName,
+                            role: event.role,
+                            property: business.propertyName,
+                            salary: event.salary,
+                            skill: event.skill,
+                            morale: event.morale,
+                            status: event.status,
+                            description: event.description,
+                            source: 'narration'
+                        }, turn);
+                        addBusinessNote(business,
+                            `${outcome.created ? 'Assunzione' : 'Aggiornamento dipendente'} dalla narrazione: ${outcome.employee.name} (${outcome.employee.role}).`,
+                            turn
+                        );
+                        results.push({
+                            ok: true,
+                            type: 'employee',
+                            business: business.name,
+                            message: `${business.name}: dipendente ${outcome.employee.name} ${outcome.created ? 'assunto' : 'aggiornato'}`
+                        });
+                    } catch (error) {
+                        results.push({ ok: false, type: 'employee', business: business.name, message: error.message });
+                    }
                     break;
                 }
                 case 'status': {
@@ -1032,7 +1140,7 @@
             refreshNarrativeInitialization(business, turn);
             business.lastReport = getReport(business, staff);
         });
-        return { management, results };
+        return { management, results, employees: staff };
     }
 
     class BusinessManager {
@@ -1073,6 +1181,7 @@
         applyNarrativeEvents,
         refreshNarrativeInitialization,
         parseNarrativeNumber,
+        upsertEmployee,
         setProductActive,
         adjustProductStock,
         removeProduct,

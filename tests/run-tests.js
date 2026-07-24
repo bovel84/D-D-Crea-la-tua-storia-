@@ -1066,6 +1066,83 @@ test('fornitori e clienti sono generati e aggiornati dalla narrazione dell’LLM
     assert.ok(ctx.includes('Bernardo dei Mari'));
 });
 
+test('crea e aggiorna anagrafiche gestionali con valori narrativi realistici', () => {
+    let management = businessApi.syncProperties(null, [
+        { id: 16, name: 'Frutta e Verdura Aurora', type: 'business' }
+    ], 1);
+    const employees = [];
+
+    let outcome = businessApi.applyNarrativeEvents(management, [
+        {
+            type: 'customer', businessName: 'Frutta e Verdura Aurora',
+            customerName: 'Lucia Serra', segment: 'abituale', loyalty: '65%',
+            notes: 'Compra ogni mattina'
+        },
+        {
+            type: 'supplier', businessName: 'Frutta e Verdura Aurora',
+            supplierName: 'Azienda Agricola Piras', category: 'ortaggi',
+            reliability: '88%', leadTurns: '2 turni', discount: '5%'
+        },
+        {
+            type: 'employee', businessName: 'Frutta e Verdura Aurora',
+            employeeName: 'Marco Lai', role: 'commesso', salary: '45 euro',
+            skill: '62%', morale: '74%', status: 'active', description: 'Addetto al banco'
+        }
+    ], { turn: 2, currency: 'euro', employees });
+
+    management = outcome.management;
+    assert.equal(outcome.results.every(result => result.ok), true);
+    assert.equal(management.businesses[0].customers[0].name, 'Lucia Serra');
+    assert.equal(management.businesses[0].customers[0].loyalty, 65);
+    assert.equal(management.businesses[0].customers[0].satisfaction, 60);
+    assert.equal(management.businesses[0].suppliers[0].reliability, 88);
+    assert.equal(management.businesses[0].suppliers[0].leadTurns, 2);
+    assert.equal(outcome.employees.length, 1);
+    assert.equal(outcome.employees[0].salary, 45);
+
+    outcome = businessApi.applyNarrativeEvents(management, [
+        {
+            type: 'customer', businessName: 'Frutta e Verdura Aurora',
+            customerName: 'Lucia Serra', loyalty: '78%', satisfaction: '91%'
+        },
+        {
+            type: 'supplier', businessName: 'Frutta e Verdura Aurora',
+            supplierName: 'Azienda Agricola Piras', reliability: '94%'
+        },
+        {
+            type: 'employee', businessName: 'Frutta e Verdura Aurora',
+            employeeName: 'Marco Lai', morale: '86%', description: 'Promosso capoturno'
+        }
+    ], { turn: 3, currency: 'euro', employees: outcome.employees });
+
+    const business = outcome.management.businesses[0];
+    assert.equal(business.customers.length, 1);
+    assert.equal(business.customers[0].loyalty, 78);
+    assert.equal(business.suppliers.length, 1);
+    assert.equal(business.suppliers[0].reliability, 94);
+    assert.equal(outcome.employees.length, 1);
+    assert.equal(outcome.employees[0].morale, 86);
+    assert.equal(outcome.employees[0].salary, 45, 'un aggiornamento parziale non deve azzerare lo stipendio');
+    assert.equal(outcome.employees[0].skill, 62, 'un aggiornamento parziale non deve reimpostare la competenza');
+    const context = businessApi.buildNarrativeContext(outcome.management, outcome.employees, 3, 'euro');
+    assert.ok(context.includes('Marco Lai'));
+    assert.ok(context.includes('Promosso capoturno'));
+    assert.ok(context.includes('Azienda Agricola Piras'));
+    assert.ok(context.includes('Lucia Serra'));
+});
+
+test('valida le nuove assunzioni senza corrompere i dipendenti esistenti', () => {
+    const employees = [];
+    assert.throws(() => businessApi.upsertEmployee(employees, {
+        name: 'Dipendente generico', property: 'Emporio', role: 'commesso',
+        salary: 20, skill: 50, morale: 60
+    }), /nome concreto/);
+    assert.throws(() => businessApi.upsertEmployee(employees, {
+        name: 'Anna', property: 'Emporio', role: 'commessa', salary: 20
+    }), /incompleto/);
+    assert.equal(employees.length, 0);
+});
+
 test('le modifiche manuali vengono registrate come eventi nella cronaca visibile all’LLM', () => {
     const property = { id: 15, name: 'Bottega Verde', type: 'business', businessCash: 100 };
     let management = businessApi.syncProperties(null, [property], 0);
@@ -1095,6 +1172,10 @@ test('espone accessi visibili alla gestione del negozio', () => {
     assert.match(html, /businessResponse.*ANALISI/);
     assert.match(html, /parseAIResponse\(response, \{ isStart \}\)/);
     assert.match(html, /parseBusinessTags\(response, \{ deferEntries: true \}\)/);
+    assert.match(html, /DIPENDENTE_NEGOZIO/);
+    assert.match(html, /outcome\.employees/);
+    assert.match(html, /splitTagFields/);
+    assert.match(html, /const businessEmployeeRe = .*DIPENDENTE_NEGOZIO/);
     assert.ok(
         html.indexOf('const hasNarrative = G.storyLog.some') <
         html.indexOf('if (management.businesses.length && !management.accessAnnounced)'),

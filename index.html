@@ -6353,7 +6353,7 @@
             );
             if (!employees.length) {
                 showBusinessDetailModal('Dipendenti — ' + safeManagerText(business.name),
-                    '<p class="manager-empty">Nessun dipendente assegnato a questa attività. La narrazione può assumerli con [DIPENDENTE: nome|ruolo|' + safeManagerText(business.name) + '|stipendio|competenza|morale|descrizione].</p>', 'employees');
+                    '<p class="manager-empty">Nessun dipendente assegnato a questa attività. La narrazione può assumerli con [DIPENDENTE_NEGOZIO: ' + safeManagerText(business.name) + '|nome|ruolo|stipendio|competenza|morale|active|descrizione].</p>', 'employees');
                 return;
             }
             const cards = employees.map(employee =>
@@ -6511,6 +6511,11 @@
             const businessResponse = String(response || '').replace(/\[ANALISI\][\s\S]*?\[\/ANALISI\]/gi, '');
             const events = [];
             let m;
+            const splitTagFields = (raw, size) => {
+                const fields = String(raw || '').split('|').map(value => value.trim());
+                while (fields.length < size) fields.push('');
+                return fields.slice(0, size);
+            };
 
             // [ATTIVITA_NEGOZIO: attività|tipo|cassa_iniziale|reputazione|soddisfazione|stato|descrizione]
             const profileRe = /\[ATTIVITA_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
@@ -6591,32 +6596,67 @@
             }
 
             // [CLIENTE_NEGOZIO: attività|nome_cliente|segmento|lealtà|soddisfazione_opzionale|note_opzionale]
-            const customerRe = /\[CLIENTE_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            const customerRe = /\[CLIENTE_NEGOZIO:\s*([^\]]+)\]/gi;
             while ((m = customerRe.exec(businessResponse)) !== null) {
+                const fields = splitTagFields(m[1], 6);
                 events.push({
                     type: 'customer',
-                    businessName: (m[1] || '').trim(),
-                    customerName: (m[2] || '').trim(),
-                    segment: (m[3] || '').trim(),
-                    loyalty: (m[4] || '').trim(),
-                    satisfaction: (m[5] || '').trim(),
-                    notes: (m[6] || '').trim()
+                    businessName: fields[0],
+                    customerName: fields[1],
+                    segment: fields[2],
+                    loyalty: fields[3],
+                    satisfaction: fields[4],
+                    notes: fields[5]
                 });
             }
 
             // [FORNITORE_NEGOZIO: attività|nome|categoria|affidabilità|lead_turns|sconto_opzionale|stato_opzionale|note_opzionale]
-            const supplierRe = /\[FORNITORE_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            const supplierRe = /\[FORNITORE_NEGOZIO:\s*([^\]]+)\]/gi;
             while ((m = supplierRe.exec(businessResponse)) !== null) {
+                const fields = splitTagFields(m[1], 8);
                 events.push({
                     type: 'supplier',
-                    businessName: (m[1] || '').trim(),
-                    supplierName: (m[2] || '').trim(),
-                    category: (m[3] || '').trim(),
-                    reliability: (m[4] || '').trim(),
-                    leadTurns: (m[5] || '').trim(),
-                    discount: (m[6] || '').trim(),
-                    status: (m[7] || '').trim(),
-                    notes: (m[8] || '').trim()
+                    businessName: fields[0],
+                    supplierName: fields[1],
+                    category: fields[2],
+                    reliability: fields[3],
+                    leadTurns: fields[4],
+                    discount: fields[5],
+                    status: fields[6],
+                    notes: fields[7]
+                });
+            }
+
+            // [DIPENDENTE_NEGOZIO: attività|nome|ruolo|stipendio|competenza|morale|stato_opzionale|descrizione_opzionale]
+            const businessEmployeeRe = /\[DIPENDENTE_NEGOZIO:\s*([^\]]+)\]/gi;
+            while ((m = businessEmployeeRe.exec(businessResponse)) !== null) {
+                const fields = splitTagFields(m[1], 8);
+                events.push({
+                    type: 'employee',
+                    businessName: fields[0],
+                    employeeName: fields[1],
+                    role: fields[2],
+                    salary: fields[3],
+                    skill: fields[4],
+                    morale: fields[5],
+                    status: fields[6],
+                    description: fields[7]
+                });
+            }
+
+            // Compatibilità: il vecchio tag usa la proprietà come terzo campo.
+            const legacyEmployeeRe = /\[DIPENDENTE:\s*([^\]]+)\]/gi;
+            while ((m = legacyEmployeeRe.exec(businessResponse)) !== null) {
+                const fields = splitTagFields(m[1], 7);
+                events.push({
+                    type: 'employee',
+                    businessName: fields[2],
+                    employeeName: fields[0],
+                    role: fields[1],
+                    salary: fields[3],
+                    skill: fields[4],
+                    morale: fields[5],
+                    description: fields[6]
                 });
             }
 
@@ -6671,6 +6711,7 @@
                 currency
             });
             G.worldMemory.management = outcome.management;
+            G.worldMemory.employees = outcome.employees || G.worldMemory.employees || [];
             let changed = false;
             const feedback = { changed: false, successes: [], warnings: [] };
             outcome.results.forEach(result => {
@@ -8581,7 +8622,7 @@
 
 🏪 INTEGRAZIONE ATTIVITÀ (NON DEVE BLOCCARE LA NARRAZIONE)
 Attività da alimentare dalla storia: ${pendingBusinesses.map(business => business.name).join(', ')}.
-Scrivi prima una scena completa e coinvolgente. Aggiungi soltanto tag completi e coerenti con ciò che hai davvero narrato: [ATTIVITA_NEGOZIO], [CATALOGO_NEGOZIO], [FORNITORE_NEGOZIO] ed [EVENTO_NEGOZIO]. Il catalogo può completarsi progressivamente nei turni successivi: non sacrificare mai la narrazione per riempire i tag e non usare nomi generici.` : '';
+Scrivi prima una scena completa e coinvolgente. Aggiungi soltanto tag completi e coerenti con ciò che hai davvero narrato: [ATTIVITA_NEGOZIO], [CATALOGO_NEGOZIO], [FORNITORE_NEGOZIO], [CLIENTE_NEGOZIO], [DIPENDENTE_NEGOZIO] ed [EVENTO_NEGOZIO]. Il catalogo e le anagrafiche possono completarsi progressivamente nei turni successivi: non sacrificare mai la narrazione per riempire i tag e non usare nomi generici.` : '';
             const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory);
             const recentHistory = layeredMemory.shortTerm;
             const masterTurn = narrativeMaster.decide(action, {
@@ -8782,6 +8823,7 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
   - [PRODOTTO_NEGOZIO: nome_attività|prodotto_esistente|nuovo_nome|nuovo_prezzo_opzionale] → rinomina un prodotto già esistente (compatibilità con campagne legacy); per creare nuove voci usa sempre [CATALOGO_NEGOZIO].
   - [CLIENTE_NEGOZIO: nome_attività|nome_cliente|segmento|lealtà_0_100|soddisfazione_opzionale|note_opzionale] → registra o aggiorna un cliente emerso dalla narrazione (segmento: abituale/occasionale/nobile/mercante/viandante/...). Riemettere il tag con lo stesso nome aggiorna fedeltà/soddisfazione/note.
   - [FORNITORE_NEGOZIO: nome_attività|nome_fornitore|categoria|affidabilità_0_100|lead_turns|sconto_opzionale|stato_opzionale|note_opzionale] → registra o aggiorna un fornitore emerso dalla narrazione (categoria: materie prime/vini/carni/ferro/stoffa/spezie/...; lead_turns = turni di consegna; stato: active/inactive). Riemettere lo stesso nome aggiorna i dati.
+  - [DIPENDENTE_NEGOZIO: nome_attività|nome_dipendente|ruolo|stipendio|competenza_0_100|morale_0_100|stato_opzionale|descrizione_opzionale] → assume o aggiorna un dipendente dell'attività. Per aggiornare un dipendente esistente puoi lasciare vuoti i campi che non cambiano; stati: active/sick/vacation/leave/fired.
 - FORNITORI E CLIENTI DEVONO ESSERE GENERATI DALLA NARRAZIONE, non lasciati generici:
   - Quando il giocatore entra in rapporto commerciale con qualcuno (un mercante, un contadino, un'azienda, un oste), usa [FORNITORE_NEGOZIO] con un NOME coerente e una categoria credibile per il tipo di attività (taverna → cantine/panettieri; officina → ferriere/stoffai; emporio → speziali/mercanti; fattoria → mulini/allevamenti).
   - Quando un cliente ricorrente o notevole compare nella scena, usa [CLIENTE_NEGOZIO] con un nome proprio e un segmento coerente.
@@ -8812,14 +8854,14 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 
 👷 **DIPENDENTI E PERSONALE**
 - Se il protagonista ha proprietà, può assumere dipendenti.
-- Usa [DIPENDENTE: nome|ruolo|proprietà|stipendio|competenza|morale|descrizione] per assumere.
+- Per un'attività commerciale usa [DIPENDENTE_NEGOZIO: attività|nome|ruolo|stipendio|competenza|morale|stato|descrizione]. Il vecchio [DIPENDENTE: nome|ruolo|proprietà|stipendio|competenza|morale|descrizione] resta compatibile per proprietà non commerciali.
   - Ruoli: cameriere, cuoco, contadino, guardia, artigiano, commesso, maggiordomo, giardiniere, stalliere, ecc.
   - Proprietà: nome della proprietà dove lavora
   - Stipendio: paga periodica
   - Competenza: 0-100 (quanto è bravo)
   - Morale: 0-100 (quanto è motivato)
-  - Esempio: [DIPENDENTE: Carlo|cameriere|Taverna del Sole|25|60|75|Giovane sveglio ma inesperto]
-  - Esempio: [DIPENDENTE: Rosa|cuoca|Taverna del Sole|40|85|80|Esperta chef locale]
+  - Esempio: [DIPENDENTE_NEGOZIO: Taverna del Sole|Carlo|cameriere|25|60|75|active|Giovane sveglio ma inesperto]
+  - Esempio aggiornamento: [DIPENDENTE_NEGOZIO: Taverna del Sole|Carlo||||82||Promosso responsabile di sala]
 - Dipendenti con alta competenza migliorano i guadagni della proprietà.
 - Dipendenti con basso morale lavorano male o se ne vanno.
 - Usa [LICENZIA: nome] per licenziare un dipendente.
@@ -9428,7 +9470,11 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 const skill = parseInt(m[5]) || 50;
                 const morale = parseInt(m[6]) || 70;
                 const description = (m[7] || '').trim();
-                if (name && role) {
+                const isManagedBusiness = (G.worldMemory.management?.businesses || []).some(business =>
+                    CronacheBusiness.keyOf(business.propertyName) === CronacheBusiness.keyOf(property) ||
+                    CronacheBusiness.keyOf(business.name) === CronacheBusiness.keyOf(property)
+                );
+                if (name && role && !isManagedBusiness) {
                     addEmployee(name, role, property, salary, { skill, morale, description });
                     memoryChanged = true;
                 }
@@ -9603,7 +9649,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[(?:CRESCITA|LEGAME|FAMIGLIA_STATO|PROPRIETA_STATO):[^\]]*\]/gi, '')
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
-                .replace(/\[(?:ATTIVITA|CATALOGO|VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
+                .replace(/\[(?:ATTIVITA|CATALOGO|VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|DIPENDENTE|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
                 .replace(/\[FAMIGLIA:[^\]]*\]/gi, '')
                 .replace(/\[DIPENDENTE:[^\]]*\]/gi, '')
