@@ -171,7 +171,7 @@
             settings: {
                 marketingBudget: 0,
                 qualityFocus: 50,
-                periodTurns: 10
+                periodTurns: 5
             },
             lastReport: emptyReport()
         };
@@ -307,7 +307,7 @@
             settings: {
                 marketingBudget: Math.max(0, roundMoney(source.settings?.marketingBudget)),
                 qualityFocus: clamp(source.settings?.qualityFocus ?? 50, 0, 100),
-                periodTurns: Math.max(1, parseInt(source.settings?.periodTurns, 10) || 10)
+                periodTurns: Math.max(1, parseInt(source.settings?.periodTurns, 10) || 5)
             },
             lastReport: { ...emptyReport(), ...(source.lastReport || {}) }
         };
@@ -640,6 +640,21 @@
         return delivered;
     }
 
+    // Le attività non devono restare ferme finché il giocatore non apre il pannello.
+    // Un periodo economico viene chiuso automaticamente ogni N turni configurati.
+    function processPeriods(state, context = {}, random = Math.random) {
+        const management = migrateManagement(state);
+        const turn = Math.max(0, parseInt(context.turn, 10) || 0);
+        const reports = [];
+        management.businesses.forEach(business => {
+            const periodTurns = Math.max(1, parseInt(business.settings?.periodTurns, 10) || 5);
+            const due = turn - Math.max(0, parseInt(business.lastPeriodTurn, 10) || 0) >= periodTurns;
+            if (!due || business.status !== 'active' || business.narrativeInitialized !== true) return;
+            reports.push({ business, report: runPeriod(business, { ...context, turn }, random) });
+        });
+        return { management, reports };
+    }
+
     function employeeMetrics(business, employees) {
         const active = (Array.isArray(employees) ? employees : []).filter(employee =>
             employee?.status !== 'fired' &&
@@ -901,7 +916,9 @@
         if (!business) return false;
         const narrativeProducts = business.products.filter(product => product.active && product.source === 'narration');
         const hasSupplier = business.suppliers.some(supplier => supplier.status === 'active' && supplier.source === 'narration');
-        const ready = business.profileNarrative === true && narrativeProducts.length >= 2 && hasSupplier && business.narrativeEventRecorded === true;
+        // Un tag EVENTO_NEGOZIO è descrittivo: non deve bloccare l'avvio economico.
+        // Bastano un profilo, almeno un prodotto concreto e una filiera reale.
+        const ready = business.profileNarrative === true && narrativeProducts.length >= 1 && hasSupplier;
         if (ready && !business.narrativeInitialized) {
             business.narrativeInitialized = true;
             business.initializedAtTurn = Math.max(0, parseInt(turn, 10) || 0);
@@ -1238,6 +1255,7 @@
         upsertContract(business, input, turn) { return upsertContract(business, input, turn); }
         placeOrder(business, input, turn) { return placeOrder(business, input, turn); }
         processDeliveries(state, turn, random) { return processDeliveries(state, turn, random); }
+        processPeriods(state, context, random) { return processPeriods(state, context, random); }
         runPeriod(business, context, random) { return runPeriod(business, context, random); }
         transferFunds(business, character, amount, direction) { return transferFunds(business, character, amount, direction); }
         getReport(business, employees) { return getReport(business, employees); }
@@ -1291,6 +1309,7 @@
         upsertContract,
         placeOrder,
         processDeliveries,
+        processPeriods,
         employeeMetrics,
         inventoryValue,
         runPeriod,

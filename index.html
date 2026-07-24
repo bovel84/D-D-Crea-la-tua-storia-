@@ -6500,11 +6500,22 @@
 
         function processBusinessTurn() {
             const management = syncBusinessManagement();
-            const deliveries = businessEngine.processDeliveries(management, G.worldMemory.turnCount || 0);
+            const turn = G.worldMemory.turnCount || 0;
+            const deliveries = businessEngine.processDeliveries(management, turn);
             deliveries.forEach(delivery => addStoryEntry(
                 '🚚 Consegna ricevuta: ' + delivery.quantity + ' × ' + delivery.productName + '.', 'mechanic'
             ));
-            if (deliveries.length) updateInfoPanels();
+            const periods = businessEngine.processPeriods(management, {
+                employees: G.worldMemory.employees || [],
+                properties: G.worldMemory.properties || [],
+                turn
+            });
+            G.worldMemory.management = periods.management;
+            periods.reports.forEach(({ business, report }) => addStoryEntry(
+                '📊 ' + business.name + ': periodo ' + report.period + ' chiuso automaticamente (' +
+                (report.netProfit >= 0 ? '+' : '') + report.netProfit + ' di risultato netto).', 'mechanic'
+            ));
+            if (deliveries.length || periods.reports.length) updateInfoPanels();
         }
 
         // ==================== PARSER TAG ATTIVITÀ (LLM → motore gestionale) ====================
