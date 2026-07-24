@@ -2987,6 +2987,7 @@
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
+    <script src="js/time-energy.js"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
@@ -3996,27 +3997,23 @@
             return MONTHS[month - 1].days;
         }
 
-        function advanceTime(minutes) {
-            G.time.minute += minutes;
+        function advanceTime(minutes, options = {}) {
+            const elapsedMinutes = CronacheTimeEnergy.normalizeMinutes(minutes);
+            if (!elapsedMinutes) return 0;
+            const resting = options.resting === true;
+            G.time.minute += elapsedMinutes;
             
-            const hoursElapsed = minutes / 60;
-            if (G.character && minutes > 0) {
+            const hoursElapsed = elapsedMinutes / 60;
+            if (G.character) {
                 // Consumo risorse BILANCIATO e realistico
                 // Una persona può stare sveglia ~16 ore e senza cibo ~24 ore prima di problemi seri
                 // Stamina: 100 in 16 ore = ~6.25/ora, usiamo 4/ora (più tollerante)
                 // Fame: 100 in 24 ore = ~4.2/ora, usiamo 3/ora (più tollerante)
                 // Importante: accumulo frazionario per evitare che 5 minuti consumino sempre 1 punto.
-                if (!G.character._metabolismCarry) {
-                    G.character._metabolismCarry = { stamina: 0, hunger: 0 };
-                }
-                const carry = G.character._metabolismCarry;
-                carry.stamina += hoursElapsed * 4;
-                carry.hunger += hoursElapsed * 3;
-
-                const staminaLoss = Math.floor(carry.stamina);
-                const hungerLoss = Math.floor(carry.hunger);
-                carry.stamina -= staminaLoss;
-                carry.hunger -= hungerLoss;
+                const metabolism = CronacheTimeEnergy.consumeMetabolism(G.character, elapsedMinutes, resting);
+                G.character._metabolismCarry = metabolism.carry;
+                const staminaLoss = metabolism.staminaLoss;
+                const hungerLoss = metabolism.hungerLoss;
                 
                 const oldStamina = G.character.stamina.cur;
                 const oldHunger = G.character.hunger.cur;
@@ -4025,20 +4022,20 @@
                 G.character.hunger.cur = Math.max(0, G.character.hunger.cur - hungerLoss);
                 
                 // Feedback dettagliato per tempo significativo (più di 15 minuti)
-                if (minutes >= 15) {
+                if (elapsedMinutes >= 15) {
                     const staminaDelta = oldStamina - G.character.stamina.cur;
                     const hungerDelta = oldHunger - G.character.hunger.cur;
                     
                     // Formatta il tempo passato
                     let timeDesc = '';
-                    if (minutes >= 1440) {
-                        timeDesc = `${Math.floor(minutes/1440)} giorno/i`;
-                    } else if (minutes >= 60) {
-                        const h = Math.floor(minutes/60);
-                        const m = minutes % 60;
+                    if (elapsedMinutes >= 1440) {
+                        timeDesc = `${Math.floor(elapsedMinutes/1440)} giorno/i`;
+                    } else if (elapsedMinutes >= 60) {
+                        const h = Math.floor(elapsedMinutes/60);
+                        const m = elapsedMinutes % 60;
                         timeDesc = m > 0 ? `${h}h ${m}min` : `${h} ora/e`;
                     } else {
-                        timeDesc = `${minutes} minuti`;
+                        timeDesc = `${elapsedMinutes} minuti`;
                     }
                     
                     let consumeMsg = `⏱️ ${timeDesc}`;
@@ -4059,7 +4056,7 @@
                         }
                     }
                 }
-                if (G.character.stamina.cur <= 0) {
+                if (!resting && G.character.stamina.cur <= 0) {
                     // Esaurimento: rischio svenimento, non morte immediata
                     if (hoursElapsed >= 1) {
                         const hpLoss = Math.ceil(hoursElapsed * 0.3); // Ridotto da 2 a 0.3/ora
@@ -4096,6 +4093,7 @@
             updateTimeDisplay();
             updateCharacterUI();
             checkStatusEffects();
+            return elapsedMinutes;
         }
 
         function waitUntilHour(targetHour) {
@@ -4230,11 +4228,11 @@
             const c = G.character;
             
             // Riposo completo: 8 ore
-            advanceTime(480);
+            const oldHunger = c.hunger.cur;
+            advanceTime(480, { resting: true });
             const oldStam = c.stamina.cur;
             const oldHp = c.health.cur;
             c.stamina.cur = c.stamina.max;
-            c.hunger.cur = Math.max(0, c.hunger.cur - 25);
             
             // Guarigione in base alla fame: se ben nutrito guarisci di più
             let hpRegen = 15;
@@ -4254,7 +4252,9 @@
             let msg = `😴 Hai riposato per 8 ore.`;
             if (stamGain > 0) msg += ` ⚡+${stamGain} Energia.`;
             if (hpGain > 0) msg += ` ❤️+${hpGain} HP.`;
-            msg += ` 🍖-25 Sazietà. Ora sono le ${getTimeString()}.`;
+            const hungerLoss = oldHunger - c.hunger.cur;
+            if (hungerLoss > 0) msg += ` 🍖-${hungerLoss} Sazietà.`;
+            msg += ` Ora sono le ${getTimeString()}.`;
             addStoryEntry(msg, 'mechanic');
             updateCharacterUI();
             
@@ -8285,8 +8285,9 @@
             // (energia/sazietà) tramite le azioni dedicate.
             if (handleBasicNeedAction(action)) return;
             
-            // Tempo base minimo - il grosso lo decide l'IA con [TEMPO: +X]
-            advanceTime(5);
+            // Tempo base minimo: anche un breve scambio richiede tempo e non deve
+            // rigenerare energia gratuitamente. Il Master può aggiungere altro tempo.
+            advanceTime(10);
             G.worldMemory.turnCount++;
             
             // Auto-save ogni 5 turni
@@ -8327,25 +8328,10 @@
         }
         
         function applyTurnConsumption() {
-            // Consumo base per turno - MOLTO RIDOTTO
-            // Il consumo principale avviene tramite advanceTime() col tempo che passa
-            // Qui applichiamo solo un piccolo consumo simbolico per turno attivo
+            // Il consumo avviene esclusivamente in base al tempo trascorso o ai tag
+            // [MECCANICA]. Non rigenerare energia mentre il personaggio agisce.
             const c = G.character;
             if (!c) return;
-            
-            // Consumo simbolico molto raro: evita doppio consumo rispetto al tempo reale
-            if (Math.random() < 0.05) { // 5% chance di consumare 1 fame per turno
-                c.hunger.cur = Math.max(0, c.hunger.cur - 1);
-            }
-            
-            // Le penalità HP da fame/stanchezza sono già gestite in advanceTime()
-            // in base alle ore realmente passate, per evitare morti troppo rapide a turni brevi.
-            
-            // Rigenera stamina se ben nutrito (fame > 60)
-            if (c.hunger.cur > 60 && c.stamina.cur < c.stamina.max) {
-                const regenAmount = 3; // Rigenerazione più generosa
-                c.stamina.cur = Math.min(c.stamina.max, c.stamina.cur + regenAmount);
-            }
             
             // Rigenera HP lentamente se ben nutrito e riposato
             if (c.hunger.cur > 70 && c.stamina.cur > 50 && c.health.cur < c.health.max) {
@@ -9180,27 +9166,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 if (!isNaN(simpleNum) && /^\+?\d+$/.test(rawTime.replace(/\s/g, ''))) {
                     totalMinutes = simpleNum;
                 } else {
-                    // Parse formato testuale: "X giorni", "Y ore", "Z minuti", "W settimane", "N mesi"
-                    const patterns = [
-                        { regex: /(\d+)\s*(?:mes[ei]|month)/gi, multiplier: 43200 },  // 1 mese = 30 giorni
-                        { regex: /(\d+)\s*(?:settiman[ae]|week)/gi, multiplier: 10080 }, // 1 settimana = 7 giorni
-                        { regex: /(\d+)\s*(?:giorn[oi]|day)/gi, multiplier: 1440 },   // 1 giorno = 24 ore
-                        { regex: /(\d+)\s*(?:or[ae]|hour)/gi, multiplier: 60 },       // 1 ora = 60 minuti
-                        { regex: /(\d+)\s*(?:minut[oi]|min)/gi, multiplier: 1 }       // minuti
-                    ];
-                    
-                    patterns.forEach(({ regex, multiplier }) => {
-                        let match;
-                        while ((match = regex.exec(rawTime)) !== null) {
-                            totalMinutes += parseInt(match[1]) * multiplier;
-                        }
-                    });
-                    
-                    // Se non ha trovato nulla, prova a interpretare come numero puro
-                    if (totalMinutes === 0) {
-                        const fallbackNum = parseInt(rawTime.replace(/\D/g, ''));
-                        if (!isNaN(fallbackNum)) totalMinutes = fallbackNum;
-                    }
+                    totalMinutes = CronacheTimeEnergy.parseTimeExpression(rawTime);
                 }
                 
                 if (totalMinutes > 0) {
@@ -9755,7 +9721,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     addStoryEntry(`⭐ +${Math.abs(v)} EXP`, 'mechanic');
                     checkLevelUp();
                     break;
-                case 'stamina': case 'energia':
+                case 'stamina': case 'energia': case 'energy':
                     c.stamina.cur = Math.max(0, Math.min(c.stamina.max, c.stamina.cur + v));
                     addStoryEntry(`⚡ ${v >= 0 ? '+' : ''}${v} Energia`, 'mechanic');
                     break;
