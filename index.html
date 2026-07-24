@@ -2395,6 +2395,13 @@
                             <span class="info-value" id="employees-summary">--</span>
                         </div>
                     </div>
+                    <div class="info-panel business" id="panel-business" title="Gestisci imprese e negozi">
+                        <span class="info-icon">🏪</span>
+                        <div class="info-content">
+                            <span class="info-label">Attività</span>
+                            <span class="info-value" id="business-summary">Nessuna</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2540,6 +2547,19 @@
                     <h4>✨ Abilità Registrate</h4>
                     <div id="inventory-abilities"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Business Management Modal -->
+    <div class="modal-overlay" id="modal-business">
+        <div class="modal wide-modal business-manager-modal">
+            <div class="modal-header">
+                🏪 Gestione attività
+                <button class="modal-close" data-close="modal-business">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="business-dashboard"></div>
             </div>
         </div>
     </div>
@@ -2966,6 +2986,7 @@
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
+    <script src="js/business-manager.js"></script>
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
@@ -3019,6 +3040,7 @@
         const narrativeMaster = new CronacheNarrative.NarrativeMasterEngine();
         const gameDirector = new CronacheDirector.GameDirector();
         const lifeEngine = new CronacheLife.LifeLegacyEngine();
+        const businessEngine = new CronacheBusiness.BusinessManager();
         const campaignVault = new CronacheVault.CampaignVault({ storage: localStorage, capacity: 3 });
         const ollamaClient = new CronacheOllama.OllamaCloudClient({ timeoutMs: 45000 });
         G.worldMemory.narrativeCompass = narrativeMaster.createDefaultCompass();
@@ -3883,6 +3905,7 @@
             const migrated = memoryManager.migrate(memory || {});
             migrated.narrativeCompass = narrativeMaster.migrate(migrated.narrativeCompass);
             migrated.director = gameDirector.migrate(migrated.director);
+            migrated.management = businessEngine.migrate(migrated.management);
             return migrated;
         }
 
@@ -5887,6 +5910,7 @@
                 addStoryEntry(`👷 Nuovo dipendente: ${name} (${role}) @ ${property}`, 'memory-update');
             }
             updateInfoPanels();
+            if ($('modal-business')?.classList.contains('active')) renderBusinessDashboard();
         }
 
         function removeEmployee(name, reason = 'fired') {
@@ -5930,12 +5954,283 @@
             return byProp;
         }
 
+
+        // ==================== GESTIONE IMPRESE E NEGOZI ====================
+        function safeManagerText(value) {
+            const node = document.createElement('span');
+            node.textContent = String(value ?? '');
+            return node.innerHTML;
+        }
+
+        function syncBusinessManagement() {
+            G.worldMemory.management = businessEngine.sync(
+                G.worldMemory.management,
+                G.worldMemory.properties || [],
+                G.worldMemory.turnCount || 0
+            );
+            return G.worldMemory.management;
+        }
+
+        function getActiveBusiness() {
+            const management = syncBusinessManagement();
+            return businessEngine.getBusiness(management, management.activeBusinessId) || management.businesses[0] || null;
+        }
+
+        function getBusinessManagementSummary() {
+            const management = syncBusinessManagement();
+            const reports = management.businesses.map(business => businessEngine.getReport(business, G.worldMemory.employees || []));
+            return {
+                count: management.businesses.length,
+                cash: reports.reduce((sum, report) => sum + Number(report.cash || 0), 0),
+                netProfit: reports.reduce((sum, report) => sum + Number(report.netProfit || 0), 0),
+                inventoryValue: reports.reduce((sum, report) => sum + Number(report.inventoryValue || 0), 0),
+                lowStock: reports.reduce((sum, report) => sum + report.lowStock.length, 0)
+            };
+        }
+
+        function managerNumberPrompt(label, current, minimum = 0) {
+            const raw = window.prompt(label, String(current ?? ''));
+            if (raw === null) return null;
+            const parsed = Number(String(raw).replace(',', '.'));
+            if (!Number.isFinite(parsed) || parsed < minimum) {
+                notify('Valore non valido.', 'error');
+                return null;
+            }
+            return parsed;
+        }
+
+        function managerTextPrompt(label, current = '') {
+            const value = window.prompt(label, current);
+            return value === null ? null : value.trim();
+        }
+
+        function businessProductRows(business) {
+            if (!business.products.length) return '<p class="manager-empty">Aggiungi il primo prodotto o servizio.</p>';
+            return '<div class="manager-table-wrap"><table class="manager-table"><thead><tr><th>Prodotto</th><th>Prezzo</th><th>Costo</th><th>Scorte</th><th>Venduti</th><th>Azioni</th></tr></thead><tbody>' +
+                business.products.map(product => {
+                    const low = product.stock <= product.reorderPoint;
+                    return '<tr class="' + (low ? 'manager-low-stock' : '') + '">' +
+                        '<td><strong>' + safeManagerText(product.name) + '</strong><small>' + safeManagerText(product.category) + '</small></td>' +
+                        '<td>' + product.salePrice + '</td><td>' + product.unitCost + '</td>' +
+                        '<td><span class="manager-stock ' + (low ? 'low' : '') + '">' + product.stock + '</span></td>' +
+                        '<td>' + product.soldUnits + '</td><td><div class="manager-row-actions">' +
+                        '<button class="manager-mini-btn" data-manager-action="price" data-product-id="' + safeManagerText(product.id) + '">Prezzo</button>' +
+                        '<button class="manager-mini-btn primary" data-manager-action="order" data-product-id="' + safeManagerText(product.id) + '">Ordina</button>' +
+                        '</div></td></tr>';
+                }).join('') + '</tbody></table></div>';
+        }
+
+        function renderBusinessDashboard() {
+            const root = $('business-dashboard');
+            if (!root) return;
+            const management = syncBusinessManagement();
+            if (!management.businesses.length) {
+                root.innerHTML = '<div class="manager-empty-state"><span>🏪</span><h3>Nessuna attività gestibile</h3>' +
+                    '<p>Quando possiedi un’impresa, un negozio, una bottega, una locanda o un’officina comparirà qui automaticamente.</p></div>';
+                return;
+            }
+            let business = businessEngine.getBusiness(management, management.activeBusinessId);
+            if (!business) {
+                business = management.businesses[0];
+                management.activeBusinessId = business.id;
+            }
+            const report = businessEngine.getReport(business, G.worldMemory.employees || []);
+            const currency = G.character?.currency?.short || 'monete';
+            const employees = (G.worldMemory.employees || []).filter(employee =>
+                employee.status !== 'fired' && CronacheBusiness.keyOf(employee.property) === CronacheBusiness.keyOf(business.propertyName)
+            );
+            const maxFlow = Math.max(1, report.revenue, report.operatingCosts + report.cogs);
+            const transactions = business.transactions.slice(-8).reverse();
+            root.innerHTML =
+                '<div class="manager-switcher">' + management.businesses.map(item =>
+                    '<button class="' + (item.id === business.id ? 'active' : '') + '" data-business-id="' + safeManagerText(item.id) + '">' +
+                    safeManagerText(item.name) + '</button>').join('') + '</div>' +
+                '<section class="manager-hero"><div><span class="manager-kicker">' + safeManagerText(business.type) + '</span>' +
+                    '<h3>' + safeManagerText(business.name) + '</h3><p>Periodo ' + business.period + ' · Reputazione ' + Math.round(business.reputation) +
+                    '% · Soddisfazione ' + Math.round(business.customerSatisfaction) + '%</p></div>' +
+                    '<div class="manager-cash"><span>Cassa aziendale</span><strong>' + business.cash.toLocaleString('it-IT') + ' ' + safeManagerText(currency) + '</strong></div></section>' +
+                '<div class="manager-kpi-grid">' +
+                    '<div class="manager-kpi"><span>Ricavi</span><strong class="positive">+' + report.revenue + '</strong><small>ultimo periodo</small></div>' +
+                    '<div class="manager-kpi"><span>Utile netto</span><strong class="' + (report.netProfit >= 0 ? 'positive' : 'negative') + '">' + (report.netProfit >= 0 ? '+' : '') + report.netProfit + '</strong><small>margine ' + report.margin + '%</small></div>' +
+                    '<div class="manager-kpi"><span>Magazzino</span><strong>' + report.inventoryValue + '</strong><small>' + report.lowStock.length + ' sotto scorta</small></div>' +
+                    '<div class="manager-kpi"><span>Personale</span><strong>' + report.employeeCount + '</strong><small>stipendi ' + report.payroll + '</small></div>' +
+                    '<div class="manager-kpi"><span>Clienti</span><strong>' + report.customerCount + '</strong><small>' + report.customersServed + ' serviti</small></div>' +
+                    '<div class="manager-kpi"><span>Fornitori</span><strong>' + report.supplierCount + '</strong><small>' + report.pendingOrders.length + ' ordini aperti</small></div>' +
+                '</div>' +
+                '<div class="manager-actions">' +
+                    '<button class="btn primary" data-manager-action="run-period">📊 Chiudi periodo</button>' +
+                    '<button class="btn" data-manager-action="add-product">📦 Nuovo prodotto</button>' +
+                    '<button class="btn" data-manager-action="add-supplier">🚚 Nuovo fornitore</button>' +
+                    '<button class="btn" data-manager-action="add-customer">🧑 Nuovo cliente</button>' +
+                    '<button class="btn" data-manager-action="hire">👷 Assumi</button>' +
+                    '<button class="btn" data-manager-action="marketing">📣 Marketing</button>' +
+                    '<button class="btn" data-manager-action="invest">💶 Versa capitale</button>' +
+                    '<button class="btn" data-manager-action="withdraw">🏦 Preleva utili</button>' +
+                '</div>' +
+                '<div class="manager-columns"><section class="manager-section manager-products"><div class="manager-section-head"><h4>📦 Magazzino e vendite</h4>' +
+                    '<span>' + business.products.reduce((sum, product) => sum + product.stock, 0) + ' unità</span></div>' + businessProductRows(business) + '</section>' +
+                '<section class="manager-section"><div class="manager-section-head"><h4>📈 Conto economico</h4><span>Periodo ' + report.period + '</span></div>' +
+                    '<div class="manager-flow"><label>Ricavi <span>' + report.revenue + '</span></label><i class="income" style="width:' + Math.round(report.revenue / maxFlow * 100) + '%"></i></div>' +
+                    '<div class="manager-flow"><label>Costo venduto <span>' + report.cogs + '</span></label><i class="expense" style="width:' + Math.round(report.cogs / maxFlow * 100) + '%"></i></div>' +
+                    '<div class="manager-flow"><label>Stipendi e costi <span>' + report.operatingCosts + '</span></label><i class="expense" style="width:' + Math.round(report.operatingCosts / maxFlow * 100) + '%"></i></div>' +
+                    '<div class="manager-profit ' + (report.netProfit >= 0 ? 'positive' : 'negative') + '"><span>Risultato netto</span><strong>' + (report.netProfit >= 0 ? '+' : '') + report.netProfit + ' ' + safeManagerText(currency) + '</strong></div></section>' +
+                '<section class="manager-section"><div class="manager-section-head"><h4>🚚 Fornitori</h4><span>' + report.pendingValue + ' in arrivo</span></div>' +
+                    (business.suppliers.length ? business.suppliers.map(supplier =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(supplier.name) + '</strong><small>' + safeManagerText(supplier.category) + '</small></div>' +
+                        '<span>Affidabilità ' + Math.round(supplier.reliability) + '% · ' + supplier.leadTurns + ' turni</span></article>').join('') : '<p class="manager-empty">Nessun fornitore.</p>') + '</section>' +
+                '<section class="manager-section"><div class="manager-section-head"><h4>🧑 Clienti</h4><span>Soddisfazione ' + Math.round(business.customerSatisfaction) + '%</span></div>' +
+                    (business.customers.length ? business.customers.slice(0, 8).map(customer =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(customer.name) + '</strong><small>' + safeManagerText(customer.segment) + '</small></div>' +
+                        '<span>Fedeltà ' + Math.round(customer.loyalty) + '% · Valore ' + customer.lifetimeValue + '</span></article>').join('') : '<p class="manager-empty">La clientela si formerà con le vendite.</p>') + '</section>' +
+                '<section class="manager-section"><div class="manager-section-head"><h4>👷 Dipendenti</h4><span>Morale medio ' + report.averageMorale + '%</span></div>' +
+                    (employees.length ? employees.map(employee =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(employee.name) + '</strong><small>' + safeManagerText(employee.role) + '</small></div>' +
+                        '<span>Competenza ' + Math.round(employee.skill ?? 50) + '% · Stipendio ' + (employee.salary || 0) + '</span>' +
+                        '<button class="manager-mini-btn" data-manager-action="train" data-employee-id="' + safeManagerText(employee.id) + '">Forma</button></article>').join('') :
+                        '<p class="manager-empty">Nessun dipendente assegnato.</p>') + '</section>' +
+                '<section class="manager-section"><div class="manager-section-head"><h4>🧾 Ultimi movimenti</h4><span>' + business.transactions.length + ' registrati</span></div>' +
+                    (transactions.length ? '<ul class="manager-transactions">' + transactions.map(tx =>
+                        '<li class="' + tx.direction + '"><span>' + safeManagerText(tx.description || tx.category) + '</span><strong>' +
+                        (tx.direction === 'out' ? '-' : '+') + tx.amount + '</strong></li>').join('') + '</ul>' :
+                        '<p class="manager-empty">Nessun movimento registrato.</p>') + '</section></div>';
+        }
+
+        function openBusinessManager() {
+            syncBusinessManagement();
+            renderBusinessDashboard();
+            openModal('modal-business');
+        }
+
+        function refreshBusinessManager(message) {
+            updateInfoPanels();
+            renderBusinessDashboard();
+            if (message) notify(message, 'success');
+        }
+
+        function handleBusinessAction(event) {
+            const switchButton = event.target.closest('[data-business-id]');
+            if (switchButton) {
+                G.worldMemory.management.activeBusinessId = switchButton.dataset.businessId;
+                renderBusinessDashboard();
+                return;
+            }
+            const button = event.target.closest('[data-manager-action]');
+            if (!button) return;
+            const business = getActiveBusiness();
+            if (!business) return;
+            const action = button.dataset.managerAction;
+            try {
+                if (action === 'run-period') {
+                    const report = businessEngine.runPeriod(business, {
+                        employees: G.worldMemory.employees || [],
+                        properties: G.worldMemory.properties || [],
+                        turn: G.worldMemory.turnCount || 0
+                    });
+                    addStoryEntry('📊 ' + business.name + ': periodo chiuso con risultato ' +
+                        (report.netProfit >= 0 ? '+' : '') + report.netProfit + '.', 'mechanic');
+                    refreshBusinessManager('Periodo economico calcolato.');
+                } else if (action === 'add-product') {
+                    const name = managerTextPrompt('Nome del prodotto o servizio');
+                    if (!name) return;
+                    const salePrice = managerNumberPrompt('Prezzo di vendita', 20, 0);
+                    if (salePrice === null) return;
+                    const unitCost = managerNumberPrompt('Costo unitario', 8, 0);
+                    if (unitCost === null) return;
+                    const demand = managerNumberPrompt('Domanda media per periodo', 10, 0);
+                    if (demand === null) return;
+                    businessEngine.addProduct(business, { name, salePrice, unitCost, stock: 0, baseDemand: demand, reorderPoint: 5, targetStock: 20 });
+                    refreshBusinessManager('Prodotto aggiunto: ora puoi ordinarne le scorte.');
+                } else if (action === 'add-supplier') {
+                    const name = managerTextPrompt('Nome del fornitore');
+                    if (!name) return;
+                    const reliability = managerNumberPrompt('Affidabilità 0-100', 75, 0);
+                    if (reliability === null) return;
+                    const leadTurns = managerNumberPrompt('Tempi di consegna in turni', 2, 0);
+                    if (leadTurns === null) return;
+                    businessEngine.addSupplier(business, { name, reliability, leadTurns });
+                    refreshBusinessManager('Fornitore aggiunto.');
+                } else if (action === 'add-customer') {
+                    const name = managerTextPrompt('Nome del cliente o gruppo clienti');
+                    if (!name) return;
+                    const segment = managerTextPrompt('Segmento (es. abituale, azienda, premium)', 'abituale');
+                    if (segment === null) return;
+                    businessEngine.addCustomer(business, { name, segment, loyalty: 40, satisfaction: 60 });
+                    refreshBusinessManager('Cliente registrato.');
+                } else if (action === 'hire') {
+                    const name = managerTextPrompt('Nome del dipendente');
+                    if (!name) return;
+                    const role = managerTextPrompt('Ruolo', 'Addetto vendite');
+                    if (!role) return;
+                    const salary = managerNumberPrompt('Stipendio per periodo', 50, 0);
+                    if (salary === null) return;
+                    addEmployee(name, role, business.propertyName, salary, { skill: 50, morale: 70 });
+                    refreshBusinessManager('Dipendente assunto.');
+                } else if (action === 'marketing') {
+                    const budget = managerNumberPrompt('Budget marketing per periodo', business.settings.marketingBudget, 0);
+                    if (budget === null) return;
+                    business.settings.marketingBudget = budget;
+                    refreshBusinessManager('Budget marketing aggiornato.');
+                } else if (action === 'invest' || action === 'withdraw') {
+                    const amount = managerNumberPrompt(action === 'invest' ? 'Quanto capitale personale vuoi versare?' : 'Quanto vuoi prelevare?', 100, 0.01);
+                    if (amount === null) return;
+                    businessEngine.transferFunds(business, G.character, amount, action === 'invest' ? 'toBusiness' : 'toOwner');
+                    updateCharacterUI();
+                    refreshBusinessManager(action === 'invest' ? 'Capitale versato.' : 'Utili prelevati.');
+                } else if (action === 'price') {
+                    const product = business.products.find(item => item.id === button.dataset.productId);
+                    if (!product) return;
+                    const price = managerNumberPrompt('Nuovo prezzo per ' + product.name, product.salePrice, 0);
+                    if (price === null) return;
+                    businessEngine.updateProductPrice(business, product.id, price);
+                    refreshBusinessManager('Prezzo aggiornato.');
+                } else if (action === 'order') {
+                    const product = business.products.find(item => item.id === button.dataset.productId);
+                    if (!product) return;
+                    const activeSuppliers = business.suppliers.filter(item => item.status === 'active');
+                    if (!activeSuppliers.length) throw new Error('Aggiungi prima un fornitore.');
+                    const supplierList = activeSuppliers.map((supplier, index) => (index + 1) + '. ' + supplier.name).join('\n');
+                    const supplierNumber = managerNumberPrompt('Scegli il fornitore:\n' + supplierList, 1, 1);
+                    if (supplierNumber === null) return;
+                    const supplier = activeSuppliers[Math.min(activeSuppliers.length - 1, Math.floor(supplierNumber) - 1)];
+                    const quantity = managerNumberPrompt('Quantità da ordinare', Math.max(1, product.targetStock - product.stock), 1);
+                    if (quantity === null) return;
+                    businessEngine.placeOrder(business, { productId: product.id, supplierId: supplier.id, quantity }, G.worldMemory.turnCount || 0);
+                    refreshBusinessManager('Ordine inviato al fornitore.');
+                } else if (action === 'train') {
+                    const employee = (G.worldMemory.employees || []).find(item => String(item.id) === String(button.dataset.employeeId));
+                    if (!employee) return;
+                    const cost = Math.max(10, Math.round((employee.salary || 40) * 0.25));
+                    if (business.cash < cost) throw new Error('Cassa insufficiente per la formazione.');
+                    business.cash -= cost;
+                    employee.skill = Math.min(100, (employee.skill ?? 50) + 10);
+                    employee.morale = Math.min(100, (employee.morale ?? 70) + 3);
+                    CronacheBusiness.recordTransaction(business, {
+                        turn: G.worldMemory.turnCount || 0, direction: 'out', category: 'formazione',
+                        amount: cost, description: 'Formazione di ' + employee.name
+                    });
+                    refreshBusinessManager('Formazione completata.');
+                }
+            } catch (error) {
+                notify(error.message, 'error');
+            }
+        }
+
+        function processBusinessTurn() {
+            const management = syncBusinessManagement();
+            const deliveries = businessEngine.processDeliveries(management, G.worldMemory.turnCount || 0);
+            deliveries.forEach(delivery => addStoryEntry(
+                '🚚 Consegna ricevuta: ' + delivery.quantity + ' × ' + delivery.productName + '.', 'mechanic'
+            ));
+            if (deliveries.length) updateInfoPanels();
+        }
+
         // ==================== BILANCIO FINANZIARIO COMPLETO ====================
         function getFullFinancialSummary() {
             const c = G.character;
             const propBonus = getPropertiesBonus();
             const familyFin = getFamilyFinances();
             const empFin = getEmployeesFinances();
+            const businessFin = getBusinessManagementSummary();
             
             // Entrate
             const propertyIncome = propBonus.totalIncome || 0;
@@ -5965,7 +6260,8 @@
                 },
                 net: netBalance,
                 family: familyFin,
-                employees: empFin
+                employees: empFin,
+                businesses: businessFin
             };
         }
 
@@ -6011,6 +6307,18 @@
                 }
             }
             
+            // Panel Attività
+            const businessPanel = $('panel-business');
+            const businessSummary = $('business-summary');
+            if (businessPanel && businessSummary) {
+                const managed = fin.businesses || { count: 0, netProfit: 0, lowStock: 0 };
+                businessSummary.textContent = managed.count
+                    ? managed.count + ' · ' + (managed.netProfit >= 0 ? '+' : '') + managed.netProfit
+                    : 'Nessuna';
+                businessPanel.classList.toggle('positive', managed.netProfit > 0);
+                businessPanel.classList.toggle('negative', managed.netProfit < 0 || managed.lowStock > 0);
+            }
+
             // Panel Dipendenti
             const empPanel = $('panel-employees');
             const empSummary = $('employees-summary');
@@ -6521,6 +6829,7 @@
                 });
                 addStoryEntry(`🏰 Nuova proprietà: ${name}`, 'memory-update');
             }
+            syncBusinessManagement();
         }
         
         // Simula usura e eventi sulle proprietà
@@ -7286,7 +7595,8 @@
             updateCharacterUI();
             updateQuickActions();
             updateTimeDisplay();
-            updateInfoPanels(); // Aggiorna pannelli finanze, famiglia, dipendenti
+            syncBusinessManagement();
+            updateInfoPanels(); // Aggiorna pannelli finanze, famiglia, dipendenti e attività
             updateVaultControls();
 
             $('story-scroll').innerHTML = '';
@@ -7425,8 +7735,9 @@
             // Consumo automatico risorse per turno (simulazione bisogni)
             applyTurnConsumption();
             
-            // Simula usura e eventi sulle proprietà
+            // Simula usura, consegne e attività economiche
             simulateProperties();
+            processBusinessTurn();
             
             generateAI(action);
         }
@@ -9333,6 +9644,8 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if ($('panel-finances')) $('panel-finances').onclick = showFinancesDetail;
             if ($('panel-family')) $('panel-family').onclick = showFamilyDetail;
             if ($('panel-employees')) $('panel-employees').onclick = showEmployeesDetail;
+            if ($('panel-business')) $('panel-business').onclick = openBusinessManager;
+            if ($('business-dashboard')) $('business-dashboard').onclick = handleBusinessAction;
 
             // WAIT MODAL HANDLERS
             $$('.wait-btn').forEach(btn => {
