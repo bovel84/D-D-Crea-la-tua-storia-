@@ -1131,6 +1131,32 @@ test('crea e aggiorna anagrafiche gestionali con valori narrativi realistici', (
     assert.ok(context.includes('Lucia Serra'));
 });
 
+test('registra e aggiorna contratti narrativi senza duplicarli', () => {
+    let management = businessApi.syncProperties(null, [
+        { id: 17, name: 'Banco Aurora', type: 'business' }
+    ], 1);
+    let outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'contract', businessName: 'Banco Aurora', title: 'Fornitura settimanale',
+        kind: 'fornitura', counterpartyType: 'fornitore', counterpartyName: 'Orto dei Fratelli',
+        amount: '240 euro', frequency: 'settimanale', status: 'active', notes: 'Consegna del lunedì'
+    }], { turn: 2, currency: 'euro', employees: [] });
+    management = outcome.management;
+    assert.equal(outcome.results[0].ok, true);
+    assert.equal(management.businesses[0].contracts.length, 1);
+    assert.equal(management.businesses[0].contracts[0].amount, 240);
+
+    outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'contract', businessName: 'Banco Aurora', title: 'Fornitura settimanale',
+        counterpartyName: 'Orto dei Fratelli', amount: '260 euro', status: 'paused'
+    }], { turn: 3, currency: 'euro', employees: [] });
+    management = outcome.management;
+    assert.equal(outcome.results[0].ok, true);
+    assert.equal(management.businesses[0].contracts.length, 1);
+    assert.equal(management.businesses[0].contracts[0].amount, 260);
+    assert.equal(management.businesses[0].contracts[0].status, 'paused');
+    assert.ok(businessApi.buildNarrativeContext(management, [], 3, 'euro').includes('Fornitura settimanale'));
+});
+
 test('valida le nuove assunzioni senza corrompere i dipendenti esistenti', () => {
     const employees = [];
     assert.throws(() => businessApi.upsertEmployee(employees, {
@@ -1173,9 +1199,11 @@ test('espone accessi visibili alla gestione del negozio', () => {
     assert.match(html, /parseAIResponse\(response, \{ isStart \}\)/);
     assert.match(html, /parseBusinessTags\(response, \{ deferEntries: true \}\)/);
     assert.match(html, /DIPENDENTE_NEGOZIO/);
+    assert.match(html, /CONTRATTO_NEGOZIO/);
     assert.match(html, /outcome\.employees/);
     assert.match(html, /splitTagFields/);
     assert.match(html, /const businessEmployeeRe = .*DIPENDENTE_NEGOZIO/);
+    assert.match(html, /const contractRe = .*CONTRATTO_NEGOZIO/);
     assert.ok(
         html.indexOf('const hasNarrative = G.storyLog.some') <
         html.indexOf('if (management.businesses.length && !management.accessAnnounced)'),
