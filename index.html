@@ -6094,6 +6094,7 @@
                     '<div class="manager-kpi"><span>Personale</span><strong>' + report.employeeCount + '</strong><small>stipendi ' + report.payroll + '</small></div>' +
                     '<div class="manager-kpi"><span>Clienti</span><strong>' + report.customerCount + '</strong><small>' + report.customersServed + ' serviti</small></div>' +
                     '<div class="manager-kpi"><span>Fornitori</span><strong>' + report.supplierCount + '</strong><small>' + report.pendingOrders.length + ' ordini aperti</small></div>' +
+                    '<div class="manager-kpi"><span>Contratti</span><strong>' + report.activeContractCount + '</strong><small>' + report.contractCount + ' registrati</small></div>' +
                 '</div>' +
                 '<div class="manager-actions">' +
                     '<button class="btn primary" data-manager-action="run-period" ' + (!business.narrativeInitialized ? 'disabled title="Attendi la configurazione iniziale generata dalla storia"' : '') + '>📊 Chiudi periodo</button>' +
@@ -6126,6 +6127,12 @@
                         '<span>Competenza ' + Math.round(employee.skill ?? 50) + '% · Stipendio ' + (employee.salary || 0) + '</span>' +
                         '<button class="manager-mini-btn" data-manager-action="train" data-employee-id="' + safeManagerText(employee.id) + '">Forma</button></article>').join('') :
                         '<p class="manager-empty">Nessun dipendente assegnato.</p>') + '</section>' +
+                '<section class="manager-section"><div class="manager-section-head"><h4>📝 Contratti</h4><span>' + report.activeContractCount + ' attivi</span></div>' +
+                    ((business.contracts || []).length ? business.contracts.slice(-6).reverse().map(contract =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(contract.title) + '</strong><small>' + safeManagerText(contract.kind) + ' · ' + safeManagerText(contract.status) + '</small></div>' +
+                        '<span>' + safeManagerText(contract.counterpartyName) + ' · ' + contract.amount + ' · ' + safeManagerText(contract.frequency) + '</span>' +
+                        (contract.notes ? '<span>📝 ' + safeManagerText(contract.notes) + '</span>' : '') + '</article>').join('') :
+                        '<p class="manager-empty">Gli accordi narrati con clienti, fornitori e dipendenti appariranno qui.</p>') + '</section>' +
                 '<section class="manager-section"><div class="manager-section-head"><h4>🧾 Ultimi movimenti</h4><span>' + business.transactions.length + ' registrati</span></div>' +
                     (transactions.length ? '<ul class="manager-transactions">' + transactions.map(tx =>
                         '<li class="' + tx.direction + '"><span>' + safeManagerText(tx.description || tx.category) + '</span><strong>' +
@@ -6644,6 +6651,25 @@
                 });
             }
 
+            // [CONTRATTO_NEGOZIO: attività|titolo|tipo|tipo_controparte|nome_controparte|importo|frequenza|stato|fine_turno_opzionale|note_opzionali]
+            const contractRe = /\[CONTRATTO_NEGOZIO:\s*([^\]]+)\]/gi;
+            while ((m = contractRe.exec(businessResponse)) !== null) {
+                const fields = splitTagFields(m[1], 10);
+                events.push({
+                    type: 'contract',
+                    businessName: fields[0],
+                    title: fields[1],
+                    kind: fields[2],
+                    counterpartyType: fields[3],
+                    counterpartyName: fields[4],
+                    amount: fields[5],
+                    frequency: fields[6],
+                    status: fields[7],
+                    endTurn: fields[8],
+                    notes: fields[9]
+                });
+            }
+
             // Compatibilità: il vecchio tag usa la proprietà come terzo campo.
             const legacyEmployeeRe = /\[DIPENDENTE:\s*([^\]]+)\]/gi;
             while ((m = legacyEmployeeRe.exec(businessResponse)) !== null) {
@@ -6728,6 +6754,7 @@
             feedback.changed = changed;
             if (feedback.warnings.length) {
                 console.warn('Tag gestionali ignorati:', [...new Set(feedback.warnings)]);
+                if (deferEntries) addStoryEntry('⚠️ Gestionale: ' + [...new Set(feedback.warnings)].join(' · '), 'system');
             }
             if (changed) {
                 updateInfoPanels();
@@ -8604,11 +8631,20 @@
             // Invariante: il prompt vede sempre tutte le proprietà commerciali già sincronizzate.
             const managementForPrompt = syncBusinessManagement();
             const pendingBusinesses = managementForPrompt.businesses.filter(business => !business.narrativeInitialized);
+            const businessTagDirective = managementForPrompt.businesses.length ? `
+
+🏪 REGISTRAZIONE ANAGRAFICHE ATTIVITÀ
+Se nella scena compare, viene assunto, cambia o stipula un accordo un cliente, fornitore, dipendente o contraente dell'attività del giocatore, DEVI emettere il relativo tag in fondo alla risposta, dopo la scena. Non rimandare la registrazione al solo avvio dell'attività.
+- Cliente: [CLIENTE_NEGOZIO: attività|nome|segmento|lealtà_0_100|soddisfazione_opzionale|note]
+- Fornitore: [FORNITORE_NEGOZIO: attività|nome|categoria|affidabilità_0_100|turni_consegna|sconto_opzionale|stato_opzionale|note]
+- Dipendente: [DIPENDENTE_NEGOZIO: attività|nome|ruolo|stipendio|competenza_0_100|morale_0_100|stato_opzionale|descrizione]
+- Contratto: [CONTRATTO_NEGOZIO: attività|titolo|tipo|cliente/fornitore/dipendente/altro|nome_controparte|importo|frequenza|draft/active/paused/expired/terminated|fine_turno_opzionale|note]
+Usa il nome esatto dell'attività presente nella memoria. Per aggiornare un record esistente mantieni tutti i separatori e lascia vuoti solo i campi invariati; non creare nomi generici. Non aggiungere tag se la scena non cambia davvero l'anagrafica.` : '';
             const pendingBusinessDirective = pendingBusinesses.length ? `
 
 🏪 INTEGRAZIONE ATTIVITÀ (NON DEVE BLOCCARE LA NARRAZIONE)
 Attività da alimentare dalla storia: ${pendingBusinesses.map(business => business.name).join(', ')}.
-Scrivi prima una scena completa e coinvolgente. Aggiungi soltanto tag completi e coerenti con ciò che hai davvero narrato: [ATTIVITA_NEGOZIO], [CATALOGO_NEGOZIO], [FORNITORE_NEGOZIO], [CLIENTE_NEGOZIO], [DIPENDENTE_NEGOZIO] ed [EVENTO_NEGOZIO]. Il catalogo e le anagrafiche possono completarsi progressivamente nei turni successivi: non sacrificare mai la narrazione per riempire i tag e non usare nomi generici.` : '';
+Scrivi prima una scena completa e coinvolgente. Aggiungi soltanto tag completi e coerenti con ciò che hai davvero narrato: [ATTIVITA_NEGOZIO], [CATALOGO_NEGOZIO], [FORNITORE_NEGOZIO], [CLIENTE_NEGOZIO], [DIPENDENTE_NEGOZIO], [CONTRATTO_NEGOZIO] ed [EVENTO_NEGOZIO]. Il catalogo e le anagrafiche possono completarsi progressivamente nei turni successivi: non sacrificare mai la narrazione per riempire i tag e non usare nomi generici.` : '';
             const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory);
             const recentHistory = layeredMemory.shortTerm;
             const masterTurn = narrativeMaster.decide(action, {
@@ -8810,9 +8846,11 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
   - [CLIENTE_NEGOZIO: nome_attività|nome_cliente|segmento|lealtà_0_100|soddisfazione_opzionale|note_opzionale] → registra o aggiorna un cliente emerso dalla narrazione (segmento: abituale/occasionale/nobile/mercante/viandante/...). Riemettere il tag con lo stesso nome aggiorna fedeltà/soddisfazione/note.
   - [FORNITORE_NEGOZIO: nome_attività|nome_fornitore|categoria|affidabilità_0_100|lead_turns|sconto_opzionale|stato_opzionale|note_opzionale] → registra o aggiorna un fornitore emerso dalla narrazione (categoria: materie prime/vini/carni/ferro/stoffa/spezie/...; lead_turns = turni di consegna; stato: active/inactive). Riemettere lo stesso nome aggiorna i dati.
   - [DIPENDENTE_NEGOZIO: nome_attività|nome_dipendente|ruolo|stipendio|competenza_0_100|morale_0_100|stato_opzionale|descrizione_opzionale] → assume o aggiorna un dipendente dell'attività. Per aggiornare un dipendente esistente puoi lasciare vuoti i campi che non cambiano; stati: active/sick/vacation/leave/fired.
+  - [CONTRATTO_NEGOZIO: nome_attività|titolo|tipo|cliente/fornitore/dipendente/altro|nome_controparte|importo|frequenza|stato|fine_turno_opzionale|note] → registra o aggiorna un accordo commerciale, di lavoro, locazione o servizio. Stati: draft/active/paused/expired/terminated. Lo stesso titolo con la stessa controparte aggiorna il contratto.
 - FORNITORI E CLIENTI DEVONO ESSERE GENERATI DALLA NARRAZIONE, non lasciati generici:
   - Quando il giocatore entra in rapporto commerciale con qualcuno (un mercante, un contadino, un'azienda, un oste), usa [FORNITORE_NEGOZIO] con un NOME coerente e una categoria credibile per il tipo di attività (taverna → cantine/panettieri; officina → ferriere/stoffai; emporio → speziali/mercanti; fattoria → mulini/allevamenti).
   - Quando un cliente ricorrente o notevole compare nella scena, usa [CLIENTE_NEGOZIO] con un nome proprio e un segmento coerente.
+  - Quando viene concordata una fornitura continuativa, un impiego, un affitto o un accordo di vendita, usa [CONTRATTO_NEGOZIO] nello stesso turno della scena.
   - Usa sempre nomi concreti, mai «Fornitore locale», «Cliente generico», «Articolo principale» o equivalenti.
   - [STATO_NEGOZIO: nome_attività|active|paused|closed] → cambia lo stato operativo dell'attività.
   - [REPUTAZIONE_NEGOZIO: nome_attività|+5_o_-10|motivo_opzionale] → varia la reputazione (0-100) in base a eventi narrati.
@@ -8959,7 +8997,7 @@ ${story.prologue || 'Il protagonista inizia la sua avventura.'}
 Descrivi la scena e l'equipaggiamento iniziale (usa [LOOT] per dare gli oggetti iniziali).
 Metti in chiaro quanti ${c.currency?.short || 'soldi'} sono subito disponibili (${formatCurrency(c.gold)} secondo il sistema) e dove sono custoditi.
 Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa, libro mastro con 2000 fiorini) applica immediatamente [MECCANICA: soldi=±X] per riallineare il saldo e cita il registro o il contante come oggetto fisico con [LOOT: ...] quando opportuno.
-Ricorda: il denaro personale usa [MECCANICA: soldi], la cassa dell'attività usa [ATTIVITA_NEGOZIO] all'inizializzazione e [CASSA_NEGOZIO] dopo; non duplicare lo stesso importo.${pendingBusinessDirective}`;
+Ricorda: il denaro personale usa [MECCANICA: soldi], la cassa dell'attività usa [ATTIVITA_NEGOZIO] all'inizializzazione e [CASSA_NEGOZIO] dopo; non duplicare lo stesso importo.${businessTagDirective}${pendingBusinessDirective}`;
             } else {
                 // Costruisci contesto stato fisico per l'IA
                 let physicalState = '';
@@ -8989,7 +9027,7 @@ ISTRUZIONI TURNO:
 4. MONDO VIVO: Cosa fanno gli NPC? Mostra il mondo che si muove intorno al giocatore.
 5. Descrivi le conseguenze PROPORZIONATE al risultato del tiro (successo critico = bonus, fallimento critico = disastro).
 6. Usa i tag appropriati [MECCANICA/LOOT/NPC/TEMPO] e consuma energia per sforzi fisici.
-${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}${pendingBusinessDirective}`;
+${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}${businessTagDirective}${pendingBusinessDirective}`;
             }
 
             const requestMessages = [
@@ -9615,7 +9653,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[(?:CRESCITA|LEGAME|FAMIGLIA_STATO|PROPRIETA_STATO):[^\]]*\]/gi, '')
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
-                .replace(/\[(?:ATTIVITA|CATALOGO|VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|DIPENDENTE|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
+                .replace(/\[(?:ATTIVITA|CATALOGO|VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|DIPENDENTE|CONTRATTO|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
                 .replace(/\[FAMIGLIA:[^\]]*\]/gi, '')
                 .replace(/\[DIPENDENTE:[^\]]*\]/gi, '')
