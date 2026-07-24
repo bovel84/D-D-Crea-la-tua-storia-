@@ -34,6 +34,33 @@
         return Number.isFinite(parsed) ? parsed : fallback;
     }
 
+    // I modelli spesso restituiscono valori come "12,50 fiorini", "80%" o "+ 5".
+    // Il gestionale deve accettare questi formati senza trasformare un catalogo valido
+    // in una sequenza di errori tecnici visibili al giocatore.
+    function parseNarrativeNumber(value) {
+        if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+        const raw = String(value == null ? '' : value).trim();
+        if (!raw) return null;
+        const match = raw.replace(/\s+/g, '').match(/[+-]?(?:\d[\d.,]*|[.,]\d+)/);
+        if (!match) return null;
+        let normalized = match[0];
+        const comma = normalized.lastIndexOf(',');
+        const dot = normalized.lastIndexOf('.');
+        if (comma >= 0 && dot >= 0) {
+            const decimalSeparator = comma > dot ? ',' : '.';
+            const thousandsSeparator = decimalSeparator === ',' ? '.' : ',';
+            normalized = normalized.split(thousandsSeparator).join('').replace(decimalSeparator, '.');
+        } else if (comma >= 0 || dot >= 0) {
+            const separator = comma >= 0 ? ',' : '.';
+            const chunks = normalized.split(separator);
+            const looksLikeThousands = chunks.length > 2 ||
+                (chunks.length === 2 && chunks[1].length === 3 && chunks[0].replace(/[+-]/g, '').length >= 1);
+            normalized = looksLikeThousands ? chunks.join('') : normalized.replace(separator, '.');
+        }
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
     function clamp(value, min, max) {
         return Math.max(min, Math.min(max, number(value, min)));
     }
@@ -704,8 +731,8 @@
             lines.push(`  cassa: ${business.cash} ${currency} | reputazione: ${business.reputation}/100 | soddisfazione clienti: ${business.customerSatisfaction}/100`);
             if (business.description) lines.push(`  identità narrativa: ${business.description}`);
             if (!business.narrativeInitialized) {
-                lines.push('  ⚠️ CONFIGURAZIONE NARRATIVA INIZIALE OBBLIGATORIA: questa attività è appena entrata nella storia e non ha dati generici locali.');
-                lines.push(`  NELLA PROSSIMA RISPOSTA emetti: 1 [ATTIVITA_NEGOZIO] per assetto/cassa, almeno 2 [CATALOGO_NEGOZIO] con prodotti o servizi concreti e almeno 1 [FORNITORE_NEGOZIO] nominativo coerente con ${business.name}.`);
+                lines.push('  📋 CONFIGURAZIONE NARRATIVA IN CORSO: questa attività è appena entrata nella storia e non usa dati generici locali.');
+                lines.push(`  Completa progressivamente assetto, catalogo e filiera di ${business.name} con [ATTIVITA_NEGOZIO], [CATALOGO_NEGOZIO] e [FORNITORE_NEGOZIO] validi, senza interrompere o impoverire la scena narrativa.`);
                 lines.push('  Introduci clienti e dipendenti solo se compaiono davvero nella scena; non inventare placeholder anonimi.');
             }
             if (report.netProfit != null) {
@@ -767,18 +794,20 @@
             switch (event.type) {
                 case 'profile': {
                     const status = String(event.status || '').toLowerCase();
-                    const complete = clean(event.businessType, 60) && event.cash !== '' && Number.isFinite(Number(event.cash)) &&
-                        event.reputation !== '' && Number.isFinite(Number(event.reputation)) &&
-                        event.satisfaction !== '' && Number.isFinite(Number(event.satisfaction)) &&
+                    const cash = parseNarrativeNumber(event.cash);
+                    const reputation = parseNarrativeNumber(event.reputation);
+                    const satisfaction = parseNarrativeNumber(event.satisfaction);
+                    const complete = clean(event.businessType, 60) && cash != null &&
+                        reputation != null && satisfaction != null &&
                         ['active', 'paused', 'closed'].includes(status) && clean(event.description, 240);
                     if (!complete) {
                         results.push({ ok: false, type: 'profile', business: business.name, message: 'ATTIVITA_NEGOZIO incompleto o non valido' });
                         break;
                     }
                     business.type = clean(event.businessType, 60);
-                    business.cash = Math.max(0, roundMoney(event.cash));
-                    business.reputation = clamp(event.reputation, 0, 100);
-                    business.customerSatisfaction = clamp(event.satisfaction, 0, 100);
+                    business.cash = Math.max(0, roundMoney(cash));
+                    business.reputation = clamp(reputation, 0, 100);
+                    business.customerSatisfaction = clamp(satisfaction, 0, 100);
                     business.status = status;
                     business.description = clean(event.description, 240);
                     business.profileNarrative = true;
@@ -789,21 +818,26 @@
                 case 'catalogProduct': {
                     const name = clean(event.productName, 80);
                     const category = clean(event.category, 80);
-                    const validNumbers = [event.salePrice, event.unitCost, event.stock, event.demand, event.reorderPoint]
-                        .every(value => value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0);
-                    if (!name || GENERIC_ENTITY_WORDS.test(name) || !category || !validNumbers || Number(event.salePrice) <= 0 || Number(event.demand) <= 0) {
+                    const salePrice = parseNarrativeNumber(event.salePrice);
+                    const unitCost = parseNarrativeNumber(event.unitCost);
+                    const stockValue = parseNarrativeNumber(event.stock);
+                    const demand = parseNarrativeNumber(event.demand);
+                    const reorderValue = parseNarrativeNumber(event.reorderPoint);
+                    const validNumbers = [salePrice, unitCost, stockValue, demand, reorderValue]
+                        .every(value => value != null && value >= 0);
+                    if (!name || GENERIC_ENTITY_WORDS.test(name) || !category || !validNumbers || salePrice <= 0 || demand <= 0) {
                         results.push({ ok: false, type: 'catalogProduct', business: business.name, message: 'CATALOGO_NEGOZIO incompleto, generico o con valori non validi' });
                         break;
                     }
-                    const reorderPoint = Math.max(0, parseInt(event.reorderPoint, 10) || 0);
-                    const stock = Math.max(0, parseInt(event.stock, 10) || 0);
+                    const reorderPoint = Math.max(0, Math.round(reorderValue));
+                    const stock = Math.max(0, Math.round(stockValue));
                     const product = addProduct(business, {
                         name,
                         category,
-                        salePrice: Math.max(0, roundMoney(event.salePrice)),
-                        unitCost: Math.max(0, roundMoney(event.unitCost)),
+                        salePrice: Math.max(0, roundMoney(salePrice)),
+                        unitCost: Math.max(0, roundMoney(unitCost)),
                         stock,
-                        baseDemand: Math.max(0, parseInt(event.demand, 10) || 0),
+                        baseDemand: Math.max(0, Math.round(demand)),
                         reorderPoint,
                         targetStock: Math.max(stock, reorderPoint * 2),
                         source: 'narration',
@@ -1038,6 +1072,7 @@
         buildNarrativeContext,
         applyNarrativeEvents,
         refreshNarrativeInitialization,
+        parseNarrativeNumber,
         setProductActive,
         adjustProductStock,
         removeProduct,
