@@ -162,6 +162,7 @@
             products: [],
             suppliers: [],
             customers: [],
+            contracts: [],
             pendingOrders: [],
             transactions: [],
             history: [],
@@ -247,11 +248,32 @@
         };
     }
 
+    function normalizeContract(raw, index) {
+        const source = raw && typeof raw === 'object' ? raw : {};
+        const status = clean(source.status || 'active', 20).toLowerCase();
+        return {
+            id: clean(source.id || `contract-${index + 1}`),
+            title: clean(source.title || `Accordo ${index + 1}`, 100),
+            kind: clean(source.kind || 'commerciale', 60),
+            counterpartyType: clean(source.counterpartyType || 'other', 30).toLowerCase(),
+            counterpartyName: clean(source.counterpartyName || '', 100),
+            amount: Math.max(0, roundMoney(source.amount)),
+            frequency: clean(source.frequency || 'una tantum', 40),
+            status: ['draft', 'active', 'paused', 'expired', 'terminated'].includes(status) ? status : 'active',
+            startTurn: Math.max(0, parseInt(source.startTurn, 10) || 0),
+            endTurn: source.endTurn == null || source.endTurn === '' ? null : Math.max(0, parseInt(source.endTurn, 10) || 0),
+            notes: clean(source.notes || '', 240),
+            source: clean(source.source || 'manual', 30),
+            updatedAtTurn: Math.max(0, parseInt(source.updatedAtTurn, 10) || 0)
+        };
+    }
+
     function normalizeBusiness(raw, index) {
         const source = raw && typeof raw === 'object' ? clone(raw) : {};
         const products = Array.isArray(source.products) ? source.products.map(normalizeProduct) : [];
         const suppliers = Array.isArray(source.suppliers) ? source.suppliers.map(normalizeSupplier) : [];
         const customers = Array.isArray(source.customers) ? source.customers.map(normalizeCustomer) : [];
+        const contracts = Array.isArray(source.contracts) ? source.contracts.map(normalizeContract) : [];
         // I salvataggi v1 con catalogo/fornitori reali sono già inizializzati.
         // Solo i nuovi record v2 dichiarano esplicitamente lo stato pending.
         const legacyInitialized = products.length > 0 || suppliers.length > 0 || customers.length > 0;
@@ -276,6 +298,7 @@
             products,
             suppliers,
             customers,
+            contracts: contracts.slice(-80),
             pendingOrders: Array.isArray(source.pendingOrders) ? source.pendingOrders.slice(-50) : [],
             transactions: Array.isArray(source.transactions) ? source.transactions.slice(-MAX_TRANSACTIONS) : [],
             history: Array.isArray(source.history) ? source.history.slice(-MAX_HISTORY) : [],
@@ -400,6 +423,44 @@
         }, business.customers.length);
         business.customers.push(customer);
         return customer;
+    }
+
+    function upsertContract(business, input, turn = 0) {
+        const title = clean(input?.title, 100);
+        const counterpartyName = clean(input?.counterpartyName, 100);
+        if (!title || !counterpartyName || GENERIC_ENTITY_WORDS.test(counterpartyName)) {
+            throw new Error('CONTRATTO_NEGOZIO richiede titolo e controparte concreti.');
+        }
+        business.contracts = Array.isArray(business.contracts) ? business.contracts : [];
+        const existing = business.contracts.find(item =>
+            keyOf(item.title) === keyOf(title) && keyOf(item.counterpartyName) === keyOf(counterpartyName)
+        );
+        const amountProvided = input?.amount != null && input.amount !== '';
+        const amount = amountProvided ? parseNarrativeNumber(input.amount) : null;
+        const statusProvided = input?.status != null && input.status !== '';
+        const status = statusProvided ? clean(input.status, 20).toLowerCase() : '';
+        const validStatuses = ['draft', 'active', 'paused', 'expired', 'terminated'];
+        if ((amountProvided && (amount == null || amount < 0)) || (statusProvided && !validStatuses.includes(status))) {
+            throw new Error('CONTRATTO_NEGOZIO contiene importo o stato non validi.');
+        }
+        if (existing) {
+            ['kind', 'counterpartyType', 'frequency', 'notes'].forEach(field => {
+                if (input?.[field] != null && input[field] !== '') existing[field] = clean(input[field], field === 'notes' ? 240 : 60);
+            });
+            if (amountProvided) existing.amount = roundMoney(amount);
+            if (statusProvided) existing.status = status;
+            if (input?.endTurn != null && input.endTurn !== '') existing.endTurn = Math.max(0, parseInt(input.endTurn, 10) || 0);
+            existing.updatedAtTurn = Math.max(0, parseInt(turn, 10) || 0);
+            return { contract: existing, created: false };
+        }
+        const contract = normalizeContract({
+            ...input, id: `contract-${keyOf(title)}-${keyOf(counterpartyName)}-${business.contracts.length + 1}`,
+            title, counterpartyName, amount: amountProvided ? amount : 0,
+            startTurn: turn, updatedAtTurn: turn, source: input?.source || 'narration'
+        }, business.contracts.length);
+        business.contracts.push(contract);
+        business.contracts = business.contracts.slice(-80);
+        return { contract, created: true };
     }
 
     function upsertEmployee(employees, input, turn = 0) {
@@ -747,6 +808,8 @@
             payroll: staff.payroll,
             customerCount: business.customers.length,
             supplierCount: business.suppliers.filter(item => item.status === 'active').length,
+            contractCount: (business.contracts || []).length,
+            activeContractCount: (business.contracts || []).filter(item => item.status === 'active').length,
             topProducts
         };
     }
@@ -821,6 +884,11 @@
                     `${employee.name} (${employee.role || 'ruolo non definito'}, competenza ${Math.round(employee.skill ?? 50)}, morale ${Math.round(employee.morale ?? 70)}, stipendio ${employee.salary || 0}, stato ${employee.status || 'active'}${employee.description ? `, note ${employee.description}` : ''})`
                 ).join('; ')}`);
             }
+            if (business.contracts && business.contracts.length) {
+                lines.push(`  contratti: ${business.contracts.slice(-8).map(contract =>
+                    `${contract.title} con ${contract.counterpartyName} [${contract.kind}, ${contract.counterpartyType}, ${contract.amount} ${currency}, ${contract.frequency}, stato ${contract.status}${contract.notes ? `, note ${contract.notes}` : ''}]`
+                ).join('; ')}`);
+            }
             if (business.notes && business.notes.length) {
                 const recent = business.notes.slice(-6).map(note => note.text).join(' | ');
                 lines.push(`  cronaca recente (narrati + modifiche del giocatore ✋): ${recent}`);
@@ -856,7 +924,7 @@
                 return;
             }
             business.processedNarrativeEvents = Array.isArray(business.processedNarrativeEvents) ? business.processedNarrativeEvents : [];
-            const stateEvent = ['profile', 'catalogProduct', 'renameProduct', 'customer', 'supplier', 'employee', 'status', 'price'].includes(event.type);
+            const stateEvent = ['profile', 'catalogProduct', 'renameProduct', 'customer', 'supplier', 'employee', 'contract', 'status', 'price'].includes(event.type);
             const fingerprint = `${stateEvent ? 'state' : turn}:${JSON.stringify(event)}`;
             if (business.processedNarrativeEvents.includes(fingerprint)) {
                 results.push({ ok: true, skipped: true, type: event.type, business: business.name, message: `${business.name}: evento già applicato` });
@@ -1078,6 +1146,21 @@
                     }
                     break;
                 }
+                case 'contract': {
+                    try {
+                        const outcome = upsertContract(business, {
+                            title: event.title, kind: event.kind, counterpartyType: event.counterpartyType,
+                            counterpartyName: event.counterpartyName, amount: event.amount,
+                            frequency: event.frequency, status: event.status, endTurn: event.endTurn,
+                            notes: event.notes, source: 'narration'
+                        }, turn);
+                        addBusinessNote(business, `${outcome.created ? 'Contratto registrato' : 'Contratto aggiornato'}: ${outcome.contract.title} con ${outcome.contract.counterpartyName}.`, turn);
+                        results.push({ ok: true, type: 'contract', business: business.name, message: `${business.name}: contratto ${outcome.contract.title} ${outcome.created ? 'registrato' : 'aggiornato'}` });
+                    } catch (error) {
+                        results.push({ ok: false, type: 'contract', business: business.name, message: error.message });
+                    }
+                    break;
+                }
                 case 'status': {
                     const status = String(event.status || '').toLowerCase();
                     if (['active', 'paused', 'closed'].includes(status)) {
@@ -1152,6 +1235,7 @@
         updateProductPrice(business, productId, price) { return updateProductPrice(business, productId, price); }
         addSupplier(business, input) { return addSupplier(business, input); }
         addCustomer(business, input) { return addCustomer(business, input); }
+        upsertContract(business, input, turn) { return upsertContract(business, input, turn); }
         placeOrder(business, input, turn) { return placeOrder(business, input, turn); }
         processDeliveries(state, turn, random) { return processDeliveries(state, turn, random); }
         runPeriod(business, context, random) { return runPeriod(business, context, random); }
@@ -1204,6 +1288,7 @@
         updateProductPrice,
         addSupplier,
         addCustomer,
+        upsertContract,
         placeOrder,
         processDeliveries,
         employeeMetrics,
