@@ -3972,8 +3972,17 @@
             story.starterProperties.forEach(p => {
                 const name = (p.name || '').trim();
                 if (!name) return;
-                const already = (G.worldMemory.properties || []).some(prop => prop.name.toLowerCase() === name.toLowerCase());
-                if (!already) addProperty(name, p.description || '', p.notes || '');
+                // addProperty è un upsert per nome: aggiorna anche proprietà legacy/parziali senza duplicarle.
+                addProperty(name, p.description || '', p.notes || '', {
+                    id: p.id,
+                    type: p.type,
+                    condition: p.condition,
+                    baseValue: p.baseValue,
+                    income: p.income,
+                    maintenanceCost: p.maintenanceCost,
+                    businessCash: p.businessCash,
+                    preserveExisting: true
+                });
             });
         }
 
@@ -4455,23 +4464,37 @@
                     ollama: normalizeOllamaCloudSettings({ ...G.settings.ollama, ...(p.settings?.ollama || {}) })
                 };
             }
-            // Migrazione: assicurati che la storia business abbia la proprietà eredita
+            // Migrazione idempotente: arricchisce anche starterProperties legacy/parziali.
             let storiesChanged = false;
             G.stories = (G.stories || []).map(s => {
-                if (s.title === 'Scalata al Successo' && !s.starterProperties) {
-                    storiesChanged = true;
+                if (s.title !== 'Scalata al Successo') return s;
+                const properties = Array.isArray(s.starterProperties) && s.starterProperties.length
+                    ? s.starterProperties.map(property => ({ ...property }))
+                    : [{ name: 'Emporio Rossi' }];
+                let found = false;
+                const starterProperties = properties.map(property => {
+                    if (String(property.name || '').trim().toLowerCase() !== 'emporio rossi') return property;
+                    found = true;
                     return {
-                        ...s,
-                        starterProperties: [
-                            {
-                                name: 'Emporio Rossi',
-                                description: 'Il piccolo negozio di famiglia appena ereditato. Clientela locale fedele, margini stretti.',
-                                notes: 'Puoi investire per ampliarlo o venderlo per fare cassa.'
-                            }
-                        ]
+                        id: property.id || 'starter-emporio-rossi',
+                        name: 'Emporio Rossi',
+                        description: property.description || 'Il piccolo negozio di famiglia appena ereditato. Clientela locale fedele, margini stretti.',
+                        notes: property.notes || 'Puoi investire per ampliarlo o venderlo per fare cassa.',
+                        type: 'business',
+                        condition: property.condition ?? 65,
+                        baseValue: property.baseValue ?? 3000,
+                        income: property.income ?? 0,
+                        businessCash: property.businessCash ?? 0
                     };
-                }
-                return s;
+                });
+                if (!found) starterProperties.push({
+                    id: 'starter-emporio-rossi', name: 'Emporio Rossi', type: 'business', condition: 65,
+                    baseValue: 3000, income: 0, businessCash: 0,
+                    description: 'Il piccolo negozio di famiglia appena ereditato. Clientela locale fedele, margini stretti.',
+                    notes: 'Puoi investire per ampliarlo o venderlo per fare cassa.'
+                });
+                if (JSON.stringify(starterProperties) !== JSON.stringify(s.starterProperties || [])) storiesChanged = true;
+                return { ...s, starterProperties };
             });
             if (G.stories.length === 0) {
                 G.stories = [
@@ -4498,9 +4521,15 @@
                         prologue: 'La serranda si alza con un cigolio familiare. "Emporio Rossi" - la vecchia insegna pende ancora sopra la porta. L\'avvocato ti ha dato le chiavi ieri, insieme a un conto quasi vuoto.',
                         starterProperties: [
                             {
+                                id: 'starter-emporio-rossi',
                                 name: 'Emporio Rossi',
                                 description: 'Il piccolo negozio di famiglia appena ereditato. Clientela locale fedele, margini stretti.',
-                                notes: 'Puoi investire per ampliarlo o venderlo per fare cassa.'
+                                notes: 'Puoi investire per ampliarlo o venderlo per fare cassa.',
+                                type: 'business',
+                                condition: 65,
+                                baseValue: 3000,
+                                income: 0,
+                                businessCash: 0
                             }
                         ]
                     }
@@ -6008,7 +6037,9 @@
         }
 
         function businessProductRows(business) {
-            if (!business.products.length) return '<p class="manager-empty">Aggiungi il primo prodotto o servizio.</p>';
+            if (!business.products.length) return business.narrativeInitialized
+                ? '<p class="manager-empty">Nessun prodotto o servizio registrato.</p>'
+                : '<p class="manager-empty">⏳ Il catalogo verrà generato dalla prima scena della storia.</p>';
             return '<div class="manager-table-wrap"><table class="manager-table"><thead><tr><th>Prodotto</th><th>Prezzo</th><th>Costo</th><th>Scorte</th><th>Venduti</th><th>Azioni</th></tr></thead><tbody>' +
                 business.products.map(product => {
                     const low = product.stock <= product.reorderPoint;
@@ -6044,6 +6075,9 @@
             );
             const maxFlow = Math.max(1, report.revenue, report.operatingCosts + report.cogs);
             const transactions = business.transactions.slice(-8).reverse();
+            const setupBanner = business.narrativeInitialized ? '' :
+                '<div class="manager-empty-state"><span>📖</span><h3>Configurazione narrativa in corso</h3>' +
+                '<p>La prima scena deve generare assetto, catalogo e fornitori reali di questa attività. Il motore non userà dati generici.</p></div>';
             root.innerHTML =
                 '<div class="manager-switcher">' + management.businesses.map(item =>
                     '<button class="' + (item.id === business.id ? 'active' : '') + '" data-business-id="' + safeManagerText(item.id) + '">' +
@@ -6052,6 +6086,7 @@
                     '<h3>' + safeManagerText(business.name) + '</h3><p>Periodo ' + business.period + ' · Reputazione ' + Math.round(business.reputation) +
                     '% · Soddisfazione ' + Math.round(business.customerSatisfaction) + '%</p></div>' +
                     '<div class="manager-cash"><span>Cassa aziendale</span><strong>' + business.cash.toLocaleString('it-IT') + ' ' + safeManagerText(currency) + '</strong></div></section>' +
+                setupBanner +
                 '<div class="manager-kpi-grid">' +
                     '<div class="manager-kpi"><span>Ricavi</span><strong class="positive">+' + report.revenue + '</strong><small>ultimo periodo</small></div>' +
                     '<div class="manager-kpi"><span>Utile netto</span><strong class="' + (report.netProfit >= 0 ? 'positive' : 'negative') + '">' + (report.netProfit >= 0 ? '+' : '') + report.netProfit + '</strong><small>margine ' + report.margin + '%</small></div>' +
@@ -6061,7 +6096,7 @@
                     '<div class="manager-kpi"><span>Fornitori</span><strong>' + report.supplierCount + '</strong><small>' + report.pendingOrders.length + ' ordini aperti</small></div>' +
                 '</div>' +
                 '<div class="manager-actions">' +
-                    '<button class="btn primary" data-manager-action="run-period">📊 Chiudi periodo</button>' +
+                    '<button class="btn primary" data-manager-action="run-period" ' + (!business.narrativeInitialized ? 'disabled title="Attendi la configurazione iniziale generata dalla storia"' : '') + '>📊 Chiudi periodo</button>' +
                     '<button class="btn" data-manager-action="add-product">📦 Nuovo prodotto</button>' +
                     '<button class="btn" data-manager-action="add-supplier">🚚 Nuovo fornitore</button>' +
                     '<button class="btn" data-manager-action="add-customer">🧑 Nuovo cliente</button>' +
@@ -6472,12 +6507,45 @@
             const management = syncBusinessManagement();
             if (!management.businesses.length) return false;
             const currency = G.character?.currency?.short || 'monete';
+            // I tag dentro ANALISI sono ragionamento/esempi: non devono mai mutare il gestionale.
+            const businessResponse = String(response || '').replace(/\[ANALISI\][\s\S]*?\[\/ANALISI\]/gi, '');
             const events = [];
             let m;
 
+            // [ATTIVITA_NEGOZIO: attività|tipo|cassa_iniziale|reputazione|soddisfazione|stato|descrizione]
+            const profileRe = /\[ATTIVITA_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = profileRe.exec(businessResponse)) !== null) {
+                events.push({
+                    type: 'profile',
+                    businessName: (m[1] || '').trim(),
+                    businessType: (m[2] || '').trim(),
+                    cash: (m[3] || '').trim(),
+                    reputation: (m[4] || '').trim(),
+                    satisfaction: (m[5] || '').trim(),
+                    status: (m[6] || '').trim(),
+                    description: (m[7] || '').trim()
+                });
+            }
+
+            // [CATALOGO_NEGOZIO: attività|nome|categoria|prezzo|costo|scorte|domanda|scorta_minima]
+            const catalogRe = /\[CATALOGO_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = catalogRe.exec(businessResponse)) !== null) {
+                events.push({
+                    type: 'catalogProduct',
+                    businessName: (m[1] || '').trim(),
+                    productName: (m[2] || '').trim(),
+                    category: (m[3] || '').trim(),
+                    salePrice: (m[4] || '').trim(),
+                    unitCost: (m[5] || '').trim(),
+                    stock: (m[6] || '').trim(),
+                    demand: (m[7] || '').trim(),
+                    reorderPoint: (m[8] || '').trim()
+                });
+            }
+
             // [VENDITA_NEGOZIO: attività|prodotto|quantità|prezzo]
             const saleRe = /\[VENDITA_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
-            while ((m = saleRe.exec(response)) !== null) {
+            while ((m = saleRe.exec(businessResponse)) !== null) {
                 events.push({
                     type: 'sale',
                     businessName: (m[1] || '').trim(),
@@ -6489,7 +6557,7 @@
 
             // [RIFORNIMENTO_NEGOZIO: attività|prodotto|quantità|costo_opzionale]
             const restockRe = /\[RIFORNIMENTO_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
-            while ((m = restockRe.exec(response)) !== null) {
+            while ((m = restockRe.exec(businessResponse)) !== null) {
                 events.push({
                     type: 'restock',
                     businessName: (m[1] || '').trim(),
@@ -6501,7 +6569,7 @@
 
             // [PREZZO_NEGOZIO: attività|prodotto|nuovo_prezzo]
             const priceRe = /\[PREZZO_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
-            while ((m = priceRe.exec(response)) !== null) {
+            while ((m = priceRe.exec(businessResponse)) !== null) {
                 events.push({
                     type: 'price',
                     businessName: (m[1] || '').trim(),
@@ -6512,7 +6580,7 @@
 
             // [PRODOTTO_NEGOZIO: attività|prodotto_esistente|nuovo_nome|nuovo_prezzo_opzionale]
             const productRe = /\[PRODOTTO_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
-            while ((m = productRe.exec(response)) !== null) {
+            while ((m = productRe.exec(businessResponse)) !== null) {
                 events.push({
                     type: 'renameProduct',
                     businessName: (m[1] || '').trim(),
@@ -6524,7 +6592,7 @@
 
             // [CLIENTE_NEGOZIO: attività|nome_cliente|segmento|lealtà|soddisfazione_opzionale|note_opzionale]
             const customerRe = /\[CLIENTE_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
-            while ((m = customerRe.exec(response)) !== null) {
+            while ((m = customerRe.exec(businessResponse)) !== null) {
                 events.push({
                     type: 'customer',
                     businessName: (m[1] || '').trim(),
@@ -6538,7 +6606,7 @@
 
             // [FORNITORE_NEGOZIO: attività|nome|categoria|affidabilità|lead_turns|sconto_opzionale|stato_opzionale|note_opzionale]
             const supplierRe = /\[FORNITORE_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
-            while ((m = supplierRe.exec(response)) !== null) {
+            while ((m = supplierRe.exec(businessResponse)) !== null) {
                 events.push({
                     type: 'supplier',
                     businessName: (m[1] || '').trim(),
@@ -6554,7 +6622,7 @@
 
             // [STATO_NEGOZIO: attività|active|paused|closed]
             const statusRe = /\[STATO_NEGOZIO:\s*([^|\]]+)\|([^\]]+)\]/gi;
-            while ((m = statusRe.exec(response)) !== null) {
+            while ((m = statusRe.exec(businessResponse)) !== null) {
                 events.push({
                     type: 'status',
                     businessName: (m[1] || '').trim(),
@@ -6564,7 +6632,7 @@
 
             // [REPUTAZIONE_NEGOZIO: attività|+5_o_-10|motivo_opzionale]
             const repRe = /\[REPUTAZIONE_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
-            while ((m = repRe.exec(response)) !== null) {
+            while ((m = repRe.exec(businessResponse)) !== null) {
                 events.push({
                     type: 'reputation',
                     businessName: (m[1] || '').trim(),
@@ -6575,7 +6643,7 @@
 
             // [CASSA_NEGOZIO: attività|entra_o_esce|importo|motivo_opzionale]
             const cashRe = /\[CASSA_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
-            while ((m = cashRe.exec(response)) !== null) {
+            while ((m = cashRe.exec(businessResponse)) !== null) {
                 events.push({
                     type: 'cash',
                     businessName: (m[1] || '').trim(),
@@ -6587,7 +6655,7 @@
 
             // [EVENTO_NEGOZIO: attività|descrizione]
             const noteRe = /\[EVENTO_NEGOZIO:\s*([^|\]]+)\|([^\]]+)\]/gi;
-            while ((m = noteRe.exec(response)) !== null) {
+            while ((m = noteRe.exec(businessResponse)) !== null) {
                 events.push({
                     type: 'note',
                     businessName: (m[1] || '').trim(),
@@ -6605,6 +6673,7 @@
             G.worldMemory.management = outcome.management;
             let changed = false;
             outcome.results.forEach(result => {
+                if (result.skipped) return;
                 if (result.ok) {
                     addStoryEntry('🏪 ' + result.message, 'mechanic');
                     changed = true;
@@ -7194,12 +7263,25 @@
             if (!name) return;
             const existing = G.worldMemory.properties.find(p => p.name.toLowerCase() === name.toLowerCase());
             if (existing) {
-                if (description) existing.description = description;
-                if (notes) existing.notes = notes;
-                if (meta.condition !== undefined) existing.condition = meta.condition;
-                if (meta.type) existing.type = meta.type;
-                if (meta.income) existing.income = meta.income;
-                if (meta.baseValue) existing.baseValue = meta.baseValue;
+                if (meta.preserveExisting) {
+                    // Gli starter riempiono solo dati mancanti: un load non deve azzerare
+                    // cassa, reddito, valore o descrizioni evolute durante la campagna.
+                    if (!existing.description && description) existing.description = description;
+                    if (!existing.notes && notes) existing.notes = notes;
+                    if (meta.type && (!existing.type || (existing.type === 'building' && meta.type === 'business'))) existing.type = meta.type;
+                    if (existing.condition == null && meta.condition !== undefined) existing.condition = meta.condition;
+                    if (existing.income == null && meta.income !== undefined) existing.income = meta.income;
+                    if (existing.baseValue == null && meta.baseValue !== undefined) existing.baseValue = meta.baseValue;
+                    if (existing.businessCash == null && meta.businessCash !== undefined) existing.businessCash = meta.businessCash;
+                } else {
+                    if (description) existing.description = description;
+                    if (notes) existing.notes = notes;
+                    if (meta.condition !== undefined) existing.condition = meta.condition;
+                    if (meta.type) existing.type = meta.type;
+                    if (meta.income !== undefined) existing.income = meta.income;
+                    if (meta.baseValue !== undefined) existing.baseValue = meta.baseValue;
+                    if (meta.businessCash !== undefined) existing.businessCash = meta.businessCash;
+                }
                 if (!Array.isArray(existing.inventory)) existing.inventory = [];
                 existing.inventory.forEach(ensurePropertyItemCategory);
                 existing.lastUpdated = G.worldMemory.turnCount;
@@ -7215,15 +7297,16 @@
                 const propertyType = meta.type || 'building';
                 
                 G.worldMemory.properties.push({
-                    id: Date.now(),
+                    id: meta.id || Date.now(),
                     name,
                     description,
                     notes,
                     type: propertyType,
                     condition: meta.condition ?? 80, // Inizia in buone condizioni
-                    baseValue: meta.baseValue || defaultValues[propertyType] || 1000,
-                    income: meta.income || (propertyType === 'business' ? 50 : 0),
-                    maintenanceCost: meta.maintenanceCost || 0,
+                    baseValue: meta.baseValue ?? defaultValues[propertyType] ?? 1000,
+                    income: meta.income ?? 0,
+                    maintenanceCost: meta.maintenanceCost ?? 0,
+                    businessCash: meta.businessCash ?? 0,
                     totalInvested: 0,
                     lastMaintenance: G.worldMemory.turnCount,
                     lastUpdated: G.worldMemory.turnCount,
@@ -8019,7 +8102,10 @@
             applyStarterProperties(G.currentStory);
             const management = syncBusinessManagement();
             if (management.businesses.length && !management.accessAnnounced) {
-                addStoryEntry('🏪 Gestione negozio disponibile: usa il pulsante “Gestisci negozio” nella barra sotto la storia oppure apri Inventario → Proprietà & Beni.', 'system');
+                const pending = management.businesses.some(business => !business.narrativeInitialized);
+                addStoryEntry(pending
+                    ? '📖 La tua attività è stata riconosciuta. Assetto, catalogo e fornitori verranno generati dalla prima scena della storia; poi potrai consultarli in Gestisci attività.'
+                    : '🏪 Gestione attività disponibile: usa il pulsante nella barra sotto la storia oppure apri Inventario → Proprietà & Beni.', 'system');
                 management.accessAnnounced = true;
                 updateInfoPanels();
             }
@@ -8474,6 +8560,14 @@
             const genreCfg = getGenreConfig(story);
             const period = getTimePeriod();
             G.worldMemory = migrateSavedWorldMemory(G.worldMemory);
+            // Invariante: il prompt vede sempre tutte le proprietà commerciali già sincronizzate.
+            const managementForPrompt = syncBusinessManagement();
+            const pendingBusinesses = managementForPrompt.businesses.filter(business => !business.narrativeInitialized);
+            const pendingBusinessDirective = pendingBusinesses.length ? `
+
+⚠️ BOOTSTRAP ATTIVITÀ OBBLIGATORIO IN QUESTA RISPOSTA
+Attività da alimentare dalla storia: ${pendingBusinesses.map(business => business.name).join(', ')}.
+Per CIASCUNA attività usa esattamente: 1 [ATTIVITA_NEGOZIO], almeno 2 [CATALOGO_NEGOZIO], almeno 1 [FORNITORE_NEGOZIO] e 1 [EVENTO_NEGOZIO]. Introduci clienti/dipendenti solo se realmente presenti nella scena. Non usare nomi generici e non rimandare al turno successivo.` : '';
             const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory);
             const recentHistory = layeredMemory.shortTerm;
             const masterTurn = narrativeMaster.decide(action, {
@@ -8657,27 +8751,35 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 
 🏪 **GESTIONE ATTIVITÀ COMMERCIALI (ALLINEATA ALLA STORIA)**
 - Il sistema gestisce in autonomia le ATTIVITÀ del giocatore (negozi, botteghe, locande, officine, empori): cassa, scorte, clienti, reputazione, dipendenti, utili e perdite sono numeri REALI tracciati nel motore gestionale.
+- UNA NUOVA ATTIVITÀ NASCE DALLA STORIA: il motore non crea prodotti, fornitori o clienti generici. Se nel blocco «ATTIVITÀ GESTITE» compare «CONFIGURAZIONE NARRATIVA INIZIALE OBBLIGATORIA», nella STESSA risposta devi introdurre l'attività nella scena e generare almeno:
+  1. un tag [ATTIVITA_NEGOZIO: nome|tipo|cassa_iniziale|reputazione|soddisfazione|stato|descrizione] con valori coerenti al prologo;
+  2. almeno due tag [CATALOGO_NEGOZIO: nome_attività|prodotto_o_servizio|categoria|prezzo|costo|scorte|domanda|scorta_minima];
+  3. almeno un [FORNITORE_NEGOZIO] nominativo e credibile.
+  Clienti e dipendenti vanno registrati solo se entrano realmente nella scena. Se ometti uno dei tre requisiti, l'attività resta pending e la richiesta verrà ripetuta al turno successivo.
 - Nel blocco 🧠 MEMORIA MONDO → «ATTIVITÀ GESTITE» trovi i numeri aggiornati di OGNI attività posseduta. La tua narrazione DEVE essere coerente con quei valori:
   - Non narrare vendite se le scorte sono a zero; non narrare prosperità se la cassa è in perdita.
   - Quando la scena riguarda l'attività del giocatore, integra i numeri reali (cassa, scorte basse, clienti, reputazione) nella narrazione in modo fluido e naturale.
 - USA i tag seguenti per far riflettere la storia sul motore gestionale (un evento per azione significativa):
+  - [ATTIVITA_NEGOZIO: nome_attività|tipo|cassa_iniziale|reputazione_0_100|soddisfazione_0_100|active/paused/closed|descrizione] → definisce o aggiorna l'assetto reale dell'attività; cassa_iniziale è il saldo aziendale assoluto, non denaro personale.
+  - [CATALOGO_NEGOZIO: nome_attività|nome_prodotto_o_servizio|categoria|prezzo|costo|scorte|domanda|scorta_minima] → crea o aggiorna una voce concreta del catalogo generata dalla storia.
   - [VENDITA_NEGOZIO: nome_attività|prodotto|quantità|prezzo] → registra una vendita avvenuta nella scena (scorte -qty, cassa +importo).
   - [RIFORNIMENTO_NEGOZIO: nome_attività|prodotto|quantità|costo_opzionale] → arriva merce (scorte +qty; se indichi il costo, viene scalato dalla cassa).
   - [PREZZO_NEGOZIO: nome_attività|prodotto|nuovo_prezzo] → cambia il prezzo di un prodotto esistente.
-  - [PRODOTTO_NEGOZIO: nome_attività|prodotto_esistente|nuovo_nome|nuovo_prezzo_opzionale] → ridefinisci un prodotto generico per allinearlo alla storia (es. «Articolo principale» → «Birra della casa»).
+  - [PRODOTTO_NEGOZIO: nome_attività|prodotto_esistente|nuovo_nome|nuovo_prezzo_opzionale] → rinomina un prodotto già esistente (compatibilità con campagne legacy); per creare nuove voci usa sempre [CATALOGO_NEGOZIO].
   - [CLIENTE_NEGOZIO: nome_attività|nome_cliente|segmento|lealtà_0_100|soddisfazione_opzionale|note_opzionale] → registra o aggiorna un cliente emerso dalla narrazione (segmento: abituale/occasionale/nobile/mercante/viandante/...). Riemettere il tag con lo stesso nome aggiorna fedeltà/soddisfazione/note.
   - [FORNITORE_NEGOZIO: nome_attività|nome_fornitore|categoria|affidabilità_0_100|lead_turns|sconto_opzionale|stato_opzionale|note_opzionale] → registra o aggiorna un fornitore emerso dalla narrazione (categoria: materie prime/vini/carni/ferro/stoffa/spezie/...; lead_turns = turni di consegna; stato: active/inactive). Riemettere lo stesso nome aggiorna i dati.
 - FORNITORI E CLIENTI DEVONO ESSERE GENERATI DALLA NARRAZIONE, non lasciati generici:
   - Quando il giocatore entra in rapporto commerciale con qualcuno (un mercante, un contadino, un'azienda, un oste), usa [FORNITORE_NEGOZIO] con un NOME coerente e una categoria credibile per il tipo di attività (taverna → cantine/panettieri; officina → ferriere/stoffai; emporio → speziali/mercanti; fattoria → mulini/allevamenti).
   - Quando un cliente ricorrente o notevole compare nella scena, usa [CLIENTE_NEGOZIO] con un nome proprio e un segmento coerente.
-  - I fornitori/clienti con un nome narrato sostituiscono i placeholder generici: usa sempre nomi concreti, mai «Fornitore locale» o «Cliente generico».
+  - Usa sempre nomi concreti, mai «Fornitore locale», «Cliente generico», «Articolo principale» o equivalenti.
   - [STATO_NEGOZIO: nome_attività|active|paused|closed] → cambia lo stato operativo dell'attività.
   - [REPUTAZIONE_NEGOZIO: nome_attività|+5_o_-10|motivo_opzionale] → varia la reputazione (0-100) in base a eventi narrati.
   - [CASSA_NEGOZIO: nome_attività|entra_o_esce|importo|motivo_opzionale] → movimento straordinario di cassa (investimenti, spese impreviste, tasse, regali).
   - [EVENTO_NEGOZIO: nome_attività|descrizione breve] → registra un accadimento narrato (ispezioni, incidenti, lodi, lamentele, decisioni gestionali).
 - REGOLE DI COERENZA:
   - Una vendita narrata DEVE avere il tag [VENDITA_NEGOZIO]; un rifornimento narrato DEVE avere [RIFORNIMENTO_NEGOZIO]. Non narrare transazioni senza registrarle.
-  - Se l'LLM descrive una merce che non esiste ancora nei prodotti, usa [PRODOTTO_NEGOZIO] per crearla/ridefinirla con un nome concretro coerente all'attività (es. taverna → birra/pane, officina → spade/ferramenta, emporio → stoffa/spezie).
+  - CONTABILITÀ: [MECCANICA: soldi=...] modifica esclusivamente il denaro personale; [CASSA_NEGOZIO] modifica esclusivamente la cassa aziendale. Non usare entrambi per la stessa operazione, salvo un trasferimento esplicito tra proprietario e attività.
+  - Se l'LLM descrive una merce che non esiste ancora nei prodotti, usa [PRODOTTO_NEGOZIO] per crearla/ridefinirla con un nome concreto coerente all'attività (es. taverna → birra/pane, officina → spade/ferramenta, emporio → stoffa/spezie).
   - Allinea SEMPRE il nome dell'attività al nome della proprietà posseduta; se il giocatore possiede «Taverna del Sole», usa quel nome nei tag.
   - Se il giocatore non possiede ancora nessuna attività commerciale, NON usare questi tag.
   - La «cronaca recente» nella sezione ATTIVITÀ GESTITE include sia gli eventi narrati sia le **modifiche manuali del giocatore** (marcate con ✋): prezzo cambiato, scorte modificate, prodotto/fornitore/cliente disattivato o rimosso, dipendente formato o licenziato. La narrazione DEVE tenerne conto come accadimenti reali: un fornitore disattivato non è più disponibile, un prodotto rimosso è stato ritirato dal listino, un dipendente licenziato ha lasciato l'attività, un prezzo cambiato vale da subito. Non contraddire queste modifiche e, se opportuno, richiamale nella scena (es. il mercante nota che la birra costa di più, l'oste si rammarica per la partenza del garzone).
@@ -8814,7 +8916,8 @@ SCRIVI ${lengths[s.length]} di narrazione.`;
 ${story.prologue || 'Il protagonista inizia la sua avventura.'}
 Descrivi la scena e l'equipaggiamento iniziale (usa [LOOT] per dare gli oggetti iniziali).
 Metti in chiaro quanti ${c.currency?.short || 'soldi'} sono subito disponibili (${formatCurrency(c.gold)} secondo il sistema) e dove sono custoditi.
-Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa, libro mastro con 2000 fiorini) applica immediatamente [MECCANICA: soldi=±X] per riallineare il saldo e cita il registro o il contante come oggetto fisico con [LOOT: ...] quando opportuno.`;
+Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa, libro mastro con 2000 fiorini) applica immediatamente [MECCANICA: soldi=±X] per riallineare il saldo e cita il registro o il contante come oggetto fisico con [LOOT: ...] quando opportuno.
+Ricorda: il denaro personale usa [MECCANICA: soldi], la cassa dell'attività usa [ATTIVITA_NEGOZIO] all'inizializzazione e [CASSA_NEGOZIO] dopo; non duplicare lo stesso importo.${pendingBusinessDirective}`;
             } else {
                 // Costruisci contesto stato fisico per l'IA
                 let physicalState = '';
@@ -8844,7 +8947,7 @@ ISTRUZIONI TURNO:
 4. MONDO VIVO: Cosa fanno gli NPC? Mostra il mondo che si muove intorno al giocatore.
 5. Descrivi le conseguenze PROPORZIONATE al risultato del tiro (successo critico = bonus, fallimento critico = disastro).
 6. Usa i tag appropriati [MECCANICA/LOOT/NPC/TEMPO] e consuma energia per sforzi fisici.
-${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}`;
+${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}${pendingBusinessDirective}`;
             }
 
             const requestMessages = [
@@ -9484,7 +9587,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[(?:CRESCITA|LEGAME|FAMIGLIA_STATO|PROPRIETA_STATO):[^\]]*\]/gi, '')
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
-                .replace(/\[(?:VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
+                .replace(/\[(?:ATTIVITA|CATALOGO|VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
                 .replace(/\[FAMIGLIA:[^\]]*\]/gi, '')
                 .replace(/\[DIPENDENTE:[^\]]*\]/gi, '')

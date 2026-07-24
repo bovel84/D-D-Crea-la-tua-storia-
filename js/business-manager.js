@@ -5,11 +5,12 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const SCHEMA_VERSION = 1;
+    const SCHEMA_VERSION = 2;
     const MAX_TRANSACTIONS = 120;
     const MAX_HISTORY = 24;
     const MAX_NOTES = 24;
     const BUSINESS_WORDS = /impresa|azienda|negozio|bottega|officina|taverna|locanda|osteria|ristorante|farmacia|studio|laboratorio|emporio|mercato|banca|agenzia|fabbrica|attivit/i;
+    const GENERIC_ENTITY_WORDS = /^(?:(?:articolo|prodotto|servizio|merce|fornitore|cliente)(?:\s+(?:generico|generica|standard|principale|complementare|locale|base))?|clientela abituale)$/i;
 
     function clone(value) {
         return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -111,38 +112,34 @@
     }
 
     function createBusinessFromProperty(property, turn = 0) {
-        const type = inferBusinessType(property);
-        const supplier = defaultSupplier(`Fornitore di ${property.name || 'attività'}`);
-        const products = starterNames(type).map((name, index) => {
-            const product = defaultProduct(name);
-            product.id = `product-${keyOf(property.name)}-${index + 1}`;
-            product.salePrice = index ? 12 : 22;
-            product.unitCost = index ? 5 : 10;
-            product.stock = index ? 15 : 20;
-            product.targetStock = index ? 25 : 30;
-            product.baseDemand = index ? 9 : 12;
-            product.supplierId = supplier.id;
-            return product;
-        });
         return {
             id: `business-${property.id || keyOf(property.name) || Date.now()}`,
             propertyId: property.id || null,
             propertyName: clean(property.name || 'Attività'),
             name: clean(property.name || 'Attività'),
-            type,
+            description: clean(property.description || '', 240),
+            type: inferBusinessType(property),
             status: 'active',
-            cash: Math.max(0, roundMoney(number(property.businessCash, 500))),
+            // Le nuove attività partono vuote: assetto, cassa, catalogo e relazioni
+            // devono essere definiti dalla prima scena LLM, non da placeholder locali.
+            cash: Math.max(0, roundMoney(number(property.businessCash, 0))),
             reputation: 50,
             customerSatisfaction: 65,
             capacity: 100,
             period: 0,
             lastPeriodTurn: Math.max(0, parseInt(turn, 10) || 0),
-            products,
-            suppliers: [supplier],
+            narrativeInitialized: false,
+            profileNarrative: false,
+            narrativeEventRecorded: false,
+            initializedAtTurn: null,
+            products: [],
+            suppliers: [],
             customers: [],
             pendingOrders: [],
             transactions: [],
             history: [],
+            notes: [],
+            processedNarrativeEvents: [],
             settings: {
                 marketingBudget: 0,
                 qualityFocus: 50,
@@ -228,11 +225,15 @@
         const products = Array.isArray(source.products) ? source.products.map(normalizeProduct) : [];
         const suppliers = Array.isArray(source.suppliers) ? source.suppliers.map(normalizeSupplier) : [];
         const customers = Array.isArray(source.customers) ? source.customers.map(normalizeCustomer) : [];
+        // I salvataggi v1 con catalogo/fornitori reali sono già inizializzati.
+        // Solo i nuovi record v2 dichiarano esplicitamente lo stato pending.
+        const legacyInitialized = products.length > 0 || suppliers.length > 0 || customers.length > 0;
         return {
             id: clean(source.id || `business-${index + 1}`),
             propertyId: source.propertyId ?? null,
             propertyName: clean(source.propertyName || source.name || `Attività ${index + 1}`),
             name: clean(source.name || source.propertyName || `Attività ${index + 1}`),
+            description: clean(source.description || '', 240),
             type: clean(source.type || 'commercio', 60),
             status: ['active', 'paused', 'closed'].includes(source.status) ? source.status : 'active',
             cash: roundMoney(source.cash),
@@ -241,6 +242,10 @@
             capacity: Math.max(1, parseInt(source.capacity, 10) || 100),
             period: Math.max(0, parseInt(source.period, 10) || 0),
             lastPeriodTurn: Math.max(0, parseInt(source.lastPeriodTurn, 10) || 0),
+            narrativeInitialized: source.narrativeInitialized == null ? legacyInitialized : source.narrativeInitialized === true,
+            profileNarrative: source.profileNarrative == null ? legacyInitialized : source.profileNarrative === true,
+            narrativeEventRecorded: source.narrativeEventRecorded == null ? legacyInitialized : source.narrativeEventRecorded === true,
+            initializedAtTurn: source.initializedAtTurn == null ? null : Math.max(0, parseInt(source.initializedAtTurn, 10) || 0),
             products,
             suppliers,
             customers,
@@ -248,6 +253,7 @@
             transactions: Array.isArray(source.transactions) ? source.transactions.slice(-MAX_TRANSACTIONS) : [],
             history: Array.isArray(source.history) ? source.history.slice(-MAX_HISTORY) : [],
             notes: Array.isArray(source.notes) ? source.notes.slice(-MAX_NOTES) : [],
+            processedNarrativeEvents: Array.isArray(source.processedNarrativeEvents) ? source.processedNarrativeEvents.slice(-120) : [],
             settings: {
                 marketingBudget: Math.max(0, roundMoney(source.settings?.marketingBudget)),
                 qualityFocus: clamp(source.settings?.qualityFocus ?? 50, 0, 100),
@@ -508,6 +514,7 @@
 
     function runPeriod(business, context = {}, random = Math.random) {
         if (!business || business.status !== 'active') throw new Error('L’attività non è operativa.');
+        if (business.narrativeInitialized === false) throw new Error('L’attività deve essere inizializzata dalla storia prima di chiudere un periodo.');
         const employees = employeeMetrics(business, context.employees);
         const property = (context.properties || []).find(item =>
             (business.propertyId != null && item.id === business.propertyId) ||
@@ -556,23 +563,14 @@
         business.reputation = clamp(business.reputation + (netProfit > 0 ? 1 : -1) + (stockouts ? -1 : 0), 0, 100);
 
         const customersServed = Math.max(0, Math.round(unitsSold / 1.4));
-        if (!business.customers.length && customersServed > 0) {
-            addCustomer(business, {
-                name: 'Clientela abituale',
-                segment: 'abituale',
-                loyalty: 35,
-                satisfaction: business.customerSatisfaction,
-                visits: customersServed,
-                lifetimeValue: revenue
-            });
-        } else {
-            business.customers.forEach(customer => {
-                customer.visits += Math.max(0, Math.round(customersServed / Math.max(1, business.customers.length)));
-                customer.satisfaction = clamp((customer.satisfaction * 0.7) + (business.customerSatisfaction * 0.3), 0, 100);
-                customer.loyalty = clamp(customer.loyalty + (satisfactionDelta > 0 ? 1 : -2), 0, 100);
-                customer.lifetimeValue = roundMoney(customer.lifetimeValue + revenue / Math.max(1, business.customers.length));
-            });
-        }
+        // Il motore non inventa clienti anonimi: aggiorna soltanto persone/gruppi
+        // introdotti dalla narrazione tramite CLIENTE_NEGOZIO.
+        business.customers.forEach(customer => {
+            customer.visits += Math.max(0, Math.round(customersServed / Math.max(1, business.customers.length)));
+            customer.satisfaction = clamp((customer.satisfaction * 0.7) + (business.customerSatisfaction * 0.3), 0, 100);
+            customer.loyalty = clamp(customer.loyalty + (satisfactionDelta > 0 ? 1 : -2), 0, 100);
+            customer.lifetimeValue = roundMoney(customer.lifetimeValue + revenue / Math.max(1, business.customers.length));
+        });
 
         const report = {
             period: business.period,
@@ -667,17 +665,11 @@
 
     function resolveBusinessByName(state, name) {
         const businesses = state?.businesses || [];
-        if (!businesses.length) return null;
         const key = keyOf(name);
-        if (key) {
-            const byName = businesses.find(item => keyOf(item.name) === key || keyOf(item.propertyName) === key);
-            if (byName) return byName;
-        }
-        if (state.activeBusinessId) {
-            const active = getBusiness(state, state.activeBusinessId);
-            if (active) return active;
-        }
-        return businesses[0];
+        if (!businesses.length || !key) return null;
+        // I tag LLM devono indicare l'attività esatta: nessun fallback sull'attiva/prima,
+        // altrimenti un refuso può modificare l'impresa sbagliata in campagne multi-attività.
+        return businesses.find(item => keyOf(item.name) === key || keyOf(item.propertyName) === key) || null;
     }
 
     function findProductByName(business, name) {
@@ -710,6 +702,12 @@
             const pending = (report.pendingOrders || []).length;
             lines.push(`- ${business.name} [${business.type}, ${business.status}]`);
             lines.push(`  cassa: ${business.cash} ${currency} | reputazione: ${business.reputation}/100 | soddisfazione clienti: ${business.customerSatisfaction}/100`);
+            if (business.description) lines.push(`  identità narrativa: ${business.description}`);
+            if (!business.narrativeInitialized) {
+                lines.push('  ⚠️ CONFIGURAZIONE NARRATIVA INIZIALE OBBLIGATORIA: questa attività è appena entrata nella storia e non ha dati generici locali.');
+                lines.push(`  NELLA PROSSIMA RISPOSTA emetti: 1 [ATTIVITA_NEGOZIO] per assetto/cassa, almeno 2 [CATALOGO_NEGOZIO] con prodotti o servizi concreti e almeno 1 [FORNITORE_NEGOZIO] nominativo coerente con ${business.name}.`);
+                lines.push('  Introduci clienti e dipendenti solo se compaiono davvero nella scena; non inventare placeholder anonimi.');
+            }
             if (report.netProfit != null) {
                 lines.push(`  ultimo periodo: entrate ${report.revenue || 0}, utile netto ${report.netProfit || 0} (${report.margin || 0}% margine), clienti serviti ${report.customersServed || 0}`);
             }
@@ -732,6 +730,19 @@
         return '\n🏪 ATTIVITÀ GESTITE (numeri reali, allinea la narrazione a questi valori):\n' + lines.join('\n');
     }
 
+    function refreshNarrativeInitialization(business, turn = 0) {
+        if (!business) return false;
+        const narrativeProducts = business.products.filter(product => product.active && product.source === 'narration');
+        const hasSupplier = business.suppliers.some(supplier => supplier.status === 'active' && supplier.source === 'narration');
+        const ready = business.profileNarrative === true && narrativeProducts.length >= 2 && hasSupplier && business.narrativeEventRecorded === true;
+        if (ready && !business.narrativeInitialized) {
+            business.narrativeInitialized = true;
+            business.initializedAtTurn = Math.max(0, parseInt(turn, 10) || 0);
+            addBusinessNote(business, 'Configurazione narrativa iniziale completata: attività, catalogo e filiera nascono dalla storia.', turn);
+        }
+        return business.narrativeInitialized === true;
+    }
+
     function applyNarrativeEvents(state, events, context = {}) {
         const management = migrateManagement(state);
         const turn = parseInt(context.turn, 10) || 0;
@@ -745,7 +756,65 @@
                 results.push({ ok: false, type: event.type, message: `Attività non trovata: ${event.businessName || '(nessuna)'}` });
                 return;
             }
+            business.processedNarrativeEvents = Array.isArray(business.processedNarrativeEvents) ? business.processedNarrativeEvents : [];
+            const stateEvent = ['profile', 'catalogProduct', 'renameProduct', 'customer', 'supplier', 'status', 'price'].includes(event.type);
+            const fingerprint = `${stateEvent ? 'state' : turn}:${JSON.stringify(event)}`;
+            if (business.processedNarrativeEvents.includes(fingerprint)) {
+                results.push({ ok: true, skipped: true, type: event.type, business: business.name, message: `${business.name}: evento già applicato` });
+                return;
+            }
+            const resultStart = results.length;
             switch (event.type) {
+                case 'profile': {
+                    const status = String(event.status || '').toLowerCase();
+                    const complete = clean(event.businessType, 60) && event.cash !== '' && Number.isFinite(Number(event.cash)) &&
+                        event.reputation !== '' && Number.isFinite(Number(event.reputation)) &&
+                        event.satisfaction !== '' && Number.isFinite(Number(event.satisfaction)) &&
+                        ['active', 'paused', 'closed'].includes(status) && clean(event.description, 240);
+                    if (!complete) {
+                        results.push({ ok: false, type: 'profile', business: business.name, message: 'ATTIVITA_NEGOZIO incompleto o non valido' });
+                        break;
+                    }
+                    business.type = clean(event.businessType, 60);
+                    business.cash = Math.max(0, roundMoney(event.cash));
+                    business.reputation = clamp(event.reputation, 0, 100);
+                    business.customerSatisfaction = clamp(event.satisfaction, 0, 100);
+                    business.status = status;
+                    business.description = clean(event.description, 240);
+                    business.profileNarrative = true;
+                    addBusinessNote(business, `Assetto iniziale definito dalla storia: ${business.description || business.type}; cassa ${business.cash} ${currency}.`, turn);
+                    results.push({ ok: true, type: 'profile', business: business.name, message: `${business.name}: assetto narrativo inizializzato` });
+                    break;
+                }
+                case 'catalogProduct': {
+                    const name = clean(event.productName, 80);
+                    const category = clean(event.category, 80);
+                    const validNumbers = [event.salePrice, event.unitCost, event.stock, event.demand, event.reorderPoint]
+                        .every(value => value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0);
+                    if (!name || GENERIC_ENTITY_WORDS.test(name) || !category || !validNumbers || Number(event.salePrice) <= 0 || Number(event.demand) <= 0) {
+                        results.push({ ok: false, type: 'catalogProduct', business: business.name, message: 'CATALOGO_NEGOZIO incompleto, generico o con valori non validi' });
+                        break;
+                    }
+                    const reorderPoint = Math.max(0, parseInt(event.reorderPoint, 10) || 0);
+                    const stock = Math.max(0, parseInt(event.stock, 10) || 0);
+                    const product = addProduct(business, {
+                        name,
+                        category,
+                        salePrice: Math.max(0, roundMoney(event.salePrice)),
+                        unitCost: Math.max(0, roundMoney(event.unitCost)),
+                        stock,
+                        baseDemand: Math.max(0, parseInt(event.demand, 10) || 0),
+                        reorderPoint,
+                        targetStock: Math.max(stock, reorderPoint * 2),
+                        source: 'narration',
+                        active: true
+                    });
+                    const soleSupplier = business.suppliers.filter(supplier => supplier.status === 'active' && supplier.source === 'narration');
+                    if (!product.supplierId && soleSupplier.length === 1) product.supplierId = soleSupplier[0].id;
+                    addBusinessNote(business, `Catalogo dalla narrazione: ${product.name} (${product.category}), prezzo ${product.salePrice}, scorte ${product.stock}.`, turn);
+                    results.push({ ok: true, type: 'catalogProduct', business: business.name, message: `${business.name}: catalogo ${product.name}` });
+                    break;
+                }
                 case 'sale': {
                     const product = findProductByName(business, event.product);
                     if (!product) {
@@ -813,10 +882,22 @@
                     break;
                 }
                 case 'customer': {
-                    const customerInput = { name: clean(event.customerName, 60) || 'Cliente' };
-                    if (event.segment != null && event.segment !== '') customerInput.segment = clean(event.segment, 40);
-                    if (event.loyalty != null && event.loyalty !== '') customerInput.loyalty = clamp(event.loyalty, 0, 100);
-                    if (event.satisfaction != null && event.satisfaction !== '') customerInput.satisfaction = clamp(event.satisfaction, 0, 100);
+                    const customerName = clean(event.customerName, 60);
+                    const existingCustomer = business.customers.find(item => keyOf(item.name) === keyOf(customerName));
+                    const segment = clean(event.segment, 40);
+                    const loyaltyProvided = event.loyalty != null && event.loyalty !== '';
+                    const satisfactionProvided = event.satisfaction != null && event.satisfaction !== '';
+                    const loyaltyValid = !loyaltyProvided || (Number.isFinite(Number(event.loyalty)) && Number(event.loyalty) >= 0 && Number(event.loyalty) <= 100);
+                    const satisfactionValid = !satisfactionProvided || (Number.isFinite(Number(event.satisfaction)) && Number(event.satisfaction) >= 0 && Number(event.satisfaction) <= 100);
+                    const fullCreate = segment && loyaltyProvided && satisfactionProvided;
+                    if (!customerName || GENERIC_ENTITY_WORDS.test(customerName) || !loyaltyValid || !satisfactionValid || (!existingCustomer && !fullCreate)) {
+                        results.push({ ok: false, type: 'customer', business: business.name, message: 'CLIENTE_NEGOZIO incompleto, generico o con valori non validi' });
+                        break;
+                    }
+                    const customerInput = { name: customerName, source: 'narration' };
+                    if (segment) customerInput.segment = segment;
+                    if (loyaltyProvided) customerInput.loyalty = clamp(event.loyalty, 0, 100);
+                    if (satisfactionProvided) customerInput.satisfaction = clamp(event.satisfaction, 0, 100);
                     if (event.visits != null && event.visits !== '') customerInput.visits = Math.max(0, parseInt(event.visits, 10) || 0);
                     if (event.notes != null && event.notes !== '') customerInput.notes = clean(event.notes, 240);
                     addCustomer(business, customerInput);
@@ -825,14 +906,32 @@
                     break;
                 }
                 case 'supplier': {
-                    const supplierInput = { name: clean(event.supplierName, 60) || 'Fornitore' };
-                    if (event.category != null && event.category !== '') supplierInput.category = clean(event.category, 40);
-                    if (event.reliability != null && event.reliability !== '') supplierInput.reliability = clamp(event.reliability, 0, 100);
-                    if (event.leadTurns != null && event.leadTurns !== '') supplierInput.leadTurns = Math.max(0, parseInt(event.leadTurns, 10) || 0);
+                    const supplierName = clean(event.supplierName, 60);
+                    const supplierCategory = clean(event.category, 40);
+                    const existingSupplier = business.suppliers.find(item => keyOf(item.name) === keyOf(supplierName));
+                    const reliabilityProvided = event.reliability != null && event.reliability !== '';
+                    const leadProvided = event.leadTurns != null && event.leadTurns !== '';
+                    const discountProvided = event.discount != null && event.discount !== '';
+                    const statusProvided = event.status != null && event.status !== '';
+                    const reliabilityValid = !reliabilityProvided || (Number.isFinite(Number(event.reliability)) && Number(event.reliability) >= 0 && Number(event.reliability) <= 100);
+                    const leadValid = !leadProvided || (Number.isFinite(Number(event.leadTurns)) && Number(event.leadTurns) >= 0);
+                    const discountValid = !discountProvided || (Number.isFinite(Number(event.discount)) && Number(event.discount) >= 0 && Number(event.discount) <= 60);
+                    const statusValid = !statusProvided || ['active', 'inactive'].includes(String(event.status).toLowerCase());
+                    const fullCreate = supplierCategory && reliabilityProvided && leadProvided;
+                    const supplierValid = supplierName && !GENERIC_ENTITY_WORDS.test(supplierName) && reliabilityValid && leadValid && discountValid && statusValid && (existingSupplier || fullCreate);
+                    if (!supplierValid) {
+                        results.push({ ok: false, type: 'supplier', business: business.name, message: 'FORNITORE_NEGOZIO incompleto, generico o con valori non validi' });
+                        break;
+                    }
+                    const supplierInput = { name: supplierName, source: 'narration' };
+                    if (supplierCategory) supplierInput.category = supplierCategory;
+                    if (reliabilityProvided) supplierInput.reliability = clamp(event.reliability, 0, 100);
+                    if (leadProvided) supplierInput.leadTurns = Math.max(0, parseInt(event.leadTurns, 10) || 0);
                     if (event.discount != null && event.discount !== '') supplierInput.discount = clamp(event.discount, 0, 60);
                     if (event.status != null && event.status !== '' && ['active', 'inactive'].includes(String(event.status).toLowerCase())) supplierInput.status = String(event.status).toLowerCase();
                     if (event.notes != null && event.notes !== '') supplierInput.notes = clean(event.notes, 240);
-                    addSupplier(business, supplierInput);
+                    const supplier = addSupplier(business, supplierInput);
+                    business.products.filter(product => product.source === 'narration' && !product.supplierId).forEach(product => { product.supplierId = supplier.id; });
                     addBusinessNote(business, `Fornitore dalla narrazione: ${supplierInput.name}${event.notes ? ` — ${event.notes}` : ''}.`, turn);
                     results.push({ ok: true, type: 'supplier', business: business.name, message: `${business.name}: fornitore ${supplierInput.name}` });
                     break;
@@ -858,8 +957,8 @@
                 case 'cash': {
                     const direction = String(event.direction || '').toLowerCase();
                     const amount = Math.max(0, roundMoney(event.amount));
-                    if (!amount) {
-                        results.push({ ok: false, type: 'cash', business: business.name, message: 'Importo non valido' });
+                    if (!['entra', 'in', 'esce', 'out'].includes(direction) || !amount) {
+                        results.push({ ok: false, type: 'cash', business: business.name, message: 'Direzione o importo CASSA_NEGOZIO non valido' });
                         break;
                     }
                     if (direction === 'esce' || direction === 'out') {
@@ -880,6 +979,7 @@
                 case 'note': {
                     if (event.text) {
                         addBusinessNote(business, event.text, turn);
+                        business.narrativeEventRecorded = true;
                         results.push({ ok: true, type: 'note', business: business.name, message: `${business.name}: evento narrato registrato` });
                     }
                     break;
@@ -887,9 +987,17 @@
                 default:
                     results.push({ ok: false, type: event.type, message: 'Tipo evento non riconosciuto' });
             }
+            const applied = results.slice(resultStart).some(result => result.ok && !result.skipped);
+            if (applied) {
+                business.processedNarrativeEvents.push(fingerprint);
+                business.processedNarrativeEvents = business.processedNarrativeEvents.slice(-120);
+            }
         });
-        // Ricalcola il report attivo dopo gli eventi narrati.
-        management.businesses.forEach(business => { business.lastReport = getReport(business, staff); });
+        // Completa il bootstrap solo quando profilo, catalogo e fornitore provengono davvero dalla storia.
+        management.businesses.forEach(business => {
+            refreshNarrativeInitialization(business, turn);
+            business.lastReport = getReport(business, staff);
+        });
         return { management, results };
     }
 
@@ -917,6 +1025,7 @@
         addBusinessNote(business, text, turn) { return addBusinessNote(business, text, turn); }
         buildNarrativeContext(state, employees, turn, currency) { return buildNarrativeContext(state, employees, turn, currency); }
         applyNarrativeEvents(state, events, context) { return applyNarrativeEvents(state, events, context); }
+        refreshNarrativeInitialization(business, turn) { return refreshNarrativeInitialization(business, turn); }
     }
 
     return {
@@ -928,6 +1037,7 @@
         addBusinessNote,
         buildNarrativeContext,
         applyNarrativeEvents,
+        refreshNarrativeInitialization,
         setProductActive,
         adjustProductStock,
         removeProduct,
