@@ -13,6 +13,7 @@ const vaultApi = require('../js/campaign-vault.js');
 const campaignApi = require('../js/campaign-profile.js');
 const lifeApi = require('../js/life-legacy.js');
 const characterApi = require('../js/character-options.js');
+const timeEnergyApi = require('../js/time-energy.js');
 const businessApi = require('../js/business-manager.js');
 
 const tests = [];
@@ -248,6 +249,26 @@ test('riconosce quando il giocatore sta leggendo eventi precedenti', () => {
     assert.equal(experienceApi.isNearBottom({
         scrollHeight: 1000, scrollTop: 300, clientHeight: 200
     }, 30), false);
+});
+
+test('interpreta il tempo narrativo e applica il metabolismo senza rigenerazione gratuita', () => {
+    assert.equal(timeEnergyApi.parseTimeExpression('2h'), 120);
+    assert.equal(timeEnergyApi.parseTimeExpression('90 min'), 90);
+    assert.equal(timeEnergyApi.parseTimeExpression('1 giorno, 5 ore'), 1740);
+    assert.equal(timeEnergyApi.parseTimeExpression('2 settimane'), 20160);
+    assert.equal(timeEnergyApi.parseTimeExpression('+45'), 45);
+    assert.equal(timeEnergyApi.parseTimeExpression('domani'), 0);
+
+    let state = { _metabolismCarry: { stamina: 0, hunger: 0 } };
+    let result = timeEnergyApi.consumeMetabolism(state, 10, false);
+    assert.equal(result.staminaLoss, 0);
+    state._metabolismCarry = result.carry;
+    result = timeEnergyApi.consumeMetabolism(state, 10, false);
+    assert.equal(result.staminaLoss, 1);
+    assert.equal(result.hungerLoss, 1);
+    result = timeEnergyApi.consumeMetabolism({ _metabolismCarry: { stamina: 0, hunger: 0 } }, 480, true);
+    assert.equal(result.staminaLoss, 0);
+    assert.equal(result.hungerLoss, 12);
 });
 
 test('classifica gli intenti del Game Director', () => {
@@ -1181,6 +1202,16 @@ test('espone accessi visibili alla gestione del negozio', () => {
         html.indexOf('if (management.businesses.length && !management.accessAnnounced)'),
         'il controllo di avvio deve precedere l’annuncio gestionale'
     );
+});
+
+test('collega tempo ed energia al motore deterministico', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /src="js\/time-energy\.js"/);
+    assert.match(html, /CronacheTimeEnergy\.normalizeMinutes/);
+    assert.match(html, /CronacheTimeEnergy\.parseTimeExpression/);
+    assert.match(html, /advanceTime\(480, \{ resting: true \}\)/);
+    assert.match(html, /case 'stamina': case 'energia': case 'energy'/);
+    assert.equal(html.includes('const regenAmount = 3'), false, 'l’energia non deve rigenerarsi durante ogni azione');
 });
 
 (async () => {
