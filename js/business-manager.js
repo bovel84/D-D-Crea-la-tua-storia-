@@ -974,27 +974,40 @@
                 }
                 case 'catalogProduct': {
                     const name = clean(event.productName, 80);
-                    const category = clean(event.category, 80);
                     const salePrice = parseNarrativeNumber(event.salePrice);
-                    const unitCost = parseNarrativeNumber(event.unitCost);
-                    const stockValue = parseNarrativeNumber(event.stock);
-                    const demand = parseNarrativeNumber(event.demand);
-                    const reorderValue = parseNarrativeNumber(event.reorderPoint);
-                    const validNumbers = [salePrice, unitCost, stockValue, demand, reorderValue]
-                        .every(value => value != null && value >= 0);
-                    if (!name || GENERIC_ENTITY_WORDS.test(name) || !category || !validNumbers || salePrice <= 0 || demand <= 0) {
+                    const parsedUnitCost = parseNarrativeNumber(event.unitCost);
+                    const parsedStock = parseNarrativeNumber(event.stock);
+                    const parsedDemand = parseNarrativeNumber(event.demand);
+                    const parsedReorder = parseNarrativeNumber(event.reorderPoint);
+                    const suppliedNumbers = [parsedUnitCost, parsedStock, parsedDemand, parsedReorder]
+                        .filter(value => value != null);
+                    if (!name || GENERIC_ENTITY_WORDS.test(name) || salePrice == null || salePrice <= 0 ||
+                        suppliedNumbers.some(value => value < 0)) {
                         results.push({ ok: false, type: 'catalogProduct', business: business.name, message: 'CATALOGO_NEGOZIO incompleto, generico o con valori non validi' });
                         break;
                     }
-                    const reorderPoint = Math.max(0, Math.round(reorderValue));
-                    const stock = Math.max(0, Math.round(stockValue));
+                    // Prezzo e nome identificano una voce reale. I modelli talvolta
+                    // omettono costo, domanda o scorta minima pur avendo già descritto
+                    // e inventariato la merce: non perdiamo l'intero catalogo per campi
+                    // gestionali secondari, ma ricaviamo valori iniziali conservativi.
+                    const category = clean(event.category, 80) || clean(business.type, 80) || 'assortimento';
+                    const unitCost = parsedUnitCost == null
+                        ? roundMoney(salePrice * 0.5)
+                        : Math.max(0, roundMoney(parsedUnitCost));
+                    const stock = parsedStock == null ? 0 : Math.max(0, Math.round(parsedStock));
+                    const demand = parsedDemand == null || parsedDemand === 0
+                        ? Math.max(1, Math.round(Math.max(stock, 4) / 4))
+                        : Math.max(1, Math.round(parsedDemand));
+                    const reorderPoint = parsedReorder == null
+                        ? Math.max(1, Math.round(Math.max(stock, demand) / 3))
+                        : Math.max(0, Math.round(parsedReorder));
                     const product = addProduct(business, {
                         name,
                         category,
                         salePrice: Math.max(0, roundMoney(salePrice)),
-                        unitCost: Math.max(0, roundMoney(unitCost)),
+                        unitCost,
                         stock,
-                        baseDemand: Math.max(0, Math.round(demand)),
+                        baseDemand: demand,
                         reorderPoint,
                         targetStock: Math.max(stock, reorderPoint * 2),
                         source: 'narration',

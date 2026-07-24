@@ -769,6 +769,30 @@ test('accetta prezzi e quantità narrativi con virgole, simboli e unità', () =>
     assert.equal(outcome.management.businesses[0].products[0].stock, 24);
 });
 
+test('recupera un catalogo concreto quando l’LLM omette valori gestionali secondari', () => {
+    const management = businessApi.syncProperties(null, [
+        { id: 73, name: 'Emporio Rossi', type: 'business' }
+    ], 0);
+    const outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'catalogProduct',
+        businessName: 'Emporio Rossi',
+        productName: 'Nokia 3310',
+        category: 'telefonia',
+        salePrice: '45 euro',
+        unitCost: '',
+        stock: '12 unità',
+        demand: '',
+        reorderPoint: ''
+    }], { turn: 1, currency: 'euro' });
+    const product = outcome.management.businesses[0].products[0];
+    assert.equal(outcome.results[0].ok, true);
+    assert.equal(product.name, 'Nokia 3310');
+    assert.equal(product.stock, 12);
+    assert.equal(product.unitCost, 22.5);
+    assert.ok(product.baseDemand > 0);
+    assert.ok(product.reorderPoint > 0);
+});
+
 test('migra e limita lo storico gestionale', () => {
     const migrated = businessApi.migrateManagement({
         customField: 42,
@@ -1241,6 +1265,10 @@ test('espone accessi visibili alla gestione del negozio', () => {
     assert.match(html, /VERBALE DI CONSEGNA/);
     assert.match(html, /beni che restano nel negozio.*LOOT_PROPRIETA/i);
     assert.match(html, /Distribuzioni Bianchi/);
+    assert.match(html, /function enrichStarterProperty/);
+    assert.match(html, /vecchio salvataggio riceve/);
+    assert.match(html, /versione precedente dello starter salvava zero come cassa/i);
+    assert.match(html, /LOOT_PROPRIETA viene letto prima dei tag gestionali/);
     assert.match(html, /outcome\.employees/);
     assert.match(html, /splitTagFields/);
     assert.match(html, /const businessEmployeeRe = .*DIPENDENTE_NEGOZIO/);
