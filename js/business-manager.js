@@ -1071,9 +1071,33 @@
                     break;
                 }
                 case 'renameProduct': {
-                    const product = findProductByName(business, event.product);
+                    let product = findProductByName(business, event.product);
                     if (!product) {
-                        results.push({ ok: false, type: 'renameProduct', business: business.name, message: `Prodotto non trovato: ${event.product}` });
+                        // Compatibilità con risposte generate dal vecchio prompt, che
+                        // indicava erroneamente PRODOTTO_NEGOZIO anche per nuove merci.
+                        const recoveredName = clean(event.newName || event.product, 80);
+                        const recoveredPrice = parseNarrativeNumber(event.price);
+                        const recoveredStock = parseNarrativeNumber(event.stock);
+                        if (!recoveredName || GENERIC_ENTITY_WORDS.test(recoveredName) ||
+                            recoveredPrice == null || recoveredPrice <= 0) {
+                            results.push({ ok: false, type: 'renameProduct', business: business.name, message: `Prodotto non trovato: ${event.product}` });
+                            break;
+                        }
+                        const stock = recoveredStock == null ? 0 : Math.max(0, Math.round(recoveredStock));
+                        product = addProduct(business, {
+                            name: recoveredName,
+                            category: clean(event.category, 80) || clean(business.type, 80) || 'assortimento',
+                            salePrice: roundMoney(recoveredPrice),
+                            unitCost: roundMoney(recoveredPrice * 0.5),
+                            stock,
+                            baseDemand: Math.max(1, Math.round(Math.max(stock, 4) / 4)),
+                            reorderPoint: Math.max(1, Math.round(Math.max(stock, 3) / 3)),
+                            targetStock: Math.max(stock, 2),
+                            source: 'narration',
+                            active: true
+                        });
+                        addBusinessNote(business, `Prodotto recuperato dalla narrazione: ${product.name}, prezzo ${product.salePrice}, scorte ${product.stock}.`, turn);
+                        results.push({ ok: true, type: 'renameProduct', business: business.name, message: `${business.name}: nuovo prodotto ${product.name}` });
                         break;
                     }
                     const newName = clean(event.newName, 80);
