@@ -5,6 +5,6 @@
   "description": "Motore GDR narrativo con memoria multilivello e collegamento serverless a Ollama Cloud.",
   "scripts": {
     "test": "node tests/run-tests.js",
-    "check": "node tests/check-html-script.js && node --check js/memory-manager.js && node --check js/narrative-master.js && node --check js/ollama-cloud.js && node --check 'api/ollama/[action].js' && node --check js/experience-v7.js && node --check js/game-director.js && node --check js/campaign-vault.js && node --check js/campaign-profile.js && node --check js/character-options.js && node --check js/business-manager.js && node --check js/life-legacy.js"
+    "check": "node tests/check-html-script.js && node --check js/memory-manager.js && node --check js/narrative-master.js && node --check js/ollama-cloud.js && node --check 'api/ollama/[action].js' && node --check js/experience-v7.js && node --check js/game-director.js && node --check js/campaign-vault.js && node --check js/campaign-profile.js && node --check js/character-options.js && node --check js/time-energy.js && node --check js/business-manager.js && node --check js/life-legacy.js"
   }
 }
