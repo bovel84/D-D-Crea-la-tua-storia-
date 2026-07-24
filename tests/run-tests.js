@@ -720,6 +720,34 @@ test('mantiene pending un bootstrap incompleto e blocca il periodo economico', (
     assert.equal(business.suppliers.length, 1);
 });
 
+test('accetta prezzi e quantità narrativi con virgole, simboli e unità', () => {
+    assert.equal(businessApi.parseNarrativeNumber('12,50 fiorini'), 12.5);
+    assert.equal(businessApi.parseNarrativeNumber('80%'), 80);
+    assert.equal(businessApi.parseNarrativeNumber('+ 5 unità'), 5);
+    assert.equal(businessApi.parseNarrativeNumber('1.250,50 fiorini'), 1250.5);
+    assert.equal(businessApi.parseNarrativeNumber('10.000 monete'), 10000);
+    assert.equal(businessApi.parseNarrativeNumber('nessun valore'), null);
+
+    const management = businessApi.syncProperties(null, [
+        { id: 72, name: 'Ortofrutta dei Rossi', type: 'business' }
+    ], 0);
+    const outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'catalogProduct',
+        businessName: 'Ortofrutta dei Rossi',
+        productName: 'Pomodori San Marzano',
+        category: 'verdura fresca',
+        salePrice: '3,50 €/kg',
+        unitCost: '1,20 euro',
+        stock: '24 kg',
+        demand: '8 al giorno',
+        reorderPoint: '6 kg'
+    }], { turn: 1, currency: 'euro' });
+    assert.equal(outcome.results[0].ok, true);
+    assert.equal(outcome.management.businesses[0].products[0].salePrice, 3.5);
+    assert.equal(outcome.management.businesses[0].products[0].unitCost, 1.2);
+    assert.equal(outcome.management.businesses[0].products[0].stock, 24);
+});
+
 test('migra e limita lo storico gestionale', () => {
     const migrated = businessApi.migrateManagement({
         customField: 42,
@@ -888,7 +916,7 @@ test('il contesto LLM richiede il bootstrap e poi espone solo dati narrativi rea
     const pending = businessApi.buildNarrativeContext(management, [], 2, 'monete');
     assert.ok(pending.includes('ATTIVITÀ GESTITE'));
     assert.ok(pending.includes('Emporio Mercanti'));
-    assert.ok(pending.includes('CONFIGURAZIONE NARRATIVA INIZIALE OBBLIGATORIA'));
+    assert.ok(pending.includes('CONFIGURAZIONE NARRATIVA IN CORSO'));
     assert.ok(pending.includes('[ATTIVITA_NEGOZIO]'));
     assert.ok(pending.includes('[CATALOGO_NEGOZIO]'));
     assert.equal(pending.includes('Articolo principale'), false);
@@ -904,7 +932,7 @@ test('il contesto LLM richiede il bootstrap e poi espone solo dati narrativi rea
     const ready = businessApi.buildNarrativeContext(initialized.management, [], 2, 'monete');
     assert.ok(ready.includes('Spezie orientali'));
     assert.ok(ready.includes('Carovana Safir'));
-    assert.equal(ready.includes('CONFIGURAZIONE NARRATIVA INIZIALE OBBLIGATORIA'), false);
+    assert.equal(ready.includes('CONFIGURAZIONE NARRATIVA IN CORSO'), false);
     assert.equal(businessApi.buildNarrativeContext(businessApi.createDefaultManagement(), [], 0, 'monete'), '');
 });
 
@@ -1061,10 +1089,17 @@ test('espone accessi visibili alla gestione del negozio', () => {
     assert.match(html, /Inventario → Proprietà & Beni/);
     assert.match(html, /ATTIVITA_NEGOZIO/);
     assert.match(html, /CATALOGO_NEGOZIO/);
-    assert.match(html, /BOOTSTRAP ATTIVITÀ OBBLIGATORIO/);
+    assert.match(html, /INTEGRAZIONE ATTIVITÀ \(NON DEVE BLOCCARE LA NARRAZIONE\)/);
     assert.match(html, /Configurazione narrativa in corso/);
     assert.match(html, /preserveExisting: true/);
     assert.match(html, /businessResponse.*ANALISI/);
+    assert.match(html, /parseAIResponse\(response, \{ isStart \}\)/);
+    assert.match(html, /parseBusinessTags\(response, \{ deferEntries: true \}\)/);
+    assert.ok(
+        html.indexOf('const hasNarrative = G.storyLog.some') <
+        html.indexOf('if (management.businesses.length && !management.accessAnnounced)'),
+        'il controllo di avvio deve precedere l’annuncio gestionale'
+    );
 });
 
 (async () => {
