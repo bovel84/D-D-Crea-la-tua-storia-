@@ -2415,6 +2415,7 @@
 
             <div class="input-area">
                 <div class="action-bar" id="action-bar">
+                    <button class="action-btn business-manage" id="btn-business-manage" title="Apri la gestione di imprese e negozi" hidden>🏪 Gestisci negozio</button>
                     <button class="action-btn rest" id="btn-rest" title="Riposa 8 ore">😴 Riposa</button>
                     <button class="action-btn eat" id="btn-eat" title="Mangia">🍖 Mangia</button>
                     <button class="action-btn heal" id="btn-heal" title="Curati">❤️‍🩹 Cura</button>
@@ -4783,6 +4784,7 @@
                 const valuation = calculatePropertyValue(p);
                 const income = calculatePropertyIncome(p);
                 const conditionPercent = p.condition || 50;
+                const isManagedBusiness = CronacheBusiness.isBusinessProperty(p);
                 
                 // Inventario proprietà con categorie
                 const propertyInventory = Array.isArray(p.inventory) ? p.inventory : [];
@@ -4897,6 +4899,7 @@
                         </div>
                     </div>
                     ${p.notes ? `<div class="property-meta">📝 ${p.notes}</div>` : ''}
+                    ${isManagedBusiness ? `<button class="property-manage-business" type="button" onclick="closeModal('modal-inventory'); openBusinessManager();">🏪 Gestisci ${safeManagerText(p.name)}</button>` : ''}
                     ${inventoryHtml}
                 </div>
             `}).join('');
@@ -6317,6 +6320,15 @@
                     : 'Nessuna';
                 businessPanel.classList.toggle('positive', managed.netProfit > 0);
                 businessPanel.classList.toggle('negative', managed.netProfit < 0 || managed.lowStock > 0);
+                const manageButton = $('btn-business-manage');
+                if (manageButton) {
+                    manageButton.hidden = managed.count === 0;
+                    manageButton.textContent = managed.count === 1 ? '🏪 Gestisci negozio' : '🏢 Gestisci attività';
+                    manageButton.classList.toggle('attention', managed.lowStock > 0);
+                    manageButton.title = managed.lowStock > 0
+                        ? managed.lowStock + ' prodotti sotto scorta: apri la gestione'
+                        : 'Apri la gestione di imprese e negozi';
+                }
             }
 
             // Panel Dipendenti
@@ -7604,6 +7616,12 @@
 
             // Se il salvataggio era vecchio e non aveva beni iniziali, sincronizza ora
             applyStarterProperties(G.currentStory);
+            const management = syncBusinessManagement();
+            if (management.businesses.length && !management.accessAnnounced) {
+                addStoryEntry('🏪 Gestione negozio disponibile: usa il pulsante “Gestisci negozio” nella barra sotto la storia oppure apri Inventario → Proprietà & Beni.', 'system');
+                management.accessAnnounced = true;
+                updateInfoPanels();
+            }
 
             if (G.storyLog.length === 0 && G.currentStory?.prologue) {
                 addStoryEntry(G.currentStory.prologue, 'narrator');
@@ -9639,6 +9657,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if ($('btn-heal')) $('btn-heal').onclick = doCure;
             if ($('btn-wait')) $('btn-wait').onclick = () => openModal('modal-wait');
             if ($('btn-train')) $('btn-train').onclick = doTrain;
+            if ($('btn-business-manage')) $('btn-business-manage').onclick = openBusinessManager;
             
             // Info panels click handlers
             if ($('panel-finances')) $('panel-finances').onclick = showFinancesDetail;

@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const memoryApi = require('../js/memory-manager.js');
 const narrativeApi = require('../js/narrative-master.js');
 const ollamaApi = require('../js/ollama-cloud.js');
@@ -760,6 +762,15 @@ test('gestisce prodotti, fornitori e clienti senza duplicare i nomi', () => {
     assert.equal(business.customers.filter(item => item.name === customer.name).length, 1);
     assert.equal(business.products.find(item => item.id === product.id).salePrice, 120);
     assert.equal(business.customers.find(item => item.id === customer.id).loyalty, 60);
+});
+
+
+test('espone accessi visibili alla gestione del negozio', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /id="btn-business-manage"/);
+    assert.match(html, /Gestisci negozio/);
+    assert.match(html, /property-manage-business/);
+    assert.match(html, /Inventario → Proprietà & Beni/);
 });
 
 (async () => {
