@@ -15,6 +15,7 @@ const lifeApi = require('../js/life-legacy.js');
 const characterApi = require('../js/character-options.js');
 const timeEnergyApi = require('../js/time-energy.js');
 const businessApi = require('../js/business-manager.js');
+const packageMetadata = require('../package.json');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -1314,6 +1315,13 @@ test('collega tempo ed energia al motore deterministico', () => {
     assert.match(html, /advanceTime\(480, \{ resting: true \}\)/);
     assert.match(html, /case 'stamina': case 'energia': case 'energy'/);
     assert.equal(html.includes('const regenAmount = 3'), false, 'l’energia non deve rigenerarsi durante ogni azione');
+});
+
+test('espone coerentemente la versione applicativa 1.8', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.equal(packageMetadata.version, '1.8.0');
+    assert.match(html, /<title>🐉 Cronache del Destino v1\.8<\/title>/);
+    assert.match(html, /Un'avventura narrata dall'IA • v1\.8/);
 });
 
 (async () => {
