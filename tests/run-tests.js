@@ -11,6 +11,7 @@ const vaultApi = require('../js/campaign-vault.js');
 const campaignApi = require('../js/campaign-profile.js');
 const lifeApi = require('../js/life-legacy.js');
 const characterApi = require('../js/character-options.js');
+const businessApi = require('../js/business-manager.js');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -634,6 +635,131 @@ test('non duplica gli oggetti condivisi tra origine e ruolo', () => {
     const inventory = characterApi.getStarterInventory(config, 'worker', 'manager');
     assert.equal(inventory.length, 1);
     assert.equal(inventory[0].count, 1);
+});
+
+
+test('riconosce imprese e negozi tra le proprietà possedute', () => {
+    assert.equal(businessApi.isBusinessProperty({ type: 'business', name: 'Holding' }), true);
+    assert.equal(businessApi.isBusinessProperty({ type: 'building', name: 'Emporio Rossi' }), true);
+    assert.equal(businessApi.isBusinessProperty({ type: 'building', name: 'Casa di famiglia' }), false);
+});
+
+test('sincronizza le attività senza creare duplicati', () => {
+    const property = { id: 7, name: 'Bottega Blu', type: 'business', income: 50 };
+    let management = businessApi.syncProperties(null, [property], 3);
+    management = businessApi.syncProperties(management, [property], 4);
+    assert.equal(management.businesses.length, 1);
+    assert.equal(management.activeBusinessId, management.businesses[0].id);
+    assert.equal(management.businesses[0].products.length, 2);
+    assert.equal(property.managementEnabled, true);
+});
+
+test('migra e limita lo storico gestionale', () => {
+    const migrated = businessApi.migrateManagement({
+        customField: 42,
+        businesses: [{
+            id: 'shop',
+            name: 'Negozio',
+            history: Array.from({ length: 40 }, (_, index) => ({ period: index })),
+            transactions: Array.from({ length: 160 }, (_, index) => ({ id: index }))
+        }]
+    });
+    assert.equal(migrated.customField, 42);
+    assert.equal(migrated.businesses[0].history.length, businessApi.MAX_HISTORY);
+    assert.equal(migrated.businesses[0].transactions.length, businessApi.MAX_TRANSACTIONS);
+});
+
+test('ordina scorte, usa la cassa e consegna nei turni successivi', () => {
+    const business = businessApi.createBusinessFromProperty({
+        id: 3, name: 'Emporio', type: 'business', businessCash: 1000
+    }, 5);
+    const product = business.products[0];
+    const supplier = business.suppliers[0];
+    supplier.leadTurns = 2;
+    supplier.reliability = 100;
+    const beforeCash = business.cash;
+    const beforeStock = product.stock;
+    const order = businessApi.placeOrder(business, {
+        productId: product.id, supplierId: supplier.id, quantity: 10
+    }, 5);
+    assert.equal(order.status, 'pending');
+    assert.ok(business.cash < beforeCash);
+    businessApi.processDeliveries({ businesses: [business] }, 6, () => 0);
+    assert.equal(product.stock, beforeStock);
+    businessApi.processDeliveries({ businesses: [business] }, 7, () => 0);
+    assert.equal(product.stock, beforeStock + 10);
+    assert.equal(order.status, 'delivered');
+});
+
+test('calcola vendite, margine, stipendi e risultato del periodo', () => {
+    const property = {
+        id: 4, name: 'Officina Aurora', type: 'business',
+        maintenanceCost: 20, businessCash: 500
+    };
+    const business = businessApi.createBusinessFromProperty(property, 0);
+    business.products.forEach(product => {
+        product.stock = 100;
+        product.baseDemand = 20;
+        product.salePrice = 25;
+        product.unitCost = 8;
+    });
+    const report = businessApi.runPeriod(business, {
+        properties: [property],
+        employees: [{
+            id: 1, name: 'Luca', property: 'Officina Aurora',
+            status: 'active', salary: 40, skill: 80, morale: 80
+        }],
+        turn: 10
+    }, () => 0.5);
+    assert.ok(report.revenue > 0);
+    assert.equal(report.payroll, 40);
+    assert.equal(report.overhead, 20);
+    assert.equal(report.grossProfit, report.revenue - report.cogs);
+    assert.equal(report.netProfit, report.grossProfit - report.operatingCosts);
+    assert.equal(property.income, report.netProfit);
+    assert.equal(business.history.length, 1);
+});
+
+test('evidenzia prodotti sotto scorta e ordini aperti', () => {
+    const business = businessApi.createBusinessFromProperty({
+        id: 5, name: 'Negozio Centro', type: 'business'
+    }, 0);
+    const product = business.products[0];
+    product.stock = product.reorderPoint;
+    const report = businessApi.getReport(business, []);
+    assert.equal(report.lowStock.length, 1);
+    assert.equal(report.inventoryValue, businessApi.inventoryValue(business));
+});
+
+test('trasferisce capitale tra proprietario e cassa aziendale', () => {
+    const business = businessApi.createBusinessFromProperty({
+        id: 6, name: 'Agenzia Nova', type: 'business', businessCash: 300
+    }, 0);
+    const character = { gold: 500 };
+    businessApi.transferFunds(business, character, 100, 'toBusiness');
+    assert.equal(character.gold, 400);
+    assert.equal(business.cash, 400);
+    businessApi.transferFunds(business, character, 50, 'toOwner');
+    assert.equal(character.gold, 450);
+    assert.equal(business.cash, 350);
+    assert.equal(business.transactions.length, 2);
+});
+
+test('gestisce prodotti, fornitori e clienti senza duplicare i nomi', () => {
+    const business = businessApi.createBusinessFromProperty({
+        id: 8, name: 'Studio Alfa', type: 'business'
+    }, 0);
+    const product = businessApi.addProduct(business, { name: 'Consulenza Premium', salePrice: 100, unitCost: 20 });
+    businessApi.addProduct(business, { name: 'Consulenza Premium', salePrice: 120, unitCost: 25 });
+    const supplier = businessApi.addSupplier(business, { name: 'Servizi Beta', reliability: 90 });
+    businessApi.addSupplier(business, { name: 'Servizi Beta', reliability: 95 });
+    const customer = businessApi.addCustomer(business, { name: 'Cliente Uno', loyalty: 45 });
+    businessApi.addCustomer(business, { name: 'Cliente Uno', loyalty: 60 });
+    assert.equal(business.products.filter(item => item.name === product.name).length, 1);
+    assert.equal(business.suppliers.filter(item => item.name === supplier.name).length, 1);
+    assert.equal(business.customers.filter(item => item.name === customer.name).length, 1);
+    assert.equal(business.products.find(item => item.id === product.id).salePrice, 120);
+    assert.equal(business.customers.find(item => item.id === customer.id).loyalty, 60);
 });
 
 (async () => {
