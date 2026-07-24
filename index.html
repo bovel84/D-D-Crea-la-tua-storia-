@@ -6883,10 +6883,13 @@
             // LOOT_PROPRIETA viene letto prima dei tag gestionali. Se l'LLM ha già
             // inventariato la merce, riusiamo quantità, valore e categoria per
             // completare il corrispondente CATALOGO_NEGOZIO senza perdere il prodotto.
-            events.filter(event => event.type === 'catalogProduct').forEach(event => {
+            events.filter(event => event.type === 'catalogProduct' || event.type === 'renameProduct').forEach(event => {
                 const property = getPropertyByName(event.businessName);
+                const inventoryName = event.type === 'renameProduct'
+                    ? (event.newName || event.product)
+                    : event.productName;
                 const inventoryItem = (property?.inventory || []).find(item =>
-                    normalizeKey(item.name || item.id) === normalizeKey(event.productName)
+                    normalizeKey(item.name || item.id) === normalizeKey(inventoryName)
                 );
                 if (!inventoryItem) return;
                 if (!String(event.category || '').trim()) event.category = inventoryItem.category || inventoryItem.type || '';
@@ -9026,7 +9029,7 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 - REGOLE DI COERENZA:
   - Una vendita narrata DEVE avere il tag [VENDITA_NEGOZIO]; un rifornimento narrato DEVE avere [RIFORNIMENTO_NEGOZIO]. Non narrare transazioni senza registrarle.
   - CONTABILITÀ: [MECCANICA: soldi=...] modifica esclusivamente il denaro personale; [CASSA_NEGOZIO] modifica esclusivamente la cassa aziendale. Non usare entrambi per la stessa operazione, salvo un trasferimento esplicito tra proprietario e attività.
-  - Se l'LLM descrive una merce che non esiste ancora nei prodotti, usa [PRODOTTO_NEGOZIO] per crearla/ridefinirla con un nome concreto coerente all'attività (es. taverna → birra/pane, officina → spade/ferramenta, emporio → stoffa/spezie).
+  - Se l'LLM descrive una merce che non esiste ancora nei prodotti, usa sempre [CATALOGO_NEGOZIO] con nome, categoria e prezzo concreti. [PRODOTTO_NEGOZIO] serve soltanto a rinominare una voce già esistente.
   - Allinea SEMPRE il nome dell'attività al nome della proprietà posseduta; se il giocatore possiede «Taverna del Sole», usa quel nome nei tag.
   - Se il giocatore non possiede ancora nessuna attività commerciale, NON usare questi tag.
   - La «cronaca recente» nella sezione ATTIVITÀ GESTITE include sia gli eventi narrati sia le **modifiche manuali del giocatore** (marcate con ✋): prezzo cambiato, scorte modificate, prodotto/fornitore/cliente disattivato o rimosso, dipendente formato o licenziato. La narrazione DEVE tenerne conto come accadimenti reali: un fornitore disattivato non è più disponibile, un prodotto rimosso è stato ritirato dal listino, un dipendente licenziato ha lasciato l'attività, un prezzo cambiato vale da subito. Non contraddire queste modifiche e, se opportuno, richiamale nella scena (es. il mercante nota che la birra costa di più, l'oste si rammarica per la partenza del garzone).
@@ -9604,15 +9607,6 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 memoryChanged = true;
             }
 
-            // Estrae gli eventi di gestione attività commerciali (LLM → BusinessManager):
-            // vendite, rifornimenti, prezzi, clienti, stato, reputazione, cassa, note narrative.
-            // Allinea i numeri reali del gestionale a quanto narrato nella storia.
-            businessFeedback = parseBusinessTags(response, { deferEntries: true });
-            if (businessFeedback?.changed) {
-                memoryChanged = true;
-                uiStateChanged = true;
-            }
-
             // Extract Family Members
             // Formato: [FAMIGLIA: nome|relazione|età|stato|descrizione|occupazione|reddito|spese]
             const familyRe = /\[FAMIGLIA:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
@@ -9743,6 +9737,15 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 memoryChanged = true;
             }
 
+            // Applica i tag gestionali soltanto dopo LOOT_PROPRIETA: catalogo e
+            // compatibilità PRODOTTO_NEGOZIO possono così usare quantità, categoria
+            // e valore appena registrati nel magazzino della proprietà.
+            businessFeedback = parseBusinessTags(response, { deferEntries: true });
+            if (businessFeedback?.changed) {
+                memoryChanged = true;
+                uiStateChanged = true;
+            }
+
             // Extract Property Inventory Commands (CONSUMA/USA/SCARTA/VENDI_OGGETTO_PROPRIETA)
             const propertyInventoryCmdRe = /\[((?:CONSUMA|USA|UTILIZZA|SCARTA|DROP|VENDI)(?:_OGGETTO)?_PROPRIETA):\s*([^|\]]+)\|([^|\]]+)(?:\|([^\]]+))?\]/gi;
             while ((m = propertyInventoryCmdRe.exec(response)) !== null) {
@@ -9870,6 +9873,13 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     .map(message => String(message).split(':')[0].trim())
                     .filter(Boolean))];
                 addStoryEntry(`🏪 Gestionale aggiornato${activities.length ? ': ' + activities.join(', ') : ''}.`, 'mechanic');
+            }
+            // Il pannello può essere aperto mentre arriva la risposta: aggiorniamo
+            // sempre riepilogo e dashboard dopo l'intero batch di tag, anche quando
+            // alcuni eventi sono stati ignorati o recuperati per compatibilità.
+            if (businessFeedback) {
+                updateInfoPanels();
+                if ($('modal-business')?.classList.contains('active')) renderBusinessDashboard();
             }
             displaySuggestions(suggestions);
             if (!uiStateChanged) updateCharacterUI();

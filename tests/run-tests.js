@@ -793,6 +793,27 @@ test('recupera un catalogo concreto quando l’LLM omette valori gestionali seco
     assert.ok(product.reorderPoint > 0);
 });
 
+test('recupera una nuova merce emessa con il vecchio tag PRODOTTO_NEGOZIO', () => {
+    const management = businessApi.syncProperties(null, [
+        { id: 74, name: 'Emporio Rossi', type: 'business' }
+    ], 0);
+    const outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'renameProduct',
+        businessName: 'Emporio Rossi',
+        product: 'articolo elettronico',
+        newName: 'Walkman Sony 1997',
+        price: '65 euro',
+        category: 'elettronica',
+        stock: '3 unità'
+    }], { turn: 1, currency: 'euro' });
+    const product = outcome.management.businesses[0].products[0];
+    assert.equal(outcome.results[0].ok, true);
+    assert.equal(product.name, 'Walkman Sony 1997');
+    assert.equal(product.salePrice, 65);
+    assert.equal(product.stock, 3);
+    assert.equal(product.source, 'narration');
+});
+
 test('migra e limita lo storico gestionale', () => {
     const migrated = businessApi.migrateManagement({
         customField: 42,
@@ -1271,6 +1292,9 @@ test('espone accessi visibili alla gestione del negozio', () => {
     assert.match(html, /LOOT_PROPRIETA viene letto prima dei tag gestionali/);
     assert.match(html, /vecchio validatore aveva escluso dal catalogo/);
     assert.match(html, /normalizePropertyCategory\(item\.category\) === 'vendibili'/);
+    assert.match(html, /Applica i tag gestionali soltanto dopo LOOT_PROPRIETA/);
+    assert.match(html, /CATALOGO_NEGOZIO.*serve soltanto a rinominare una voce già esistente/);
+    assert.match(html, /pannello può essere aperto mentre arriva la risposta/i);
     assert.match(html, /outcome\.employees/);
     assert.match(html, /splitTagFields/);
     assert.match(html, /const businessEmployeeRe = .*DIPENDENTE_NEGOZIO/);
