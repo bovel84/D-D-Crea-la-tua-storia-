@@ -6503,7 +6503,7 @@
         // ==================== PARSER TAG ATTIVITÀ (LLM → motore gestionale) ====================
         // Converte i tag narrativi dell'LLM in eventi che aggiornano il BusinessManager,
         // così la storia si riflette sui numeri reali (cassa, scorte, clienti, reputazione).
-        function parseBusinessTags(response) {
+        function parseBusinessTags(response, { deferEntries = false } = {}) {
             const management = syncBusinessManagement();
             if (!management.businesses.length) return false;
             const currency = G.character?.currency?.short || 'monete';
@@ -6672,20 +6672,27 @@
             });
             G.worldMemory.management = outcome.management;
             let changed = false;
+            const feedback = { changed: false, successes: [], warnings: [] };
             outcome.results.forEach(result => {
                 if (result.skipped) return;
                 if (result.ok) {
-                    addStoryEntry('🏪 ' + result.message, 'mechanic');
+                    feedback.successes.push(result.message);
+                    if (!deferEntries) addStoryEntry('🏪 ' + result.message, 'mechanic');
                     changed = true;
                 } else {
-                    addStoryEntry('⚠️ ' + result.message, 'system');
+                    feedback.warnings.push(result.message);
+                    if (!deferEntries) addStoryEntry('⚠️ ' + result.message, 'system');
                 }
             });
+            feedback.changed = changed;
+            if (feedback.warnings.length) {
+                console.warn('Tag gestionali ignorati:', [...new Set(feedback.warnings)]);
+            }
             if (changed) {
                 updateInfoPanels();
                 if ($('modal-business')?.classList.contains('active')) renderBusinessDashboard();
             }
-            return changed;
+            return deferEntries ? feedback : changed;
         }
 
         // ==================== BILANCIO FINANZIARIO COMPLETO ====================
@@ -8097,6 +8104,12 @@
 
             $('story-scroll').innerHTML = '';
             G.storyLog.forEach(e => addStoryEntry(e.text, e.type, false));
+            // Calcolato prima dei messaggi di servizio: l'annuncio della gestione attività
+            // non deve impedire la prima chiamata al narratore.
+            const hasNarrative = G.storyLog.some(entry =>
+                entry?.type === 'narrator' && entry?.text !== G.currentStory?.prologue
+            ) ||
+                (G.history || []).some(entry => entry?.role === 'assistant');
 
             // Se il salvataggio era vecchio e non aveva beni iniziali, sincronizza ora
             applyStarterProperties(G.currentStory);
@@ -8110,8 +8123,9 @@
                 updateInfoPanels();
             }
 
-            if (G.storyLog.length === 0 && G.currentStory?.prologue) {
-                addStoryEntry(G.currentStory.prologue, 'narrator');
+            if (!hasNarrative && G.currentStory?.prologue) {
+                const prologueAlreadyShown = G.storyLog.some(entry => entry?.text === G.currentStory.prologue);
+                if (!prologueAlreadyShown) addStoryEntry(G.currentStory.prologue, 'narrator');
                 generateAI('L\'avventura inizia...', true);
             }
 
@@ -8507,7 +8521,7 @@
                 const last = $('story-scroll').lastChild;
                 if (last?.textContent?.includes('scrivendo')) last.remove();
 
-                parseAIResponse(response);
+                parseAIResponse(response, { isStart });
                 lifeEngine.commitTurn(action, response, G.character, G.worldMemory);
                 updateCharacterUI();
                 const directorCommit = gameDirector.commitTurn(action, response, G.worldMemory, {
@@ -8565,9 +8579,9 @@
             const pendingBusinesses = managementForPrompt.businesses.filter(business => !business.narrativeInitialized);
             const pendingBusinessDirective = pendingBusinesses.length ? `
 
-⚠️ BOOTSTRAP ATTIVITÀ OBBLIGATORIO IN QUESTA RISPOSTA
+🏪 INTEGRAZIONE ATTIVITÀ (NON DEVE BLOCCARE LA NARRAZIONE)
 Attività da alimentare dalla storia: ${pendingBusinesses.map(business => business.name).join(', ')}.
-Per CIASCUNA attività usa esattamente: 1 [ATTIVITA_NEGOZIO], almeno 2 [CATALOGO_NEGOZIO], almeno 1 [FORNITORE_NEGOZIO] e 1 [EVENTO_NEGOZIO]. Introduci clienti/dipendenti solo se realmente presenti nella scena. Non usare nomi generici e non rimandare al turno successivo.` : '';
+Scrivi prima una scena completa e coinvolgente. Aggiungi soltanto tag completi e coerenti con ciò che hai davvero narrato: [ATTIVITA_NEGOZIO], [CATALOGO_NEGOZIO], [FORNITORE_NEGOZIO] ed [EVENTO_NEGOZIO]. Il catalogo può completarsi progressivamente nei turni successivi: non sacrificare mai la narrazione per riempire i tag e non usare nomi generici.` : '';
             const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory);
             const recentHistory = layeredMemory.shortTerm;
             const masterTurn = narrativeMaster.decide(action, {
@@ -8751,11 +8765,11 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 
 🏪 **GESTIONE ATTIVITÀ COMMERCIALI (ALLINEATA ALLA STORIA)**
 - Il sistema gestisce in autonomia le ATTIVITÀ del giocatore (negozi, botteghe, locande, officine, empori): cassa, scorte, clienti, reputazione, dipendenti, utili e perdite sono numeri REALI tracciati nel motore gestionale.
-- UNA NUOVA ATTIVITÀ NASCE DALLA STORIA: il motore non crea prodotti, fornitori o clienti generici. Se nel blocco «ATTIVITÀ GESTITE» compare «CONFIGURAZIONE NARRATIVA INIZIALE OBBLIGATORIA», nella STESSA risposta devi introdurre l'attività nella scena e generare almeno:
-  1. un tag [ATTIVITA_NEGOZIO: nome|tipo|cassa_iniziale|reputazione|soddisfazione|stato|descrizione] con valori coerenti al prologo;
-  2. almeno due tag [CATALOGO_NEGOZIO: nome_attività|prodotto_o_servizio|categoria|prezzo|costo|scorte|domanda|scorta_minima];
-  3. almeno un [FORNITORE_NEGOZIO] nominativo e credibile.
-  Clienti e dipendenti vanno registrati solo se entrano realmente nella scena. Se ometti uno dei tre requisiti, l'attività resta pending e la richiesta verrà ripetuta al turno successivo.
+- UNA NUOVA ATTIVITÀ NASCE DALLA STORIA: il motore non crea prodotti, fornitori o clienti generici. Se nel blocco «ATTIVITÀ GESTITE» compare «CONFIGURAZIONE NARRATIVA IN CORSO», fai avanzare prima la scena e completa progressivamente:
+  1. [ATTIVITA_NEGOZIO: nome|tipo|cassa_iniziale|reputazione|soddisfazione|stato|descrizione] quando l'assetto è noto;
+  2. [CATALOGO_NEGOZIO: nome_attività|prodotto_o_servizio|categoria|prezzo|costo|scorte|domanda|scorta_minima] per ogni voce concreta realmente definita;
+  3. [FORNITORE_NEGOZIO] quando un fornitore credibile entra nella storia.
+  Non inventare valori soltanto per completare il gestionale e non restituire mai una risposta composta solo da tag. Clienti e dipendenti vanno registrati solo se entrano realmente nella scena.
 - Nel blocco 🧠 MEMORIA MONDO → «ATTIVITÀ GESTITE» trovi i numeri aggiornati di OGNI attività posseduta. La tua narrazione DEVE essere coerente con quei valori:
   - Non narrare vendite se le scorte sono a zero; non narrare prosperità se la cassa è in perdita.
   - Quando la scena riguarda l'attività del giocatore, integra i numeri reali (cassa, scorte basse, clienti, reputazione) nella narrazione in modo fluido e naturale.
@@ -9083,13 +9097,14 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             return content;
         }
 
-        function parseAIResponse(response) {
+        function parseAIResponse(response, { isStart = false } = {}) {
             if (typeof response !== 'string') {
                 response = response == null ? '' : String(response);
             }
 
             let memoryChanged = false;
             let uiStateChanged = false;
+            let businessFeedback = null;
             G.storyBatchMode = true;
 
             try {
@@ -9378,7 +9393,8 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             // Estrae gli eventi di gestione attività commerciali (LLM → BusinessManager):
             // vendite, rifornimenti, prezzi, clienti, stato, reputazione, cassa, note narrative.
             // Allinea i numeri reali del gestionale a quanto narrato nella storia.
-            if (parseBusinessTags(response)) {
+            businessFeedback = parseBusinessTags(response, { deferEntries: true });
+            if (businessFeedback?.changed) {
                 memoryChanged = true;
                 uiStateChanged = true;
             }
@@ -9619,15 +9635,23 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                         .replace(/\*\*([^*]+)\*\*/g, '$1')
                         .replace(/\n{3,}/g, '\n\n')
                         .trim();
-                    if (clean.length < 10) {
-                        clean = "Il narratore sta elaborando... Prova a ripetere l'azione.";
-                    }
+                    if (clean.length < 10) clean = isStart
+                        ? (G.currentStory?.prologue || 'La scena si apre davanti a te: il mondo attende la tua prima scelta.')
+                        : "Il narratore sta elaborando... Prova a ripetere l'azione.";
                 } else {
-                    clean = "Il narratore sembra confuso... Riprova con un'altra azione.";
+                    clean = isStart
+                        ? (G.currentStory?.prologue || 'La scena si apre davanti a te: il mondo attende la tua prima scelta.')
+                        : "Il narratore sembra confuso... Riprova con un'altra azione.";
                 }
             }
 
             addStoryEntry(clean, 'narrator');
+            if (businessFeedback?.successes?.length) {
+                const activities = [...new Set(businessFeedback.successes
+                    .map(message => String(message).split(':')[0].trim())
+                    .filter(Boolean))];
+                addStoryEntry(`🏪 Gestionale aggiornato${activities.length ? ': ' + activities.join(', ') : ''}.`, 'mechanic');
+            }
             displaySuggestions(suggestions);
             if (!uiStateChanged) updateCharacterUI();
             updateTimeDisplay();
