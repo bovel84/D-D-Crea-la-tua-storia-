@@ -6070,22 +6070,22 @@
                     '<button class="btn" data-manager-action="invest">💶 Versa capitale</button>' +
                     '<button class="btn" data-manager-action="withdraw">🏦 Preleva utili</button>' +
                 '</div>' +
-                '<div class="manager-columns"><section class="manager-section manager-products"><div class="manager-section-head"><h4>📦 Magazzino e vendite</h4>' +
+                '<div class="manager-columns"><section class="manager-section manager-products"><div class="manager-section-head"><h4>📦 Magazzino e vendite</h4><button class="manager-detail-btn" data-business-detail="products" style="margin-left:auto;font-size:12px;padding:2px 8px;cursor:pointer;background:transparent;border:1px solid currentColor;border-radius:6px;">👁 Vedi tutto</button>' +
                     '<span>' + business.products.reduce((sum, product) => sum + product.stock, 0) + ' unità</span></div>' + businessProductRows(business) + '</section>' +
                 '<section class="manager-section"><div class="manager-section-head"><h4>📈 Conto economico</h4><span>Periodo ' + report.period + '</span></div>' +
                     '<div class="manager-flow"><label>Ricavi <span>' + report.revenue + '</span></label><i class="income" style="width:' + Math.round(report.revenue / maxFlow * 100) + '%"></i></div>' +
                     '<div class="manager-flow"><label>Costo venduto <span>' + report.cogs + '</span></label><i class="expense" style="width:' + Math.round(report.cogs / maxFlow * 100) + '%"></i></div>' +
                     '<div class="manager-flow"><label>Stipendi e costi <span>' + report.operatingCosts + '</span></label><i class="expense" style="width:' + Math.round(report.operatingCosts / maxFlow * 100) + '%"></i></div>' +
                     '<div class="manager-profit ' + (report.netProfit >= 0 ? 'positive' : 'negative') + '"><span>Risultato netto</span><strong>' + (report.netProfit >= 0 ? '+' : '') + report.netProfit + ' ' + safeManagerText(currency) + '</strong></div></section>' +
-                '<section class="manager-section"><div class="manager-section-head"><h4>🚚 Fornitori</h4><span>' + report.pendingValue + ' in arrivo</span></div>' +
+                '<section class="manager-section"><div class="manager-section-head"><h4>🚚 Fornitori</h4><button class="manager-detail-btn" data-business-detail="suppliers" style="margin-left:auto;font-size:12px;padding:2px 8px;cursor:pointer;background:transparent;border:1px solid currentColor;border-radius:6px;">👁 Vedi tutto</button><span>' + report.pendingValue + ' in arrivo</span></div>' +
                     (business.suppliers.length ? business.suppliers.map(supplier =>
                         '<article class="manager-compact-card"><div><strong>' + safeManagerText(supplier.name) + '</strong><small>' + safeManagerText(supplier.category) + '</small></div>' +
                         '<span>Affidabilità ' + Math.round(supplier.reliability) + '% · ' + supplier.leadTurns + ' turni</span></article>').join('') : '<p class="manager-empty">Nessun fornitore.</p>') + '</section>' +
-                '<section class="manager-section"><div class="manager-section-head"><h4>🧑 Clienti</h4><span>Soddisfazione ' + Math.round(business.customerSatisfaction) + '%</span></div>' +
+                '<section class="manager-section"><div class="manager-section-head"><h4>🧑 Clienti</h4><button class="manager-detail-btn" data-business-detail="customers" style="margin-left:auto;font-size:12px;padding:2px 8px;cursor:pointer;background:transparent;border:1px solid currentColor;border-radius:6px;">👁 Vedi tutto</button><span>Soddisfazione ' + Math.round(business.customerSatisfaction) + '%</span></div>' +
                     (business.customers.length ? business.customers.slice(0, 8).map(customer =>
                         '<article class="manager-compact-card"><div><strong>' + safeManagerText(customer.name) + '</strong><small>' + safeManagerText(customer.segment) + '</small></div>' +
                         '<span>Fedeltà ' + Math.round(customer.loyalty) + '% · Valore ' + customer.lifetimeValue + '</span></article>').join('') : '<p class="manager-empty">La clientela si formerà con le vendite.</p>') + '</section>' +
-                '<section class="manager-section"><div class="manager-section-head"><h4>👷 Dipendenti</h4><span>Morale medio ' + report.averageMorale + '%</span></div>' +
+                '<section class="manager-section"><div class="manager-section-head"><h4>👷 Dipendenti</h4><button class="manager-detail-btn" data-business-detail="employees" style="margin-left:auto;font-size:12px;padding:2px 8px;cursor:pointer;background:transparent;border:1px solid currentColor;border-radius:6px;">👁 Vedi tutto</button><span>Morale medio ' + report.averageMorale + '%</span></div>' +
                     (employees.length ? employees.map(employee =>
                         '<article class="manager-compact-card"><div><strong>' + safeManagerText(employee.name) + '</strong><small>' + safeManagerText(employee.role) + '</small></div>' +
                         '<span>Competenza ' + Math.round(employee.skill ?? 50) + '% · Stipendio ' + (employee.salary || 0) + '</span>' +
@@ -6095,7 +6095,240 @@
                     (transactions.length ? '<ul class="manager-transactions">' + transactions.map(tx =>
                         '<li class="' + tx.direction + '"><span>' + safeManagerText(tx.description || tx.category) + '</span><strong>' +
                         (tx.direction === 'out' ? '-' : '+') + tx.amount + '</strong></li>').join('') + '</ul>' :
-                        '<p class="manager-empty">Nessun movimento registrato.</p>') + '</section></div>';
+                        '<p class="manager-empty">Nessun movimento registrato.</p>') + '</section>' +
+                '<section class="manager-section"><div class="manager-section-head"><h4>📜 Cronaca attività</h4><span>quello che la storia racconta</span></div>' +
+                    (business.notes && business.notes.length ?
+                        '<ul class="manager-transactions">' + business.notes.slice(-8).reverse().map(note =>
+                            '<li class="in"><span>' + safeManagerText(note.text) + '</span><small>Turno ' + note.turn + '</small></li>').join('') + '</ul>' :
+                        '<p class="manager-empty">Nessun evento narrato ancora: le azioni che il narratore descrive sulla tua attività compariranno qui.</p>') + '</section></div>';
+        }
+
+// ==================== SCHEDE DETTAGLIO ATTIVITÀ (dati generati dalla narrazione, modificabili) ====================
+        function showBusinessDetailModal(title, content, category) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay quick-modal active';
+            modal.innerHTML = `
+                <div class="modal" style="max-width:640px;">
+                    <h3>${title}</h3>
+                    <div class="quick-modal-content" style="max-height:62vh;overflow-y:auto;text-align:left;">${content}</div>
+                    <button class="btn secondary" onclick="this.closest('.modal-overlay').remove()">Chiudi</button>
+                </div>`;
+            document.body.appendChild(modal);
+            modal.onclick = e => {
+                if (e.target === modal) { modal.remove(); return; }
+                const btn = e.target.closest('[data-detail-action]');
+                if (btn) {
+                    const changed = handleBusinessDetailAction(btn, category);
+                    modal.remove();
+                    if (changed) {
+                        updateInfoPanels();
+                        if ($('modal-business')?.classList.contains('active')) renderBusinessDashboard();
+                        save();
+                        showBusinessDetail(category);
+                    }
+                }
+            };
+        }
+
+        // Applica le modifiche manuali alle schede dettaglio (modifica valori, attiva/disattiva, rimuovi).
+        // Ogni modifica registra un evento nella cronaca attività (note) e nello story log, così l'LLM
+        // riceve al turno successivo il resoconto delle azioni gestionali fatte fuori dal dialogo.
+        function recordManualBusinessEvent(business, text) {
+            CronacheBusiness.addBusinessNote(business, '✋ ' + text, G.worldMemory.turnCount || 0);
+            addStoryEntry('✋ ' + business.name + ': ' + text, 'mechanic');
+        }
+
+        function handleBusinessDetailAction(btn, category) {
+            const action = btn.dataset.detailAction;
+            const id = btn.dataset.id;
+            const name = btn.dataset.name;
+            const business = getActiveBusiness();
+            if (!business) return false;
+            const confirmRemove = (label) => confirm('Rimuovere «' + label + '»?');
+            try {
+                if (category === 'products') {
+                    const product = business.products.find(p => p.id === id);
+                    if (action === 'price') {
+                        const v = managerNumberPrompt('Nuovo prezzo per ' + (product?.name || 'prodotto'), product?.salePrice ?? 0, 0);
+                        if (v != null) { businessEngine.updateProductPrice(business, id, v); recordManualBusinessEvent(business, 'prezzo di ' + (product?.name || 'prodotto') + ' → ' + v); notify('Prezzo aggiornato', 'success'); return true; }
+                    } else if (action === 'stock') {
+                        const v = managerNumberPrompt('Quantità da aggiungere (negativa per togliere) a ' + (product?.name || 'prodotto'), 0);
+                        if (v != null) { CronacheBusiness.adjustProductStock(business, id, v); recordManualBusinessEvent(business, 'scorte di ' + (product?.name || 'prodotto') + ' modificate (' + (v >= 0 ? '+' : '') + v + ')'); notify('Scorte aggiornate', 'success'); return true; }
+                    } else if (action === 'toggle') {
+                        const wasActive = !!product?.active;
+                        CronacheBusiness.setProductActive(business, id, !wasActive);
+                        recordManualBusinessEvent(business, (wasActive ? 'prodotto disattivato: ' : 'prodotto attivato: ') + (product?.name || ''));
+                        notify(wasActive ? 'Prodotto disattivato' : 'Prodotto attivato', 'success'); return true;
+                    } else if (action === 'remove') {
+                        if (confirmRemove(product?.name || '')) { const nm = product?.name || 'prodotto'; CronacheBusiness.removeProduct(business, id); recordManualBusinessEvent(business, 'prodotto rimosso: ' + nm); notify('Prodotto rimosso', 'success'); return true; }
+                    }
+                } else if (category === 'suppliers') {
+                    const supplier = business.suppliers.find(s => s.id === id);
+                    if (action === 'reliability') {
+                        const v = managerNumberPrompt('Affidabilità 0-100 per ' + (supplier?.name || 'fornitore'), supplier?.reliability ?? 75, 0);
+                        if (v != null) { CronacheBusiness.updateSupplier(business, id, { reliability: v }); recordManualBusinessEvent(business, 'affidabilità fornitore ' + (supplier?.name || '') + ' → ' + v); notify('Affidabilità aggiornata', 'success'); return true; }
+                    } else if (action === 'discount') {
+                        const v = managerNumberPrompt('Sconto 0-60 per ' + (supplier?.name || 'fornitore'), supplier?.discount ?? 0, 0);
+                        if (v != null) { CronacheBusiness.updateSupplier(business, id, { discount: v }); recordManualBusinessEvent(business, 'sconto fornitore ' + (supplier?.name || '') + ' → ' + v + '%'); notify('Sconto aggiornato', 'success'); return true; }
+                    } else if (action === 'lead') {
+                        const v = managerNumberPrompt('Turni di consegna per ' + (supplier?.name || 'fornitore'), supplier?.leadTurns ?? 2, 0);
+                        if (v != null) { CronacheBusiness.updateSupplier(business, id, { leadTurns: v }); recordManualBusinessEvent(business, 'consegna fornitore ' + (supplier?.name || '') + ' → ' + v + ' turni'); notify('Consegna aggiornata', 'success'); return true; }
+                    } else if (action === 'toggle') {
+                        const next = supplier?.status === 'active' ? 'inactive' : 'active';
+                        CronacheBusiness.updateSupplier(business, id, { status: next });
+                        recordManualBusinessEvent(business, (next === 'active' ? 'fornitore attivato: ' : 'fornitore disattivato: ') + (supplier?.name || ''));
+                        notify(next === 'active' ? 'Fornitore attivato' : 'Fornitore disattivato', 'success'); return true;
+                    } else if (action === 'remove') {
+                        if (confirmRemove(supplier?.name || '')) { const nm = supplier?.name || 'fornitore'; CronacheBusiness.removeSupplier(business, id); recordManualBusinessEvent(business, 'fornitore rimosso: ' + nm); notify('Fornitore rimosso', 'success'); return true; }
+                    }
+                } else if (category === 'customers') {
+                    const customer = business.customers.find(c => c.id === id);
+                    if (action === 'loyalty') {
+                        const v = managerNumberPrompt('Fedeltà 0-100 per ' + (customer?.name || 'cliente'), customer?.loyalty ?? 40, 0);
+                        if (v != null) { CronacheBusiness.updateCustomer(business, id, { loyalty: v }); recordManualBusinessEvent(business, 'fedeltà cliente ' + (customer?.name || '') + ' → ' + v); notify('Fedeltà aggiornata', 'success'); return true; }
+                    } else if (action === 'satisfaction') {
+                        const v = managerNumberPrompt('Soddisfazione 0-100 per ' + (customer?.name || 'cliente'), customer?.satisfaction ?? 60, 0);
+                        if (v != null) { CronacheBusiness.updateCustomer(business, id, { satisfaction: v }); recordManualBusinessEvent(business, 'soddisfazione cliente ' + (customer?.name || '') + ' → ' + v); notify('Soddisfazione aggiornata', 'success'); return true; }
+                    } else if (action === 'notes') {
+                        const v = managerTextPrompt('Note per ' + (customer?.name || 'cliente'), customer?.notes || '');
+                        if (v != null) { CronacheBusiness.updateCustomer(business, id, { notes: v }); recordManualBusinessEvent(business, 'note cliente ' + (customer?.name || '') + ' aggiornate: ' + v); notify('Note aggiornate', 'success'); return true; }
+                    } else if (action === 'remove') {
+                        if (confirmRemove(customer?.name || '')) { const nm = customer?.name || 'cliente'; CronacheBusiness.removeCustomer(business, id); recordManualBusinessEvent(business, 'cliente rimosso: ' + nm); notify('Cliente rimosso', 'success'); return true; }
+                    }
+                } else if (category === 'employees') {
+                    if (action === 'train') {
+                        const employee = (G.worldMemory.employees || []).find(item => String(item.id) === String(id));
+                        if (!employee) return false;
+                        const cost = Math.max(10, Math.round((employee.salary || 40) * 0.25));
+                        if (business.cash < cost) throw new Error('Cassa insufficiente per la formazione.');
+                        business.cash -= cost;
+                        employee.skill = Math.min(100, (employee.skill ?? 50) + 10);
+                        employee.morale = Math.min(100, (employee.morale ?? 70) + 3);
+                        CronacheBusiness.recordTransaction(business, { turn: G.worldMemory.turnCount || 0, direction: 'out', category: 'formazione', amount: cost, description: 'Formazione di ' + employee.name });
+                        recordManualBusinessEvent(business, 'formazione dipendente ' + employee.name + ' (competenza +10, costo ' + cost + ')');
+                        notify('Formazione completata', 'success'); return true;
+                    } else if (action === 'fire') {
+                        if (confirmRemove(name || '')) { removeEmployee(name, 'fired'); recordManualBusinessEvent(business, 'dipendente licenziato: ' + (name || '')); notify('Dipendente licenziato', 'success'); return true; }
+                    }
+                }
+            } catch (error) { notify(error.message, 'error'); }
+            return false;
+        }
+
+        function showBusinessDetail(category) {
+            const business = getActiveBusiness();
+            if (!business) return;
+            if (category === 'products') return showBusinessProductsDetail(business);
+            if (category === 'suppliers') return showBusinessSuppliersDetail(business);
+            if (category === 'customers') return showBusinessCustomersDetail(business);
+            if (category === 'employees') return showBusinessEmployeesDetail(business);
+        }
+
+        function productActionButtons(product) {
+            return '<div class="manager-row-actions">' +
+                '<button class="manager-mini-btn" data-detail-action="price" data-id="' + safeManagerText(product.id) + '">Prezzo</button>' +
+                '<button class="manager-mini-btn" data-detail-action="stock" data-id="' + safeManagerText(product.id) + '">Scorte</button>' +
+                '<button class="manager-mini-btn" data-detail-action="toggle" data-id="' + safeManagerText(product.id) + '">' + (product.active ? 'Disattiva' : 'Attiva') + '</button>' +
+                '<button class="manager-mini-btn" data-detail-action="remove" data-id="' + safeManagerText(product.id) + '">✕ Rimuovi</button>' +
+                '</div>';
+        }
+
+        function supplierActionButtons(supplier) {
+            return '<div class="manager-row-actions">' +
+                '<button class="manager-mini-btn" data-detail-action="reliability" data-id="' + safeManagerText(supplier.id) + '">Affidabilità</button>' +
+                '<button class="manager-mini-btn" data-detail-action="discount" data-id="' + safeManagerText(supplier.id) + '">Sconto</button>' +
+                '<button class="manager-mini-btn" data-detail-action="lead" data-id="' + safeManagerText(supplier.id) + '">Consegna</button>' +
+                '<button class="manager-mini-btn" data-detail-action="toggle" data-id="' + safeManagerText(supplier.id) + '">' + (supplier.status === 'active' ? 'Disattiva' : 'Attiva') + '</button>' +
+                '<button class="manager-mini-btn" data-detail-action="remove" data-id="' + safeManagerText(supplier.id) + '">✕ Rimuovi</button>' +
+                '</div>';
+        }
+
+        function customerActionButtons(customer) {
+            return '<div class="manager-row-actions">' +
+                '<button class="manager-mini-btn" data-detail-action="loyalty" data-id="' + safeManagerText(customer.id) + '">Fedeltà</button>' +
+                '<button class="manager-mini-btn" data-detail-action="satisfaction" data-id="' + safeManagerText(customer.id) + '">Soddisfazione</button>' +
+                '<button class="manager-mini-btn" data-detail-action="notes" data-id="' + safeManagerText(customer.id) + '">Note</button>' +
+                '<button class="manager-mini-btn" data-detail-action="remove" data-id="' + safeManagerText(customer.id) + '">✕ Rimuovi</button>' +
+                '</div>';
+        }
+
+        function employeeActionButtons(employee) {
+            return '<div class="manager-row-actions">' +
+                '<button class="manager-mini-btn primary" data-detail-action="train" data-id="' + safeManagerText(employee.id) + '">Forma</button>' +
+                '<button class="manager-mini-btn" data-detail-action="fire" data-name="' + safeManagerText(employee.name) + '">Licenzia</button>' +
+                '</div>';
+        }
+
+        function showBusinessProductsDetail(business) {
+            if (!business.products.length) {
+                showBusinessDetailModal('Prodotti — ' + safeManagerText(business.name),
+                    '<p class="manager-empty">Nessun prodotto. Usa «Nuovo prodotto» o lascia che la narrazione li crei/ridefinisca con [PRODOTTO_NEGOZIO: ' + safeManagerText(business.name) + '|prodotto_esistente|nuovo_nome|prezzo].</p>', 'products');
+                return;
+            }
+            const cards = business.products.map(product => {
+                const low = product.stock <= product.reorderPoint;
+                const supplier = business.suppliers.find(item => item.id === product.supplierId);
+                return '<article class="manager-compact-card"><div><strong>' + safeManagerText(product.name) +
+                    '</strong><small>' + safeManagerText(product.category) + ' · ' + (product.active ? 'attivo' : 'inattivo') + '</small></div>' +
+                    '<span>Prezzo ' + product.salePrice + ' · Costo ' + product.unitCost + ' · Scorte ' + product.stock + '/' + product.targetStock + (low ? ' ⚠️ sotto scorta' : '') + '</span>' +
+                    '<span>Venduti ' + product.soldUnits + ' · Domanda base ' + product.baseDemand + ' · Perdite ' + product.lostSales +
+                    (supplier ? ' · Fornitore: ' + safeManagerText(supplier.name) : '') + '</span>' +
+                    productActionButtons(product) + '</article>';
+            }).join('');
+            showBusinessDetailModal('Prodotti — ' + safeManagerText(business.name), '<div class="manager-detail-list">' + cards + '</div>', 'products');
+        }
+
+        function showBusinessSuppliersDetail(business) {
+            if (!business.suppliers.length) {
+                showBusinessDetailModal('Fornitori — ' + safeManagerText(business.name),
+                    '<p class="manager-empty">Nessun fornitore. La narrazione può crearli con [FORNITORE_NEGOZIO: ' + safeManagerText(business.name) + '|nome|categoria|affidabilità|lead_turns|sconto].</p>', 'suppliers');
+                return;
+            }
+            const cards = business.suppliers.map(supplier =>
+                '<article class="manager-compact-card"><div><strong>' + safeManagerText(supplier.name) +
+                '</strong><small>' + safeManagerText(supplier.category) + ' · ' + (supplier.status === 'active' ? 'attivo' : 'inattivo') + '</small></div>' +
+                '<span>Affidabilità ' + Math.round(supplier.reliability) + '% · Consegna ' + supplier.leadTurns + ' turni · Sconto ' + supplier.discount + '%</span>' +
+                '<span>Acquisti totali ' + supplier.totalPurchases + '</span>' +
+                (supplier.notes ? '<span>📝 ' + safeManagerText(supplier.notes) + '</span>' : '') +
+                supplierActionButtons(supplier) + '</article>'
+            ).join('');
+            showBusinessDetailModal('Fornitori — ' + safeManagerText(business.name), '<div class="manager-detail-list">' + cards + '</div>', 'suppliers');
+        }
+
+        function showBusinessCustomersDetail(business) {
+            if (!business.customers.length) {
+                showBusinessDetailModal('Clienti — ' + safeManagerText(business.name),
+                    '<p class="manager-empty">Nessun cliente. La narrazione può crearli con [CLIENTE_NEGOZIO: ' + safeManagerText(business.name) + '|nome|segmento|lealtà|soddisfazione|note] o si formeranno con le vendite.</p>', 'customers');
+                return;
+            }
+            const cards = business.customers.map(customer =>
+                '<article class="manager-compact-card"><div><strong>' + safeManagerText(customer.name) +
+                '</strong><small>' + safeManagerText(customer.segment) + '</small></div>' +
+                '<span>Fedeltà ' + Math.round(customer.loyalty) + '% · Soddisfazione ' + Math.round(customer.satisfaction) + '% · Visite ' + customer.visits + '</span>' +
+                '<span>Valore lifetime ' + customer.lifetimeValue + '</span>' +
+                (customer.notes ? '<span>📝 ' + safeManagerText(customer.notes) + '</span>' : '') +
+                customerActionButtons(customer) + '</article>'
+            ).join('');
+            showBusinessDetailModal('Clienti — ' + safeManagerText(business.name), '<div class="manager-detail-list">' + cards + '</div>', 'customers');
+        }
+
+        function showBusinessEmployeesDetail(business) {
+            const employees = (G.worldMemory.employees || []).filter(employee =>
+                employee.status !== 'fired' && CronacheBusiness.keyOf(employee.property) === CronacheBusiness.keyOf(business.propertyName)
+            );
+            if (!employees.length) {
+                showBusinessDetailModal('Dipendenti — ' + safeManagerText(business.name),
+                    '<p class="manager-empty">Nessun dipendente assegnato a questa attività. La narrazione può assumerli con [DIPENDENTE: nome|ruolo|' + safeManagerText(business.name) + '|stipendio|competenza|morale|descrizione].</p>', 'employees');
+                return;
+            }
+            const cards = employees.map(employee =>
+                '<article class="manager-compact-card"><div><strong>' + safeManagerText(employee.name) +
+                '</strong><small>' + safeManagerText(employee.role) + '</small></div>' +
+                '<span>Competenza ' + Math.round(employee.skill ?? 50) + '% · Morale ' + Math.round(employee.morale ?? 70) + '% · Stipendio ' + (employee.salary || 0) + '</span>' +
+                '<span>Stato: ' + (employee.status === 'active' ? 'attivo' : safeManagerText(employee.status)) + '</span>' +
+                employeeActionButtons(employee) + '</article>'
+            ).join('');
+            showBusinessDetailModal('Dipendenti — ' + safeManagerText(business.name), '<div class="manager-detail-list">' + cards + '</div>', 'employees');
         }
 
         function openBusinessManager() {
@@ -6115,6 +6348,11 @@
             if (switchButton) {
                 G.worldMemory.management.activeBusinessId = switchButton.dataset.businessId;
                 renderBusinessDashboard();
+                return;
+            }
+            const detailButton = event.target.closest('[data-business-detail]');
+            if (detailButton) {
+                showBusinessDetail(detailButton.dataset.businessDetail);
                 return;
             }
             const button = event.target.closest('[data-manager-action]');
@@ -6225,6 +6463,160 @@
                 '🚚 Consegna ricevuta: ' + delivery.quantity + ' × ' + delivery.productName + '.', 'mechanic'
             ));
             if (deliveries.length) updateInfoPanels();
+        }
+
+        // ==================== PARSER TAG ATTIVITÀ (LLM → motore gestionale) ====================
+        // Converte i tag narrativi dell'LLM in eventi che aggiornano il BusinessManager,
+        // così la storia si riflette sui numeri reali (cassa, scorte, clienti, reputazione).
+        function parseBusinessTags(response) {
+            const management = syncBusinessManagement();
+            if (!management.businesses.length) return false;
+            const currency = G.character?.currency?.short || 'monete';
+            const events = [];
+            let m;
+
+            // [VENDITA_NEGOZIO: attività|prodotto|quantità|prezzo]
+            const saleRe = /\[VENDITA_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = saleRe.exec(response)) !== null) {
+                events.push({
+                    type: 'sale',
+                    businessName: (m[1] || '').trim(),
+                    product: (m[2] || '').trim(),
+                    qty: (m[3] || '').trim(),
+                    price: (m[4] || '').trim()
+                });
+            }
+
+            // [RIFORNIMENTO_NEGOZIO: attività|prodotto|quantità|costo_opzionale]
+            const restockRe = /\[RIFORNIMENTO_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = restockRe.exec(response)) !== null) {
+                events.push({
+                    type: 'restock',
+                    businessName: (m[1] || '').trim(),
+                    product: (m[2] || '').trim(),
+                    qty: (m[3] || '').trim(),
+                    cost: (m[4] || '').trim()
+                });
+            }
+
+            // [PREZZO_NEGOZIO: attività|prodotto|nuovo_prezzo]
+            const priceRe = /\[PREZZO_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = priceRe.exec(response)) !== null) {
+                events.push({
+                    type: 'price',
+                    businessName: (m[1] || '').trim(),
+                    product: (m[2] || '').trim(),
+                    price: (m[3] || '').trim()
+                });
+            }
+
+            // [PRODOTTO_NEGOZIO: attività|prodotto_esistente|nuovo_nome|nuovo_prezzo_opzionale]
+            const productRe = /\[PRODOTTO_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = productRe.exec(response)) !== null) {
+                events.push({
+                    type: 'renameProduct',
+                    businessName: (m[1] || '').trim(),
+                    product: (m[2] || '').trim(),
+                    newName: (m[3] || '').trim(),
+                    price: (m[4] || '').trim()
+                });
+            }
+
+            // [CLIENTE_NEGOZIO: attività|nome_cliente|segmento|lealtà|soddisfazione_opzionale|note_opzionale]
+            const customerRe = /\[CLIENTE_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = customerRe.exec(response)) !== null) {
+                events.push({
+                    type: 'customer',
+                    businessName: (m[1] || '').trim(),
+                    customerName: (m[2] || '').trim(),
+                    segment: (m[3] || '').trim(),
+                    loyalty: (m[4] || '').trim(),
+                    satisfaction: (m[5] || '').trim(),
+                    notes: (m[6] || '').trim()
+                });
+            }
+
+            // [FORNITORE_NEGOZIO: attività|nome|categoria|affidabilità|lead_turns|sconto_opzionale|stato_opzionale|note_opzionale]
+            const supplierRe = /\[FORNITORE_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = supplierRe.exec(response)) !== null) {
+                events.push({
+                    type: 'supplier',
+                    businessName: (m[1] || '').trim(),
+                    supplierName: (m[2] || '').trim(),
+                    category: (m[3] || '').trim(),
+                    reliability: (m[4] || '').trim(),
+                    leadTurns: (m[5] || '').trim(),
+                    discount: (m[6] || '').trim(),
+                    status: (m[7] || '').trim(),
+                    notes: (m[8] || '').trim()
+                });
+            }
+
+            // [STATO_NEGOZIO: attività|active|paused|closed]
+            const statusRe = /\[STATO_NEGOZIO:\s*([^|\]]+)\|([^\]]+)\]/gi;
+            while ((m = statusRe.exec(response)) !== null) {
+                events.push({
+                    type: 'status',
+                    businessName: (m[1] || '').trim(),
+                    status: (m[2] || '').trim()
+                });
+            }
+
+            // [REPUTAZIONE_NEGOZIO: attività|+5_o_-10|motivo_opzionale]
+            const repRe = /\[REPUTAZIONE_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = repRe.exec(response)) !== null) {
+                events.push({
+                    type: 'reputation',
+                    businessName: (m[1] || '').trim(),
+                    delta: (m[2] || '').trim(),
+                    reason: (m[3] || '').trim()
+                });
+            }
+
+            // [CASSA_NEGOZIO: attività|entra_o_esce|importo|motivo_opzionale]
+            const cashRe = /\[CASSA_NEGOZIO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
+            while ((m = cashRe.exec(response)) !== null) {
+                events.push({
+                    type: 'cash',
+                    businessName: (m[1] || '').trim(),
+                    direction: (m[2] || '').trim(),
+                    amount: (m[3] || '').trim(),
+                    reason: (m[4] || '').trim()
+                });
+            }
+
+            // [EVENTO_NEGOZIO: attività|descrizione]
+            const noteRe = /\[EVENTO_NEGOZIO:\s*([^|\]]+)\|([^\]]+)\]/gi;
+            while ((m = noteRe.exec(response)) !== null) {
+                events.push({
+                    type: 'note',
+                    businessName: (m[1] || '').trim(),
+                    text: (m[2] || '').trim()
+                });
+            }
+
+            if (!events.length) return false;
+
+            const outcome = businessEngine.applyNarrativeEvents(management, events, {
+                turn: G.worldMemory.turnCount || 0,
+                employees: G.worldMemory.employees || [],
+                currency
+            });
+            G.worldMemory.management = outcome.management;
+            let changed = false;
+            outcome.results.forEach(result => {
+                if (result.ok) {
+                    addStoryEntry('🏪 ' + result.message, 'mechanic');
+                    changed = true;
+                } else {
+                    addStoryEntry('⚠️ ' + result.message, 'system');
+                }
+            });
+            if (changed) {
+                updateInfoPanels();
+                if ($('modal-business')?.classList.contains('active')) renderBusinessDashboard();
+            }
+            return changed;
         }
 
         // ==================== BILANCIO FINANZIARIO COMPLETO ====================
@@ -7253,6 +7645,15 @@
                 }
             }
 
+            // Stato reale delle attività gestite (allinea la narrazione LLM a questi numeri)
+            const businessContext = businessEngine.buildNarrativeContext(
+                G.worldMemory.management,
+                G.worldMemory.employees || [],
+                G.worldMemory.turnCount || 0,
+                G.character?.currency?.short || 'monete'
+            );
+            if (businessContext) summary += businessContext + '\n';
+
             if (wm.acquiredAbilities.length > 0) {
                 summary += '\n✨ ABILITÀ ACQUISITE:\n';
                 wm.acquiredAbilities.forEach(ab => {
@@ -8254,6 +8655,33 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
   - [SCARTA_OGGETTO_PROPRIETA: Nome Proprietà|Oggetto|Quantità]
 - NON usare [LOOT_PROPRIETA] per contanti: usa sempre [MECCANICA: soldi=±X].
 
+🏪 **GESTIONE ATTIVITÀ COMMERCIALI (ALLINEATA ALLA STORIA)**
+- Il sistema gestisce in autonomia le ATTIVITÀ del giocatore (negozi, botteghe, locande, officine, empori): cassa, scorte, clienti, reputazione, dipendenti, utili e perdite sono numeri REALI tracciati nel motore gestionale.
+- Nel blocco 🧠 MEMORIA MONDO → «ATTIVITÀ GESTITE» trovi i numeri aggiornati di OGNI attività posseduta. La tua narrazione DEVE essere coerente con quei valori:
+  - Non narrare vendite se le scorte sono a zero; non narrare prosperità se la cassa è in perdita.
+  - Quando la scena riguarda l'attività del giocatore, integra i numeri reali (cassa, scorte basse, clienti, reputazione) nella narrazione in modo fluido e naturale.
+- USA i tag seguenti per far riflettere la storia sul motore gestionale (un evento per azione significativa):
+  - [VENDITA_NEGOZIO: nome_attività|prodotto|quantità|prezzo] → registra una vendita avvenuta nella scena (scorte -qty, cassa +importo).
+  - [RIFORNIMENTO_NEGOZIO: nome_attività|prodotto|quantità|costo_opzionale] → arriva merce (scorte +qty; se indichi il costo, viene scalato dalla cassa).
+  - [PREZZO_NEGOZIO: nome_attività|prodotto|nuovo_prezzo] → cambia il prezzo di un prodotto esistente.
+  - [PRODOTTO_NEGOZIO: nome_attività|prodotto_esistente|nuovo_nome|nuovo_prezzo_opzionale] → ridefinisci un prodotto generico per allinearlo alla storia (es. «Articolo principale» → «Birra della casa»).
+  - [CLIENTE_NEGOZIO: nome_attività|nome_cliente|segmento|lealtà_0_100|soddisfazione_opzionale|note_opzionale] → registra o aggiorna un cliente emerso dalla narrazione (segmento: abituale/occasionale/nobile/mercante/viandante/...). Riemettere il tag con lo stesso nome aggiorna fedeltà/soddisfazione/note.
+  - [FORNITORE_NEGOZIO: nome_attività|nome_fornitore|categoria|affidabilità_0_100|lead_turns|sconto_opzionale|stato_opzionale|note_opzionale] → registra o aggiorna un fornitore emerso dalla narrazione (categoria: materie prime/vini/carni/ferro/stoffa/spezie/...; lead_turns = turni di consegna; stato: active/inactive). Riemettere lo stesso nome aggiorna i dati.
+- FORNITORI E CLIENTI DEVONO ESSERE GENERATI DALLA NARRAZIONE, non lasciati generici:
+  - Quando il giocatore entra in rapporto commerciale con qualcuno (un mercante, un contadino, un'azienda, un oste), usa [FORNITORE_NEGOZIO] con un NOME coerente e una categoria credibile per il tipo di attività (taverna → cantine/panettieri; officina → ferriere/stoffai; emporio → speziali/mercanti; fattoria → mulini/allevamenti).
+  - Quando un cliente ricorrente o notevole compare nella scena, usa [CLIENTE_NEGOZIO] con un nome proprio e un segmento coerente.
+  - I fornitori/clienti con un nome narrato sostituiscono i placeholder generici: usa sempre nomi concreti, mai «Fornitore locale» o «Cliente generico».
+  - [STATO_NEGOZIO: nome_attività|active|paused|closed] → cambia lo stato operativo dell'attività.
+  - [REPUTAZIONE_NEGOZIO: nome_attività|+5_o_-10|motivo_opzionale] → varia la reputazione (0-100) in base a eventi narrati.
+  - [CASSA_NEGOZIO: nome_attività|entra_o_esce|importo|motivo_opzionale] → movimento straordinario di cassa (investimenti, spese impreviste, tasse, regali).
+  - [EVENTO_NEGOZIO: nome_attività|descrizione breve] → registra un accadimento narrato (ispezioni, incidenti, lodi, lamentele, decisioni gestionali).
+- REGOLE DI COERENZA:
+  - Una vendita narrata DEVE avere il tag [VENDITA_NEGOZIO]; un rifornimento narrato DEVE avere [RIFORNIMENTO_NEGOZIO]. Non narrare transazioni senza registrarle.
+  - Se l'LLM descrive una merce che non esiste ancora nei prodotti, usa [PRODOTTO_NEGOZIO] per crearla/ridefinirla con un nome concretro coerente all'attività (es. taverna → birra/pane, officina → spade/ferramenta, emporio → stoffa/spezie).
+  - Allinea SEMPRE il nome dell'attività al nome della proprietà posseduta; se il giocatore possiede «Taverna del Sole», usa quel nome nei tag.
+  - Se il giocatore non possiede ancora nessuna attività commerciale, NON usare questi tag.
+  - La «cronaca recente» nella sezione ATTIVITÀ GESTITE include sia gli eventi narrati sia le **modifiche manuali del giocatore** (marcate con ✋): prezzo cambiato, scorte modificate, prodotto/fornitore/cliente disattivato o rimosso, dipendente formato o licenziato. La narrazione DEVE tenerne conto come accadimenti reali: un fornitore disattivato non è più disponibile, un prodotto rimosso è stato ritirato dal listino, un dipendente licenziato ha lasciato l'attività, un prezzo cambiato vale da subito. Non contraddire queste modifiche e, se opportuno, richiamale nella scena (es. il mercante nota che la birra costa di più, l'oste si rammarica per la partenza del garzone).
+
 👨‍👩‍👧 **FAMIGLIA**
 - Il protagonista può avere una famiglia (moglie/marito, figli, genitori, fratelli, ecc.).
 - Usa [FAMIGLIA: nome|relazione|età|stato|descrizione|occupazione|reddito|spese] per registrare membri.
@@ -8844,6 +9272,14 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 memoryChanged = true;
             }
 
+            // Estrae gli eventi di gestione attività commerciali (LLM → BusinessManager):
+            // vendite, rifornimenti, prezzi, clienti, stato, reputazione, cassa, note narrative.
+            // Allinea i numeri reali del gestionale a quanto narrato nella storia.
+            if (parseBusinessTags(response)) {
+                memoryChanged = true;
+                uiStateChanged = true;
+            }
+
             // Extract Family Members
             // Formato: [FAMIGLIA: nome|relazione|età|stato|descrizione|occupazione|reddito|spese]
             const familyRe = /\[FAMIGLIA:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^\]]+))?\]/gi;
@@ -9048,6 +9484,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[(?:CRESCITA|LEGAME|FAMIGLIA_STATO|PROPRIETA_STATO):[^\]]*\]/gi, '')
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
+                .replace(/\[(?:VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
                 .replace(/\[FAMIGLIA:[^\]]*\]/gi, '')
                 .replace(/\[DIPENDENTE:[^\]]*\]/gi, '')

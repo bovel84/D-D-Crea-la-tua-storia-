@@ -8,6 +8,7 @@
     const SCHEMA_VERSION = 1;
     const MAX_TRANSACTIONS = 120;
     const MAX_HISTORY = 24;
+    const MAX_NOTES = 24;
     const BUSINESS_WORDS = /impresa|azienda|negozio|bottega|officina|taverna|locanda|osteria|ristorante|farmacia|studio|laboratorio|emporio|mercato|banca|agenzia|fabbrica|attivit/i;
 
     function clone(value) {
@@ -246,6 +247,7 @@
             pendingOrders: Array.isArray(source.pendingOrders) ? source.pendingOrders.slice(-50) : [],
             transactions: Array.isArray(source.transactions) ? source.transactions.slice(-MAX_TRANSACTIONS) : [],
             history: Array.isArray(source.history) ? source.history.slice(-MAX_HISTORY) : [],
+            notes: Array.isArray(source.notes) ? source.notes.slice(-MAX_NOTES) : [],
             settings: {
                 marketingBudget: Math.max(0, roundMoney(source.settings?.marketingBudget)),
                 qualityFocus: clamp(source.settings?.qualityFocus ?? 50, 0, 100),
@@ -365,6 +367,63 @@
         }, business.customers.length);
         business.customers.push(customer);
         return customer;
+    }
+
+    function findProductById(business, productId) {
+        return business.products.find(item => item.id === productId) || null;
+    }
+    function setProductActive(business, productId, active) {
+        const product = findProductById(business, productId);
+        if (!product) throw new Error('Prodotto non trovato.');
+        product.active = !!active;
+        return product;
+    }
+    function adjustProductStock(business, productId, delta) {
+        const product = findProductById(business, productId);
+        if (!product) throw new Error('Prodotto non trovato.');
+        product.stock = Math.max(0, Math.round(product.stock + Number(delta || 0)));
+        return product;
+    }
+    function removeProduct(business, productId) {
+        const before = business.products.length;
+        business.products = business.products.filter(item => item.id !== productId);
+        return business.products.length < before;
+    }
+    function findSupplierById(business, supplierId) {
+        return business.suppliers.find(item => item.id === supplierId) || null;
+    }
+    function updateSupplier(business, supplierId, patch) {
+        const supplier = findSupplierById(business, supplierId);
+        if (!supplier) throw new Error('Fornitore non trovato.');
+        if (patch.category != null) supplier.category = clean(patch.category, 80);
+        if (patch.reliability != null) supplier.reliability = clamp(patch.reliability, 0, 100);
+        if (patch.leadTurns != null) supplier.leadTurns = Math.max(0, parseInt(patch.leadTurns, 10) || 0);
+        if (patch.discount != null) supplier.discount = clamp(patch.discount, 0, 60);
+        if (patch.status != null) supplier.status = patch.status === 'inactive' ? 'inactive' : 'active';
+        if (patch.notes != null) supplier.notes = clean(patch.notes, 240);
+        return supplier;
+    }
+    function removeSupplier(business, supplierId) {
+        const before = business.suppliers.length;
+        business.suppliers = business.suppliers.filter(item => item.id !== supplierId);
+        return business.suppliers.length < before;
+    }
+    function findCustomerById(business, customerId) {
+        return business.customers.find(item => item.id === customerId) || null;
+    }
+    function updateCustomer(business, customerId, patch) {
+        const customer = findCustomerById(business, customerId);
+        if (!customer) throw new Error('Cliente non trovato.');
+        if (patch.segment != null) customer.segment = clean(patch.segment, 80);
+        if (patch.loyalty != null) customer.loyalty = clamp(patch.loyalty, 0, 100);
+        if (patch.satisfaction != null) customer.satisfaction = clamp(patch.satisfaction, 0, 100);
+        if (patch.notes != null) customer.notes = clean(patch.notes, 240);
+        return customer;
+    }
+    function removeCustomer(business, customerId) {
+        const before = business.customers.length;
+        business.customers = business.customers.filter(item => item.id !== customerId);
+        return business.customers.length < before;
     }
 
     function placeOrder(business, input, turn = 0) {
@@ -606,6 +665,234 @@
         };
     }
 
+    function resolveBusinessByName(state, name) {
+        const businesses = state?.businesses || [];
+        if (!businesses.length) return null;
+        const key = keyOf(name);
+        if (key) {
+            const byName = businesses.find(item => keyOf(item.name) === key || keyOf(item.propertyName) === key);
+            if (byName) return byName;
+        }
+        if (state.activeBusinessId) {
+            const active = getBusiness(state, state.activeBusinessId);
+            if (active) return active;
+        }
+        return businesses[0];
+    }
+
+    function findProductByName(business, name) {
+        if (!business || !name) return null;
+        const key = keyOf(name);
+        return business.products.find(item => keyOf(item.name) === key || item.id === name) || null;
+    }
+
+    function addBusinessNote(business, text, turn = 0) {
+        if (!business || !text) return;
+        business.notes = Array.isArray(business.notes) ? business.notes : [];
+        business.notes.push({ turn: parseInt(turn, 10) || 0, text: clean(text, 200) });
+        business.notes = business.notes.slice(-MAX_NOTES);
+    }
+
+    function buildNarrativeContext(state, employees, turn = 0, currency = 'monete') {
+        const management = migrateManagement(state);
+        const list = management.businesses.filter(business => business.status !== 'closed');
+        if (!list.length) return '';
+        const staff = Array.isArray(employees) ? employees : [];
+        const lines = [];
+        list.forEach(business => {
+            const report = getReport(business, staff);
+            const lowStock = (report.lowStock || []).map(p => p.name).join(', ');
+            const products = business.products
+                .filter(p => p.active)
+                .slice(0, 8)
+                .map(p => `${p.name} (scorte ${p.stock}, prezzo ${p.salePrice})`)
+                .join('; ');
+            const pending = (report.pendingOrders || []).length;
+            lines.push(`- ${business.name} [${business.type}, ${business.status}]`);
+            lines.push(`  cassa: ${business.cash} ${currency} | reputazione: ${business.reputation}/100 | soddisfazione clienti: ${business.customerSatisfaction}/100`);
+            if (report.netProfit != null) {
+                lines.push(`  ultimo periodo: entrate ${report.revenue || 0}, utile netto ${report.netProfit || 0} (${report.margin || 0}% margine), clienti serviti ${report.customersServed || 0}`);
+            }
+            if (products) lines.push(`  prodotti: ${products}`);
+            if (lowStock) lines.push(`  ⚠️ sotto scorta: ${lowStock}`);
+            if (pending) lines.push(`  ordini in arrivo: ${pending}`);
+            if (business.suppliers && business.suppliers.length) {
+                const activeSup = business.suppliers.filter(s => s.status === 'active');
+                if (activeSup.length) lines.push(`  fornitori: ${activeSup.slice(0, 6).map(s => `${s.name} [${s.category}, affidabilità ${Math.round(s.reliability)}%]`).join('; ')}`);
+            }
+            if (business.customers && business.customers.length) {
+                lines.push(`  clienti noti: ${business.customers.slice(0, 6).map(c => `${c.name} (${c.segment}, fedeltà ${Math.round(c.loyalty)}%)`).join('; ')}`);
+            }
+            if (report.employeeCount) lines.push(`  dipendenti: ${report.employeeCount} (competenza ${report.averageSkill}/100, morale ${report.averageMorale}/100, stipendi ${report.payroll} ${currency}/periodo)`);
+            if (business.notes && business.notes.length) {
+                const recent = business.notes.slice(-6).map(note => note.text).join(' | ');
+                lines.push(`  cronaca recente (narrati + modifiche del giocatore ✋): ${recent}`);
+            }
+        });
+        return '\n🏪 ATTIVITÀ GESTITE (numeri reali, allinea la narrazione a questi valori):\n' + lines.join('\n');
+    }
+
+    function applyNarrativeEvents(state, events, context = {}) {
+        const management = migrateManagement(state);
+        const turn = parseInt(context.turn, 10) || 0;
+        const currency = context.currency || 'monete';
+        const staff = Array.isArray(context.employees) ? context.employees : [];
+        const results = [];
+        (Array.isArray(events) ? events : []).forEach(event => {
+            if (!event || !event.type) return;
+            const business = resolveBusinessByName(management, event.businessName);
+            if (!business) {
+                results.push({ ok: false, type: event.type, message: `Attività non trovata: ${event.businessName || '(nessuna)'}` });
+                return;
+            }
+            switch (event.type) {
+                case 'sale': {
+                    const product = findProductByName(business, event.product);
+                    if (!product) {
+                        results.push({ ok: false, type: 'sale', business: business.name, message: `Prodotto non trovato: ${event.product}` });
+                        break;
+                    }
+                    const qty = Math.max(1, parseInt(event.qty, 10) || 1);
+                    const price = Math.max(0, roundMoney(event.price != null ? event.price : product.salePrice));
+                    const sold = Math.min(product.stock, qty);
+                    if (sold <= 0) {
+                        results.push({ ok: false, type: 'sale', business: business.name, message: `Scorte esaurite per ${product.name}` });
+                        break;
+                    }
+                    product.stock -= sold;
+                    product.soldUnits += sold;
+                    const revenue = roundMoney(sold * price);
+                    business.cash = roundMoney(business.cash + revenue);
+                    business.customerSatisfaction = clamp(business.customerSatisfaction + (sold >= qty ? 1 : -2), 0, 100);
+                    recordTransaction(business, { turn, direction: 'in', category: 'vendite', amount: revenue, description: `Vendita narrata: ${sold} × ${product.name}` });
+                    addBusinessNote(business, `Vendita di ${sold} × ${product.name} a ${price} ${currency} (racconto).`, turn);
+                    results.push({ ok: true, type: 'sale', business: business.name, message: `${business.name}: +${revenue} ${currency} (vendita ${sold}×${product.name})` });
+                    break;
+                }
+                case 'restock': {
+                    const product = findProductByName(business, event.product);
+                    if (!product) {
+                        results.push({ ok: false, type: 'restock', business: business.name, message: `Prodotto non trovato: ${event.product}` });
+                        break;
+                    }
+                    const qty = Math.max(1, parseInt(event.qty, 10) || 1);
+                    const cost = event.cost != null ? Math.max(0, roundMoney(event.cost)) : null;
+                    product.stock += qty;
+                    if (cost != null && cost > 0) {
+                        business.cash = roundMoney(business.cash - cost);
+                        recordTransaction(business, { turn, direction: 'out', category: 'approvvigionamento', amount: cost, description: `Rifornimento narrato: ${qty} × ${product.name}` });
+                    }
+                    addBusinessNote(business, `Rifornimento di ${qty} × ${product.name}${cost != null ? ` (costo ${cost} ${currency})` : ''} (racconto).`, turn);
+                    results.push({ ok: true, type: 'restock', business: business.name, message: `${business.name}: +${qty} ${product.name}` });
+                    break;
+                }
+                case 'price': {
+                    const product = findProductByName(business, event.product);
+                    if (!product) {
+                        results.push({ ok: false, type: 'price', business: business.name, message: `Prodotto non trovato: ${event.product}` });
+                        break;
+                    }
+                    const price = Math.max(0, roundMoney(event.price));
+                    updateProductPrice(business, product.id, price);
+                    results.push({ ok: true, type: 'price', business: business.name, message: `${business.name}: ${product.name} → ${price} ${currency}` });
+                    break;
+                }
+                case 'renameProduct': {
+                    const product = findProductByName(business, event.product);
+                    if (!product) {
+                        results.push({ ok: false, type: 'renameProduct', business: business.name, message: `Prodotto non trovato: ${event.product}` });
+                        break;
+                    }
+                    const newName = clean(event.newName, 80);
+                    if (newName) product.name = newName;
+                    if (event.price != null && Number.isFinite(Number(event.price))) {
+                        updateProductPrice(business, product.id, Math.max(0, roundMoney(event.price)));
+                    }
+                    addBusinessNote(business, `Prodotto «${event.product}» ridefinito come «${newName}» (racconto).`, turn);
+                    results.push({ ok: true, type: 'renameProduct', business: business.name, message: `${business.name}: ${event.product} → ${newName}` });
+                    break;
+                }
+                case 'customer': {
+                    const customerInput = { name: clean(event.customerName, 60) || 'Cliente' };
+                    if (event.segment != null && event.segment !== '') customerInput.segment = clean(event.segment, 40);
+                    if (event.loyalty != null && event.loyalty !== '') customerInput.loyalty = clamp(event.loyalty, 0, 100);
+                    if (event.satisfaction != null && event.satisfaction !== '') customerInput.satisfaction = clamp(event.satisfaction, 0, 100);
+                    if (event.visits != null && event.visits !== '') customerInput.visits = Math.max(0, parseInt(event.visits, 10) || 0);
+                    if (event.notes != null && event.notes !== '') customerInput.notes = clean(event.notes, 240);
+                    addCustomer(business, customerInput);
+                    addBusinessNote(business, `Cliente dalla narrazione: ${customerInput.name}${event.notes ? ` — ${event.notes}` : ''}.`, turn);
+                    results.push({ ok: true, type: 'customer', business: business.name, message: `${business.name}: cliente ${customerInput.name}` });
+                    break;
+                }
+                case 'supplier': {
+                    const supplierInput = { name: clean(event.supplierName, 60) || 'Fornitore' };
+                    if (event.category != null && event.category !== '') supplierInput.category = clean(event.category, 40);
+                    if (event.reliability != null && event.reliability !== '') supplierInput.reliability = clamp(event.reliability, 0, 100);
+                    if (event.leadTurns != null && event.leadTurns !== '') supplierInput.leadTurns = Math.max(0, parseInt(event.leadTurns, 10) || 0);
+                    if (event.discount != null && event.discount !== '') supplierInput.discount = clamp(event.discount, 0, 60);
+                    if (event.status != null && event.status !== '' && ['active', 'inactive'].includes(String(event.status).toLowerCase())) supplierInput.status = String(event.status).toLowerCase();
+                    if (event.notes != null && event.notes !== '') supplierInput.notes = clean(event.notes, 240);
+                    addSupplier(business, supplierInput);
+                    addBusinessNote(business, `Fornitore dalla narrazione: ${supplierInput.name}${event.notes ? ` — ${event.notes}` : ''}.`, turn);
+                    results.push({ ok: true, type: 'supplier', business: business.name, message: `${business.name}: fornitore ${supplierInput.name}` });
+                    break;
+                }
+                case 'status': {
+                    const status = String(event.status || '').toLowerCase();
+                    if (['active', 'paused', 'closed'].includes(status)) {
+                        business.status = status;
+                        addBusinessNote(business, `Stato attività: ${status} (racconto).`, turn);
+                        results.push({ ok: true, type: 'status', business: business.name, message: `${business.name}: stato → ${status}` });
+                    } else {
+                        results.push({ ok: false, type: 'status', business: business.name, message: `Stato non valido: ${event.status}` });
+                    }
+                    break;
+                }
+                case 'reputation': {
+                    const delta = parseInt(event.delta, 10) || 0;
+                    business.reputation = clamp(business.reputation + delta, 0, 100);
+                    if (event.reason) addBusinessNote(business, `Reputazione ${delta >= 0 ? '+' : ''}${delta}: ${event.reason} (racconto).`, turn);
+                    results.push({ ok: true, type: 'reputation', business: business.name, message: `${business.name}: reputazione ${delta >= 0 ? '+' : ''}${delta}` });
+                    break;
+                }
+                case 'cash': {
+                    const direction = String(event.direction || '').toLowerCase();
+                    const amount = Math.max(0, roundMoney(event.amount));
+                    if (!amount) {
+                        results.push({ ok: false, type: 'cash', business: business.name, message: 'Importo non valido' });
+                        break;
+                    }
+                    if (direction === 'esce' || direction === 'out') {
+                        if (business.cash < amount) {
+                            results.push({ ok: false, type: 'cash', business: business.name, message: 'Cassa insufficiente' });
+                            break;
+                        }
+                        business.cash = roundMoney(business.cash - amount);
+                        recordTransaction(business, { turn, direction: 'out', category: 'straordinaria', amount, description: event.reason || 'Uscita straordinaria' });
+                    } else {
+                        business.cash = roundMoney(business.cash + amount);
+                        recordTransaction(business, { turn, direction: 'in', category: 'straordinaria', amount, description: event.reason || 'Entrata straordinaria' });
+                    }
+                    addBusinessNote(business, `${direction === 'esce' || direction === 'out' ? 'Uscita' : 'Entrata'} straordinaria ${amount} ${currency}${event.reason ? `: ${event.reason}` : ''} (racconto).`, turn);
+                    results.push({ ok: true, type: 'cash', business: business.name, message: `${business.name}: cassa ${business.cash} ${currency}` });
+                    break;
+                }
+                case 'note': {
+                    if (event.text) {
+                        addBusinessNote(business, event.text, turn);
+                        results.push({ ok: true, type: 'note', business: business.name, message: `${business.name}: evento narrato registrato` });
+                    }
+                    break;
+                }
+                default:
+                    results.push({ ok: false, type: event.type, message: 'Tipo evento non riconosciuto' });
+            }
+        });
+        // Ricalcola il report attivo dopo gli eventi narrati.
+        management.businesses.forEach(business => { business.lastReport = getReport(business, staff); });
+        return { management, results };
+    }
+
     class BusinessManager {
         createDefault() { return createDefaultManagement(); }
         migrate(input) { return migrateManagement(input); }
@@ -620,6 +907,16 @@
         runPeriod(business, context, random) { return runPeriod(business, context, random); }
         transferFunds(business, character, amount, direction) { return transferFunds(business, character, amount, direction); }
         getReport(business, employees) { return getReport(business, employees); }
+        setProductActive(business, productId, active) { return setProductActive(business, productId, active); }
+        adjustProductStock(business, productId, delta) { return adjustProductStock(business, productId, delta); }
+        removeProduct(business, productId) { return removeProduct(business, productId); }
+        updateSupplier(business, supplierId, patch) { return updateSupplier(business, supplierId, patch); }
+        removeSupplier(business, supplierId) { return removeSupplier(business, supplierId); }
+        updateCustomer(business, customerId, patch) { return updateCustomer(business, customerId, patch); }
+        removeCustomer(business, customerId) { return removeCustomer(business, customerId); }
+        addBusinessNote(business, text, turn) { return addBusinessNote(business, text, turn); }
+        buildNarrativeContext(state, employees, turn, currency) { return buildNarrativeContext(state, employees, turn, currency); }
+        applyNarrativeEvents(state, events, context) { return applyNarrativeEvents(state, events, context); }
     }
 
     return {
@@ -628,6 +925,16 @@
         MAX_HISTORY,
         BUSINESS_WORDS,
         BusinessManager,
+        addBusinessNote,
+        buildNarrativeContext,
+        applyNarrativeEvents,
+        setProductActive,
+        adjustProductStock,
+        removeProduct,
+        updateSupplier,
+        removeSupplier,
+        updateCustomer,
+        removeCustomer,
         clean,
         keyOf,
         clamp,

@@ -765,6 +765,169 @@ test('gestisce prodotti, fornitori e clienti senza duplicare i nomi', () => {
 });
 
 
+test('applica gli eventi narrati dell’LLM ai numeri reali del gestionale', () => {
+    const property = { id: 9, name: 'Taverna del Sole', type: 'business', businessCash: 500 };
+    let management = businessApi.syncProperties(null, [property], 3);
+    const business = management.businesses[0];
+    const oldProduct = business.products[0].name;
+    // LLM ridefinisce il prodotto generico per allinearlo alla storia
+    let outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'renameProduct',
+        businessName: 'Taverna del Sole',
+        product: oldProduct,
+        newName: 'Birra della casa',
+        price: 3
+    }], { turn: 4, currency: 'monete' });
+    management = outcome.management;
+    assert.equal(outcome.results[0].ok, true);
+    assert.equal(management.businesses[0].products[0].name, 'Birra della casa');
+    // LLM narra una vendita: scorte diminuiscono, cassa aumenta, transazione registrata
+    const before = { cash: management.businesses[0].cash, stock: management.businesses[0].products[0].stock };
+    outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'sale', businessName: 'Taverna del Sole',
+        product: 'Birra della casa', qty: 4, price: 3
+    }], { turn: 4, currency: 'monete' });
+    management = outcome.management;
+    const after = management.businesses[0];
+    assert.equal(after.cash, before.cash + 12);
+    assert.equal(after.products[0].stock, before.stock - 4);
+    assert.ok(after.transactions.some(tx => tx.category === 'vendite'));
+    // LLM narra rifornimento a pagamento + evento + reputazione
+    outcome = businessApi.applyNarrativeEvents(management, [
+        { type: 'restock', businessName: 'Taverna del Sole', product: 'Birra della casa', qty: 10, cost: 15 },
+        { type: 'reputation', businessName: 'Taverna del Sole', delta: 3, reason: 'cliente soddisfatto' },
+        { type: 'note', businessName: 'Taverna del Sole', text: 'Ispezione della sala: tutto in ordine' }
+    ], { turn: 5, currency: 'monete' });
+    management = outcome.management;
+    const b = management.businesses[0];
+    assert.equal(outcome.results.every(r => r.ok), true);
+    assert.equal(b.reputation, 53);
+    assert.ok(b.notes.length > 0);
+    assert.equal(b.notes[b.notes.length - 1].text, 'Ispezione della sala: tutto in ordine');
+});
+
+test('genera un contesto narrativo per il prompt LLM allineato ai numeri reali', () => {
+    const property = { id: 11, name: 'Emporio Mercanti', type: 'business', businessCash: 800 };
+    const management = businessApi.syncProperties(null, [property], 2);
+    const context = businessApi.buildNarrativeContext(management, [], 2, 'monete');
+    assert.ok(context.includes('ATTIVITÀ GESTITE'));
+    assert.ok(context.includes('Emporio Mercanti'));
+    assert.ok(context.includes('cassa: 800'));
+    assert.ok(context.includes('prodotti:'));
+    // Nessuna attività => stringa vuota (l'LLM non riceve sezione inutile)
+    assert.equal(businessApi.buildNarrativeContext(businessApi.createDefaultManagement(), [], 0, 'monete'), '');
+});
+
+test('rifiuta eventi narrati su attività o prodotti inesistenti', () => {
+    const management = businessApi.syncProperties(null, [{ id: 12, name: 'Bottega', type: 'business' }], 0);
+    const outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'sale', businessName: 'Negozio inesistente', product: 'Niente', qty: 1, price: 1
+    }], { turn: 1, currency: 'monete' });
+    assert.equal(outcome.results[0].ok, false);
+});
+
+test('modifica e rimuove prodotti, fornitori e clienti dal motore gestionale', () => {
+    const property = { id: 14, name: 'Emporio Sole', type: 'business', businessCash: 200 };
+    const business = businessApi.createBusinessFromProperty(property, 0);
+    businessApi.addSupplier(business, { name: 'Cantina', reliability: 70 });
+    businessApi.addCustomer(business, { name: 'Bernardo', loyalty: 40 });
+
+    // Prodotti: toggle attivo, modifica scorte, rimuovi
+    const product = business.products[0];
+    assert.equal(businessApi.setProductActive(business, product.id, false).active, false);
+    const stockBefore = product.stock;
+    businessApi.adjustProductStock(business, product.id, 5);
+    assert.equal(product.stock, stockBefore + 5);
+    assert.equal(businessApi.removeProduct(business, product.id), true);
+    assert.equal(business.products.some(p => p.id === product.id), false);
+
+    // Fornitori: aggiorna campi e rimuovi
+    const supplier = business.suppliers.find(s => s.name === 'Cantina');
+    businessApi.updateSupplier(business, supplier.id, { reliability: 90, discount: 10, leadTurns: 3, status: 'inactive' });
+    assert.equal(supplier.reliability, 90);
+    assert.equal(supplier.discount, 10);
+    assert.equal(supplier.status, 'inactive');
+    assert.equal(businessApi.removeSupplier(business, supplier.id), true);
+    assert.equal(business.suppliers.some(s => s.id === supplier.id), false);
+
+    // Clienti: aggiorna campi e rimuovi
+    const customer = business.customers.find(c => c.name === 'Bernardo');
+    businessApi.updateCustomer(business, customer.id, { loyalty: 75, satisfaction: 80, notes: 'Fisso' });
+    assert.equal(customer.loyalty, 75);
+    assert.equal(customer.satisfaction, 80);
+    assert.equal(customer.notes, 'Fisso');
+    assert.equal(businessApi.removeCustomer(business, customer.id), true);
+    assert.equal(business.customers.some(c => c.id === customer.id), false);
+
+    // Funzioni su ID inesistente lanciano / restituiscono false
+    assert.throws(() => businessApi.setProductActive(business, 'nope', true), /Prodotto non trovato/);
+    assert.equal(businessApi.removeProduct(business, 'nope'), false);
+});
+
+test('fornitori e clienti sono generati e aggiornati dalla narrazione dell’LLM', () => {
+    const property = { id: 13, name: 'Taverna del Lupo', type: 'business', businessCash: 300 };
+    let management = businessApi.syncProperties(null, [property], 1);
+    const biz0 = management.businesses[0];
+    assert.ok(biz0.suppliers.some(s => /Fornitore/i.test(s.name))); // placeholder generico iniziale
+    // LLM narra un fornitore concreto: un cantiniere affidabile con sconto
+    let outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'supplier', businessName: 'Taverna del Lupo',
+        supplierName: 'Cantina dei Colli', category: 'vini',
+        reliability: 88, leadTurns: 2, discount: 5, status: 'active',
+        notes: 'Fornisce birra e vino locale'
+    }], { turn: 2, currency: 'monete' });
+    management = outcome.management;
+    const biz = management.businesses[0];
+    assert.equal(outcome.results[0].ok, true);
+    const cantiniere = biz.suppliers.find(s => s.name === 'Cantina dei Colli');
+    assert.ok(cantiniere, 'il fornitore narrato deve essere registrato');
+    assert.equal(cantiniere.category, 'vini');
+    assert.equal(cantiniere.reliability, 88);
+    assert.equal(cantiniere.discount, 5);
+    // Riemettere lo stesso nome aggiorna i dati senza duplicare
+    outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'supplier', businessName: 'Taverna del Lupo',
+        supplierName: 'Cantina dei Colli', reliability: 92
+    }], { turn: 3, currency: 'monete' });
+    management = outcome.management;
+    assert.equal(management.businesses[0].suppliers.filter(s => s.name === 'Cantina dei Colli').length, 1);
+    assert.equal(management.businesses[0].suppliers.find(s => s.name === 'Cantina dei Colli').reliability, 92);
+
+    // LLM narra un cliente notevole: un mercante con soddisfazione e note
+    outcome = businessApi.applyNarrativeEvents(management, [{
+        type: 'customer', businessName: 'Taverna del Lupo',
+        customerName: 'Bernardo dei Mari', segment: 'mercante',
+        loyalty: 55, satisfaction: 80, notes: 'Cliente fisso del giovedì'
+    }], { turn: 3, currency: 'monete' });
+    management = outcome.management;
+    const bernardo = management.businesses[0].customers.find(c => c.name === 'Bernardo dei Mari');
+    assert.ok(bernardo, 'il cliente narrato deve essere registrato');
+    assert.equal(bernardo.segment, 'mercante');
+    assert.equal(bernardo.loyalty, 55);
+    assert.equal(bernardo.satisfaction, 80);
+    assert.equal(bernardo.notes, 'Cliente fisso del giovedì');
+
+    // Il contesto narrativo riflette i fornitori e clienti nominati
+    const ctx = businessApi.buildNarrativeContext(management, [], 3, 'monete');
+    assert.ok(ctx.includes('Cantina dei Colli'));
+    assert.ok(ctx.includes('Bernardo dei Mari'));
+});
+
+test('le modifiche manuali vengono registrate come eventi nella cronaca visibile all’LLM', () => {
+    const property = { id: 15, name: 'Bottega Verde', type: 'business', businessCash: 100 };
+    let management = businessApi.syncProperties(null, [property], 0);
+    const business = management.businesses[0];
+    // Simula due modifiche manuali e un evento narrato
+    businessApi.addBusinessNote(business, '✋ prezzo di Articolo principale → 25', 1);
+    businessApi.addBusinessNote(business, 'Vendita di 2 × Articolo principale', 2);
+    businessApi.addBusinessNote(business, '✋ fornitore disattivato: Fornitore locale', 2);
+    const ctx = businessApi.buildNarrativeContext(management, [], 2, 'monete');
+    assert.ok(ctx.includes('cronaca recente'));
+    assert.ok(ctx.includes('✋ prezzo di Articolo principale → 25'));
+    assert.ok(ctx.includes('✋ fornitore disattivato: Fornitore locale'));
+    assert.ok(ctx.includes('Vendita di 2 × Articolo principale'));
+});
+
 test('espone accessi visibili alla gestione del negozio', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /id="btn-business-manage"/);
