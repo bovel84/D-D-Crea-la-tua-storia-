@@ -1221,10 +1221,13 @@ test('espone accessi visibili alla gestione del negozio', () => {
     assert.match(html, /parseBusinessTags\(response, \{ deferEntries: true \}\)/);
     assert.match(html, /DIPENDENTE_NEGOZIO/);
     assert.match(html, /CONTRATTO_NEGOZIO/);
+    assert.match(html, /VERBALE DI CONSEGNA/);
+    assert.match(html, /beni che restano nel negozio.*LOOT_PROPRIETA/i);
+    assert.match(html, /Distribuzioni Bianchi/);
     assert.match(html, /outcome\.employees/);
     assert.match(html, /splitTagFields/);
     assert.match(html, /const businessEmployeeRe = .*DIPENDENTE_NEGOZIO/);
-    assert.match(html, /const contractRe = .*CONTRATTO_NEGOZIO/);
+    assert.match(html, /const contractRe = .*CONTRATTO_NEGOZIO.*ACCORDO_NEGOZIO.*CONTRATTO/);
     assert.ok(
         html.indexOf('const hasNarrative = G.storyLog.some') <
         html.indexOf('if (management.businesses.length && !management.accessAnnounced)'),
