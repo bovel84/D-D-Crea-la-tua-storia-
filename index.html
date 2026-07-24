@@ -3968,9 +3968,50 @@
         }
 
         // Starter properties helpers (garantiscono beni iniziali coerenti)
+        function enrichStarterProperty(story, property) {
+            const source = property && typeof property === 'object' ? property : {};
+            const isEmporioRossi = story?.title === 'Scalata al Successo' &&
+                String(source.name || '').trim().toLowerCase() === 'emporio rossi';
+            if (!isEmporioRossi) return source;
+            return {
+                ...source,
+                id: source.id || 'starter-emporio-rossi',
+                name: 'Emporio Rossi',
+                description: source.description || 'Il piccolo negozio di famiglia appena ereditato. Clientela locale fedele, margini stretti.',
+                notes: source.notes || 'Puoi investire per ampliarlo o venderlo per fare cassa.',
+                type: 'business',
+                condition: source.condition ?? 65,
+                baseValue: source.baseValue ?? 3000,
+                income: source.income ?? 0,
+                businessCash: source.businessCash ?? 120,
+                inventory: Array.isArray(source.inventory) && source.inventory.length ? source.inventory : [
+                    { name: 'Scaffalature e bancone', category: 'strumentali', count: 1, description: 'Arredi del vecchio emporio', value: 700, icon: '🗄️' },
+                    { name: 'Registro dei fornitori', category: 'strumentali', count: 1, description: 'Contatti e consegne annotate dalla famiglia', value: 80, icon: '📒' }
+                ],
+                catalog: Array.isArray(source.catalog) && source.catalog.length ? source.catalog : [
+                    { name: 'Generi alimentari', category: 'alimentari', salePrice: 8, unitCost: 4, stock: 18, baseDemand: 7, reorderPoint: 5, targetStock: 24 },
+                    { name: 'Articoli per la casa', category: 'casa', salePrice: 12, unitCost: 6, stock: 12, baseDemand: 4, reorderPoint: 4, targetStock: 18 }
+                ],
+                suppliers: Array.isArray(source.suppliers) && source.suppliers.length ? source.suppliers : [
+                    { name: 'Distribuzioni Bianchi', category: 'generi misti', reliability: 72, leadTurns: 2, status: 'active', notes: 'Rapporto storico della famiglia' }
+                ],
+                contracts: Array.isArray(source.contracts) && source.contracts.length ? source.contracts : [
+                    { title: 'Fornitura continuativa', kind: 'fornitura', counterpartyType: 'fornitore', counterpartyName: 'Distribuzioni Bianchi', amount: 180, frequency: 'settimanale', status: 'active', notes: 'Accordo ereditato, rinnovabile a fine mese' }
+                ]
+            };
+        }
+
         function applyStarterProperties(story) {
-            if (!story || !story.starterProperties) return;
-            story.starterProperties.forEach(p => {
+            if (!story) return;
+            if ((!Array.isArray(story.starterProperties) || !story.starterProperties.length) &&
+                story.title === 'Scalata al Successo') {
+                story.starterProperties = [{ name: 'Emporio Rossi', type: 'business' }];
+            }
+            if (!Array.isArray(story.starterProperties)) return;
+            story.starterProperties.forEach(rawProperty => {
+                // Anche una storia conservata dentro un vecchio salvataggio riceve
+                // il registro iniziale: load() aggiorna G.stories, non le copie salvate.
+                const p = enrichStarterProperty(story, rawProperty);
                 const name = (p.name || '').trim();
                 if (!name) return;
                 // addProperty è un upsert per nome: aggiorna anche proprietà legacy/parziali senza duplicarle.
@@ -4000,6 +4041,14 @@
                     CronacheBusiness.keyOf(item.propertyName) === CronacheBusiness.keyOf(name)
                 );
                 if (!business || business._starterLedgerImported) return;
+                // La versione precedente dello starter salvava zero come cassa.
+                // Ripristiniamo i 120 iniziali solo sul bootstrap ancora pending:
+                // una cassa realmente evoluta durante la partita non viene toccata.
+                if (!business.narrativeInitialized && business.period === 0 &&
+                    Number(business.cash || 0) === 0 && Number(p.businessCash || 0) > 0) {
+                    business.cash = Number(p.businessCash);
+                    if (property) property.businessCash = business.cash;
+                }
                 (Array.isArray(p.suppliers) ? p.suppliers : []).forEach(supplier => {
                     businessEngine.addSupplier(business, { ...supplier, source: 'inheritance' });
                 });
@@ -4017,6 +4066,7 @@
                 }
                 business._starterLedgerImported = true;
             });
+            story.starterProperties = story.starterProperties.map(property => enrichStarterProperty(story, property));
         }
 
         // ==================== TIME MANAGEMENT ====================
@@ -6807,6 +6857,24 @@
             }
 
             if (!events.length) return false;
+
+            // LOOT_PROPRIETA viene letto prima dei tag gestionali. Se l'LLM ha già
+            // inventariato la merce, riusiamo quantità, valore e categoria per
+            // completare il corrispondente CATALOGO_NEGOZIO senza perdere il prodotto.
+            events.filter(event => event.type === 'catalogProduct').forEach(event => {
+                const property = getPropertyByName(event.businessName);
+                const inventoryItem = (property?.inventory || []).find(item =>
+                    normalizeKey(item.name || item.id) === normalizeKey(event.productName)
+                );
+                if (!inventoryItem) return;
+                if (!String(event.category || '').trim()) event.category = inventoryItem.category || inventoryItem.type || '';
+                if (!String(event.stock || '').trim() && Number.isFinite(Number(inventoryItem.count))) {
+                    event.stock = Number(inventoryItem.count);
+                }
+                if (!String(event.salePrice || '').trim() && Number(inventoryItem.value) > 0) {
+                    event.salePrice = Number(inventoryItem.value);
+                }
+            });
 
             const outcome = businessEngine.applyNarrativeEvents(management, events, {
                 turn: G.worldMemory.turnCount || 0,
