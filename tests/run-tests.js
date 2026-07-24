@@ -1269,6 +1269,8 @@ test('espone accessi visibili alla gestione del negozio', () => {
     assert.match(html, /vecchio salvataggio riceve/);
     assert.match(html, /versione precedente dello starter salvava zero come cassa/i);
     assert.match(html, /LOOT_PROPRIETA viene letto prima dei tag gestionali/);
+    assert.match(html, /vecchio validatore aveva escluso dal catalogo/);
+    assert.match(html, /normalizePropertyCategory\(item\.category\) === 'vendibili'/);
     assert.match(html, /outcome\.employees/);
     assert.match(html, /splitTagFields/);
     assert.match(html, /const businessEmployeeRe = .*DIPENDENTE_NEGOZIO/);

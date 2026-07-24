@@ -4055,6 +4055,28 @@
                 (Array.isArray(p.catalog) ? p.catalog : []).forEach(product => {
                     businessEngine.addProduct(business, { ...product, source: 'inheritance', active: product.active !== false });
                 });
+                // Recupera anche le merci che un turno precedente aveva salvato con
+                // LOOT_PROPRIETA ma il vecchio validatore aveva escluso dal catalogo.
+                // Il valore inventariale diventa prezzo unitario solo se positivo.
+                (Array.isArray(property?.inventory) ? property.inventory : [])
+                    .filter(item => normalizePropertyCategory(item.category) === 'vendibili' &&
+                        String(item.name || item.id || '').trim() && Number(item.value) > 0)
+                    .forEach(item => {
+                        const stock = Math.max(0, Math.round(Number(item.count) || 0));
+                        const salePrice = Number(item.value);
+                        businessEngine.addProduct(business, {
+                            name: item.name || item.id,
+                            category: item.type || 'merce inventariata',
+                            salePrice,
+                            unitCost: Math.round(salePrice * 50) / 100,
+                            stock,
+                            baseDemand: Math.max(1, Math.round(Math.max(stock, 4) / 4)),
+                            reorderPoint: Math.max(1, Math.round(Math.max(stock, 3) / 3)),
+                            targetStock: Math.max(stock, 2),
+                            source: 'inheritance',
+                            active: true
+                        });
+                    });
                 (Array.isArray(p.contracts) ? p.contracts : []).forEach(contract => {
                     try { CronacheBusiness.upsertContract(business, { ...contract, source: 'inheritance' }, G.worldMemory.turnCount || 0); } catch (error) { console.warn('Contratto ereditato ignorato:', error.message); }
                 });
