@@ -15,6 +15,7 @@ const lifeApi = require('../js/life-legacy.js');
 const characterApi = require('../js/character-options.js');
 const timeEnergyApi = require('../js/time-energy.js');
 const businessApi = require('../js/business-manager.js');
+const kingdomApi = require('../js/kingdom-manager.js');
 const packageMetadata = require('../package.json');
 
 const tests = [];
@@ -1317,11 +1318,94 @@ test('collega tempo ed energia al motore deterministico', () => {
     assert.equal(html.includes('const regenAmount = 3'), false, 'l’energia non deve rigenerarsi durante ogni azione');
 });
 
-test('espone coerentemente la versione applicativa 1.8', () => {
+test('espone coerentemente la versione applicativa 1.9', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.equal(packageMetadata.version, '1.8.0');
-    assert.match(html, /<title>🐉 Cronache del Destino v1\.8<\/title>/);
-    assert.match(html, /Un'avventura narrata dall'IA • v1\.8/);
+    assert.equal(packageMetadata.version, '1.9.0');
+    assert.match(html, /<title>🐉 Cronache del Destino v1\.9<\/title>/);
+    assert.match(html, /Un'avventura narrata dall'IA • v1\.9/);
+});
+
+test('inizializza e migra un regno senza confonderne il tesoro con altre finanze', () => {
+    const engine = new kingdomApi.KingdomManager();
+    const outcome = engine.applyNarrativeEvents(engine.createDefault(), [{
+        type: 'profile',
+        name: 'Astaria',
+        rulerTitle: 'Regina',
+        rulerName: 'Nerissa',
+        capital: 'Khepra',
+        treasury: '12.500 fiorini',
+        population: '40.000',
+        stability: 64,
+        legitimacy: 72,
+        prosperity: 58,
+        food: 900
+    }], { turn: 3 });
+    assert.equal(outcome.state.active, true);
+    assert.equal(outcome.state.name, 'Astaria');
+    assert.equal(outcome.state.treasury, 12500);
+    assert.equal(outcome.state.population, 40000);
+    assert.equal(outcome.state.lastPeriodTurn, 3);
+});
+
+test('riceve territori, fazioni sociali, esercito e diplomazia dal narratore', () => {
+    const engine = new kingdomApi.KingdomManager();
+    let state = engine.applyNarrativeEvents(engine.createDefault(), [
+        { type: 'profile', name: 'Astaria', treasury: 5000, population: 1000 },
+        { type: 'territory', name: 'Kael', territoryType: 'contea mineraria', population: 600, foodProduction: 30, taxIncome: 200, loyalty: 55, strategicResource: 'ferro' },
+        { type: 'faction', name: 'Gilda dei Minatori', category: 'artigiani/gilde', leader: 'Orvek', power: 60, loyalty: 45, goal: 'ridurre le gabelle' },
+        { type: 'army', levies: 300, professionals: 80, cavalry: 20, morale: 70, readiness: 65, upkeep: 90 },
+        { type: 'diplomacy', realm: 'Karsov', relation: 'tesa', trust: 20, tension: 75, claims: 'Miniere di Kael' }
+    ], { turn: 1 }).state;
+    assert.equal(state.territories[0].name, 'Kael');
+    assert.equal(state.population, 600);
+    assert.equal(state.factions[0].category, 'artigiani/gilde');
+    assert.equal(state.army.professionals, 80);
+    assert.equal(state.diplomacy[0].claims, 'Miniere di Kael');
+});
+
+test('simula periodi del regno con entrate, mantenimento e viveri', () => {
+    const engine = new kingdomApi.KingdomManager();
+    const state = kingdomApi.migrateKingdom({
+        active: true, name: 'Astaria', treasury: 1000, population: 1000, food: 100,
+        lastPeriodTurn: 0, settings: { periodTurns: 5 },
+        army: { professionals: 50, upkeep: 40, morale: 60, readiness: 60 },
+        territories: [{ name: 'Daran', population: 1000, taxIncome: 300, foodProduction: 80, loyalty: 70 }]
+    });
+    const result = engine.processPeriods(state, { turn: 5 });
+    assert.equal(result.reports.length, 1);
+    assert.equal(result.state.period, 1);
+    assert.ok(result.reports[0].income > result.reports[0].armyUpkeep);
+    assert.equal(result.state.treasury, 1219);
+    assert.equal(result.state.food, 152);
+});
+
+test('inietta lo stato autoritativo del regno nel contesto LLM', () => {
+    const context = kingdomApi.buildNarrativeContext({
+        active: true, name: 'Astaria', treasury: 700, population: 1200,
+        territories: [{ name: 'Ostria', population: 1200, taxIncome: 40, foodProduction: 70, loyalty: 60 }],
+        factions: [{ name: 'Mercanti del Porto', category: 'mercanti', power: 55, loyalty: 48 }],
+        diplomacy: [{ realm: 'Tazir', relation: 'commerciale', trust: 65, tension: 10 }]
+    }, 7, 'fiorini');
+    assert.match(context, /STATO AUTORITATIVO/);
+    assert.match(context, /Tesoro: 700 fiorini/);
+    assert.match(context, /Ostria/);
+    assert.match(context, /Mercanti del Porto/);
+    assert.match(context, /Tazir/);
+    assert.match(context, /separato dal denaro personale/);
+});
+
+test('integra pannello, ciclo turni e protocollo dei tag del regno', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /src="js\/kingdom-manager\.js"/);
+    assert.match(html, /id="btn-kingdom-manage"/);
+    assert.match(html, /id="modal-kingdom"/);
+    assert.match(html, /function parseKingdomTags/);
+    assert.match(html, /processKingdomTurn\(\)/);
+    assert.match(html, /kingdomEngine\.buildNarrativeContext/);
+    assert.match(html, /TERRITORIO_REGNO/);
+    assert.match(html, /FAZIONE_REGNO/);
+    assert.match(html, /DIPLOMAZIA_REGNO/);
+    assert.match(html, /Il tesoro reale NON è denaro personale/);
 });
 
 (async () => {
