@@ -1363,6 +1363,19 @@ test('riceve territori, fazioni sociali, esercito e diplomazia dal narratore', (
     assert.equal(state.diplomacy[0].claims, 'Miniere di Kael');
 });
 
+test('analizza i tag del regno senza errori di espressione regolare', () => {
+    const events = kingdomApi.parseNarrativeTags(
+        '[REGNO: Astaria|Regina|Nerissa|monarchia|Khepra|12500|40000|64|72|58|900]\\n' +
+        '[TERRITORIO_REGNO: Astaria|Kael|contea mineraria|6000|300|900|70|55|Corona|ferro|controllato]'
+    );
+    assert.equal(events.length, 2);
+    assert.equal(events[0].type, 'profile');
+    assert.equal(events[0].name, 'Astaria');
+    assert.equal(events[1].type, 'territory');
+    assert.equal(events[1].name, 'Kael');
+    assert.equal(events[1].territoryType, 'contea mineraria');
+});
+
 test('simula periodi del regno con entrate, mantenimento e viveri', () => {
     const engine = new kingdomApi.KingdomManager();
     const state = kingdomApi.migrateKingdom({
