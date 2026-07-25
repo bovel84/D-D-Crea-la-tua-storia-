@@ -11,6 +11,19 @@
     --ux-safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Dominio sovrano: stessa leggibilità del gestionale attività, identità distinta. */
+.kingdom-manager-modal .kingdom-hero {
+    background: linear-gradient(135deg, rgba(75, 38, 110, .96), rgba(141, 102, 24, .92));
+}
+.action-btn.kingdom-manage {
+    border-color: #7c3fa0;
+    background: linear-gradient(135deg, #5b2b78, #a77a19);
+    color: #fff;
+}
+.action-btn.kingdom-manage.attention {
+    box-shadow: 0 0 0 3px rgba(184, 63, 63, .26);
+}
+
 .ux-skip-link {
     position: fixed;
     top: 8px;

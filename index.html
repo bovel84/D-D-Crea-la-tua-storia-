@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>🐉 Cronache del Destino v1.8</title>
+    <title>🐉 Cronache del Destino v1.9</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=MedievalSharp&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -2315,7 +2315,7 @@
         <div class="home-container">
             <div class="home-logo">🐉</div>
             <h1 class="home-title">Cronache del Destino</h1>
-            <p class="home-subtitle">Un'avventura narrata dall'IA • v1.8</p>
+            <p class="home-subtitle">Un'avventura narrata dall'IA • v1.9</p>
 
             <div class="home-menu">
                 <button class="home-btn primary" id="btn-continue" disabled>▶️ Continua</button>
@@ -2415,6 +2415,7 @@
 
             <div class="input-area">
                 <div class="action-bar" id="action-bar">
+                    <button class="action-btn kingdom-manage" id="btn-kingdom-manage" title="Apri la gestione del regno" hidden>👑 Gestisci regno</button>
                     <button class="action-btn business-manage" id="btn-business-manage" title="Apri la gestione di imprese e negozi" hidden>🏪 Gestisci negozio</button>
                     <button class="action-btn rest" id="btn-rest" title="Riposa 8 ore">😴 Riposa</button>
                     <button class="action-btn eat" id="btn-eat" title="Mangia">🍖 Mangia</button>
@@ -2561,6 +2562,19 @@
             </div>
             <div class="modal-body">
                 <div id="business-dashboard"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kingdom Management Modal -->
+    <div class="modal-overlay" id="modal-kingdom">
+        <div class="modal wide-modal business-manager-modal kingdom-manager-modal">
+            <div class="modal-header">
+                👑 Gestione del regno
+                <button class="modal-close" data-close="modal-kingdom">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="kingdom-dashboard"></div>
             </div>
         </div>
     </div>
@@ -2989,6 +3003,7 @@
     <script src="js/character-options.js"></script>
     <script src="js/time-energy.js"></script>
     <script src="js/business-manager.js"></script>
+    <script src="js/kingdom-manager.js"></script>
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
@@ -3043,6 +3058,7 @@
         const gameDirector = new CronacheDirector.GameDirector();
         const lifeEngine = new CronacheLife.LifeLegacyEngine();
         const businessEngine = new CronacheBusiness.BusinessManager();
+        const kingdomEngine = new CronacheKingdom.KingdomManager();
         const campaignVault = new CronacheVault.CampaignVault({ storage: localStorage, capacity: 3 });
         const ollamaClient = new CronacheOllama.OllamaCloudClient({ timeoutMs: 45000 });
         G.worldMemory.narrativeCompass = narrativeMaster.createDefaultCompass();
@@ -3908,6 +3924,7 @@
             migrated.narrativeCompass = narrativeMaster.migrate(migrated.narrativeCompass);
             migrated.director = gameDirector.migrate(migrated.director);
             migrated.management = businessEngine.migrate(migrated.management);
+            migrated.kingdom = kingdomEngine.migrate(migrated.kingdom);
             return migrated;
         }
 
@@ -6081,6 +6098,7 @@
             }
             updateInfoPanels();
             if ($('modal-business')?.classList.contains('active')) renderBusinessDashboard();
+            if ($('modal-kingdom')?.classList.contains('active')) renderKingdomDashboard();
         }
 
         function removeEmployee(name, reason = 'fired') {
@@ -6933,6 +6951,181 @@
             return deferEntries ? feedback : changed;
         }
 
+        // ==================== GESTIONE DEL REGNO ====================
+        function syncKingdomManagement() {
+            G.worldMemory.kingdom = kingdomEngine.migrate(G.worldMemory.kingdom);
+            return G.worldMemory.kingdom;
+        }
+
+        function kingdomCards(items, empty, renderer) {
+            return items.length ? items.map(renderer).join('') : '<p class="manager-empty">' + empty + '</p>';
+        }
+
+        function renderKingdomDashboard() {
+            const root = $('kingdom-dashboard');
+            if (!root) return;
+            const kingdom = syncKingdomManagement();
+            if (!kingdom.active) {
+                root.innerHTML = '<div class="manager-empty-state"><span>👑</span><h3>Nessun regno sotto il tuo governo</h3>' +
+                    '<p>Quando la storia assegna al personaggio un dominio sovrano, il narratore ne trasmetterà qui territori, tesoro, corte, esercito e diplomazia.</p></div>';
+                return;
+            }
+            const currency = G.character?.currency?.short || 'monete';
+            const armyTotal = kingdom.army.levies + kingdom.army.professionals + kingdom.army.cavalry + kingdom.army.navy;
+            const report = kingdom.lastReport || {};
+            const recent = kingdom.history.slice(-8).reverse();
+            root.innerHTML =
+                '<section class="manager-hero kingdom-hero"><div><span class="manager-kicker">' + safeManagerText(kingdom.government || 'dominio sovrano') + '</span>' +
+                    '<h3>👑 ' + safeManagerText(kingdom.name) + '</h3><p>' + safeManagerText(kingdom.rulerTitle || 'Governante') + ' ' +
+                    safeManagerText(kingdom.rulerName || '') + ' · Capitale ' + safeManagerText(kingdom.capital || 'non definita') + '</p></div>' +
+                    '<div class="manager-cash"><span>Tesoro reale</span><strong>' + kingdom.treasury.toLocaleString('it-IT') + ' ' + safeManagerText(currency) + '</strong></div></section>' +
+                '<div class="manager-kpi-grid">' +
+                    '<div class="manager-kpi"><span>Popolazione</span><strong>' + kingdom.population.toLocaleString('it-IT') + '</strong><small>' + kingdom.territories.length + ' territori</small></div>' +
+                    '<div class="manager-kpi"><span>Stabilità</span><strong class="' + (kingdom.stability >= 50 ? 'positive' : 'negative') + '">' + Math.round(kingdom.stability) + '%</strong><small>ordine interno</small></div>' +
+                    '<div class="manager-kpi"><span>Legittimità</span><strong>' + Math.round(kingdom.legitimacy) + '%</strong><small>autorità della corona</small></div>' +
+                    '<div class="manager-kpi"><span>Prosperità</span><strong>' + Math.round(kingdom.prosperity) + '%</strong><small>economia del dominio</small></div>' +
+                    '<div class="manager-kpi"><span>Viveri</span><strong class="' + (kingdom.food > 0 ? 'positive' : 'negative') + '">' + kingdom.food.toLocaleString('it-IT') + '</strong><small>saldo periodo ' + ((report.foodBalance || 0) >= 0 ? '+' : '') + (report.foodBalance || 0) + '</small></div>' +
+                    '<div class="manager-kpi"><span>Forze armate</span><strong>' + armyTotal.toLocaleString('it-IT') + '</strong><small>morale ' + Math.round(kingdom.army.morale) + ' · prontezza ' + Math.round(kingdom.army.readiness) + '</small></div>' +
+                '</div>' +
+                '<div class="manager-actions">' +
+                    '<button class="btn primary" data-kingdom-action="tax">📜 Imposte (' + kingdom.taxRate + '%)</button>' +
+                    '<button class="btn" data-kingdom-action="council">🏛️ Convoca consiglio</button>' +
+                    '<button class="btn" data-kingdom-action="relief">🌾 Aiuti al popolo</button>' +
+                    '<button class="btn" data-kingdom-action="recruit">⚔️ Recluta</button>' +
+                    '<button class="btn" data-kingdom-action="period">📊 Chiudi periodo</button>' +
+                '</div>' +
+                '<div class="manager-columns">' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>🗺️ Territori</h4><span>' + kingdom.territories.length + '</span></div>' +
+                    kingdomCards(kingdom.territories, 'Nessun territorio registrato.', territory =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(territory.name) + '</strong><small>' +
+                        safeManagerText(territory.type) + (territory.strategicResource ? ' · ' + safeManagerText(territory.strategicResource) : '') +
+                        '</small></div><span>Pop. ' + territory.population.toLocaleString('it-IT') + ' · Lealtà ' + Math.round(territory.loyalty) +
+                        '% · Fortezza ' + Math.round(territory.fortification) + '%</span></article>') + '</section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>⚖️ Corte e fazioni</h4><span>' + kingdom.factions.length + '</span></div>' +
+                    kingdomCards(kingdom.factions, 'Nessuna fazione di corte registrata.', faction =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(faction.name) + '</strong><small>' +
+                        safeManagerText(faction.category) + (faction.leader ? ' · ' + safeManagerText(faction.leader) : '') +
+                        '</small></div><span>Potere ' + Math.round(faction.power) + '% · Lealtà ' + Math.round(faction.loyalty) +
+                        '%<small>' + safeManagerText(faction.goal) + '</small></span></article>') + '</section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>🤝 Diplomazia</h4><span>' + kingdom.diplomacy.length + '</span></div>' +
+                    kingdomCards(kingdom.diplomacy, 'Nessuna relazione diplomatica registrata.', relation =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(relation.realm) + '</strong><small>' +
+                        safeManagerText(relation.relation) + '</small></div><span>Fiducia ' + Math.round(relation.trust) + '% · Tensione ' +
+                        Math.round(relation.tension) + '%<small>' + safeManagerText(relation.treaty || relation.claims) + '</small></span></article>') + '</section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>⚔️ Esercito</h4><span>Costo ' + kingdom.army.upkeep + '/periodo</span></div>' +
+                    '<div class="manager-kpi-grid"><div class="manager-kpi"><span>Leve</span><strong>' + kingdom.army.levies + '</strong></div>' +
+                    '<div class="manager-kpi"><span>Professionisti</span><strong>' + kingdom.army.professionals + '</strong></div>' +
+                    '<div class="manager-kpi"><span>Cavalleria</span><strong>' + kingdom.army.cavalry + '</strong></div>' +
+                    '<div class="manager-kpi"><span>Flotta</span><strong>' + kingdom.army.navy + '</strong></div></div></section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>📜 Leggi e decreti</h4><span>' + kingdom.laws.length + '</span></div>' +
+                    kingdomCards(kingdom.laws, 'Nessuna legge registrata.', law =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(law.title) + '</strong><small>' +
+                        safeManagerText(law.area) + ' · ' + safeManagerText(law.status) + '</small></div><span>' + safeManagerText(law.effect) + '</span></article>') + '</section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>🏛️ Consiglio</h4><span>' + kingdom.council.length + '</span></div>' +
+                    kingdomCards(kingdom.council, 'Nessun consigliere registrato.', member =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(member.name) + '</strong><small>' +
+                        safeManagerText(member.role) + (member.faction ? ' · ' + safeManagerText(member.faction) : '') +
+                        '</small></div><span>Competenza ' + Math.round(member.competence) + '% · Lealtà ' + Math.round(member.loyalty) + '%</span></article>') + '</section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>📖 Cronaca del regno</h4><span>Periodo ' + kingdom.period + '</span></div>' +
+                    kingdomCards(recent, 'Nessun evento registrato.', entry =>
+                        '<article class="manager-compact-card"><div><strong>Turno ' + entry.turn + '</strong><small>' + safeManagerText(entry.type) +
+                        '</small></div><span>' + safeManagerText(entry.text) + '</span></article>') + '</section>' +
+                '</div>';
+        }
+
+        function openKingdomManager() {
+            syncKingdomManagement();
+            renderKingdomDashboard();
+            openModal('modal-kingdom');
+        }
+
+        function handleKingdomAction(event) {
+            const action = event.target.closest('[data-kingdom-action]')?.dataset.kingdomAction;
+            if (!action) return;
+            let value;
+            if (action === 'tax') value = managerNumberPrompt('Aliquota fiscale (0-40%)', syncKingdomManagement().taxRate, 0);
+            if (action === 'relief') value = managerNumberPrompt('Somma da distribuire alla popolazione', 100, 1);
+            if (action === 'recruit') value = managerNumberPrompt('Numero di soldati professionisti da reclutare', 10, 1);
+            if ((action === 'tax' || action === 'relief' || action === 'recruit') && value == null) return;
+            try {
+                G.worldMemory.kingdom = kingdomEngine.manualAction(syncKingdomManagement(), action, {
+                    value, turn: G.worldMemory.turnCount || 0
+                });
+                const messages = {
+                    tax: 'Aliquota aggiornata.', council: 'Consiglio convocato.',
+                    relief: 'Aiuti distribuiti.', recruit: 'Reclutamento completato.',
+                    period: 'Periodo del regno chiuso.'
+                };
+                addStoryEntry('👑 ' + messages[action], 'mechanic');
+                renderKingdomDashboard();
+                updateInfoPanels();
+            } catch (error) {
+                notify(error.message, 'error');
+            }
+        }
+
+        function processKingdomTurn() {
+            const result = kingdomEngine.processPeriods(syncKingdomManagement(), {
+                turn: G.worldMemory.turnCount || 0
+            });
+            G.worldMemory.kingdom = result.state;
+            result.reports.forEach(report => addStoryEntry(
+                '👑 ' + result.state.name + ': periodo ' + report.period + ' chiuso (' +
+                (report.balance >= 0 ? '+' : '') + report.balance + ' tesoro, ' +
+                (report.foodBalance >= 0 ? '+' : '') + report.foodBalance + ' viveri).', 'mechanic'
+            ));
+            if (result.reports.length) updateInfoPanels();
+        }
+
+        function parseKingdomTags(response, { deferEntries = false } = {}) {
+            const source = String(response || '').replace(/\[ANALISI\][\s\S]*?\[\/ANALISI\]/gi, '');
+            const events = [];
+            const map = {
+                REGNO: ['profile', ['name', 'rulerTitle', 'rulerName', 'government', 'capital', 'treasury', 'population', 'stability', 'legitimacy', 'prosperity', 'food']],
+                TERRITORIO_REGNO: ['territory', ['kingdomName', 'name', 'territoryType', 'population', 'foodProduction', 'taxIncome', 'fortification', 'loyalty', 'controller', 'strategicResource', 'status']],
+                FAZIONE_REGNO: ['faction', ['kingdomName', 'name', 'category', 'leader', 'power', 'loyalty', 'wealth', 'goal', 'status']],
+                ESERCITO_REGNO: ['army', ['kingdomName', 'levies', 'professionals', 'cavalry', 'navy', 'morale', 'readiness', 'upkeep']],
+                DIPLOMAZIA_REGNO: ['diplomacy', ['kingdomName', 'realm', 'relation', 'trust', 'tension', 'treaty', 'trade', 'claims']],
+                LEGGE_REGNO: ['law', ['kingdomName', 'title', 'area', 'effect', 'status', 'support', 'opposition']],
+                CONSIGLIERE_REGNO: ['councilor', ['kingdomName', 'name', 'role', 'competence', 'loyalty', 'faction', 'status']],
+                TESORO_REGNO: ['treasury', ['kingdomName', 'direction', 'amount', 'reason']],
+                EVENTO_REGNO: ['event', ['kingdomName', 'eventKind', 'description', 'treasuryDelta', 'foodDelta', 'populationDelta', 'stabilityDelta', 'legitimacyDelta', 'prosperityDelta']]
+            };
+            Object.entries(map).forEach(([tag, definition]) => {
+                const regex = new RegExp('\\\\[' + tag + ':\\\\s*([^\\\\]]+)\\\\]', 'gi');
+                let match;
+                while ((match = regex.exec(source)) !== null) {
+                    const fields = match[1].split('|').map(value => value.trim());
+                    const event = { type: definition[0] };
+                    definition[1].forEach((field, index) => { event[field] = fields[index] || ''; });
+                    events.push(event);
+                }
+            });
+            if (!events.length) return false;
+            const outcome = kingdomEngine.applyNarrativeEvents(syncKingdomManagement(), events, {
+                turn: G.worldMemory.turnCount || 0
+            });
+            G.worldMemory.kingdom = outcome.state;
+            const feedback = { changed: false, successes: [], warnings: [] };
+            outcome.results.forEach(result => {
+                if (result.skipped) return;
+                if (result.ok) {
+                    feedback.changed = true;
+                    feedback.successes.push(result.message);
+                    if (!deferEntries) addStoryEntry('👑 ' + result.message, 'mechanic');
+                } else {
+                    feedback.warnings.push(result.message);
+                    if (!deferEntries) addStoryEntry('⚠️ Regno: ' + result.message, 'system');
+                }
+            });
+            if (feedback.warnings.length) console.warn('Tag del regno ignorati:', feedback.warnings);
+            if (feedback.changed) {
+                updateInfoPanels();
+                if ($('modal-kingdom')?.classList.contains('active')) renderKingdomDashboard();
+            }
+            return deferEntries ? feedback : feedback.changed;
+        }
+
         // ==================== BILANCIO FINANZIARIO COMPLETO ====================
         function getFullFinancialSummary() {
             const c = G.character;
@@ -7035,6 +7228,16 @@
                         ? managed.lowStock + ' prodotti sotto scorta: apri la gestione'
                         : 'Apri la gestione di imprese e negozi';
                 }
+            }
+
+            const kingdom = syncKingdomManagement();
+            const kingdomButton = $('btn-kingdom-manage');
+            if (kingdomButton) {
+                kingdomButton.hidden = !kingdom.active;
+                kingdomButton.classList.toggle('attention', kingdom.active && (kingdom.stability < 40 || kingdom.food <= 0 || kingdom.treasury < 0));
+                kingdomButton.title = kingdom.active
+                    ? `${kingdom.name}: tesoro ${kingdom.treasury}, stabilità ${Math.round(kingdom.stability)}%`
+                    : 'Apri la gestione del regno';
             }
 
             // Panel Dipendenti
@@ -7981,6 +8184,12 @@
                 G.character?.currency?.short || 'monete'
             );
             if (businessContext) summary += businessContext + '\n';
+            const kingdomContext = kingdomEngine.buildNarrativeContext(
+                G.worldMemory.kingdom,
+                G.worldMemory.turnCount || 0,
+                G.character?.currency?.short || 'monete'
+            );
+            if (kingdomContext) summary += kingdomContext + '\n';
 
             if (wm.acquiredAbilities.length > 0) {
                 summary += '\n✨ ABILITÀ ACQUISITE:\n';
@@ -8496,6 +8705,7 @@
             // Simula usura, consegne e attività economiche
             simulateProperties();
             processBusinessTurn();
+            processKingdomTurn();
             
             generateAI(action);
         }
@@ -8815,6 +9025,20 @@ Usa il nome esatto dell'attività presente nella memoria. Per aggiornare un reco
 🏪 INTEGRAZIONE ATTIVITÀ (NON DEVE BLOCCARE LA NARRAZIONE)
 Attività da alimentare dalla storia: ${pendingBusinesses.map(business => business.name).join(', ')}.
 Scrivi prima una scena completa e coinvolgente. Aggiungi soltanto tag completi e coerenti con ciò che hai davvero narrato: [ATTIVITA_NEGOZIO], [CATALOGO_NEGOZIO], [FORNITORE_NEGOZIO], [CLIENTE_NEGOZIO], [DIPENDENTE_NEGOZIO], [CONTRATTO_NEGOZIO] ed [EVENTO_NEGOZIO]. Il catalogo e le anagrafiche possono completarsi progressivamente nei turni successivi: non sacrificare mai la narrazione per riempire i tag e non usare nomi generici.` : '';
+            const kingdomTagDirective = `
+
+👑 TRASMISSIONE REGNO LLM → GIOCO
+Se il protagonista governa o acquisisce un regno, ducato, contea, città-stato o dominio sovrano, registra subito lo stato con tag completi in fondo alla scena. Se il regno è già presente nella memoria, emetti soltanto i tag relativi ai cambiamenti realmente narrati.
+- [REGNO: nome|titolo_governante|nome_governante|governo|capitale|tesoro|popolazione|stabilità_0_100|legittimità_0_100|prosperità_0_100|viveri]
+- [TERRITORIO_REGNO: regno|nome|tipo|popolazione|produzione_viveri|entrate_periodo|fortificazione_0_100|lealtà_0_100|controllore|risorsa_strategica|stato]
+- [FAZIONE_REGNO: regno|nome|categoria|leader|potere_0_100|lealtà_0_100|ricchezza_0_100|obiettivo|stato]
+- [ESERCITO_REGNO: regno|leve|professionisti|cavalleria|flotta|morale_0_100|prontezza_0_100|costo_periodo]
+- [DIPLOMAZIA_REGNO: regno|altro_regno|relazione|fiducia_0_100|tensione_0_100|trattato|commercio|rivendicazioni]
+- [LEGGE_REGNO: regno|titolo|ambito|effetto|stato|sostegno|opposizione]
+- [CONSIGLIERE_REGNO: regno|nome|ruolo|competenza_0_100|lealtà_0_100|fazione|stato]
+- [TESORO_REGNO: regno|entra/esce|importo|motivo]
+- [EVENTO_REGNO: regno|tipo|descrizione|tesoro_delta|viveri_delta|popolazione_delta|stabilità_delta|legittimità_delta|prosperità_delta]
+Le categorie sociali della corte devono agire e pesare sulle decisioni: nobiltà fondiaria, clero, milizia, contadini, artigiani/gilde, mercanti e, quando coerenti, guaritori/maghi/saggi ed emarginati. Il tesoro reale NON è denaro personale e NON è la cassa di un negozio. Non duplicare mai la stessa variazione in sistemi diversi.`;
             const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory);
             const recentHistory = layeredMemory.shortTerm;
             const masterTurn = narrativeMaster.decide(action, {
@@ -9168,7 +9392,7 @@ Descrivi la scena e l'equipaggiamento personale iniziale (usa [LOOT] solo per gl
 Metti in chiaro quanti ${c.currency?.short || 'soldi'} sono subito disponibili (${formatCurrency(c.gold)} secondo il sistema) e dove sono custoditi.
 Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa, libro mastro con 2000 fiorini) applica immediatamente [MECCANICA: soldi=±X] per riallineare il saldo e cita il registro o il contante come oggetto fisico con [LOOT: ...] quando opportuno.
 Ricorda: il denaro personale usa [MECCANICA: soldi], la cassa dell'attività usa [ATTIVITA_NEGOZIO] all'inizializzazione e [CASSA_NEGOZIO] dopo; non duplicare lo stesso importo.
-Se il protagonista eredita o rileva un'attività, chiudi la prima risposta con un VERBALE DI CONSEGNA: ogni bene del locale usa [LOOT_PROPRIETA], ogni articolo vendibile usa [CATALOGO_NEGOZIO], ogni fornitore usa [FORNITORE_NEGOZIO] e ogni accordo esistente usa [CONTRATTO_NEGOZIO]. Non limitarti a raccontarli in prosa: ciò che dichiari deve avere il suo tag e risultare nei registri.${businessTagDirective}${pendingBusinessDirective}`;
+Se il protagonista eredita o rileva un'attività, chiudi la prima risposta con un VERBALE DI CONSEGNA: ogni bene del locale usa [LOOT_PROPRIETA], ogni articolo vendibile usa [CATALOGO_NEGOZIO], ogni fornitore usa [FORNITORE_NEGOZIO] e ogni accordo esistente usa [CONTRATTO_NEGOZIO]. Non limitarti a raccontarli in prosa: ciò che dichiari deve avere il suo tag e risultare nei registri.${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
             } else {
                 // Costruisci contesto stato fisico per l'IA
                 let physicalState = '';
@@ -9198,7 +9422,7 @@ ISTRUZIONI TURNO:
 4. MONDO VIVO: Cosa fanno gli NPC? Mostra il mondo che si muove intorno al giocatore.
 5. Descrivi le conseguenze PROPORZIONATE al risultato del tiro (successo critico = bonus, fallimento critico = disastro).
 6. Usa i tag appropriati [MECCANICA/LOOT/NPC/TEMPO] e consuma energia per sforzi fisici.
-${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}${businessTagDirective}${pendingBusinessDirective}`;
+${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
             }
 
             const requestMessages = [
@@ -9342,6 +9566,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             let memoryChanged = false;
             let uiStateChanged = false;
             let businessFeedback = null;
+            let kingdomFeedback = null;
             G.storyBatchMode = true;
 
             try {
@@ -9745,6 +9970,11 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 memoryChanged = true;
                 uiStateChanged = true;
             }
+            kingdomFeedback = parseKingdomTags(response, { deferEntries: true });
+            if (kingdomFeedback?.changed) {
+                memoryChanged = true;
+                uiStateChanged = true;
+            }
 
             // Extract Property Inventory Commands (CONSUMA/USA/SCARTA/VENDI_OGGETTO_PROPRIETA)
             const propertyInventoryCmdRe = /\[((?:CONSUMA|USA|UTILIZZA|SCARTA|DROP|VENDI)(?:_OGGETTO)?_PROPRIETA):\s*([^|\]]+)\|([^|\]]+)(?:\|([^\]]+))?\]/gi;
@@ -9825,6 +10055,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
                 .replace(/\[(?:ATTIVITA|CATALOGO|VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|DIPENDENTE|CONTRATTO|ACCORDO|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
+                .replace(/\[(?:REGNO|TERRITORIO_REGNO|FAZIONE_REGNO|ESERCITO_REGNO|DIPLOMAZIA_REGNO|LEGGE_REGNO|CONSIGLIERE_REGNO|TESORO_REGNO|EVENTO_REGNO):[^\]]*\]/gi, '')
                 .replace(/\[CONTRATTO:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
                 .replace(/\[FAMIGLIA:[^\]]*\]/gi, '')
@@ -9874,12 +10105,19 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     .filter(Boolean))];
                 addStoryEntry(`🏪 Gestionale aggiornato${activities.length ? ': ' + activities.join(', ') : ''}.`, 'mechanic');
             }
+            if (kingdomFeedback?.successes?.length) {
+                addStoryEntry(`👑 Regno aggiornato: ${syncKingdomManagement().name}.`, 'mechanic');
+            }
             // Il pannello può essere aperto mentre arriva la risposta: aggiorniamo
             // sempre riepilogo e dashboard dopo l'intero batch di tag, anche quando
             // alcuni eventi sono stati ignorati o recuperati per compatibilità.
             if (businessFeedback) {
                 updateInfoPanels();
                 if ($('modal-business')?.classList.contains('active')) renderBusinessDashboard();
+            }
+            if (kingdomFeedback) {
+                updateInfoPanels();
+                if ($('modal-kingdom')?.classList.contains('active')) renderKingdomDashboard();
             }
             displaySuggestions(suggestions);
             if (!uiStateChanged) updateCharacterUI();
@@ -10451,6 +10689,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if ($('btn-wait')) $('btn-wait').onclick = () => openModal('modal-wait');
             if ($('btn-train')) $('btn-train').onclick = doTrain;
             if ($('btn-business-manage')) $('btn-business-manage').onclick = openBusinessManager;
+            if ($('btn-kingdom-manage')) $('btn-kingdom-manage').onclick = openKingdomManager;
             
             // Info panels click handlers
             if ($('panel-finances')) $('panel-finances').onclick = showFinancesDetail;
@@ -10458,6 +10697,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if ($('panel-employees')) $('panel-employees').onclick = showEmployeesDetail;
             if ($('panel-business')) $('panel-business').onclick = openBusinessManager;
             if ($('business-dashboard')) $('business-dashboard').onclick = handleBusinessAction;
+            if ($('kingdom-dashboard')) $('kingdom-dashboard').onclick = handleKingdomAction;
 
             // WAIT MODAL HANDLERS
             $$('.wait-btn').forEach(btn => {
