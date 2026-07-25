@@ -251,6 +251,33 @@
         return keyOf(JSON.stringify(event));
     }
 
+    function parseNarrativeTags(response) {
+        const source = String(response || '').replace(/\[ANALISI\][\s\S]*?\[\/ANALISI\]/gi, '');
+        const events = [];
+        const map = {
+            REGNO: ['profile', ['name', 'rulerTitle', 'rulerName', 'government', 'capital', 'treasury', 'population', 'stability', 'legitimacy', 'prosperity', 'food']],
+            TERRITORIO_REGNO: ['territory', ['kingdomName', 'name', 'territoryType', 'population', 'foodProduction', 'taxIncome', 'fortification', 'loyalty', 'controller', 'strategicResource', 'status']],
+            FAZIONE_REGNO: ['faction', ['kingdomName', 'name', 'category', 'leader', 'power', 'loyalty', 'wealth', 'goal', 'status']],
+            ESERCITO_REGNO: ['army', ['kingdomName', 'levies', 'professionals', 'cavalry', 'navy', 'morale', 'readiness', 'upkeep']],
+            DIPLOMAZIA_REGNO: ['diplomacy', ['kingdomName', 'realm', 'relation', 'trust', 'tension', 'treaty', 'trade', 'claims']],
+            LEGGE_REGNO: ['law', ['kingdomName', 'title', 'area', 'effect', 'status', 'support', 'opposition']],
+            CONSIGLIERE_REGNO: ['councilor', ['kingdomName', 'name', 'role', 'competence', 'loyalty', 'faction', 'status']],
+            TESORO_REGNO: ['treasury', ['kingdomName', 'direction', 'amount', 'reason']],
+            EVENTO_REGNO: ['event', ['kingdomName', 'eventKind', 'description', 'treasuryDelta', 'foodDelta', 'populationDelta', 'stabilityDelta', 'legitimacyDelta', 'prosperityDelta']]
+        };
+        Object.entries(map).forEach(([tag, definition]) => {
+            const regex = new RegExp('\\[' + tag + ':\\s*([^\\]]+)\\]', 'gi');
+            let match;
+            while ((match = regex.exec(source)) !== null) {
+                const fields = match[1].split('|').map(value => value.trim());
+                const event = { type: definition[0] };
+                definition[1].forEach((field, index) => { event[field] = fields[index] || ''; });
+                events.push(event);
+            }
+        });
+        return events;
+    }
+
     function applyNarrativeEvents(input, events, context = {}) {
         const state = migrateKingdom(input);
         const turn = Math.max(0, integer(context.turn));
@@ -465,6 +492,7 @@
         runPeriod(input, context) { return runPeriod(input, context); }
         buildNarrativeContext(input, turn, currency) { return buildNarrativeContext(input, turn, currency); }
         manualAction(input, action, context) { return manualAction(input, action, context); }
+        parseNarrativeTags(response) { return parseNarrativeTags(response); }
     }
 
     return {
@@ -477,6 +505,7 @@
         runPeriod,
         buildNarrativeContext,
         manualAction,
+        parseNarrativeTags,
         parseNumber,
         clean,
         keyOf
