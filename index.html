@@ -6988,26 +6988,70 @@
                     '<div class="manager-cash"><span>Tesoro reale</span><strong>' + kingdom.treasury.toLocaleString('it-IT') + ' ' + safeManagerText(currency) + '</strong></div></section>' +
                 '<div class="manager-kpi-grid">' +
                     '<div class="manager-kpi"><span>Popolazione</span><strong>' + kingdom.population.toLocaleString('it-IT') + '</strong><small>' + kingdom.territories.length + ' territori</small></div>' +
+                    '<div class="manager-kpi"><span>Consenso popolare</span><strong class="' + (kingdom.people.approval >= 50 ? 'positive' : 'negative') + '">' + Math.round(kingdom.people.approval) + '%</strong><small>disordini ' + Math.round(kingdom.people.unrest) + '%</small></div>' +
                     '<div class="manager-kpi"><span>Stabilità</span><strong class="' + (kingdom.stability >= 50 ? 'positive' : 'negative') + '">' + Math.round(kingdom.stability) + '%</strong><small>ordine interno</small></div>' +
                     '<div class="manager-kpi"><span>Legittimità</span><strong>' + Math.round(kingdom.legitimacy) + '%</strong><small>autorità della corona</small></div>' +
                     '<div class="manager-kpi"><span>Prosperità</span><strong>' + Math.round(kingdom.prosperity) + '%</strong><small>economia del dominio</small></div>' +
                     '<div class="manager-kpi"><span>Viveri</span><strong class="' + (kingdom.food > 0 ? 'positive' : 'negative') + '">' + kingdom.food.toLocaleString('it-IT') + '</strong><small>saldo periodo ' + ((report.foodBalance || 0) >= 0 ? '+' : '') + (report.foodBalance || 0) + '</small></div>' +
+                    '<div class="manager-kpi"><span>PIL</span><strong>' + kingdom.economy.gdp.toLocaleString('it-IT') + '</strong><small>debito ' + kingdom.economy.debt.toLocaleString('it-IT') + ' · inflazione ' + kingdom.economy.inflation.toFixed(1) + '%</small></div>' +
+                    '<div class="manager-kpi"><span>Occupazione</span><strong>' + Math.round(kingdom.people.employment) + '%</strong><small>povertà ' + Math.round(kingdom.people.poverty) + '%</small></div>' +
                     '<div class="manager-kpi"><span>Forze armate</span><strong>' + armyTotal.toLocaleString('it-IT') + '</strong><small>morale ' + Math.round(kingdom.army.morale) + ' · prontezza ' + Math.round(kingdom.army.readiness) + '</small></div>' +
                 '</div>' +
                 '<div class="manager-actions">' +
                     '<button class="btn primary" data-kingdom-action="tax">📜 Imposte (' + kingdom.taxRate + '%)</button>' +
                     '<button class="btn" data-kingdom-action="council">🏛️ Convoca consiglio</button>' +
                     '<button class="btn" data-kingdom-action="relief">🌾 Aiuti al popolo</button>' +
+                    '<button class="btn" data-kingdom-action="census">👥 Censimento</button>' +
+                    '<button class="btn" data-kingdom-action="publicService" data-service="healthcare">🏥 Sanità</button>' +
+                    '<button class="btn" data-kingdom-action="publicService" data-service="education">📚 Istruzione</button>' +
+                    '<button class="btn" data-kingdom-action="publicService" data-service="justice">⚖️ Giustizia</button>' +
+                    '<button class="btn" data-kingdom-action="publicService" data-service="sanitation">🧼 Igiene</button>' +
                     '<button class="btn" data-kingdom-action="recruit">⚔️ Recluta</button>' +
                     '<button class="btn" data-kingdom-action="period">📊 Chiudi periodo</button>' +
                 '</div>' +
                 '<div class="manager-columns">' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>👥 Popolo e qualità della vita</h4><span>' + kingdom.population.toLocaleString('it-IT') + '</span></div>' +
+                    '<div class="manager-kpi-grid">' +
+                    '<div class="manager-kpi"><span>Salute</span><strong>' + Math.round(kingdom.people.health) + '%</strong></div>' +
+                    '<div class="manager-kpi"><span>Alfabetizzazione</span><strong>' + Math.round(kingdom.people.literacy) + '%</strong></div>' +
+                    '<div class="manager-kpi"><span>Sicurezza alimentare</span><strong>' + Math.round(kingdom.people.foodSecurity) + '%</strong></div>' +
+                    '<div class="manager-kpi"><span>Abitazioni</span><strong>' + Math.round(kingdom.people.housing) + '%</strong></div>' +
+                    '<div class="manager-kpi"><span>Criminalità</span><strong class="' + (kingdom.people.crime < 40 ? 'positive' : 'negative') + '">' + Math.round(kingdom.people.crime) + '%</strong></div>' +
+                    '<div class="manager-kpi"><span>Demografia</span><strong>' + kingdom.people.birthRate + '‰ / ' + kingdom.people.deathRate + '‰</strong><small>migrazione ' + (kingdom.people.migration >= 0 ? '+' : '') + kingdom.people.migration + '</small></div></div></section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>🏘️ Classi sociali</h4><span>' + kingdom.people.classes.length + '</span></div>' +
+                    kingdomCards(kingdom.people.classes, 'Nessuna classe sociale censita.', social =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(social.name) + '</strong><small>' +
+                        social.population.toLocaleString('it-IT') + ' persone · Ricchezza ' + Math.round(social.wealth) + '%</small></div><span>Lealtà ' +
+                        Math.round(social.loyalty) + '% · Influenza ' + Math.round(social.influence) + '%<small>' + safeManagerText(social.needs) + '</small></span></article>') + '</section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>🏗️ Servizi pubblici</h4><span>Efficienza ' + Math.round(kingdom.economy.administrationEfficiency) + '%</span></div>' +
+                    '<div class="manager-kpi-grid">' +
+                    '<div class="manager-kpi"><span>Infrastrutture</span><strong>' + Math.round(kingdom.services.infrastructure) + '%</strong></div>' +
+                    '<div class="manager-kpi"><span>Sanità</span><strong>' + Math.round(kingdom.services.healthcare) + '%</strong></div>' +
+                    '<div class="manager-kpi"><span>Istruzione</span><strong>' + Math.round(kingdom.services.education) + '%</strong></div>' +
+                    '<div class="manager-kpi"><span>Giustizia</span><strong>' + Math.round(kingdom.services.justice) + '%</strong></div>' +
+                    '<div class="manager-kpi"><span>Igiene</span><strong>' + Math.round(kingdom.services.sanitation) + '%</strong></div></div></section>' +
                     '<section class="manager-section"><div class="manager-section-head"><h4>🗺️ Territori</h4><span>' + kingdom.territories.length + '</span></div>' +
-                    kingdomCards(kingdom.territories, 'Nessun territorio registrato.', territory =>
+                    kingdomCards(kingdom.territories, 'Nessun territorio registrato.', (territory, territoryIndex) =>
                         '<article class="manager-compact-card"><div><strong>' + safeManagerText(territory.name) + '</strong><small>' +
                         safeManagerText(territory.type) + (territory.strategicResource ? ' · ' + safeManagerText(territory.strategicResource) : '') +
                         '</small></div><span>Pop. ' + territory.population.toLocaleString('it-IT') + ' · Lealtà ' + Math.round(territory.loyalty) +
-                        '% · Fortezza ' + Math.round(territory.fortification) + '%</span></article>') + '</section>' +
+                        '% · Ordine ' + Math.round(territory.publicOrder) + '% · Prosperità ' + Math.round(territory.prosperity) +
+                        '%<small>Salute ' + Math.round(territory.health) + '% · Infrastrutture ' + Math.round(territory.infrastructure) +
+                        '% · Occupazione ' + Math.round(territory.employment) + '% · Povertà ' + Math.round(territory.poverty) +
+                        '%</small><button class="btn secondary" data-kingdom-action="investTerritory" data-territory-index="' +
+                        territoryIndex + '">🏗️ Investi</button></span></article>') + '</section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>⛏️ Risorse e produzione</h4><span>' + kingdom.resources.length + '</span></div>' +
+                    kingdomCards(kingdom.resources, 'Nessuna risorsa censita.', resource =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(resource.name) + '</strong><small>' +
+                        safeManagerText(resource.category) + ' · ' + safeManagerText(resource.territoryName || 'Regno') +
+                        '</small></div><span>Produzione ' + resource.production + ' · Scorte ' + resource.stock +
+                        ' · Valore ' + resource.unitValue + '<small>' + safeManagerText(resource.status) + '</small></span></article>') + '</section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>🚨 Crisi e rischi</h4><span>' +
+                    kingdom.crises.filter(crisis => crisis.status === 'active').length + ' attive</span></div>' +
+                    kingdomCards(kingdom.crises.filter(crisis => crisis.status === 'active'), 'Nessuna crisi attiva.', crisis =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(crisis.name) + '</strong><small>' +
+                        safeManagerText(crisis.territoryName || 'Intero regno') + '</small></div><span>Gravità ' +
+                        Math.round(crisis.severity) + '%<small>' + safeManagerText(crisis.effect) + '</small></span></article>') + '</section>' +
                     '<section class="manager-section"><div class="manager-section-head"><h4>⚖️ Corte e fazioni</h4><span>' + kingdom.factions.length + '</span></div>' +
                     kingdomCards(kingdom.factions, 'Nessuna fazione di corte registrata.', faction =>
                         '<article class="manager-compact-card"><div><strong>' + safeManagerText(faction.name) + '</strong><small>' +
@@ -7047,20 +7091,31 @@
         }
 
         function handleKingdomAction(event) {
-            const action = event.target.closest('[data-kingdom-action]')?.dataset.kingdomAction;
+            const actionTarget = event.target.closest('[data-kingdom-action]');
+            const action = actionTarget?.dataset.kingdomAction;
             if (!action) return;
             let value;
             if (action === 'tax') value = managerNumberPrompt('Aliquota fiscale (0-40%)', syncKingdomManagement().taxRate, 0);
             if (action === 'relief') value = managerNumberPrompt('Somma da distribuire alla popolazione', 100, 1);
             if (action === 'recruit') value = managerNumberPrompt('Numero di soldati professionisti da reclutare', 10, 1);
-            if ((action === 'tax' || action === 'relief' || action === 'recruit') && value == null) return;
+            if (action === 'investTerritory') value = managerNumberPrompt('Investimento nel territorio', 200, 50);
+            if (action === 'publicService') value = managerNumberPrompt('Investimento nel servizio pubblico', 200, 50);
+            if (['tax', 'relief', 'recruit', 'investTerritory', 'publicService'].includes(action) && value == null) return;
             try {
                 G.worldMemory.kingdom = kingdomEngine.manualAction(syncKingdomManagement(), action, {
-                    value, turn: G.worldMemory.turnCount || 0
+                    value,
+                    territoryName: action === 'investTerritory'
+                        ? (syncKingdomManagement().territories[Number(actionTarget?.dataset.territoryIndex)]?.name || '')
+                        : '',
+                    service: actionTarget?.dataset.service || '',
+                    turn: G.worldMemory.turnCount || 0
                 });
                 const messages = {
                     tax: 'Aliquota aggiornata.', council: 'Consiglio convocato.',
                     relief: 'Aiuti distribuiti.', recruit: 'Reclutamento completato.',
+                    census: 'Censimento completato.',
+                    investTerritory: 'Investimento territoriale registrato.',
+                    publicService: 'Servizio pubblico potenziato.',
                     period: 'Periodo del regno chiuso.'
                 };
                 addStoryEntry('👑 ' + messages[action], 'mechanic');
@@ -7079,7 +7134,9 @@
             result.reports.forEach(report => addStoryEntry(
                 '👑 ' + result.state.name + ': periodo ' + report.period + ' chiuso (' +
                 (report.balance >= 0 ? '+' : '') + report.balance + ' tesoro, ' +
-                (report.foodBalance >= 0 ? '+' : '') + report.foodBalance + ' viveri).', 'mechanic'
+                (report.foodBalance >= 0 ? '+' : '') + report.foodBalance + ' viveri, popolazione ' +
+                (report.populationDelta >= 0 ? '+' : '') + report.populationDelta + ', consenso ' +
+                (report.approvalDelta >= 0 ? '+' : '') + report.approvalDelta + ').', 'mechanic'
             ));
             if (result.reports.length) updateInfoPanels();
         }
@@ -7219,9 +7276,13 @@
             const kingdomButton = $('btn-kingdom-manage');
             if (kingdomButton) {
                 kingdomButton.hidden = !kingdom.active;
-                kingdomButton.classList.toggle('attention', kingdom.active && (kingdom.stability < 40 || kingdom.food <= 0 || kingdom.treasury < 0));
+                kingdomButton.classList.toggle('attention', kingdom.active && (
+                    kingdom.stability < 40 || kingdom.food <= 0 || kingdom.treasury < 0 ||
+                    kingdom.people.unrest >= 55 || kingdom.people.health < 35 ||
+                    kingdom.crises.some(crisis => crisis.status === 'active' && crisis.severity >= 60)
+                ));
                 kingdomButton.title = kingdom.active
-                    ? `${kingdom.name}: tesoro ${kingdom.treasury}, stabilità ${Math.round(kingdom.stability)}%`
+                    ? `${kingdom.name}: tesoro ${kingdom.treasury}, consenso ${Math.round(kingdom.people.approval)}%, disordini ${Math.round(kingdom.people.unrest)}%`
                     : 'Apri la gestione del regno';
             }
 
@@ -9131,17 +9192,23 @@ Scrivi prima una scena completa e coinvolgente. Aggiungi soltanto tag completi e
             const kingdomTagDirective = `
 
 👑 TRASMISSIONE REGNO LLM → GIOCO
-Se il protagonista governa o acquisisce un regno, ducato, contea, città-stato o dominio sovrano, registra subito lo stato con tag completi in fondo alla scena. Se il regno è già presente nella memoria, emetti soltanto i tag relativi ai cambiamenti realmente narrati.
+Se il protagonista governa o acquisisce un regno, ducato, contea, città-stato o dominio sovrano, registra subito lo stato con tag completi in fondo alla scena. Il regno è un sistema vivo: popolo, classi sociali, territori, produzione, servizi, crisi, fazioni e potenze straniere devono agire anche quando non sono direttamente in scena. Se il regno è già presente nella memoria, emetti soltanto i tag relativi ai cambiamenti realmente narrati, lasciando vuoti i campi invariati.
 - [REGNO: nome|titolo_governante|nome_governante|governo|capitale|tesoro|popolazione|stabilità_0_100|legittimità_0_100|prosperità_0_100|viveri]
-- [TERRITORIO_REGNO: regno|nome|tipo|popolazione|produzione_viveri|entrate_periodo|fortificazione_0_100|lealtà_0_100|controllore|risorsa_strategica|stato]
+- [POPOLO_REGNO: regno|consenso_0_100|disordini_0_100|salute_0_100|alfabetizzazione_0_100|occupazione_0_100|povertà_0_100|sicurezza_alimentare_0_100|abitazioni_0_100|criminalità_0_100]
+- [CLASSE_REGNO: regno|nobles/clergy/merchants/artisans/peasants/workers/marginalized|popolazione|ricchezza_0_100|lealtà_0_100|influenza_0_100|bisogni]
+- [STATISTICHE_REGNO: regno|PIL|saldo_commerciale|inflazione|debito|efficienza_amministrativa_0_100|natalità_per_mille|mortalità_per_mille|migrazione_periodo]
+- [SERVIZI_REGNO: regno|infrastrutture_0_100|sanità_0_100|istruzione_0_100|giustizia_0_100|igiene_0_100]
+- [TERRITORIO_REGNO: regno|nome|tipo|popolazione|produzione_viveri|entrate_periodo|fortificazione_0_100|lealtà_0_100|controllore|risorsa_strategica|stato|prosperità_0_100|ordine_0_100|salute_0_100|infrastrutture_0_100|occupazione_0_100|povertà_0_100|capoluogo]
+- [RISORSA_REGNO: regno|territorio|nome|categoria|produzione_periodo|scorte|valore_unitario|stato]
+- [CRISI_REGNO: regno|nome|gravità_0_100|territorio_o_vuoto|effetto|active/resolved]
 - [FAZIONE_REGNO: regno|nome|categoria|leader|potere_0_100|lealtà_0_100|ricchezza_0_100|obiettivo|stato]
 - [ESERCITO_REGNO: regno|leve|professionisti|cavalleria|flotta|morale_0_100|prontezza_0_100|costo_periodo]
 - [DIPLOMAZIA_REGNO: regno|altro_regno|relazione|fiducia_0_100|tensione_0_100|trattato|commercio|rivendicazioni]
 - [LEGGE_REGNO: regno|titolo|ambito|effetto|stato|sostegno|opposizione]
 - [CONSIGLIERE_REGNO: regno|nome|ruolo|competenza_0_100|lealtà_0_100|fazione|stato]
 - [TESORO_REGNO: regno|entra/esce|importo|motivo]
-- [EVENTO_REGNO: regno|tipo|descrizione|tesoro_delta|viveri_delta|popolazione_delta|stabilità_delta|legittimità_delta|prosperità_delta]
-Le categorie sociali della corte devono agire e pesare sulle decisioni: nobiltà fondiaria, clero, milizia, contadini, artigiani/gilde, mercanti e, quando coerenti, guaritori/maghi/saggi ed emarginati. Il tesoro reale NON è denaro personale e NON è la cassa di un negozio. Non duplicare mai la stessa variazione in sistemi diversi.`;
+- [EVENTO_REGNO: regno|tipo|descrizione|tesoro_delta|viveri_delta|popolazione_delta|stabilità_delta|legittimità_delta|prosperità_delta|consenso_delta|disordini_delta|salute_delta]
+Ogni decisione del sovrano deve produrre vincitori, perdenti, costi e reazioni credibili. Informa sempre il motore dei cambiamenti numerici con i tag; non raccontare carestie, migrazioni, rivolte, investimenti, epidemie, raccolti, riforme o conquiste soltanto in prosa. Le categorie sociali devono agire e pesare sulle decisioni: nobiltà fondiaria, clero, contadini, artigiani/gilde, mercanti, lavoratori ed emarginati. Il tesoro reale NON è denaro personale e NON è la cassa di un negozio. Non duplicare mai la stessa variazione in sistemi diversi.`;
             const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory);
             const recentHistory = layeredMemory.shortTerm;
             const masterTurn = narrativeMaster.decide(action, {
