@@ -2780,6 +2780,12 @@
                     <input type="number" class="form-input" id="edit-story-gold" placeholder="es. 2000">
                 </div>
                 <div class="form-group">
+                    <label class="form-label">Idea da sviluppare</label>
+                    <textarea class="form-textarea" id="edit-story-idea" placeholder="Es. Eredito una locanda in una città assediata e scopro che sotto la cantina passa una via segreta."></textarea>
+                    <small>Inserisci anche solo una frase: il generatore completerà mondo, conflitto, narratore, profondità e prologo.</small>
+                </div>
+                <button class="btn secondary" id="btn-generate-story" type="button" style="width: 100%;">✨ Genera storia completa</button>
+                <div class="form-group">
                     <label class="form-label">Descrizione Mondo</label>
                     <textarea class="form-textarea" id="edit-story-desc" placeholder="Descrivi il mondo..."></textarea>
                 </div>
@@ -2796,8 +2802,8 @@
                     <textarea class="form-textarea" id="edit-story-prologue" placeholder="Il testo iniziale della storia..."></textarea>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Proprietà iniziali (una per riga: Nome | Descrizione | Note)</label>
-                    <textarea class="form-textarea" id="edit-story-properties" placeholder="Emporio Rossi | Piccolo negozio di famiglia | Puoi investirci o venderlo"></textarea>
+                    <label class="form-label">Proprietà iniziali (Nome | Descrizione | Note | Tipo)</label>
+                    <textarea class="form-textarea" id="edit-story-properties" placeholder="Emporio Rossi | Piccolo negozio di famiglia | Puoi investirci o venderlo | business"></textarea>
                 </div>
                 <button class="btn primary" id="btn-save-story" style="width: 100%;">💾 Salva Storia</button>
             </div>
@@ -3004,6 +3010,7 @@
     <script src="js/time-energy.js"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
+    <script src="js/story-generator.js"></script>
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
@@ -8207,8 +8214,8 @@
         function updateStoriesUI() {
             const html = G.stories.map((s, i) => `
                 <div class="story-card ${G.selectedStory === i ? 'selected' : ''}" data-idx="${i}">
-                    <div class="story-card-title">${s.title}</div>
-                    <div class="story-card-desc">${s.desc?.substring(0, 80) || ''}...</div>
+                    <div class="story-card-title">${escapeCreationText(s.title)}</div>
+                    <div class="story-card-desc">${escapeCreationText(s.desc?.substring(0, 80) || '')}...</div>
                 </div>
             `).join('');
             $('stories-list').innerHTML = html || '<p>Nessuna storia. Creane una!</p>';
@@ -8217,7 +8224,7 @@
             $('btn-delete-story').disabled = G.selectedStory === null;
 
             $('new-game-story').innerHTML = G.stories.map((s, i) => 
-                `<option value="${i}">${s.title}</option>`
+                `<option value="${i}">${escapeCreationText(s.title)}</option>`
             ).join('');
 
             if (typeof renderCreationOptions === 'function') {
@@ -8232,6 +8239,7 @@
             $('edit-story-genre').value = resolveGenreKey(story || {}) || 'fantasy';
             $('edit-story-difficulty').value = story?.difficulty || 'normal';
             $('edit-story-gold').value = story?.starterGold ?? '';
+            $('edit-story-idea').value = story?.generationIdea || '';
             $('edit-story-desc').value = story?.desc || '';
             $('edit-story-personality').value = story?.personality || '';
             $('edit-story-depth').value = story?.depth || '';
@@ -8241,39 +8249,156 @@
                 const name = p.name || '';
                 const desc = p.description || '';
                 const notes = p.notes || '';
-                return `${name} | ${desc}${notes ? ` | ${notes}` : ''}`;
+                const type = p.type || '';
+                return `${name} | ${desc} | ${notes} | ${type}`;
             }).join('\n');
             openModal('modal-story-editor');
         }
 
-        function saveStoryFromEditor() {
-            const story = {
-                id: G.editingStory?.id || Date.now(),
+        function getStoryEditorSeed() {
+            const rawGold = $('edit-story-gold').value.trim();
+            const starterGold = parseInt(rawGold, 10);
+            return {
                 title: $('edit-story-title').value || 'Nuova Storia',
                 setting: $('edit-story-setting').value,
                 genre: $('edit-story-genre').value || resolveGenreKey(G.editingStory),
                 difficulty: $('edit-story-difficulty').value,
-                starterGold: (() => {
-                    const raw = $('edit-story-gold').value.trim();
-                    const val = parseInt(raw, 10);
-                    return Number.isFinite(val) ? val : undefined;
-                })(),
+                starterGold: Number.isFinite(starterGold) ? starterGold : undefined,
+                idea: $('edit-story-idea').value,
                 desc: $('edit-story-desc').value,
                 personality: $('edit-story-personality').value,
                 depth: $('edit-story-depth').value,
                 prologue: $('edit-story-prologue').value
             };
+        }
 
-            // Parse proprietà iniziali dal textarea
+        function getStoryEditorProperties() {
             const propsRaw = $('edit-story-properties').value.split('\n').map(l => l.trim()).filter(Boolean);
-            story.starterProperties = propsRaw.map(line => {
+            return propsRaw.map(line => {
                 const parts = line.split('|').map(p => p.trim());
                 return {
                     name: parts[0],
                     description: parts[1] || '',
-                    notes: parts[2] || ''
+                    notes: parts[2] || '',
+                    type: parts[3] || ''
                 };
             }).filter(p => p.name);
+        }
+
+        function renderGeneratedStory(story) {
+            $('edit-story-title').value = story.title;
+            $('edit-story-setting').value = story.setting;
+            $('edit-story-genre').value = story.genre;
+            $('edit-story-difficulty').value = story.difficulty;
+            $('edit-story-gold').value = story.starterGold;
+            $('edit-story-desc').value = story.desc;
+            $('edit-story-personality').value = story.personality;
+            $('edit-story-depth').value = story.depth;
+            $('edit-story-prologue').value = story.prologue;
+            $('edit-story-properties').value = (story.starterProperties || []).map(property =>
+                `${property.name} | ${property.description || ''} | ${property.notes || ''} | ${property.type || 'property'}`
+            ).join('\n');
+        }
+
+        async function requestStoryGeneration(prompt) {
+            const settings = G.settings;
+            const messages = [
+                {
+                    role: 'system',
+                    content: 'Sei un autore e game designer. Produci schede di campagne coerenti, complete e immediatamente giocabili. Rispondi solo nel formato JSON richiesto.'
+                },
+                { role: 'user', content: prompt }
+            ];
+            if (settings.model === 'ollama-cloud') {
+                const config = normalizeOllamaCloudSettings(settings.ollama);
+                if (!config.apiKey) throw new Error('API key Ollama Cloud non configurata');
+                const result = await ollamaClient.generate(messages, {
+                    apiKey: config.apiKey,
+                    preferredModels: [
+                        config.primaryModel || 'gpt-oss:120b',
+                        ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
+                    ],
+                    discoveredModels: config.discoveredModels,
+                    maxTokens: 1800
+                });
+                return result.content;
+            }
+
+            let endpoint;
+            let model;
+            let apiKey;
+            if (settings.model === 'openrouter' || settings.model === 'openrouter-free') {
+                apiKey = settings.openrouterKey;
+                endpoint = settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
+                model = settings.openrouterModel || (settings.model === 'openrouter-free'
+                    ? 'openrouter/free' : 'google/gemma-3-27b-it:free');
+            } else if (settings.model === 'deepseek') {
+                apiKey = settings.kimeraKey || settings.openrouterKey;
+                endpoint = settings.kimeraUrl || settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
+                model = settings.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free';
+            } else {
+                apiKey = settings.groqKey;
+                endpoint = settings.groqUrl || 'https://api.groq.com/openai/v1/chat/completions';
+                model = settings.groqModel || 'llama-3.1-8b-instant';
+            }
+            if (!apiKey) throw new Error('API key non configurata');
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({ model, messages, temperature: 0.75, max_tokens: 1800 })
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.error?.message || `Errore API: ${response.status}`);
+            }
+            const data = await response.json();
+            const message = data.choices?.[0]?.message;
+            const content = message?.content || message?.reasoning || message?.text || '';
+            if (!content) throw new Error('Risposta vuota dal generatore');
+            return content;
+        }
+
+        async function generateStoryFromEditor() {
+            const button = $('btn-generate-story');
+            const seed = {
+                ...getStoryEditorSeed(),
+                starterProperties: getStoryEditorProperties()
+            };
+            button.disabled = true;
+            button.textContent = '✨ Generazione in corso…';
+            try {
+                const prompt = CronacheStoryGenerator.buildGenerationPrompt(seed);
+                const response = await requestStoryGeneration(prompt);
+                const story = CronacheStoryGenerator.parseGeneratedStory(response, seed);
+                renderGeneratedStory(story);
+                notify('Storia completa generata. Puoi modificarla prima di salvarla.', 'success');
+            } catch (error) {
+                console.warn('Generazione IA non disponibile, uso struttura locale:', error);
+                const story = CronacheStoryGenerator.createFallbackStory(seed);
+                renderGeneratedStory(story);
+                notify('Creata una storia completa locale. Configura una API key per una versione generata dall’IA.', 'info');
+            } finally {
+                button.disabled = false;
+                button.textContent = '✨ Genera storia completa';
+            }
+        }
+
+        function saveStoryFromEditor() {
+            const seed = getStoryEditorSeed();
+            const completed = CronacheStoryGenerator.completeStory({
+                ...seed,
+                starterProperties: getStoryEditorProperties()
+            });
+            const story = {
+                ...(G.editingStory || {}),
+                ...completed,
+                id: G.editingStory?.id || Date.now(),
+                generationIdea: seed.idea
+            };
 
             if (G.editingStory) {
                 const idx = G.stories.findIndex(s => s.id === G.editingStory.id);
@@ -10727,6 +10852,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 }
             };
             $('btn-save-story').onclick = saveStoryFromEditor;
+            $('btn-generate-story').onclick = generateStoryFromEditor;
 
             // NEW GAME
             $('new-game-story').onchange = () => { G.selectedOrigin = null; G.selectedArchetype = null; renderCreationOptions(); };
