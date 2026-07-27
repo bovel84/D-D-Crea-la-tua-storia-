@@ -1728,6 +1728,65 @@ test('rende operative le decisioni su censimento, servizi e territori', () => {
     assert.throws(() => engine.manualAction(state, 'period', { turn: 2 }), /già stato chiuso/);
 });
 
+test('aggrega condizioni sociali e segnala il divario di qualifiche nel lavoro', () => {
+    const state = kingdomApi.migrateKingdom({
+        active: true,
+        name: 'Astaria',
+        population: 100,
+        people: {
+            pops: [{
+                id: 'pop-operai',
+                name: 'Operai di Kael',
+                classKey: 'workers',
+                territoryName: 'Kael',
+                profession: 'unemployed',
+                population: 100,
+                employed: 0,
+                education: 20,
+                literacy: 30,
+                qualifications: 15,
+                standardOfLiving: 6,
+                loyalists: 5,
+                radicals: 20,
+                desires: 'lavoro stabile'
+            }]
+        },
+        jobs: [{
+            territoryName: 'Kael',
+            profession: 'engineers',
+            positions: 10,
+            employed: 0,
+            wage: 7
+        }]
+    });
+    kingdomApi.reconcileDerivedStatistics(state);
+    const workers = state.people.classes.find(item => item.key === 'workers');
+    const labor = kingdomApi.buildLaborMarketSummary(state);
+    assert.equal(workers.employment, 0);
+    assert.equal(workers.education, 20);
+    assert.equal(workers.livingStandard, 6);
+    assert.equal(workers.radicals, 20);
+    assert.equal(labor.vacancies, 10);
+    assert.equal(labor.qualificationBlocked, 10);
+    assert.equal(labor.unemployed, 100);
+});
+
+test('gli incentivi ampliano un settore lavorativo e aggiornano il tesoro', () => {
+    const engine = new kingdomApi.KingdomManager();
+    let state = kingdomApi.migrateKingdom({
+        active: true,
+        name: 'Astaria',
+        treasury: 1000,
+        jobs: [{ territoryName: 'Kael', profession: 'artisans', positions: 10, employed: 7, wage: 3 }]
+    });
+    const jobId = state.jobs[0].id;
+    state = engine.manualAction(state, 'subsidizeJob', { jobId, value: 240, turn: 2 });
+    assert.equal(state.treasury, 760);
+    assert.ok(state.jobs[0].positions > 10);
+    assert.ok(state.jobs[0].wage > 3);
+    assert.match(state.history.at(-1).text, /Incentivato il settore/);
+});
+
 test('inietta lo stato autoritativo del regno nel contesto LLM', () => {
     const context = kingdomApi.buildNarrativeContext({
         active: true, name: 'Astaria', treasury: 700, population: 1200,
@@ -1776,6 +1835,9 @@ test('integra pannello, ciclo turni e protocollo dei tag del regno', () => {
     assert.match(html, /data-kingdom-action="investTerritory"/);
     assert.match(html, /data-kingdom-action="publicService"/);
     assert.match(html, /data-kingdom-action="trainPop"/);
+    assert.match(html, /data-kingdom-action="subsidizeJob"/);
+    assert.match(html, /data-kingdom-filter="socialClass"/);
+    assert.match(html, /data-kingdom-filter="jobStatus"/);
     assert.match(html, /Mercato del lavoro/);
     assert.match(html, /Audit del Master/);
     assert.match(html, /data-kingdom-section="kingdom-people"/);
@@ -1785,6 +1847,9 @@ test('integra pannello, ciclo turni e protocollo dei tag del regno', () => {
     assert.match(css, /\.kingdom-command-center/);
     assert.match(css, /\.kingdom-nav/);
     assert.match(css, /\.kingdom-score/);
+    assert.match(css, /\.kingdom-filter-bar/);
+    assert.match(css, /\.kingdom-social-card/);
+    assert.match(css, /min-height:\s*44px/);
 });
 
 test('completa una storia minima con tutti i campi necessari al motore', () => {
