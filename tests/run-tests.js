@@ -1373,13 +1373,125 @@ test('migra i salvataggi del regno alla struttura sociale ed economica approfond
         treasury: 900,
         population: 10000
     });
-    assert.equal(state.schemaVersion, 2);
+    assert.equal(state.schemaVersion, 3);
     assert.equal(state.treasury, 900);
     assert.equal(state.population, 10000);
     assert.equal(state.people.classes.reduce((sum, item) => sum + item.population, 0), 10000);
     assert.equal(typeof state.people.approval, 'number');
     assert.equal(typeof state.economy.administrationEfficiency, 'number');
     assert.equal(typeof state.services.healthcare, 'number');
+    assert.equal(state.people.pops.reduce((sum, item) => sum + item.population, 0), 10000);
+    assert.ok(state.jobs.length > 0);
+});
+
+test('analizza i tag LLM per gruppi di popolazione e mercato del lavoro', () => {
+    const events = kingdomApi.parseNarrativeTags(
+        '[POP_REGNO: Astaria|pop-kael-operai|Operai di Kael|workers|Kael|kaeliti|culto solare|laborers|800|620|18|22|20|1.8|7|72|18|0|20|60|lavoro stabile]\\n' +
+        '[LAVORO_REGNO: Astaria|Kael|engineers|120|35|7|60|workers,artisans,merchants,nobles|active]'
+    );
+    assert.equal(events.length, 2);
+    assert.equal(events[0].type, 'pop');
+    assert.equal(events[0].popId, 'pop-kael-operai');
+    assert.equal(events[0].profession, 'laborers');
+    assert.equal(events[1].type, 'job');
+    assert.equal(events[1].minEducation, '60');
+});
+
+test('impedisce all’LLM di assegnare lavori qualificati senza istruzione o classe ammessa', () => {
+    const engine = new kingdomApi.KingdomManager();
+    const state = kingdomApi.migrateKingdom({
+        active: true,
+        name: 'Astaria',
+        population: 100,
+        people: {
+            pops: [{
+                id: 'pop-operai',
+                name: 'Operai',
+                classKey: 'workers',
+                profession: 'laborers',
+                population: 100,
+                employed: 80,
+                education: 12,
+                literacy: 20,
+                qualifications: 15
+            }]
+        }
+    });
+    const denied = engine.applyNarrativeEvents(state, [{
+        type: 'pop',
+        popId: 'pop-operai',
+        profession: 'engineers'
+    }], { turn: 1 });
+    assert.equal(denied.results[0].ok, false);
+    assert.match(denied.results[0].message, /qualifiche/i);
+    assert.equal(denied.state.people.pops[0].profession, 'laborers');
+});
+
+test('il mercato assume soltanto popolazioni qualificate e registra la mobilità sociale', () => {
+    const engine = new kingdomApi.KingdomManager();
+    const state = kingdomApi.migrateKingdom({
+        active: true,
+        name: 'Astaria',
+        treasury: 1000,
+        population: 100,
+        food: 100,
+        people: {
+            pops: [{
+                id: 'pop-disoccupati',
+                name: 'Disoccupati di Kael',
+                classKey: 'workers',
+                territoryName: 'Kael',
+                profession: 'unemployed',
+                population: 100,
+                education: 10,
+                literacy: 15,
+                qualifications: 10
+            }]
+        },
+        jobs: [
+            { territoryName: 'Kael', profession: 'engineers', positions: 100, wage: 7, minEducation: 0, allowedClasses: '*' },
+            { territoryName: 'Kael', profession: 'laborers', positions: 50, wage: 2, minEducation: 0, allowedClasses: 'workers' }
+        ]
+    });
+    const result = engine.runPeriod(state, { turn: 1 });
+    const engineers = result.state.jobs.find(job => job.profession === 'engineers');
+    const laborers = result.state.jobs.find(job => job.profession === 'laborers');
+    assert.equal(engineers.employed, 0);
+    assert.equal(engineers.minEducation, 60, 'l’LLM non può abbassare il requisito minimo della professione');
+    assert.ok(laborers.employed > 0);
+    assert.ok(result.report.promoted > 0);
+    assert.ok(result.state.people.pops.some(pop => pop.profession === 'laborers'));
+});
+
+test('formazione, bisogni e radicalizzazione incidono sui gruppi POP', () => {
+    const engine = new kingdomApi.KingdomManager();
+    let state = kingdomApi.migrateKingdom({
+        active: true,
+        name: 'Astaria',
+        treasury: 5000,
+        population: 100,
+        food: 0,
+        people: {
+            pops: [{
+                id: 'pop-aspiranti',
+                name: 'Aspiranti tecnici',
+                classKey: 'workers',
+                profession: 'unemployed',
+                population: 100,
+                education: 58,
+                literacy: 60,
+                qualifications: 58,
+                radicals: 0
+            }]
+        },
+        jobs: [{ profession: 'engineers', positions: 20, wage: 7, minEducation: 60, allowedClasses: 'workers' }]
+    });
+    state = engine.manualAction(state, 'trainPop', { popId: 'pop-aspiranti', value: 200, turn: 1 });
+    assert.ok(state.people.pops[0].education >= 60);
+    const result = engine.runPeriod(state, { turn: 2 });
+    assert.ok(result.state.jobs[0].employed > 0);
+    assert.ok(result.state.people.radicals > 0);
+    assert.ok(result.state.people.pops.every(pop => pop.desires.length > 0));
 });
 
 test('analizza tutti i tag sociali, territoriali ed economici del regno', () => {
@@ -1513,6 +1625,9 @@ test('inietta lo stato autoritativo del regno nel contesto LLM', () => {
     assert.match(context, /CLASSI:/);
     assert.match(context, /SERVIZI:/);
     assert.match(context, /CRISI:/);
+    assert.match(context, /GRUPPI POP:/);
+    assert.match(context, /MERCATO DEL LAVORO:/);
+    assert.match(context, /Professioni e promozioni dipendono da istruzione/i);
     assert.match(context, /ogni cambiamento narrato/i);
     assert.match(context, /separato dal denaro personale/);
 });
@@ -1531,10 +1646,14 @@ test('integra pannello, ciclo turni e protocollo dei tag del regno', () => {
     assert.match(html, /SERVIZI_REGNO/);
     assert.match(html, /RISORSA_REGNO/);
     assert.match(html, /CRISI_REGNO/);
+    assert.match(html, /POP_REGNO/);
+    assert.match(html, /LAVORO_REGNO/);
     assert.match(html, /FAZIONE_REGNO/);
     assert.match(html, /DIPLOMAZIA_REGNO/);
     assert.match(html, /data-kingdom-action="investTerritory"/);
     assert.match(html, /data-kingdom-action="publicService"/);
+    assert.match(html, /data-kingdom-action="trainPop"/);
+    assert.match(html, /Mercato del lavoro/);
     assert.match(html, /Il tesoro reale NON è denaro personale/);
 });
 

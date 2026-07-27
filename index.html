@@ -6995,6 +6995,7 @@
                     '<div class="manager-kpi"><span>Viveri</span><strong class="' + (kingdom.food > 0 ? 'positive' : 'negative') + '">' + kingdom.food.toLocaleString('it-IT') + '</strong><small>saldo periodo ' + ((report.foodBalance || 0) >= 0 ? '+' : '') + (report.foodBalance || 0) + '</small></div>' +
                     '<div class="manager-kpi"><span>PIL</span><strong>' + kingdom.economy.gdp.toLocaleString('it-IT') + '</strong><small>debito ' + kingdom.economy.debt.toLocaleString('it-IT') + ' · inflazione ' + kingdom.economy.inflation.toFixed(1) + '%</small></div>' +
                     '<div class="manager-kpi"><span>Occupazione</span><strong>' + Math.round(kingdom.people.employment) + '%</strong><small>povertà ' + Math.round(kingdom.people.poverty) + '%</small></div>' +
+                    '<div class="manager-kpi"><span>Tenore di vita</span><strong>' + kingdom.people.averageLivingStandard.toFixed(1) + '/30</strong><small>lealisti ' + kingdom.people.loyalists.toLocaleString('it-IT') + ' · radicali ' + kingdom.people.radicals.toLocaleString('it-IT') + '</small></div>' +
                     '<div class="manager-kpi"><span>Forze armate</span><strong>' + armyTotal.toLocaleString('it-IT') + '</strong><small>morale ' + Math.round(kingdom.army.morale) + ' · prontezza ' + Math.round(kingdom.army.readiness) + '</small></div>' +
                 '</div>' +
                 '<div class="manager-actions">' +
@@ -7018,11 +7019,33 @@
                     '<div class="manager-kpi"><span>Abitazioni</span><strong>' + Math.round(kingdom.people.housing) + '%</strong></div>' +
                     '<div class="manager-kpi"><span>Criminalità</span><strong class="' + (kingdom.people.crime < 40 ? 'positive' : 'negative') + '">' + Math.round(kingdom.people.crime) + '%</strong></div>' +
                     '<div class="manager-kpi"><span>Demografia</span><strong>' + kingdom.people.birthRate + '‰ / ' + kingdom.people.deathRate + '‰</strong><small>migrazione ' + (kingdom.people.migration >= 0 ? '+' : '') + kingdom.people.migration + '</small></div></div></section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>👨‍👩‍👧‍👦 Gruppi di popolazione</h4><span>' + kingdom.people.pops.length + ' gruppi</span></div>' +
+                    kingdomCards(kingdom.people.pops, 'Nessun gruppo di popolazione censito.', (pop, popIndex) => {
+                        const profession = CronacheKingdom.OCCUPATIONS[pop.profession]?.name || pop.profession;
+                        return '<article class="manager-compact-card"><div><strong>' + safeManagerText(pop.name) + '</strong><small>' +
+                            safeManagerText(profession) + ' · ' + safeManagerText(pop.territoryName || 'Regno') + ' · ' +
+                            safeManagerText(pop.culture) + '</small></div><span>' + pop.employed.toLocaleString('it-IT') + '/' +
+                            pop.population.toLocaleString('it-IT') + ' occupati · Istruzione ' + Math.round(pop.education) +
+                            '% · Qualifiche ' + Math.round(pop.qualifications) + '%<small>Tenore ' + pop.standardOfLiving.toFixed(1) +
+                            '/30 · Bisogni base/comfort/lusso ' + Math.round(pop.needs.basic) + '/' +
+                            Math.round(pop.needs.comfort) + '/' + Math.round(pop.needs.luxury) + '% · Radicali ' +
+                            pop.radicals.toLocaleString('it-IT') + '<br>' + safeManagerText(pop.desires) +
+                            '</small><button class="btn secondary" data-kingdom-action="trainPop" data-pop-index="' +
+                            popIndex + '">🎓 Forma</button></span></article>';
+                    }) + '</section>' +
                     '<section class="manager-section"><div class="manager-section-head"><h4>🏘️ Classi sociali</h4><span>' + kingdom.people.classes.length + '</span></div>' +
                     kingdomCards(kingdom.people.classes, 'Nessuna classe sociale censita.', social =>
                         '<article class="manager-compact-card"><div><strong>' + safeManagerText(social.name) + '</strong><small>' +
                         social.population.toLocaleString('it-IT') + ' persone · Ricchezza ' + Math.round(social.wealth) + '%</small></div><span>Lealtà ' +
                         Math.round(social.loyalty) + '% · Influenza ' + Math.round(social.influence) + '%<small>' + safeManagerText(social.needs) + '</small></span></article>') + '</section>' +
+                    '<section class="manager-section"><div class="manager-section-head"><h4>💼 Mercato del lavoro</h4><span>' +
+                    kingdom.jobs.reduce((sum, job) => sum + job.vacancies, 0).toLocaleString('it-IT') + ' posti vacanti</span></div>' +
+                    kingdomCards(kingdom.jobs, 'Nessun posto di lavoro censito.', job =>
+                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(job.name) + '</strong><small>' +
+                        safeManagerText(job.territoryName || 'Regno') + ' · Salario ' + job.wage.toFixed(1) +
+                        '</small></div><span>' + job.employed.toLocaleString('it-IT') + '/' + job.positions.toLocaleString('it-IT') +
+                        ' occupati<small>Istruzione minima ' + Math.round(job.minEducation) + '% · Classi ammesse: ' +
+                        safeManagerText(job.allowedClasses) + '</small></span></article>') + '</section>' +
                     '<section class="manager-section"><div class="manager-section-head"><h4>🏗️ Servizi pubblici</h4><span>Efficienza ' + Math.round(kingdom.economy.administrationEfficiency) + '%</span></div>' +
                     '<div class="manager-kpi-grid">' +
                     '<div class="manager-kpi"><span>Infrastrutture</span><strong>' + Math.round(kingdom.services.infrastructure) + '%</strong></div>' +
@@ -7100,7 +7123,8 @@
             if (action === 'recruit') value = managerNumberPrompt('Numero di soldati professionisti da reclutare', 10, 1);
             if (action === 'investTerritory') value = managerNumberPrompt('Investimento nel territorio', 200, 50);
             if (action === 'publicService') value = managerNumberPrompt('Investimento nel servizio pubblico', 200, 50);
-            if (['tax', 'relief', 'recruit', 'investTerritory', 'publicService'].includes(action) && value == null) return;
+            if (action === 'trainPop') value = managerNumberPrompt('Investimento nella formazione del gruppo', 200, 50);
+            if (['tax', 'relief', 'recruit', 'investTerritory', 'publicService', 'trainPop'].includes(action) && value == null) return;
             try {
                 G.worldMemory.kingdom = kingdomEngine.manualAction(syncKingdomManagement(), action, {
                     value,
@@ -7108,6 +7132,9 @@
                         ? (syncKingdomManagement().territories[Number(actionTarget?.dataset.territoryIndex)]?.name || '')
                         : '',
                     service: actionTarget?.dataset.service || '',
+                    popId: action === 'trainPop'
+                        ? (syncKingdomManagement().people.pops[Number(actionTarget?.dataset.popIndex)]?.id || '')
+                        : '',
                     turn: G.worldMemory.turnCount || 0
                 });
                 const messages = {
@@ -7116,6 +7143,7 @@
                     census: 'Censimento completato.',
                     investTerritory: 'Investimento territoriale registrato.',
                     publicService: 'Servizio pubblico potenziato.',
+                    trainPop: 'Programma di formazione finanziato.',
                     period: 'Periodo del regno chiuso.'
                 };
                 addStoryEntry('👑 ' + messages[action], 'mechanic');
@@ -9196,6 +9224,8 @@ Se il protagonista governa o acquisisce un regno, ducato, contea, città-stato o
 - [REGNO: nome|titolo_governante|nome_governante|governo|capitale|tesoro|popolazione|stabilità_0_100|legittimità_0_100|prosperità_0_100|viveri]
 - [POPOLO_REGNO: regno|consenso_0_100|disordini_0_100|salute_0_100|alfabetizzazione_0_100|occupazione_0_100|povertà_0_100|sicurezza_alimentare_0_100|abitazioni_0_100|criminalità_0_100]
 - [CLASSE_REGNO: regno|nobles/clergy/merchants/artisans/peasants/workers/marginalized|popolazione|ricchezza_0_100|lealtà_0_100|influenza_0_100|bisogni]
+- [POP_REGNO: regno|id_stabile|nome_gruppo|classe|territorio|cultura|fede|professione|popolazione|occupati|istruzione_0_100|alfabetizzazione_0_100|qualifiche_0_100|reddito_pro_capite|tenore_vita_1_30|bisogni_base_0_100|comfort_0_100|lusso_0_100|lealisti|radicali|desideri]
+- [LAVORO_REGNO: regno|territorio|professione|posti|occupati|salario|istruzione_minima_0_100|classi_ammesse_separate_da_virgola|active/inactive]
 - [STATISTICHE_REGNO: regno|PIL|saldo_commerciale|inflazione|debito|efficienza_amministrativa_0_100|natalità_per_mille|mortalità_per_mille|migrazione_periodo]
 - [SERVIZI_REGNO: regno|infrastrutture_0_100|sanità_0_100|istruzione_0_100|giustizia_0_100|igiene_0_100]
 - [TERRITORIO_REGNO: regno|nome|tipo|popolazione|produzione_viveri|entrate_periodo|fortificazione_0_100|lealtà_0_100|controllore|risorsa_strategica|stato|prosperità_0_100|ordine_0_100|salute_0_100|infrastrutture_0_100|occupazione_0_100|povertà_0_100|capoluogo]
@@ -9208,7 +9238,7 @@ Se il protagonista governa o acquisisce un regno, ducato, contea, città-stato o
 - [CONSIGLIERE_REGNO: regno|nome|ruolo|competenza_0_100|lealtà_0_100|fazione|stato]
 - [TESORO_REGNO: regno|entra/esce|importo|motivo]
 - [EVENTO_REGNO: regno|tipo|descrizione|tesoro_delta|viveri_delta|popolazione_delta|stabilità_delta|legittimità_delta|prosperità_delta|consenso_delta|disordini_delta|salute_delta]
-Ogni decisione del sovrano deve produrre vincitori, perdenti, costi e reazioni credibili. Informa sempre il motore dei cambiamenti numerici con i tag; non raccontare carestie, migrazioni, rivolte, investimenti, epidemie, raccolti, riforme o conquiste soltanto in prosa. Le categorie sociali devono agire e pesare sulle decisioni: nobiltà fondiaria, clero, contadini, artigiani/gilde, mercanti, lavoratori ed emarginati. Il tesoro reale NON è denaro personale e NON è la cassa di un negozio. Non duplicare mai la stessa variazione in sistemi diversi.`;
+Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, professione, istruzione, reddito, bisogni e desideri. Nessuno può ottenere un lavoro qualificato senza istruzione e qualifiche sufficienti, una classe ammessa e un posto vacante. Disoccupazione, salari bassi e bisogni essenziali insoddisfatti generano radicali; tenore di vita e mobilità sociale generano lealisti. Ogni decisione del sovrano deve produrre vincitori, perdenti, costi e reazioni credibili. Informa sempre il motore dei cambiamenti numerici con i tag; non raccontare carestie, migrazioni, rivolte, investimenti, epidemie, raccolti, riforme o conquiste soltanto in prosa. Le categorie sociali devono agire e pesare sulle decisioni: nobiltà fondiaria, clero, contadini, artigiani/gilde, mercanti, lavoratori ed emarginati. Il tesoro reale NON è denaro personale e NON è la cassa di un negozio. Non duplicare mai la stessa variazione in sistemi diversi.`;
             const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory);
             const recentHistory = layeredMemory.shortTerm;
             const masterTurn = narrativeMaster.decide(action, {
