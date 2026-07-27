@@ -1358,23 +1358,71 @@ test('riceve territori, fazioni sociali, esercito e diplomazia dal narratore', (
         { type: 'diplomacy', realm: 'Karsov', relation: 'tesa', trust: 20, tension: 75, claims: 'Miniere di Kael' }
     ], { turn: 1 }).state;
     assert.equal(state.territories[0].name, 'Kael');
-    assert.equal(state.population, 600);
+    assert.equal(state.population, 1000, 'un singolo territorio non deve sostituire la popolazione totale');
+    assert.equal(state.territories[0].population, 600);
     assert.equal(state.factions[0].category, 'artigiani/gilde');
     assert.equal(state.army.professionals, 80);
     assert.equal(state.diplomacy[0].claims, 'Miniere di Kael');
 });
 
-test('analizza i tag del regno senza errori di espressione regolare', () => {
+test('migra i salvataggi del regno alla struttura sociale ed economica approfondita', () => {
+    const state = kingdomApi.migrateKingdom({
+        schemaVersion: 1,
+        active: true,
+        name: 'Astaria',
+        treasury: 900,
+        population: 10000
+    });
+    assert.equal(state.schemaVersion, 2);
+    assert.equal(state.treasury, 900);
+    assert.equal(state.population, 10000);
+    assert.equal(state.people.classes.reduce((sum, item) => sum + item.population, 0), 10000);
+    assert.equal(typeof state.people.approval, 'number');
+    assert.equal(typeof state.economy.administrationEfficiency, 'number');
+    assert.equal(typeof state.services.healthcare, 'number');
+});
+
+test('analizza tutti i tag sociali, territoriali ed economici del regno', () => {
     const events = kingdomApi.parseNarrativeTags(
         '[REGNO: Astaria|Regina|Nerissa|monarchia|Khepra|12500|40000|64|72|58|900]\\n' +
-        '[TERRITORIO_REGNO: Astaria|Kael|contea mineraria|6000|300|900|70|55|Corona|ferro|controllato]'
+        '[POPOLO_REGNO: Astaria|61|23|54|32|67|29|71|58|18]\\n' +
+        '[CLASSE_REGNO: Astaria|artigiani|4800|52|63|44|credito accessibile]\\n' +
+        '[STATISTICHE_REGNO: Astaria|65000|1200|3.5|4000|71|13|8|25]\\n' +
+        '[SERVIZI_REGNO: Astaria|62|48|44|57|39]\\n' +
+        '[TERRITORIO_REGNO: Astaria|Kael|contea mineraria|6000|300|900|70|55|Corona|ferro|controllato|64|59|52|61|68|27|Rocca Kael]\\n' +
+        '[RISORSA_REGNO: Astaria|Kael|Ferro|minerale|40|120|8|attiva]\\n' +
+        '[CRISI_REGNO: Astaria|Sciopero dei minatori|45|Kael|produzione ridotta|active]'
     );
-    assert.equal(events.length, 2);
+    assert.equal(events.length, 8);
     assert.equal(events[0].type, 'profile');
     assert.equal(events[0].name, 'Astaria');
-    assert.equal(events[1].type, 'territory');
-    assert.equal(events[1].name, 'Kael');
-    assert.equal(events[1].territoryType, 'contea mineraria');
+    assert.equal(events[1].type, 'people');
+    assert.equal(events[2].classKey, 'artigiani');
+    assert.equal(events[3].gdp, '65000');
+    assert.equal(events[4].healthcare, '48');
+    assert.equal(events[5].name, 'Kael');
+    assert.equal(events[5].capital, 'Rocca Kael');
+    assert.equal(events[6].type, 'resource');
+    assert.equal(events[7].type, 'crisis');
+});
+
+test('applica patch narrative parziali senza azzerare i dati esistenti', () => {
+    const engine = new kingdomApi.KingdomManager();
+    let state = engine.applyNarrativeEvents(engine.createDefault(), [
+        { type: 'profile', name: 'Astaria', population: 1000 },
+        { type: 'territory', name: 'Kael', population: 600, taxIncome: 200, foodProduction: 30, loyalty: 55 },
+        { type: 'army', professionals: 80, morale: 60, upkeep: 90 }
+    ], { turn: 1 }).state;
+    state = engine.applyNarrativeEvents(state, [
+        { type: 'territory', name: 'Kael', loyalty: 72 },
+        { type: 'army', morale: 81 }
+    ], { turn: 2 }).state;
+    assert.equal(state.territories[0].loyalty, 72);
+    assert.equal(state.territories[0].population, 600);
+    assert.equal(state.territories[0].taxIncome, 200);
+    assert.equal(state.army.morale, 81);
+    assert.equal(state.army.professionals, 80);
+    assert.equal(state.army.upkeep, 90);
 });
 
 test('simula periodi del regno con entrate, mantenimento e viveri', () => {
@@ -1389,8 +1437,64 @@ test('simula periodi del regno con entrate, mantenimento e viveri', () => {
     assert.equal(result.reports.length, 1);
     assert.equal(result.state.period, 1);
     assert.ok(result.reports[0].income > result.reports[0].armyUpkeep);
-    assert.equal(result.state.treasury, 1219);
+    assert.equal(result.state.treasury, 1000 + result.reports[0].balance);
     assert.equal(result.state.food, 152);
+    assert.ok(Number.isFinite(result.reports[0].servicesCost));
+    assert.ok(result.reports[0].administration > 0);
+    assert.ok(Number.isFinite(result.reports[0].populationDelta));
+    assert.ok(result.state.economy.gdp > 0);
+    assert.notEqual(result.state.people.approval, 50);
+});
+
+test('deduplica gli eventi solo nel medesimo turno', () => {
+    const engine = new kingdomApi.KingdomManager();
+    const event = { type: 'treasury', direction: 'entrata', amount: 100, reason: 'pedaggi' };
+    let state = engine.applyNarrativeEvents(engine.applyNarrativeEvents(engine.createDefault(), [
+        { type: 'profile', name: 'Astaria', treasury: 500 }
+    ], { turn: 1 }).state, [event, event], { turn: 2 }).state;
+    assert.equal(state.treasury, 600);
+    state = engine.applyNarrativeEvents(state, [event], { turn: 3 }).state;
+    assert.equal(state.treasury, 700);
+});
+
+test('ripartisce le variazioni demografiche narrative tra classi e territori', () => {
+    const engine = new kingdomApi.KingdomManager();
+    let state = kingdomApi.migrateKingdom({
+        active: true,
+        name: 'Astaria',
+        population: 1000,
+        territories: [
+            { name: 'Kael', population: 600 },
+            { name: 'Ostria', population: 400 }
+        ]
+    });
+    state = engine.applyNarrativeEvents(state, [{
+        type: 'event',
+        description: 'Arrivano profughi dai monti',
+        populationDelta: 100
+    }], { turn: 3 }).state;
+    assert.equal(state.population, 1100);
+    assert.equal(state.territories.reduce((sum, item) => sum + item.population, 0), 1100);
+    assert.equal(state.people.classes.reduce((sum, item) => sum + item.population, 0), 1100);
+});
+
+test('rende operative le decisioni su censimento, servizi e territori', () => {
+    const engine = new kingdomApi.KingdomManager();
+    let state = kingdomApi.migrateKingdom({
+        active: true,
+        name: 'Astaria',
+        treasury: 2000,
+        population: 5000,
+        territories: [{ name: 'Kael', infrastructure: 30, prosperity: 40 }]
+    });
+    state = engine.manualAction(state, 'census', { turn: 1 });
+    assert.equal(state.economy.administrationEfficiency, 53);
+    state = engine.manualAction(state, 'publicService', { service: 'healthcare', value: 200, turn: 1 });
+    assert.ok(state.services.healthcare > 30);
+    state = engine.manualAction(state, 'investTerritory', { territoryName: 'Kael', value: 200, turn: 1 });
+    assert.ok(state.territories[0].infrastructure > 30);
+    state = engine.manualAction(state, 'period', { turn: 2 });
+    assert.throws(() => engine.manualAction(state, 'period', { turn: 2 }), /già stato chiuso/);
 });
 
 test('inietta lo stato autoritativo del regno nel contesto LLM', () => {
@@ -1405,6 +1509,11 @@ test('inietta lo stato autoritativo del regno nel contesto LLM', () => {
     assert.match(context, /Ostria/);
     assert.match(context, /Mercanti del Porto/);
     assert.match(context, /Tazir/);
+    assert.match(context, /POPOLO:/);
+    assert.match(context, /CLASSI:/);
+    assert.match(context, /SERVIZI:/);
+    assert.match(context, /CRISI:/);
+    assert.match(context, /ogni cambiamento narrato/i);
     assert.match(context, /separato dal denaro personale/);
 });
 
@@ -1417,8 +1526,15 @@ test('integra pannello, ciclo turni e protocollo dei tag del regno', () => {
     assert.match(html, /processKingdomTurn\(\)/);
     assert.match(html, /kingdomEngine\.buildNarrativeContext/);
     assert.match(html, /TERRITORIO_REGNO/);
+    assert.match(html, /POPOLO_REGNO/);
+    assert.match(html, /STATISTICHE_REGNO/);
+    assert.match(html, /SERVIZI_REGNO/);
+    assert.match(html, /RISORSA_REGNO/);
+    assert.match(html, /CRISI_REGNO/);
     assert.match(html, /FAZIONE_REGNO/);
     assert.match(html, /DIPLOMAZIA_REGNO/);
+    assert.match(html, /data-kingdom-action="investTerritory"/);
+    assert.match(html, /data-kingdom-action="publicService"/);
     assert.match(html, /Il tesoro reale NON è denaro personale/);
 });
 
