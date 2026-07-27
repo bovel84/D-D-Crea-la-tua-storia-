@@ -16,6 +16,7 @@ const characterApi = require('../js/character-options.js');
 const timeEnergyApi = require('../js/time-energy.js');
 const businessApi = require('../js/business-manager.js');
 const kingdomApi = require('../js/kingdom-manager.js');
+const storyGeneratorApi = require('../js/story-generator.js');
 const packageMetadata = require('../package.json');
 
 const tests = [];
@@ -1419,6 +1420,70 @@ test('integra pannello, ciclo turni e protocollo dei tag del regno', () => {
     assert.match(html, /FAZIONE_REGNO/);
     assert.match(html, /DIPLOMAZIA_REGNO/);
     assert.match(html, /Il tesoro reale NON è denaro personale/);
+});
+
+test('completa una storia minima con tutti i campi necessari al motore', () => {
+    const story = storyGeneratorApi.createFallbackStory({
+        genre: 'spy',
+        idea: 'Una chiave cifrata scompare durante un vertice internazionale.'
+    });
+    assert.equal(story.genre, 'spy');
+    ['title', 'setting', 'desc', 'personality', 'depth', 'prologue']
+        .forEach(field => assert.ok(story[field].length > 20, `${field} deve essere completo`));
+    assert.ok(Number.isFinite(story.starterGold));
+    assert.deepEqual(story.starterProperties, []);
+});
+
+test('non salva il titolo generico quando può ricavarlo dall’idea', () => {
+    const story = storyGeneratorApi.completeStory({
+        title: 'Nuova Storia',
+        genre: 'pirate',
+        idea: 'La mappa spezzata del capitano scomparso'
+    });
+    assert.notEqual(story.title, 'Nuova Storia');
+    assert.match(story.title, /Mappa Spezzata/i);
+});
+
+test('normalizza il JSON generato dall’IA e conserva l’idea del giocatore', () => {
+    const story = storyGeneratorApi.parseGeneratedStory(
+        '```json\n{"title":"Il Porto delle Ombre","prologue":"Una sirena lacera la notte mentre stringi la valigetta scomparsa.","starterProperties":[]}\n```',
+        { genre: 'spy', setting: 'Trieste, 1984', idea: 'Una rete di doppi agenti.' }
+    );
+    assert.equal(story.title, 'Il Porto delle Ombre');
+    assert.equal(story.setting, 'Trieste, 1984');
+    assert.match(story.desc, /rete di doppi agenti/i);
+    assert.ok(story.depth.length > 20);
+});
+
+test('rende gestibili le attività iniziali create dal generatore', () => {
+    const story = storyGeneratorApi.completeStory({
+        title: 'La Locanda Assediata',
+        genre: 'business',
+        starterProperties: [{ name: 'Locanda del Ponte', description: 'Un edificio indebitato.' }]
+    });
+    assert.equal(story.starterProperties.length, 1);
+    assert.equal(story.starterProperties[0].type, 'business');
+    assert.ok(story.starterProperties[0].businessCash > 0);
+});
+
+test('il prompt del generatore richiede una campagna giocabile e JSON puro', () => {
+    const prompt = storyGeneratorApi.buildGenerationPrompt({
+        genre: 'fantasy',
+        idea: 'Un regno senza erede.'
+    });
+    assert.match(prompt, /JSON valido/);
+    assert.match(prompt, /conflitto centrale/);
+    assert.match(prompt, /scelta aperta/);
+    assert.match(prompt, /starterProperties/);
+});
+
+test('integra il generatore nella schermata Crea storia', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /src="js\/story-generator\.js"/);
+    assert.match(html, /id="edit-story-idea"/);
+    assert.match(html, /id="btn-generate-story"/);
+    assert.match(html, /function generateStoryFromEditor/);
+    assert.match(html, /CronacheStoryGenerator\.completeStory/);
 });
 
 (async () => {
