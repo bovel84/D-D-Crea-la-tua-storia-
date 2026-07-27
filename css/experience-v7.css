@@ -1403,6 +1403,106 @@
     border-color: rgba(41,75,63,.55);
     box-shadow: 0 0 0 3px rgba(41,75,63,.1);
 }
+.kingdom-filter-bar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 8px 0 10px;
+}
+.kingdom-filter-bar label {
+    display: grid;
+    gap: 4px;
+    color: var(--ink-light);
+    font: 700 .65rem 'Cinzel', serif;
+}
+.kingdom-filter-bar select {
+    width: 100%;
+    min-height: 42px;
+    padding: 8px 30px 8px 10px;
+    border: 1px solid rgba(41,75,63,.24);
+    border-radius: 9px;
+    color: var(--ink);
+    background: rgba(255,255,255,.86);
+    font: 400 .78rem 'Crimson Text', serif;
+}
+.kingdom-card-list {
+    display: grid;
+    gap: 4px;
+}
+.kingdom-labor-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin: 8px 0;
+}
+.kingdom-labor-summary > span {
+    display: grid;
+    gap: 2px;
+    padding: 8px;
+    border-radius: 9px;
+    color: var(--ink-light);
+    background: rgba(41,75,63,.07);
+    font-size: .67rem;
+}
+.kingdom-labor-summary strong {
+    color: #294b3f;
+    font: 700 1rem 'Cinzel', serif;
+}
+.kingdom-social-card {
+    display: grid;
+    gap: 8px;
+    padding: 11px;
+    border: 1px solid rgba(44,24,16,.1);
+    border-radius: 11px;
+    background: rgba(255,255,255,.58);
+}
+.kingdom-social-card header,
+.kingdom-social-card footer {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+.kingdom-social-card header > div { display: grid; min-width: 0; }
+.kingdom-social-card header small,
+.kingdom-social-card header > span,
+.kingdom-social-card footer,
+.kingdom-social-card p {
+    color: var(--ink-light);
+    font-size: .68rem;
+}
+.kingdom-social-card header > span { text-align: right; }
+.kingdom-social-card p { margin: 0; line-height: 1.35; }
+.kingdom-social-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+}
+.kingdom-social-stats span {
+    display: grid;
+    gap: 1px;
+    padding: 6px;
+    border-radius: 7px;
+    color: var(--ink-light);
+    background: rgba(181,138,37,.08);
+    font-size: .63rem;
+}
+.kingdom-social-stats strong { color: var(--ink); font-size: .75rem; }
+.kingdom-meter {
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(44,24,16,.1);
+}
+.kingdom-meter i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #a34d38, #c5a03d 50%, #2e8b57);
+}
+.kingdom-job-card .positive { color: #287449; }
+.kingdom-job-card .negative,
+.kingdom-social-card .negative { color: #a12424; }
 
 @media (max-width: 900px) {
     .manager-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1411,6 +1511,14 @@
 }
 @media (max-width: 700px) {
     .business-manager-modal { max-width: 100%; }
+    .kingdom-manager-modal {
+        width: calc(100vw - 12px);
+        max-width: none;
+        max-height: calc(100dvh - 12px);
+        margin: 6px;
+        border-radius: 14px;
+    }
+    .kingdom-manager-modal .modal-body { padding: 10px; }
     .manager-hero { align-items: flex-start; }
     .manager-cash { min-width: 0; text-align: right; }
     .manager-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1420,12 +1528,47 @@
     .kingdom-risks { grid-column: auto; }
     .kingdom-score { grid-template-columns: 1fr auto auto; justify-items: start; gap: 8px; }
     .kingdom-score strong { font-size: 1.65rem; }
+    .kingdom-manager-modal .manager-compact-card {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 7px;
+        padding: 11px 0;
+    }
+    .kingdom-manager-modal .manager-compact-card strong,
+    .kingdom-manager-modal .manager-compact-card small {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+    }
+    .kingdom-manager-modal .manager-compact-card > span {
+        display: grid;
+        gap: 5px;
+        text-align: left;
+    }
+    .kingdom-manager-modal .manager-compact-card > button,
+    .kingdom-manager-modal .manager-compact-card > span > button {
+        grid-column: 1;
+        width: 100%;
+        min-height: 44px;
+    }
+    .kingdom-manager-modal .manager-actions .btn,
+    .kingdom-nav button {
+        min-height: 44px;
+    }
+    .kingdom-labor-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kingdom-social-card header,
+    .kingdom-social-card footer { align-items: stretch; }
 }
 @media (max-width: 430px) {
     .manager-hero { display: grid; }
     .manager-cash { text-align: left; }
     .manager-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .manager-actions { grid-template-columns: minmax(0, 1fr); }
+    .kingdom-filter-bar { grid-template-columns: minmax(0, 1fr); }
+    .kingdom-filter-bar select { min-height: 46px; font-size: .9rem; }
+    .kingdom-social-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kingdom-social-card header,
+    .kingdom-social-card footer { display: grid; }
+    .kingdom-social-card header > span { text-align: left; }
 }
 
 
