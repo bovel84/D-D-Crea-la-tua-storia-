@@ -6964,8 +6964,21 @@
             return G.worldMemory.kingdom;
         }
 
+        const kingdomDashboardView = {
+            peopleTerritory: 'all',
+            socialClass: 'all',
+            jobTerritory: 'all',
+            jobStatus: 'all'
+        };
+
         function kingdomCards(items, empty, renderer) {
             return items.length ? items.map(renderer).join('') : '<p class="manager-empty">' + empty + '</p>';
+        }
+
+        function kingdomFilterOptions(values, selected, allLabel) {
+            return '<option value="all">' + safeManagerText(allLabel) + '</option>' +
+                values.map(value => '<option value="' + safeManagerText(value) + '"' +
+                    (value === selected ? ' selected' : '') + '>' + safeManagerText(value) + '</option>').join('');
         }
 
         function renderKingdomDashboard() {
@@ -6982,6 +6995,29 @@
             const report = kingdom.lastReport || {};
             const recent = kingdom.history.slice(-8).reverse();
             const advisor = CronacheKingdom.buildKingdomAdvisor(kingdom);
+            const laborMarket = CronacheKingdom.buildLaborMarketSummary(kingdom);
+            const territoryNames = [...new Set([
+                ...kingdom.territories.map(item => item.name),
+                ...kingdom.people.pops.map(item => item.territoryName),
+                ...kingdom.jobs.map(item => item.territoryName)
+            ].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'it'));
+            const classKeys = Object.keys(CronacheKingdom.SOCIAL_CLASSES);
+            const visiblePops = kingdom.people.pops.map((item, index) => ({ item, index })).filter(row =>
+                (kingdomDashboardView.peopleTerritory === 'all' ||
+                    row.item.territoryName === kingdomDashboardView.peopleTerritory) &&
+                (kingdomDashboardView.socialClass === 'all' ||
+                    row.item.classKey === kingdomDashboardView.socialClass)
+            );
+            const visibleClasses = kingdom.people.classes.filter(item =>
+                kingdomDashboardView.socialClass === 'all' || item.key === kingdomDashboardView.socialClass
+            );
+            const visibleJobs = kingdom.jobs.map((item, index) => ({ item, index })).filter(row =>
+                (kingdomDashboardView.jobTerritory === 'all' ||
+                    row.item.territoryName === kingdomDashboardView.jobTerritory) &&
+                (kingdomDashboardView.jobStatus === 'all' ||
+                    (kingdomDashboardView.jobStatus === 'vacant' && row.item.vacancies > 0) ||
+                    (kingdomDashboardView.jobStatus === 'full' && row.item.vacancies === 0))
+            );
             const snapshots = kingdom.statisticsHistory;
             const currentStats = snapshots[snapshots.length - 1];
             const previousStats = snapshots[snapshots.length - 2];
@@ -7049,10 +7085,19 @@
                     '<div class="manager-kpi"><span>Abitazioni</span><strong>' + Math.round(kingdom.people.housing) + '%</strong></div>' +
                     '<div class="manager-kpi"><span>Criminalità</span><strong class="' + (kingdom.people.crime < 40 ? 'positive' : 'negative') + '">' + Math.round(kingdom.people.crime) + '%</strong></div>' +
                     '<div class="manager-kpi"><span>Demografia</span><strong>' + kingdom.people.birthRate + '‰ / ' + kingdom.people.deathRate + '‰</strong><small>migrazione ' + (kingdom.people.migration >= 0 ? '+' : '') + kingdom.people.migration + '</small></div></div></section>' +
-                    '<section class="manager-section"><div class="manager-section-head"><h4>👨‍👩‍👧‍👦 Gruppi di popolazione</h4><span>' + kingdom.people.pops.length + ' gruppi</span></div>' +
-                    kingdomCards(kingdom.people.pops, 'Nessun gruppo di popolazione censito.', (pop, popIndex) => {
+                    '<section class="manager-section kingdom-mobile-panel"><div class="manager-section-head"><h4>👨‍👩‍👧‍👦 Gruppi di popolazione</h4><span>' + visiblePops.length + '/' + kingdom.people.pops.length + ' gruppi</span></div>' +
+                    '<div class="kingdom-filter-bar"><label>Territorio<select data-kingdom-filter="peopleTerritory">' +
+                    kingdomFilterOptions(territoryNames, kingdomDashboardView.peopleTerritory, 'Tutti i territori') +
+                    '</select></label><label>Classe<select data-kingdom-filter="socialClass">' +
+                    '<option value="all">Tutte le classi</option>' + classKeys.map(key =>
+                        '<option value="' + key + '"' + (key === kingdomDashboardView.socialClass ? ' selected' : '') + '>' +
+                        safeManagerText(CronacheKingdom.SOCIAL_CLASSES[key]) + '</option>').join('') +
+                    '</select></label></div><div class="kingdom-card-list">' +
+                    kingdomCards(visiblePops, 'Nessun gruppo corrisponde ai filtri.', row => {
+                        const pop = row.item;
+                        const popIndex = row.index;
                         const profession = CronacheKingdom.OCCUPATIONS[pop.profession]?.name || pop.profession;
-                        return '<article class="manager-compact-card"><div><strong>' + safeManagerText(pop.name) + '</strong><small>' +
+                        return '<article class="manager-compact-card kingdom-pop-card"><div><strong>' + safeManagerText(pop.name) + '</strong><small>' +
                             safeManagerText(profession) + ' · ' + safeManagerText(pop.territoryName || 'Regno') + ' · ' +
                             safeManagerText(pop.culture) + '</small></div><span>' + pop.employed.toLocaleString('it-IT') + '/' +
                             pop.population.toLocaleString('it-IT') + ' occupati · Istruzione ' + Math.round(pop.education) +
@@ -7062,20 +7107,46 @@
                             pop.radicals.toLocaleString('it-IT') + '<br>' + safeManagerText(pop.desires) +
                             '</small><button class="btn secondary" data-kingdom-action="trainPop" data-pop-index="' +
                             popIndex + '">🎓 Forma</button></span></article>';
-                    }) + '</section>' +
+                    }) + '</div></section>' +
                     '<section class="manager-section"><div class="manager-section-head"><h4>🏘️ Classi sociali</h4><span>' + kingdom.people.classes.length + '</span></div>' +
-                    kingdomCards(kingdom.people.classes, 'Nessuna classe sociale censita.', social =>
-                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(social.name) + '</strong><small>' +
-                        social.population.toLocaleString('it-IT') + ' persone · Ricchezza ' + Math.round(social.wealth) + '%</small></div><span>Lealtà ' +
-                        Math.round(social.loyalty) + '% · Influenza ' + Math.round(social.influence) + '%<small>' + safeManagerText(social.needs) + '</small></span></article>') + '</section>' +
+                    '<div class="kingdom-card-list">' + kingdomCards(visibleClasses, 'Nessuna classe sociale corrisponde ai filtri.', social =>
+                        '<article class="kingdom-social-card"><header><div><strong>' + safeManagerText(social.name) + '</strong><small>' +
+                        social.population.toLocaleString('it-IT') + ' persone</small></div><span>Forza politica ' +
+                        Math.round(social.politicalStrength) + '%</span></header><div class="kingdom-social-stats">' +
+                        '<span>Occupazione <strong>' + Math.round(social.employment) + '%</strong></span>' +
+                        '<span>Istruzione <strong>' + Math.round(social.education) + '%</strong></span>' +
+                        '<span>Tenore <strong>' + social.livingStandard.toFixed(1) + '/30</strong></span>' +
+                        '<span>Ricchezza <strong>' + Math.round(social.wealth) + '%</strong></span></div>' +
+                        '<div class="kingdom-meter" aria-label="Lealtà ' + Math.round(social.loyalty) + '%"><i style="width:' +
+                        Math.round(social.loyalty) + '%"></i></div><footer><span>Lealtà ' + Math.round(social.loyalty) +
+                        '% · Lealisti ' + social.loyalists.toLocaleString('it-IT') + '</span><span class="' +
+                        (social.radicals ? 'negative' : '') + '">Radicali ' + social.radicals.toLocaleString('it-IT') +
+                        '</span></footer><p>' + safeManagerText(social.needs || 'Bisogni non ancora rilevati') +
+                        '</p></article>') + '</div></section>' +
                     '<section class="manager-section kingdom-section-anchor" id="kingdom-economy"><div class="manager-section-head"><h4>💼 Mercato del lavoro</h4><span>' +
-                    kingdom.jobs.reduce((sum, job) => sum + job.vacancies, 0).toLocaleString('it-IT') + ' posti vacanti</span></div>' +
-                    kingdomCards(kingdom.jobs, 'Nessun posto di lavoro censito.', job =>
-                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(job.name) + '</strong><small>' +
+                    laborMarket.vacancies.toLocaleString('it-IT') + ' posti vacanti</span></div>' +
+                    '<div class="kingdom-labor-summary"><span><strong>' + laborMarket.unemployed.toLocaleString('it-IT') +
+                    '</strong> disoccupati</span><span><strong>' + laborMarket.qualificationBlocked.toLocaleString('it-IT') +
+                    '</strong> senza qualifiche</span><span><strong>' + laborMarket.vacancyRate.toFixed(1) +
+                    '%</strong> posti scoperti</span><span><strong>' + laborMarket.averageWage.toFixed(1) +
+                    '</strong> salario medio</span></div><div class="kingdom-filter-bar"><label>Territorio<select data-kingdom-filter="jobTerritory">' +
+                    kingdomFilterOptions(territoryNames, kingdomDashboardView.jobTerritory, 'Tutti i territori') +
+                    '</select></label><label>Disponibilità<select data-kingdom-filter="jobStatus"><option value="all">Tutti i settori</option>' +
+                    '<option value="vacant"' + (kingdomDashboardView.jobStatus === 'vacant' ? ' selected' : '') +
+                    '>Con posti vacanti</option><option value="full"' +
+                    (kingdomDashboardView.jobStatus === 'full' ? ' selected' : '') +
+                    '>Organico completo</option></select></label></div><div class="kingdom-card-list">' +
+                    kingdomCards(visibleJobs, 'Nessun settore corrisponde ai filtri.', row => {
+                        const job = row.item;
+                        return '<article class="manager-compact-card kingdom-job-card"><div><strong>' + safeManagerText(job.name) + '</strong><small>' +
                         safeManagerText(job.territoryName || 'Regno') + ' · Salario ' + job.wage.toFixed(1) +
                         '</small></div><span>' + job.employed.toLocaleString('it-IT') + '/' + job.positions.toLocaleString('it-IT') +
-                        ' occupati<small>Istruzione minima ' + Math.round(job.minEducation) + '% · Classi ammesse: ' +
-                        safeManagerText(job.allowedClasses) + '</small></span></article>') + '</section>' +
+                        ' occupati · <strong class="' + (job.vacancies ? 'negative' : 'positive') + '">' +
+                        job.vacancies.toLocaleString('it-IT') + ' vacanti</strong><small>Istruzione minima ' +
+                        Math.round(job.minEducation) + '% · Classi ammesse: ' + safeManagerText(job.allowedClasses) +
+                        '</small><button class="btn secondary" data-kingdom-action="subsidizeJob" data-job-index="' +
+                        row.index + '">💰 Incentiva</button></span></article>';
+                    }) + '</div></section>' +
                     '<section class="manager-section"><div class="manager-section-head"><h4>🏗️ Servizi pubblici</h4><span>Efficienza ' + Math.round(kingdom.economy.administrationEfficiency) + '%</span></div>' +
                     '<div class="manager-kpi-grid">' +
                     '<div class="manager-kpi"><span>Infrastrutture</span><strong>' + Math.round(kingdom.services.infrastructure) + '%</strong></div>' +
@@ -7143,6 +7214,13 @@
             openModal('modal-kingdom');
         }
 
+        function handleKingdomFilter(event) {
+            const filter = event.target?.dataset?.kingdomFilter;
+            if (!filter || !Object.prototype.hasOwnProperty.call(kingdomDashboardView, filter)) return;
+            kingdomDashboardView[filter] = event.target.value;
+            renderKingdomDashboard();
+        }
+
         function handleKingdomAction(event) {
             const sectionTarget = event.target.closest('[data-kingdom-section]');
             if (sectionTarget) {
@@ -7162,7 +7240,8 @@
             if (action === 'investTerritory') value = managerNumberPrompt('Investimento nel territorio', 200, 50);
             if (action === 'publicService') value = managerNumberPrompt('Investimento nel servizio pubblico', 200, 50);
             if (action === 'trainPop') value = managerNumberPrompt('Investimento nella formazione del gruppo', 200, 50);
-            if (['tax', 'relief', 'recruit', 'investTerritory', 'publicService', 'trainPop'].includes(action) && value == null) return;
+            if (action === 'subsidizeJob') value = managerNumberPrompt('Fondi per ampliare posti e salario del settore', 200, 50);
+            if (['tax', 'relief', 'recruit', 'investTerritory', 'publicService', 'trainPop', 'subsidizeJob'].includes(action) && value == null) return;
             try {
                 G.worldMemory.kingdom = kingdomEngine.manualAction(syncKingdomManagement(), action, {
                     value,
@@ -7173,6 +7252,9 @@
                     popId: action === 'trainPop'
                         ? (syncKingdomManagement().people.pops[Number(actionTarget?.dataset.popIndex)]?.id || '')
                         : '',
+                    jobId: action === 'subsidizeJob'
+                        ? (syncKingdomManagement().jobs[Number(actionTarget?.dataset.jobIndex)]?.id || '')
+                        : '',
                     turn: G.worldMemory.turnCount || 0
                 });
                 const messages = {
@@ -7182,6 +7264,7 @@
                     investTerritory: 'Investimento territoriale registrato.',
                     publicService: 'Servizio pubblico potenziato.',
                     trainPop: 'Programma di formazione finanziato.',
+                    subsidizeJob: 'Incentivi al settore registrati.',
                     period: 'Periodo del regno chiuso.'
                 };
                 addStoryEntry('👑 ' + messages[action], 'mechanic');
@@ -9262,7 +9345,7 @@ Se il protagonista governa o acquisisce un regno, ducato, contea, città-stato o
 Quando esiste già un regno attivo, esegui INTERNAMENTE questo audit prima/dopo ogni risposta: (1) rileggi lo stato autoritativo, (2) elenca solo le conseguenze realmente causate dalla scena, (3) verifica che totali, POP, lavori, tesoro e viveri siano coerenti, (4) calcola i valori assoluti finali. Non mostrare l’audit in prosa. In fondo alla scena emetti SEMPRE un POPOLO_REGNO, uno STATISTICHE_REGNO e una VALUTAZIONE_REGNO aggiornati, anche se le variazioni sono nulle. Per gli altri sistemi emetti soltanto i tag dei cambiamenti realmente narrati, lasciando vuoti i campi invariati.
 - [REGNO: nome|titolo_governante|nome_governante|governo|capitale|tesoro|popolazione|stabilità_0_100|legittimità_0_100|prosperità_0_100|viveri]
 - [POPOLO_REGNO: regno|consenso_0_100|disordini_0_100|salute_0_100|alfabetizzazione_0_100|occupazione_0_100|povertà_0_100|sicurezza_alimentare_0_100|abitazioni_0_100|criminalità_0_100|tenore_vita_1_30|lealisti|radicali]
-- [CLASSE_REGNO: regno|nobles/clergy/merchants/artisans/peasants/workers/marginalized|popolazione|ricchezza_0_100|lealtà_0_100|influenza_0_100|bisogni]
+- [CLASSE_REGNO: regno|nobles/clergy/merchants/artisans/peasants/workers/marginalized|popolazione|ricchezza_0_100|lealtà_0_100|influenza_0_100|bisogni|occupazione_0_100|istruzione_0_100|tenore_1_30|lealisti|radicali|forza_politica_0_100]
 - [POP_REGNO: regno|id_stabile|nome_gruppo|classe|territorio|cultura|fede|professione|popolazione|occupati|istruzione_0_100|alfabetizzazione_0_100|qualifiche_0_100|reddito_pro_capite|tenore_vita_1_30|bisogni_base_0_100|comfort_0_100|lusso_0_100|lealisti|radicali|desideri]
 - [LAVORO_REGNO: regno|territorio|professione|posti|occupati|salario|istruzione_minima_0_100|classi_ammesse_separate_da_virgola|active/inactive]
 - [STATISTICHE_REGNO: regno|PIL|saldo_commerciale|inflazione|debito|efficienza_amministrativa_0_100|natalità_per_mille|mortalità_per_mille|migrazione_periodo]
@@ -10938,6 +11021,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if ($('panel-business')) $('panel-business').onclick = openBusinessManager;
             if ($('business-dashboard')) $('business-dashboard').onclick = handleBusinessAction;
             if ($('kingdom-dashboard')) $('kingdom-dashboard').onclick = handleKingdomAction;
+            if ($('kingdom-dashboard')) $('kingdom-dashboard').onchange = handleKingdomFilter;
 
             // WAIT MODAL HANDLERS
             $$('.wait-btn').forEach(btn => {
