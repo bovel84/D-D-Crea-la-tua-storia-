@@ -5,9 +5,10 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const SCHEMA_VERSION = 3;
+    const SCHEMA_VERSION = 4;
     const MAX_HISTORY = 100;
     const MAX_PROCESSED_EVENTS = 240;
+    const MAX_STAT_SNAPSHOTS = 24;
     const SOCIAL_CLASSES = {
         nobles: 'Nobiltà', clergy: 'Clero', merchants: 'Mercanti',
         artisans: 'Artigiani e gilde', peasants: 'Contadini',
@@ -199,7 +200,8 @@
                 employment: 65, poverty: 35, foodSecurity: 50,
                 housing: 50, crime: 20, birthRate: 12,
                 deathRate: 9, migration: 0, averageLivingStandard: 8,
-                loyalists: 0, radicals: 0, classes: defaultClasses(0), pops: []
+                loyalists: 0, radicals: 0, classes: defaultClasses(0), pops: [],
+                popsInitializedByNarrator: false
             },
             economy: {
                 gdp: 0, tradeBalance: 0, inflation: 2, debt: 0,
@@ -221,6 +223,15 @@
             diplomacy: [],
             laws: [],
             council: [],
+            governance: {
+                lastAssessmentTurn: 0,
+                lastStatisticsTurn: 0,
+                statisticsSource: '',
+                summary: '',
+                priorities: [],
+                confidence: 0
+            },
+            statisticsHistory: [],
             history: [],
             processedNarrativeEvents: [],
             lastReport: {
@@ -326,7 +337,8 @@
             loyalists: Math.max(0, integer(source.loyalists)),
             radicals: Math.max(0, integer(source.radicals)),
             classes,
-            pops
+            pops,
+            popsInitializedByNarrator: source.popsInitializedByNarrator === true
         };
     }
 
@@ -349,6 +361,19 @@
             education: clamp(source.education ?? 25),
             justice: clamp(source.justice ?? 40),
             sanitation: clamp(source.sanitation ?? 30)
+        };
+    }
+
+    function normalizeGovernance(raw) {
+        const source = raw && typeof raw === 'object' ? raw : {};
+        return {
+            lastAssessmentTurn: Math.max(0, integer(source.lastAssessmentTurn)),
+            lastStatisticsTurn: Math.max(0, integer(source.lastStatisticsTurn)),
+            statisticsSource: clean(source.statisticsSource || '', 80),
+            summary: clean(source.summary || '', 400),
+            priorities: Array.isArray(source.priorities)
+                ? source.priorities.map(value => clean(value, 180)).filter(Boolean).slice(0, 3) : [],
+            confidence: clamp(source.confidence ?? 0)
         };
     }
 
@@ -470,8 +495,13 @@
         const source = input && typeof input === 'object' ? input : {};
         const population = Math.max(0, integer(source.population));
         const people = normalizePeople(source.people, population);
-        if (!people.pops.length && population > 0) {
+        const savedPops = Array.isArray(source.people?.pops) ? source.people.pops : [];
+        if (!savedPops.length && population > 0) {
             people.pops = defaultPops(people.classes, clean(source.capital, 100));
+        }
+        const defaultPopId = /^pop-(?:nobles|clergy|merchants|artisans|peasants|workers|marginalized)-\d+$/;
+        if (!people.popsInitializedByNarrator && savedPops.some(pop => !defaultPopId.test(clean(pop.id)))) {
+            people.popsInitializedByNarrator = true;
         }
         const jobs = Array.isArray(source.jobs) && source.jobs.length
             ? source.jobs.map((item, index) => normalizeJob(item, index))
@@ -500,6 +530,9 @@
             diplomacy: Array.isArray(source.diplomacy) ? source.diplomacy.map(normalizeDiplomacy) : [],
             laws: Array.isArray(source.laws) ? source.laws.map(normalizeLaw) : [],
             council: Array.isArray(source.council) ? source.council.map(normalizeCouncilor) : [],
+            governance: normalizeGovernance(source.governance),
+            statisticsHistory: Array.isArray(source.statisticsHistory)
+                ? source.statisticsHistory.slice(-MAX_STAT_SNAPSHOTS) : [],
             history: Array.isArray(source.history) ? source.history.slice(-MAX_HISTORY) : [],
             processedNarrativeEvents: Array.isArray(source.processedNarrativeEvents)
                 ? source.processedNarrativeEvents.slice(-MAX_PROCESSED_EVENTS) : [],
@@ -534,7 +567,7 @@
         const events = [];
         const map = {
             REGNO: ['profile', ['name', 'rulerTitle', 'rulerName', 'government', 'capital', 'treasury', 'population', 'stability', 'legitimacy', 'prosperity', 'food']],
-            POPOLO_REGNO: ['people', ['kingdomName', 'approval', 'unrest', 'health', 'literacy', 'employment', 'poverty', 'foodSecurity', 'housing', 'crime']],
+            POPOLO_REGNO: ['people', ['kingdomName', 'approval', 'unrest', 'health', 'literacy', 'employment', 'poverty', 'foodSecurity', 'housing', 'crime', 'averageLivingStandard', 'loyalists', 'radicals']],
             CLASSE_REGNO: ['socialClass', ['kingdomName', 'classKey', 'population', 'wealth', 'loyalty', 'influence', 'needs']],
             POP_REGNO: ['pop', ['kingdomName', 'popId', 'name', 'classKey', 'territoryName', 'culture', 'faith', 'profession', 'population', 'employed', 'education', 'literacy', 'qualifications', 'income', 'standardOfLiving', 'basicNeeds', 'comfortNeeds', 'luxuryNeeds', 'loyalists', 'radicals', 'desires']],
             LAVORO_REGNO: ['job', ['kingdomName', 'territoryName', 'profession', 'positions', 'employed', 'wage', 'minEducation', 'allowedClasses', 'status']],
@@ -548,6 +581,7 @@
             DIPLOMAZIA_REGNO: ['diplomacy', ['kingdomName', 'realm', 'relation', 'trust', 'tension', 'treaty', 'trade', 'claims']],
             LEGGE_REGNO: ['law', ['kingdomName', 'title', 'area', 'effect', 'status', 'support', 'opposition']],
             CONSIGLIERE_REGNO: ['councilor', ['kingdomName', 'name', 'role', 'competence', 'loyalty', 'faction', 'status']],
+            VALUTAZIONE_REGNO: ['assessment', ['kingdomName', 'summary', 'priority1', 'priority2', 'priority3', 'confidence']],
             TESORO_REGNO: ['treasury', ['kingdomName', 'direction', 'amount', 'reason']],
             EVENTO_REGNO: ['event', ['kingdomName', 'eventKind', 'description', 'treasuryDelta', 'foodDelta', 'populationDelta', 'stabilityDelta', 'legitimacyDelta', 'prosperityDelta', 'approvalDelta', 'unrestDelta', 'healthDelta']]
         };
@@ -566,11 +600,12 @@
         return events;
     }
 
-    function applyNumericPatch(target, event, fields, percentageFields = []) {
+    function applyNumericPatch(target, event, fields, percentageFields = [], decimalFields = []) {
         fields.forEach(field => {
             const value = parseNumber(event[field], null);
             if (value == null) return;
-            target[field] = percentageFields.includes(field) ? clamp(value) : Math.round(value);
+            target[field] = percentageFields.includes(field)
+                ? clamp(value) : decimalFields.includes(field) ? value : Math.round(value);
         });
     }
 
@@ -620,8 +655,12 @@
                     throw new Error('regno non ancora registrato con [REGNO]');
                 } else if (event.type === 'people') {
                     applyNumericPatch(state.people, event,
+                        ['approval', 'unrest', 'health', 'literacy', 'employment', 'poverty', 'foodSecurity', 'housing', 'crime', 'averageLivingStandard', 'loyalists', 'radicals'],
                         ['approval', 'unrest', 'health', 'literacy', 'employment', 'poverty', 'foodSecurity', 'housing', 'crime'],
-                        ['approval', 'unrest', 'health', 'literacy', 'employment', 'poverty', 'foodSecurity', 'housing', 'crime']);
+                        ['averageLivingStandard']);
+                    state.people.averageLivingStandard = Math.max(1, Math.min(30, state.people.averageLivingStandard));
+                    state.people.loyalists = Math.max(0, state.people.loyalists);
+                    state.people.radicals = Math.max(0, state.people.radicals);
                     message = 'Indicatori del popolo aggiornati';
                 } else if (event.type === 'socialClass') {
                     if (!clean(event.classKey)) throw new Error('CLASSE_REGNO senza classe');
@@ -629,6 +668,7 @@
                     message = `Classe sociale aggiornata: ${item.name}`;
                 } else if (event.type === 'pop') {
                     if (!clean(event.popId || event.name)) throw new Error('POP_REGNO senza identificativo');
+                    const initializesNarratorPops = !state.people.popsInitializedByNarrator;
                     const existing = state.people.pops.find(item =>
                         item.id === clean(event.popId || event.id, 140) ||
                         keyOf(item.name) === keyOf(event.name)
@@ -642,6 +682,10 @@
                             (!allowedClasses.includes('*') && !allowedClasses.includes(candidate.classKey)))) {
                         throw new Error(`qualifiche o classe insufficienti per ${occupation.name}`);
                     }
+                    if (initializesNarratorPops) {
+                        state.people.pops = [];
+                        state.people.popsInitializedByNarrator = true;
+                    }
                     const item = upsert(state.people.pops, event, normalizePop,
                         value => value.id || `${value.name}:${value.territoryName}:${value.profession}`);
                     message = `Gruppo di popolazione aggiornato: ${item.name}`;
@@ -653,8 +697,9 @@
                 } else if (event.type === 'statistics') {
                     applyNumericPatch(state.economy, event,
                         ['gdp', 'tradeBalance', 'inflation', 'debt', 'administrationEfficiency'],
-                        ['administrationEfficiency']);
-                    applyNumericPatch(state.people, event, ['birthRate', 'deathRate', 'migration']);
+                        ['administrationEfficiency'], ['inflation']);
+                    applyNumericPatch(state.people, event, ['birthRate', 'deathRate', 'migration'], [],
+                        ['birthRate', 'deathRate']);
                     message = 'Statistiche demografiche ed economiche aggiornate';
                 } else if (event.type === 'services') {
                     applyNumericPatch(state.services, event,
@@ -689,6 +734,17 @@
                 } else if (event.type === 'councilor') {
                     if (!clean(event.name)) throw new Error('CONSIGLIERE_REGNO senza nome');
                     message = `Consiglio aggiornato: ${upsert(state.council, event, normalizeCouncilor, item => item.name).name}`;
+                } else if (event.type === 'assessment') {
+                    const priorities = [event.priority1, event.priority2, event.priority3]
+                        .map(value => clean(value, 180)).filter(Boolean);
+                    state.governance = normalizeGovernance({
+                        ...state.governance,
+                        lastAssessmentTurn: turn,
+                        summary: event.summary,
+                        priorities,
+                        confidence: event.confidence
+                    });
+                    message = 'Valutazione strategica del Master aggiornata';
                 } else if (event.type === 'treasury') {
                     const amount = Math.abs(integer(event.amount));
                     if (!amount) throw new Error('TESORO_REGNO senza importo valido');
@@ -730,6 +786,14 @@
                 results.push({ ok: false, type: event.type, message: error.message });
             }
         });
+        const appliedTypes = new Set(results.filter(result => result.ok && !result.skipped).map(result => result.type));
+        if (appliedTypes.has('pop') || appliedTypes.has('job')) reconcileDerivedStatistics(state);
+        if ([...appliedTypes].some(type => [
+            'profile', 'people', 'pop', 'job', 'statistics', 'services', 'territory',
+            'resource', 'crisis', 'faction', 'army', 'treasury', 'event'
+        ].includes(type))) {
+            recordStatistics(state, turn, 'Master LLM');
+        }
         return { state, results };
     }
 
@@ -751,6 +815,12 @@
         return collection.reduce((sum, item) =>
             sum + parseNumber(item[field], 0) * Math.max(0, parseNumber(item[weightField], 0)), 0
         ) / weight;
+    }
+
+    function laborTerritoryMatches(job, pop) {
+        const jobTerritory = keyOf(job.territoryName);
+        const popTerritory = keyOf(pop.territoryName);
+        return jobTerritory === popTerritory;
     }
 
     function jobAllowsPop(job, pop) {
@@ -820,6 +890,125 @@
         return classes;
     }
 
+    function reconcileDerivedStatistics(state) {
+        const pops = state.people.pops.filter(pop => pop.population > 0);
+        if (!pops.length) return state;
+        const detailedPopulation = pops.reduce((sum, pop) => sum + pop.population, 0);
+        const employed = pops.reduce((sum, pop) => sum + pop.employed, 0);
+        state.people.employment = detailedPopulation ? clamp(employed / detailedPopulation * 100) : 0;
+        state.people.literacy = weightedAverage(pops, 'literacy', 'population', state.people.literacy);
+        state.people.averageLivingStandard = weightedAverage(
+            pops, 'standardOfLiving', 'population', state.people.averageLivingStandard
+        );
+        state.people.loyalists = pops.reduce((sum, pop) => sum + pop.loyalists, 0);
+        state.people.radicals = pops.reduce((sum, pop) => sum + pop.radicals, 0);
+        state.people.poverty = clamp(
+            pops.filter(pop => pop.standardOfLiving < 8)
+                .reduce((sum, pop) => sum + pop.population, 0) / detailedPopulation * 100
+        );
+        state.people.classes = summarizeClassesFromPops(pops, state.people.classes);
+        state.jobs = state.jobs.map((job, index) => {
+            const matchingEmployment = pops.filter(pop =>
+                pop.profession === job.profession && laborTerritoryMatches(job, pop)
+            ).reduce((sum, pop) => sum + pop.employed, 0);
+            return normalizeJob({
+                ...job,
+                employed: Math.min(job.positions, matchingEmployment)
+            }, index);
+        });
+        return state;
+    }
+
+    function createStatisticsSnapshot(state, turn, source) {
+        return {
+            turn: Math.max(0, integer(turn)),
+            period: state.period,
+            source: clean(source || 'motore', 80),
+            treasury: state.treasury,
+            population: state.population,
+            food: state.food,
+            gdp: state.economy.gdp,
+            approval: Math.round(state.people.approval),
+            unrest: Math.round(state.people.unrest),
+            employment: Math.round(state.people.employment),
+            poverty: Math.round(state.people.poverty),
+            livingStandard: Number(state.people.averageLivingStandard.toFixed(1)),
+            radicals: state.people.radicals,
+            loyalists: state.people.loyalists,
+            stability: Math.round(state.stability)
+        };
+    }
+
+    function recordStatistics(state, turn, source) {
+        const snapshot = createStatisticsSnapshot(state, turn, source);
+        const last = state.statisticsHistory[state.statisticsHistory.length - 1];
+        if (last && last.turn === snapshot.turn && last.source === snapshot.source) {
+            state.statisticsHistory[state.statisticsHistory.length - 1] = snapshot;
+        } else {
+            state.statisticsHistory.push(snapshot);
+            state.statisticsHistory = state.statisticsHistory.slice(-MAX_STAT_SNAPSHOTS);
+        }
+        state.governance.lastStatisticsTurn = snapshot.turn;
+        state.governance.statisticsSource = snapshot.source;
+        return snapshot;
+    }
+
+    function buildKingdomAdvisor(input) {
+        const state = migrateKingdom(input);
+        const activeCrises = state.crises.filter(item => item.status === 'active');
+        const radicalRate = state.population ? state.people.radicals / state.population * 100 : 0;
+        const debtRate = state.economy.gdp ? state.economy.debt / state.economy.gdp * 100 : 0;
+        const score = Math.round(clamp(
+            (state.stability + state.legitimacy + state.prosperity + state.people.approval +
+                state.people.health + state.people.employment + (100 - state.people.unrest) +
+                (100 - state.people.poverty)) / 8 -
+            Math.min(20, debtRate / 5) - Math.min(15, radicalRate) -
+            activeCrises.reduce((sum, item) => sum + item.severity / 30, 0)
+        ));
+        const risks = [];
+        const opportunities = [];
+        const priorities = [];
+        if (state.food <= 0 || state.people.foodSecurity < 40) {
+            risks.push('sicurezza alimentare critica');
+            priorities.push('Finanziare aiuti e aumentare la produzione alimentare');
+        }
+        if (state.people.unrest >= 45 || radicalRate >= 8) {
+            risks.push('radicalizzazione e disordini');
+            priorities.push('Ridurre i bisogni insoddisfatti dei gruppi più radicali');
+        }
+        if (state.people.employment < 65) {
+            risks.push('disoccupazione elevata');
+            priorities.push('Creare posti compatibili con le qualifiche disponibili');
+        }
+        const blocked = state.lastReport.qualificationsBlocked || 0;
+        if (blocked > 0 || state.people.literacy < 35) {
+            risks.push('carenza di qualifiche');
+            priorities.push('Investire in istruzione e formazione professionale');
+        }
+        if (debtRate > 80) {
+            risks.push('debito pubblico eccessivo');
+            priorities.push('Riequilibrare bilancio e crescita senza comprimere i servizi essenziali');
+        }
+        if (state.jobs.some(job => job.vacancies > 0) && state.people.employment < 90) {
+            opportunities.push('posti vacanti utilizzabili con formazione mirata');
+        }
+        if (state.resources.some(item => item.status !== 'inactive' && item.production > 0)) {
+            opportunities.push('risorse produttive da valorizzare');
+        }
+        if (state.people.averageLivingStandard >= 12) {
+            opportunities.push('tenore di vita favorevole alla lealtà e ai consumi');
+        }
+        if (!priorities.length) priorities.push('Consolidare crescita, servizi e coesione sociale');
+        const level = score >= 75 ? 'solido' : score >= 55 ? 'stabile' : score >= 35 ? 'fragile' : 'critico';
+        return {
+            score,
+            level,
+            risks: risks.slice(0, 4),
+            opportunities: opportunities.slice(0, 3),
+            priorities: priorities.slice(0, 3)
+        };
+    }
+
     function simulateLaborMarket(state, shortage) {
         let pops = state.people.pops.map((item, index) => {
             const pop = normalizePop(item, index);
@@ -839,8 +1028,7 @@
 
         pops = pops.map(pop => {
             const matching = jobs.filter(job =>
-                job.profession === pop.profession &&
-                (!job.territoryName || !pop.territoryName || keyOf(job.territoryName) === keyOf(pop.territoryName))
+                job.profession === pop.profession && laborTerritoryMatches(job, pop)
             );
             let remaining = pop.population;
             let employed = 0;
@@ -860,7 +1048,7 @@
             if (!pop.unemployed) return;
             const vacancies = jobs.filter(job =>
                 job.vacancies > 0 && jobAllowsPop(job, pop) &&
-                (!job.territoryName || !pop.territoryName || keyOf(job.territoryName) === keyOf(pop.territoryName))
+                laborTerritoryMatches(job, pop)
             ).sort((a, b) => b.wage - a.wage);
             const currentWage = OCCUPATIONS[pop.profession]?.wage || 0;
             const target = vacancies.find(job => pop.profession === 'unemployed' || job.wage > currentWage * 1.1);
@@ -897,7 +1085,7 @@
         const priceIndex = Math.max(0.5, 1 + state.economy.inflation / 100);
         pops = pops.map((pop, index) => {
             const job = jobs.find(item => item.profession === pop.profession &&
-                (!item.territoryName || !pop.territoryName || keyOf(item.territoryName) === keyOf(pop.territoryName)));
+                laborTerritoryMatches(item, pop));
             const wage = job?.wage ?? OCCUPATIONS[pop.profession].wage;
             const income = pop.population ? wage * pop.employed / pop.population : 0;
             const basicCost = 1.5 * priceIndex * (shortage ? 1.8 : 1);
@@ -1080,6 +1268,7 @@
         addHistory(state,
             `Periodo ${state.period}: bilancio ${balance >= 0 ? '+' : ''}${balance}, popolazione ${populationDelta >= 0 ? '+' : ''}${populationDelta}, consenso ${approvalDelta >= 0 ? '+' : ''}${approvalDelta}`,
             state.lastPeriodTurn, 'periodo');
+        recordStatistics(state, state.lastPeriodTurn, 'simulazione periodo');
         return { state, report };
     }
 
@@ -1099,6 +1288,7 @@
     function buildNarrativeContext(input, turn = 0, currency = 'monete') {
         const state = migrateKingdom(input);
         if (!state.active) return '';
+        const advisor = buildKingdomAdvisor(state);
         const classes = state.people.classes.map(item =>
             `${item.name}: ${item.population}, ricchezza ${Math.round(item.wealth)}, lealtà ${Math.round(item.loyalty)}, influenza ${Math.round(item.influence)}${item.needs ? ', bisogni: ' + item.needs : ''}`
         ).join('; ');
@@ -1131,8 +1321,10 @@
             `FAZIONI: ${state.factions.length ? state.factions.map(item => `${item.name}/${item.category}: potere ${Math.round(item.power)}, lealtà ${Math.round(item.loyalty)}, obiettivo ${item.goal || 'ignoto'}`).join('; ') : 'nessuna'}.`,
             `DIPLOMAZIA: ${state.diplomacy.length ? state.diplomacy.map(item => `${item.realm}: ${item.relation}, fiducia ${Math.round(item.trust)}, tensione ${Math.round(item.tension)}`).join('; ') : 'nessuna'}.`,
             `CRISI: ${state.crises.filter(item => item.status === 'active').map(item => `${item.name} (${Math.round(item.severity)}/100${item.territoryName ? ', ' + item.territoryName : ''}): ${item.effect}`).join('; ') || 'nessuna attiva'}.`,
+            `DIAGNOSI MOTORE: governo ${advisor.level} (${advisor.score}/100). Rischi: ${advisor.risks.join('; ') || 'nessuno grave'}. Priorità: ${advisor.priorities.join('; ')}.`,
+            `ULTIMO AUDIT MASTER: ${state.governance.summary || 'non ancora disponibile'}; priorità ${state.governance.priorities.join('; ') || 'non definite'}; attendibilità ${Math.round(state.governance.confidence)}/100.`,
             `Turno ${turn}, periodo ${state.period}. Il tesoro reale è separato dal denaro personale e dalla cassa delle attività.`,
-            'Usa questo stato come verità. Professioni e promozioni dipendono da istruzione, qualifiche, classe ammessa e posti disponibili: non assegnare professioni qualificate a gruppi che non rispettano i requisiti. Ogni cambiamento narrato a pop, lavoro, bisogni, classi, territorio, economia, servizi, risorse, crisi, fazioni, esercito o diplomazia DEVE essere trasmesso con il relativo tag *_REGNO; non limitarti alla prosa e non duplicare variazioni.'
+            'Usa questo stato come verità. Prima di rispondere esegui internamente un audit prima/dopo: identifica soltanto gli effetti causati dalla scena, verifica coerenza fra totali e dettagli, poi aggiorna gli indicatori assoluti. Professioni e promozioni dipendono da istruzione, qualifiche, classe ammessa e posti disponibili: non assegnare professioni qualificate a gruppi che non rispettano i requisiti. Ogni cambiamento narrato a pop, lavoro, bisogni, classi, territorio, economia, servizi, risorse, crisi, fazioni, esercito o diplomazia DEVE essere trasmesso con il relativo tag *_REGNO; non limitarti alla prosa e non duplicare variazioni.'
         ].join('\n');
     }
 
@@ -1228,6 +1420,7 @@
         } else {
             throw new Error('Azione del regno non riconosciuta');
         }
+        recordStatistics(state, context.turn, 'decisione del giocatore');
         return state;
     }
 
@@ -1247,6 +1440,7 @@
         migrateKingdom, applyNarrativeEvents, processPeriods, runPeriod,
         buildNarrativeContext, manualAction, parseNarrativeTags,
         normalizeTerritory, normalizePeople, normalizePop, normalizeJob,
-        simulateLaborMarket, parseNumber, clean, keyOf
+        simulateLaborMarket, reconcileDerivedStatistics, recordStatistics,
+        buildKingdomAdvisor, parseNumber, clean, keyOf
     };
 });
