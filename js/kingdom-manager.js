@@ -90,6 +90,12 @@
             wealth: key === 'nobles' ? 85 : key === 'clergy' || key === 'merchants' ? 65 : 30,
             loyalty: 50,
             influence: key === 'nobles' || key === 'clergy' ? 70 : 35,
+            employment: 0,
+            education: 0,
+            livingStandard: 8,
+            loyalists: 0,
+            radicals: 0,
+            politicalStrength: key === 'nobles' || key === 'clergy' ? 65 : 25,
             needs: ''
         };
     }
@@ -412,6 +418,12 @@
             wealth: clamp(source.wealth ?? 30),
             loyalty: clamp(source.loyalty ?? 50),
             influence: clamp(source.influence ?? 30),
+            employment: clamp(source.employment ?? 0),
+            education: clamp(source.education ?? 0),
+            livingStandard: Math.max(1, Math.min(30, parseNumber(source.livingStandard, 8))),
+            loyalists: Math.max(0, integer(source.loyalists)),
+            radicals: Math.max(0, integer(source.radicals)),
+            politicalStrength: clamp(source.politicalStrength ?? source.influence ?? 30),
             needs: clean(source.needs || '', 220)
         };
     }
@@ -568,7 +580,7 @@
         const map = {
             REGNO: ['profile', ['name', 'rulerTitle', 'rulerName', 'government', 'capital', 'treasury', 'population', 'stability', 'legitimacy', 'prosperity', 'food']],
             POPOLO_REGNO: ['people', ['kingdomName', 'approval', 'unrest', 'health', 'literacy', 'employment', 'poverty', 'foodSecurity', 'housing', 'crime', 'averageLivingStandard', 'loyalists', 'radicals']],
-            CLASSE_REGNO: ['socialClass', ['kingdomName', 'classKey', 'population', 'wealth', 'loyalty', 'influence', 'needs']],
+            CLASSE_REGNO: ['socialClass', ['kingdomName', 'classKey', 'population', 'wealth', 'loyalty', 'influence', 'needs', 'employment', 'education', 'livingStandard', 'loyalists', 'radicals', 'politicalStrength']],
             POP_REGNO: ['pop', ['kingdomName', 'popId', 'name', 'classKey', 'territoryName', 'culture', 'faith', 'profession', 'population', 'employed', 'education', 'literacy', 'qualifications', 'income', 'standardOfLiving', 'basicNeeds', 'comfortNeeds', 'luxuryNeeds', 'loyalists', 'radicals', 'desires']],
             LAVORO_REGNO: ['job', ['kingdomName', 'territoryName', 'profession', 'positions', 'employed', 'wage', 'minEducation', 'allowedClasses', 'status']],
             STATISTICHE_REGNO: ['statistics', ['kingdomName', 'gdp', 'tradeBalance', 'inflation', 'debt', 'administrationEfficiency', 'birthRate', 'deathRate', 'migration']],
@@ -868,12 +880,22 @@
     }
 
     function summarizeClassesFromPops(pops, existingClasses) {
+        const totalPopulation = pops.reduce((sum, pop) => sum + pop.population, 0);
         const classes = Object.keys(SOCIAL_CLASSES).map(key => {
             const groups = pops.filter(pop => pop.classKey === key);
             const population = groups.reduce((sum, pop) => sum + pop.population, 0);
+            const employed = groups.reduce((sum, pop) => sum + pop.employed, 0);
             const loyalists = groups.reduce((sum, pop) => sum + pop.loyalists, 0);
             const radicals = groups.reduce((sum, pop) => sum + pop.radicals, 0);
             const previous = existingClasses.find(item => item.key === key) || createClass(key, 0);
+            const livingStandard = weightedAverage(
+                groups, 'standardOfLiving', 'population', previous.livingStandard
+            );
+            const education = weightedAverage(groups, 'education', 'population', previous.education);
+            const populationShare = totalPopulation ? population / totalPopulation * 100 : 0;
+            const politicalStrength = clamp(
+                previous.influence * 0.55 + previous.wealth * 0.25 + populationShare * 0.2
+            );
             const leadingDesire = groups.slice().sort((a, b) => b.population - a.population)
                 .find(pop => pop.desires)?.desires || previous.needs;
             return normalizeSocialClass({
@@ -881,8 +903,14 @@
                 key,
                 name: SOCIAL_CLASSES[key],
                 population,
-                wealth: clamp(weightedAverage(groups, 'standardOfLiving', 'population', previous.wealth / 3) * 3),
+                wealth: clamp(livingStandard * 3),
                 loyalty: population ? clamp(50 + (loyalists - radicals) / population * 100) : previous.loyalty,
+                employment: population ? employed / population * 100 : 0,
+                education,
+                livingStandard,
+                loyalists,
+                radicals,
+                politicalStrength,
                 needs: leadingDesire
             });
         });
@@ -917,6 +945,36 @@
             }, index);
         });
         return state;
+    }
+
+    function buildLaborMarketSummary(input) {
+        const state = migrateKingdom(input);
+        const jobs = state.jobs;
+        const pops = state.people.pops;
+        const totalPositions = jobs.reduce((sum, job) => sum + job.positions, 0);
+        const employed = jobs.reduce((sum, job) => sum + job.employed, 0);
+        const vacancies = jobs.reduce((sum, job) => sum + job.vacancies, 0);
+        const unemployed = pops.reduce((sum, pop) => sum + pop.unemployed, 0);
+        const payroll = jobs.reduce((sum, job) => sum + job.employed * job.wage, 0);
+        const qualificationBlocked = jobs.reduce((sum, job) => {
+            if (!job.vacancies) return sum;
+            const blockedSupply = pops.filter(pop =>
+                pop.unemployed > 0 && laborTerritoryMatches(job, pop) &&
+                !jobAllowsPop(job, pop)
+            ).reduce((subtotal, pop) => subtotal + pop.unemployed, 0);
+            return sum + Math.min(job.vacancies, blockedSupply);
+        }, 0);
+        return {
+            totalPositions,
+            employed,
+            vacancies,
+            unemployed,
+            qualificationBlocked,
+            vacancyRate: totalPositions ? vacancies / totalPositions * 100 : 0,
+            averageWage: employed ? payroll / employed : 0,
+            highDemand: jobs.filter(job => job.vacancies > 0)
+                .sort((a, b) => b.vacancies - a.vacancies).slice(0, 3)
+        };
     }
 
     function createStatisticsSnapshot(state, turn, source) {
@@ -1289,8 +1347,9 @@
         const state = migrateKingdom(input);
         if (!state.active) return '';
         const advisor = buildKingdomAdvisor(state);
+        const laborMarket = buildLaborMarketSummary(state);
         const classes = state.people.classes.map(item =>
-            `${item.name}: ${item.population}, ricchezza ${Math.round(item.wealth)}, lealtà ${Math.round(item.loyalty)}, influenza ${Math.round(item.influence)}${item.needs ? ', bisogni: ' + item.needs : ''}`
+            `${item.name}: ${item.population}, occupazione ${Math.round(item.employment)}%, istruzione ${Math.round(item.education)}%, tenore ${item.livingStandard.toFixed(1)}/30, ricchezza ${Math.round(item.wealth)}, lealtà ${Math.round(item.loyalty)}, forza politica ${Math.round(item.politicalStrength)}, lealisti ${item.loyalists}, radicali ${item.radicals}${item.needs ? ', bisogni: ' + item.needs : ''}`
         ).join('; ');
         const territories = state.territories.map(item =>
             `${item.name} (${item.type}, pop. ${item.population}, lealtà ${Math.round(item.loyalty)}, ordine ${Math.round(item.publicOrder)}, prosperità ${Math.round(item.prosperity)}, salute ${Math.round(item.health)}, infrastrutture ${Math.round(item.infrastructure)}, occupazione ${Math.round(item.employment)}, povertà ${Math.round(item.poverty)}, entrate ${item.taxIncome}, viveri ${item.foodProduction}${item.strategicResource ? ', risorsa: ' + item.strategicResource : ''})`
@@ -1313,7 +1372,7 @@
             `POPOLO: consenso ${Math.round(state.people.approval)}, disordini ${Math.round(state.people.unrest)}, salute ${Math.round(state.people.health)}, alfabetizzazione ${Math.round(state.people.literacy)}, occupazione ${Math.round(state.people.employment)}, povertà ${Math.round(state.people.poverty)}, sicurezza alimentare ${Math.round(state.people.foodSecurity)}, abitazioni ${Math.round(state.people.housing)}, criminalità ${Math.round(state.people.crime)}.`,
             `DEMOGRAFIA: natalità ${state.people.birthRate}/1000, mortalità ${state.people.deathRate}/1000, migrazione ${state.people.migration}/periodo, tenore medio ${state.people.averageLivingStandard.toFixed(1)}/30, lealisti ${state.people.loyalists}, radicali ${state.people.radicals}. CLASSI: ${classes || 'non censite'}.`,
             `GRUPPI POP: ${pops || 'non censiti'}.`,
-            `MERCATO DEL LAVORO: ${jobs || 'nessun posto censito'}.`,
+            `MERCATO DEL LAVORO: ${jobs || 'nessun posto censito'}. Totale posti ${laborMarket.totalPositions}, vacanti ${laborMarket.vacancies} (${laborMarket.vacancyRate.toFixed(1)}%), disoccupati ${laborMarket.unemployed}, bloccati dalle qualifiche ${laborMarket.qualificationBlocked}, salario medio ${laborMarket.averageWage.toFixed(1)}.`,
             `SERVIZI: infrastrutture ${Math.round(state.services.infrastructure)}, sanità ${Math.round(state.services.healthcare)}, istruzione ${Math.round(state.services.education)}, giustizia ${Math.round(state.services.justice)}, igiene ${Math.round(state.services.sanitation)}.`,
             `TERRITORI: ${territories || 'nessuno registrato'}.`,
             `RISORSE: ${resources || 'nessuna censita'}.`,
@@ -1414,6 +1473,20 @@
             pop.qualifications = clamp(pop.qualifications + gain * 1.5);
             pop.desires = 'ottenere una professione più qualificata e meglio retribuita';
             addHistory(state, `Formazione finanziata per ${pop.name} (costo ${cost})`, context.turn, 'popolo');
+        } else if (action === 'subsidizeJob') {
+            const job = state.jobs.find(item => item.id === clean(context.jobId, 140));
+            if (!job) throw new Error('Settore lavorativo non trovato');
+            const cost = Math.max(50, integer(context.value, 100));
+            if (state.treasury < cost) throw new Error('Tesoro insufficiente per gli incentivi');
+            state.treasury -= cost;
+            const addedPositions = Math.max(1, Math.round(cost / Math.max(10, job.wage * 12)));
+            job.positions += addedPositions;
+            job.vacancies = Math.max(0, job.positions - job.employed);
+            job.wage = Math.max(0, job.wage + Math.min(0.5, cost / 2000));
+            addHistory(state,
+                `Incentivato il settore ${job.name}: +${addedPositions} posti (costo ${cost})`,
+                context.turn, 'lavoro'
+            );
         } else if (action === 'period') {
             if (integer(context.turn) <= state.lastPeriodTurn) throw new Error('Il periodo è già stato chiuso in questo turno');
             return runPeriod(state, context).state;
@@ -1441,6 +1514,6 @@
         buildNarrativeContext, manualAction, parseNarrativeTags,
         normalizeTerritory, normalizePeople, normalizePop, normalizeJob,
         simulateLaborMarket, reconcileDerivedStatistics, recordStatistics,
-        buildKingdomAdvisor, parseNumber, clean, keyOf
+        buildKingdomAdvisor, buildLaborMarketSummary, parseNumber, clean, keyOf
     };
 });
