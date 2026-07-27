@@ -1373,7 +1373,7 @@ test('migra i salvataggi del regno alla struttura sociale ed economica approfond
         treasury: 900,
         population: 10000
     });
-    assert.equal(state.schemaVersion, 3);
+    assert.equal(state.schemaVersion, 4);
     assert.equal(state.treasury, 900);
     assert.equal(state.population, 10000);
     assert.equal(state.people.classes.reduce((sum, item) => sum + item.population, 0), 10000);
@@ -1382,6 +1382,125 @@ test('migra i salvataggi del regno alla struttura sociale ed economica approfond
     assert.equal(typeof state.services.healthcare, 'number');
     assert.equal(state.people.pops.reduce((sum, item) => sum + item.population, 0), 10000);
     assert.ok(state.jobs.length > 0);
+    assert.deepEqual(state.statisticsHistory, []);
+    assert.equal(state.governance.confidence, 0);
+});
+
+test('registra l’audit del Master e aggiorna le statistiche assolute a ogni elaborazione', () => {
+    const engine = new kingdomApi.KingdomManager();
+    const state = kingdomApi.migrateKingdom({
+        active: true,
+        name: 'Astaria',
+        population: 1000,
+        people: { popsInitializedByNarrator: true }
+    });
+    const events = kingdomApi.parseNarrativeTags(
+        '[POPOLO_REGNO: Astaria|58|24|53|31|67|29|70|55|18|9.5|80|45]\\n' +
+        '[STATISTICHE_REGNO: Astaria|72000|400|3.2|5000|64|12|8|20]\\n' +
+        '[VALUTAZIONE_REGNO: Astaria|Il regno cresce ma le qualifiche restano insufficienti|Ampliare le scuole|Formare gli operai|Sorvegliare i prezzi|88]'
+    );
+    const outcome = engine.applyNarrativeEvents(state, events, { turn: 7 });
+    assert.ok(outcome.results.every(result => result.ok));
+    assert.equal(outcome.state.people.approval, 58);
+    assert.equal(outcome.state.people.averageLivingStandard, 9.5);
+    assert.equal(outcome.state.people.loyalists, 80);
+    assert.equal(outcome.state.economy.gdp, 72000);
+    assert.equal(outcome.state.economy.inflation, 3.2);
+    assert.equal(outcome.state.governance.lastAssessmentTurn, 7);
+    assert.equal(outcome.state.governance.confidence, 88);
+    assert.equal(outcome.state.governance.priorities.length, 3);
+    assert.equal(outcome.state.governance.lastStatisticsTurn, 7);
+    assert.equal(outcome.state.governance.statisticsSource, 'Master LLM');
+    assert.equal(outcome.state.statisticsHistory.length, 1);
+});
+
+test('riconcilia automaticamente POP, lavori e indicatori aggregati', () => {
+    const engine = new kingdomApi.KingdomManager();
+    const state = kingdomApi.migrateKingdom({
+        active: true,
+        name: 'Astaria',
+        population: 100,
+        people: {
+            popsInitializedByNarrator: true,
+            pops: [{
+                id: 'pop-operai',
+                name: 'Operai',
+                classKey: 'workers',
+                profession: 'laborers',
+                population: 100,
+                employed: 40,
+                education: 20,
+                literacy: 30,
+                qualifications: 20,
+                standardOfLiving: 6,
+                radicals: 15
+            }]
+        },
+        jobs: [{ profession: 'laborers', positions: 100, employed: 40 }]
+    });
+    const outcome = engine.applyNarrativeEvents(state, [{
+        type: 'pop',
+        popId: 'pop-operai',
+        employed: 75,
+        literacy: 45,
+        standardOfLiving: 10,
+        radicals: 5
+    }], { turn: 3 });
+    assert.equal(outcome.state.people.employment, 75);
+    assert.equal(outcome.state.people.literacy, 45);
+    assert.equal(outcome.state.people.averageLivingStandard, 10);
+    assert.equal(outcome.state.people.radicals, 5);
+    assert.equal(outcome.state.jobs[0].employed, 75);
+    assert.equal(outcome.state.people.classes.find(item => item.key === 'workers').population, 100);
+});
+
+test('preserva i POP narrativi v3 e separa correttamente i mercati territoriali', () => {
+    const engine = new kingdomApi.KingdomManager();
+    let state = kingdomApi.migrateKingdom({
+        schemaVersion: 3,
+        active: true,
+        name: 'Astaria',
+        population: 100,
+        people: {
+            pops: [
+                { id: 'kael-workers', name: 'Operai di Kael', classKey: 'workers', territoryName: 'Kael', profession: 'laborers', population: 60, employed: 40, education: 15 },
+                { id: 'ostria-workers', name: 'Operai di Ostria', classKey: 'workers', territoryName: 'Ostria', profession: 'laborers', population: 40, employed: 20, education: 15 }
+            ]
+        },
+        jobs: [
+            { territoryName: 'Kael', profession: 'laborers', positions: 60 },
+            { territoryName: 'Ostria', profession: 'laborers', positions: 40 }
+        ]
+    });
+    assert.equal(state.people.popsInitializedByNarrator, true);
+    state = engine.applyNarrativeEvents(state, [{
+        type: 'pop',
+        popId: 'kael-workers',
+        employed: 50
+    }], { turn: 4 }).state;
+    assert.equal(state.people.pops.length, 2);
+    assert.equal(state.jobs.find(job => job.territoryName === 'Kael').employed, 50);
+    assert.equal(state.jobs.find(job => job.territoryName === 'Ostria').employed, 20);
+});
+
+test('genera priorità di governo deterministiche dai rischi reali', () => {
+    const advisor = kingdomApi.buildKingdomAdvisor({
+        active: true,
+        name: 'Astaria',
+        population: 1000,
+        food: 0,
+        people: {
+            unrest: 70,
+            employment: 40,
+            foodSecurity: 20,
+            radicals: 200,
+            pops: []
+        }
+    });
+    assert.equal(advisor.level, 'critico');
+    assert.ok(advisor.risks.some(item => /alimentare/i.test(item)));
+    assert.ok(advisor.risks.some(item => /disoccupazione/i.test(item)));
+    assert.ok(advisor.priorities.length > 0);
 });
 
 test('analizza i tag LLM per gruppi di popolazione e mercato del lavoro', () => {
@@ -1627,6 +1746,9 @@ test('inietta lo stato autoritativo del regno nel contesto LLM', () => {
     assert.match(context, /CRISI:/);
     assert.match(context, /GRUPPI POP:/);
     assert.match(context, /MERCATO DEL LAVORO:/);
+    assert.match(context, /DIAGNOSI MOTORE:/);
+    assert.match(context, /ULTIMO AUDIT MASTER:/);
+    assert.match(context, /audit prima\/dopo/i);
     assert.match(context, /Professioni e promozioni dipendono da istruzione/i);
     assert.match(context, /ogni cambiamento narrato/i);
     assert.match(context, /separato dal denaro personale/);
@@ -1648,13 +1770,21 @@ test('integra pannello, ciclo turni e protocollo dei tag del regno', () => {
     assert.match(html, /CRISI_REGNO/);
     assert.match(html, /POP_REGNO/);
     assert.match(html, /LAVORO_REGNO/);
+    assert.match(html, /VALUTAZIONE_REGNO/);
     assert.match(html, /FAZIONE_REGNO/);
     assert.match(html, /DIPLOMAZIA_REGNO/);
     assert.match(html, /data-kingdom-action="investTerritory"/);
     assert.match(html, /data-kingdom-action="publicService"/);
     assert.match(html, /data-kingdom-action="trainPop"/);
     assert.match(html, /Mercato del lavoro/);
+    assert.match(html, /Audit del Master/);
+    assert.match(html, /data-kingdom-section="kingdom-people"/);
+    assert.match(html, /emetti SEMPRE un POPOLO_REGNO, uno STATISTICHE_REGNO e una VALUTAZIONE_REGNO/);
     assert.match(html, /Il tesoro reale NON è denaro personale/);
+    const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
+    assert.match(css, /\.kingdom-command-center/);
+    assert.match(css, /\.kingdom-nav/);
+    assert.match(css, /\.kingdom-score/);
 });
 
 test('completa una storia minima con tutti i campi necessari al motore', () => {

@@ -1255,8 +1255,159 @@
 .manager-empty-state h3 { margin: 0; color: var(--ink); font-family: 'Cinzel', serif; }
 .manager-empty-state p { max-width: 520px; margin: 0; color: var(--ink-light); line-height: 1.5; }
 
+/* Kingdom command center */
+.kingdom-manager-modal {
+    max-width: 1180px;
+}
+#kingdom-dashboard {
+    display: grid;
+    gap: 14px;
+}
+.kingdom-hero {
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 78% 25%, rgba(255, 217, 112, .24), transparent 32%),
+        linear-gradient(135deg, #14251f, #294b3f 58%, #5d4520);
+}
+.kingdom-hero::after {
+    content: '♛';
+    position: absolute;
+    right: 24%;
+    bottom: -42px;
+    color: rgba(255,255,255,.06);
+    font-size: 9rem;
+    line-height: 1;
+    pointer-events: none;
+}
+.kingdom-nav {
+    position: sticky;
+    top: -1px;
+    z-index: 4;
+    display: flex;
+    gap: 7px;
+    padding: 8px;
+    overflow-x: auto;
+    border: 1px solid rgba(44,24,16,.12);
+    border-radius: 12px;
+    background: rgba(247,238,215,.94);
+    box-shadow: 0 6px 18px rgba(44,24,16,.09);
+    backdrop-filter: blur(8px);
+}
+.kingdom-nav button {
+    flex: 0 0 auto;
+    padding: 7px 11px;
+    border: 1px solid rgba(41,75,63,.2);
+    border-radius: 999px;
+    color: #294b3f;
+    background: rgba(255,255,255,.72);
+    cursor: pointer;
+    font: 700 .68rem 'Cinzel', serif;
+}
+.kingdom-nav button:hover {
+    color: #fff;
+    background: #294b3f;
+}
+.kingdom-command-center {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1.5fr) minmax(220px, .8fr);
+    gap: 10px;
+}
+.kingdom-score,
+.kingdom-advisor,
+.kingdom-risks {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid rgba(44,24,16,.12);
+    border-radius: 14px;
+    background: rgba(255,255,255,.72);
+}
+.kingdom-score {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    text-align: center;
+    box-shadow: inset 0 4px 0 #b58a25;
+}
+.kingdom-score span,
+.kingdom-score small {
+    color: var(--ink-light);
+    font-size: .68rem;
+    text-transform: uppercase;
+}
+.kingdom-score strong {
+    color: #294b3f;
+    font: 700 2.5rem 'Cinzel', serif;
+    line-height: 1.05;
+}
+.kingdom-score.critico { box-shadow: inset 0 4px 0 #a12424; }
+.kingdom-score.critico strong,
+.kingdom-score.fragile strong { color: #a12424; }
+.kingdom-score.solido { box-shadow: inset 0 4px 0 #287449; }
+.kingdom-advisor-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    color: #294b3f;
+    font: 700 .77rem 'Cinzel', serif;
+}
+.kingdom-advisor-head small {
+    color: var(--ink-light);
+    font: 400 .65rem 'Crimson Text', serif;
+    text-align: right;
+}
+.kingdom-advisor p {
+    margin: 8px 0;
+    color: var(--ink);
+    font-size: .82rem;
+    line-height: 1.35;
+}
+.kingdom-advisor ol {
+    display: grid;
+    gap: 3px;
+    margin: 0;
+    padding-left: 19px;
+    color: var(--ink-light);
+    font-size: .72rem;
+}
+.kingdom-risks > strong {
+    color: var(--ink);
+    font: 700 .74rem 'Cinzel', serif;
+}
+.kingdom-risks > div {
+    display: grid;
+    gap: 5px;
+    margin-top: 8px;
+}
+.kingdom-risks span {
+    padding: 5px 7px;
+    border-radius: 7px;
+    font-size: .68rem;
+}
+.kingdom-risks .risk { color: #8c2929; background: rgba(161,36,36,.08); }
+.kingdom-risks .opportunity,
+.kingdom-risks .good { color: #286c47; background: rgba(46,139,87,.09); }
+.kingdom-trend {
+    display: inline-flex;
+    margin-left: 3px;
+    font-weight: 700;
+}
+.kingdom-trend.up { color: #287449; }
+.kingdom-trend.down { color: #a12424; }
+.kingdom-trend.neutral { color: #786e61; }
+.kingdom-section-anchor {
+    scroll-margin-top: 60px;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+.kingdom-section-anchor:target {
+    border-color: rgba(41,75,63,.55);
+    box-shadow: 0 0 0 3px rgba(41,75,63,.1);
+}
+
 @media (max-width: 900px) {
     .manager-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .kingdom-command-center { grid-template-columns: 120px minmax(0, 1fr); }
+    .kingdom-risks { grid-column: 1 / -1; }
 }
 @media (max-width: 700px) {
     .business-manager-modal { max-width: 100%; }
@@ -1265,6 +1416,10 @@
     .manager-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .manager-columns { grid-template-columns: minmax(0, 1fr); }
     .manager-section.manager-products { grid-column: auto; }
+    .kingdom-command-center { grid-template-columns: minmax(0, 1fr); }
+    .kingdom-risks { grid-column: auto; }
+    .kingdom-score { grid-template-columns: 1fr auto auto; justify-items: start; gap: 8px; }
+    .kingdom-score strong { font-size: 1.65rem; }
 }
 @media (max-width: 430px) {
     .manager-hero { display: grid; }
