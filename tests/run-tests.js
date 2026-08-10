@@ -7,6 +7,7 @@ const memoryApi = require('../js/memory-manager.js');
 const worldBootstrapApi = require('../js/world-bootstrap.js');
 const eventApi = require('../js/event-manager.js');
 const timelineChatApi = require('../js/timeline-chat.js');
+const timelineSimulatorApi = require('../js/timeline-simulator.js');
 const narrativeApi = require('../js/narrative-master.js');
 const ollamaApi = require('../js/ollama-cloud.js');
 const ollamaProxyHandler = require('../api/ollama/[action].js');
@@ -110,6 +111,104 @@ test('i prompt collegano il mondo iniziale a timeline e conversazioni', () => {
     const interaction = worldBootstrapApi.buildInteractionPrompt(world, [world.actors[0].name]);
     assert.match(interaction, /obiettivo/i);
     assert.match(interaction, /strategia/i);
+});
+
+test('il simulatore dedicato impone un arco causale invece della sola routine', () => {
+    const world = worldBootstrapApi.ensureMinimumWorld({}, {
+        story: { title: 'Montefeltro', setting: 'Contea di Montefeltro' }, turn: 30
+    });
+    const prompt = timelineSimulatorApi.buildPrompt({
+        story: { title: 'Montefeltro', setting: 'Contea di Montefeltro' },
+        world,
+        passage: {
+            elapsed: timeEnergyApi.MINUTES_PER_MONTH,
+            days: 30,
+            description: '1 mese',
+            summary: '30 notti di sonno e circa 90 pasti',
+            startDate: '12 luglio 1520',
+            endDate: '11 agosto 1520'
+        },
+        choices: []
+    });
+    assert.match(prompt, /esattamente 4 EVENTO/);
+    assert.match(prompt, /una parte agisce, un'altra reagisce/i);
+    assert.match(prompt, /non trasformarla in EVENTO/i);
+    assert.match(prompt, /azione osservabile e risultato/i);
+    assert.match(prompt, /\[CHAT:/);
+});
+
+test('un mese produce sempre eventi vivi distribuiti con attori e conseguenze', () => {
+    const world = worldBootstrapApi.ensureMinimumWorld({}, {
+        story: { title: 'Astaria', setting: 'Khepra' }, turn: 10
+    });
+    const arc = timelineSimulatorApi.ensureEventArc([], {
+        story: { title: 'Astaria', setting: 'Khepra' },
+        world,
+        passage: { elapsed: timeEnergyApi.MINUTES_PER_MONTH, days: 30, description: '1 mese' },
+        location: 'Khepra'
+    });
+    assert.equal(arc.events.length, 4);
+    assert.equal(arc.fallbackAdded, 4);
+    assert.ok(arc.events.every(event => event.actors.length >= 2));
+    assert.ok(arc.events.every(event => event.summary.split('.').filter(Boolean).length >= 2));
+    assert.ok(arc.events.every(event => event.consequence && /giorno \d+ di 30/i.test(event.occurredAt)));
+    assert.match(arc.events[1].summary, new RegExp(arc.events[0].actors[0], 'i'));
+    assert.equal(arc.events.some(event => /^Vita durante/i.test(event.title)), false);
+});
+
+test('completa i tag IA mancanti senza eliminare gli eventi validi', () => {
+    const world = worldBootstrapApi.ensureMinimumWorld({}, {
+        story: { title: 'Astaria', setting: 'Khepra' }, turn: 10
+    });
+    const existing = eventApi.normalizeEvent({
+        type: 'politica', title: 'Il consiglio vota',
+        summary: 'Il consiglio approva una tassa. I mercanti lasciano la sala in protesta.',
+        actors: ['Consiglio', 'Mercanti'], consequence: 'I prezzi saliranno.',
+        source: 'timeline-ai'
+    });
+    const arc = timelineSimulatorApi.ensureEventArc([existing], {
+        story: { title: 'Astaria', setting: 'Khepra' }, world,
+        passage: { days: 7, description: '1 settimana' }
+    });
+    assert.equal(arc.events.length, 3);
+    assert.equal(arc.events[0].title, 'Il consiglio vota');
+    assert.equal(arc.fallbackAdded, 2);
+});
+
+test('gli eventi della timeline aprono conversazioni vive in prima persona', () => {
+    const world = worldBootstrapApi.ensureMinimumWorld({}, {
+        story: { title: 'Astaria', setting: 'Khepra' }, turn: 10
+    });
+    const arc = timelineSimulatorApi.createFallbackArc({
+        story: { title: 'Astaria', setting: 'Khepra' }, world,
+        passage: { days: 7, description: '1 settimana' }, turn: 17
+    });
+    const events = arc.events.map((event, index) => ({ ...event, id: `event-live-${index}`, turn: 17 }));
+    const messages = timelineSimulatorApi.buildConversationStarters(events, world, {
+        turn: 17, protagonistName: 'Nerissa'
+    });
+    assert.ok(messages.length >= 3);
+    assert.ok(messages.every(message => timelineChatApi.speaksInFirstPerson(message.text)));
+    assert.ok(messages.every(message => message.eventId && message.target));
+});
+
+test('gli eventi modificano davvero attori, relazioni e forze del mondo', () => {
+    let world = worldBootstrapApi.ensureMinimumWorld({}, {
+        story: { title: 'Astaria', setting: 'Khepra' }, turn: 0
+    });
+    const relation = world.relations[0];
+    const force = world.forces[0];
+    force.actor = relation.from;
+    const oldTension = relation.tension;
+    const oldProgress = force.progress;
+    world = worldBootstrapApi.applyTimelineEvents(world, [{
+        type: 'conflitto', title: force.name,
+        summary: `${relation.from} attacca gli interessi di ${relation.to}.`,
+        actors: [relation.from, relation.to], importance: 'high'
+    }], 30, { days: 30 });
+    assert.ok(world.relations[0].tension > oldTension);
+    assert.ok(world.forces[0].progress > oldProgress);
+    assert.equal(world.factions.find(item => item.name === relation.from).lastMoveTurn, 30);
 });
 
 test('mantiene esattamente gli ultimi 10 messaggi a breve termine', () => {
@@ -1622,6 +1721,7 @@ test('la barra mobile mostra soltanto la gestione di attività e regno', () => {
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /src="js\/timeline-chat\.js"/);
+    assert.match(html, /src="js\/timeline-simulator\.js"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="modal-timeline"/);
     assert.match(html, /id="btn-simulate-timeline"/);
@@ -1632,7 +1732,11 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /function simulateTimelineEvents/);
     assert.match(html, /function sendWorldChatMessage/);
     assert.match(html, /function queueTimelineChoice/);
-    assert.match(html, /NON emettere un altro tag TEMPO/);
+    assert.match(html, /function requestTimelineAI/);
+    assert.match(html, /timelineSimulator\.ensureEventArc/);
+    assert.match(html, /timelineSimulator\.buildConversationStarters/);
+    assert.match(html, /timelineSimulator\.isMeaningfulEvent/);
+    assert.match(html, /Vita quotidiana garantita/);
     assert.match(html, /timelineChatEngine\.parseChatTags/);
 });
 
@@ -1645,6 +1749,7 @@ test('integra la creazione iniziale del mondo con narrazione, timeline e chat', 
     assert.match(html, /worldBootstrapEngine\.buildTimelinePrompt/);
     assert.match(html, /worldBootstrapEngine\.buildInteractionPrompt/);
     assert.match(html, /worldBootstrapEngine\.applyWorldMoves/);
+    assert.match(html, /worldBootstrapEngine\.applyTimelineEvents/);
     assert.match(html, /Mondo creato:/);
     assert.match(html, /isStart \? 3600/);
 });
