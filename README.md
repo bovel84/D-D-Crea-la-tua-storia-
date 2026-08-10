@@ -44,6 +44,7 @@ Il Master LLM produce la narrazione, ma i dati importanti sono mantenuti da modu
 - Compressione automatica e recupero dei ricordi pertinenti.
 - Narrative Compass per tono, focus, trame aperte e contraddizioni.
 - Game Director con eventi, pressioni e mosse del mondo.
+- Eventi LLM strutturati per tipo, luogo, attori, conseguenza, importanza e stato, con deduplicazione e fallback dal Cronista.
 - PNG, fazioni, luoghi e conseguenze persistenti.
 - Audit prima/dopo per mantenere coerenti i sistemi gestionali.
 
@@ -197,6 +198,7 @@ Poi apri l'indirizzo locale mostrato dal terminale.
 │   ├── story-generator.js      # generazione e completamento delle storie
 │   ├── character-options.js    # generi, origini, ruoli e dotazioni
 │   ├── memory-manager.js       # memoria multilivello e retrieval
+│   ├── event-manager.js        # parsing e cronaca strutturata degli eventi
 │   ├── narrative-master.js     # Narrative Compass
 │   ├── game-director.js        # timeline e pressioni del mondo
 │   ├── time-energy.js          # tempo, energia e metabolismo
@@ -229,7 +231,7 @@ npm test
 npm run check
 ```
 
-La suite copre memoria, Master, generatore di storie, personaggio, tempo, salvataggi, provider, attività economiche e gestione del regno.
+La suite copre memoria, eventi strutturati, Master, generatore di storie, personaggio, tempo, salvataggi, provider, attività economiche e gestione del regno.
 
 ### Principi del progetto
 
