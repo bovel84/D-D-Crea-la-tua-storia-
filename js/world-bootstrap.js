@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const WORLD_SCHEMA_VERSION = 1;
+    const WORLD_SCHEMA_VERSION = 2;
     const LIMITS = { locations: 20, actors: 30, factions: 16, relations: 60, forces: 20 };
     const READY_MINIMUM = { locations: 3, actors: 4, factions: 2, relations: 2, forces: 1 };
 
@@ -62,6 +62,20 @@
         }).slice(0, limit);
     }
 
+    function normalizeHistoricalContext(source, context = {}) {
+        const input = source && typeof source === 'object' ? source : {};
+        const story = context.story || {};
+        return {
+            date: cleanText(input.date || input.era || context.date, 120),
+            region: cleanText(input.region || context.setting || story.setting, 160),
+            politicalSystem: cleanText(input.politicalSystem || input.institutions, 320),
+            baseline: cleanText(input.baseline || input.historicalBaseline, 600),
+            activeTensions: cleanText(input.activeTensions || input.conflict, 500),
+            constraints: cleanText(input.constraints || input.historicalConstraints, 500),
+            divergencePolicy: cleanText(input.divergencePolicy || 'La storia può divergere soltanto come conseguenza esplicita degli eventi di gioco.', 320)
+        };
+    }
+
     function createDefaultWorld(context = {}) {
         const story = context.story || {};
         const name = cleanText(context.name || story.title || story.setting || 'Mondo della campagna', 120);
@@ -76,6 +90,7 @@
             premise,
             centralConflict: '',
             stakes: '',
+            historicalContext: normalizeHistoricalContext({}, context),
             status: 'pending',
             initialized: false,
             provisional: false,
@@ -124,6 +139,13 @@
             goal: cleanText(input.goal || input.goals, 300),
             strategy: cleanText(input.strategy, 260),
             resources: cleanText(input.resources, 240),
+            publicGoal: cleanText(input.publicGoal || input.goal || input.goals, 300),
+            privateGoal: cleanText(input.privateGoal, 300),
+            leverage: cleanText(input.leverage || input.resources, 260),
+            constraints: cleanText(input.constraints, 260),
+            knowledge: cleanText(input.knowledge, 320),
+            agenda: cleanText(input.agenda || input.strategy, 260),
+            historicalRole: cleanText(input.historicalRole, 220),
             influence: numberBetween(input.influence, 0, 100, 45),
             relationship: cleanText(input.relationship || 'neutrale', 100),
             status: normalizeStatus(input.status),
@@ -150,6 +172,10 @@
             goal: cleanText(input.goal || input.goals, 300),
             strategy: cleanText(input.strategy, 260),
             resources: cleanText(input.resources, 240),
+            ideology: cleanText(input.ideology, 220),
+            legitimacy: numberBetween(input.legitimacy, 0, 100, 50),
+            leverage: cleanText(input.leverage || input.resources, 260),
+            constraints: cleanText(input.constraints, 260),
             influence: numberBetween(input.influence, 0, 100, 50),
             relationship: cleanText(input.relationship || 'neutrale', 100),
             status: normalizeStatus(input.status),
@@ -175,7 +201,8 @@
             tension: numberBetween(input.tension, 0, 100, 30),
             description: cleanText(input.description, 320),
             status: normalizeStatus(input.status),
-            updatedAtTurn: Math.max(0, Number(input.updatedAtTurn ?? context.turn) || 0)
+            updatedAtTurn: Math.max(0, Number(input.updatedAtTurn ?? context.turn) || 0),
+            source: cleanText(input.source || context.source || 'world-bootstrap', 40)
         };
     }
 
@@ -188,10 +215,14 @@
             name,
             actor: cleanText(input.actor, 120),
             objective: cleanText(input.objective || input.description, 320),
+            cause: cleanText(input.cause, 320),
+            opposition: splitList(input.opposition, 8),
+            consequenceAt100: cleanText(input.consequenceAt100 || input.outcome, 320),
             progress: numberBetween(input.progress, 0, 100, 10),
             urgency: numberBetween(input.urgency, 0, 100, 50),
             status: normalizeStatus(input.status),
-            updatedAtTurn: Math.max(0, Number(input.updatedAtTurn ?? context.turn) || 0)
+            updatedAtTurn: Math.max(0, Number(input.updatedAtTurn ?? context.turn) || 0),
+            source: cleanText(input.source || context.source || 'world-bootstrap', 40)
         };
     }
 
@@ -222,6 +253,10 @@
             premise: cleanText(input.premise || defaults.premise, 600),
             centralConflict: cleanText(input.centralConflict, 420),
             stakes: cleanText(input.stakes, 320),
+            historicalContext: normalizeHistoricalContext(input.historicalContext, {
+                ...context,
+                setting: input.setting || defaults.setting
+            }),
             locations: mergeByName([], input.locations, normalizeLocation, LIMITS.locations, context),
             actors: mergeByName([], input.actors, normalizeActor, LIMITS.actors, context),
             factions: mergeByName([], input.factions, normalizeFaction, LIMITS.factions, context),
@@ -254,6 +289,10 @@
         const setup = bodies(response, 'MONDO_SETUP').map(fields).map(parts => ({
             name: parts[0], premise: parts[1], centralConflict: parts[2], stakes: parts[3]
         })).filter(item => item.name)[0] || null;
+        const historicalContext = bodies(response, 'CONTESTO_STORICO_SETUP').map(fields).map(parts => normalizeHistoricalContext({
+            date: parts[0], region: parts[1], politicalSystem: parts[2], baseline: parts[3],
+            activeTensions: parts[4], constraints: parts[5], divergencePolicy: parts[6]
+        }, context)).find(item => item.date || item.baseline || item.politicalSystem) || null;
         const locations = bodies(response, 'LUOGO_SETUP').map(fields).map(parts => ({
             name: parts[0], type: parts[1], region: parts[2], description: parts[3], controller: parts[4],
             resource: parts[5], danger: parts[6], connections: parts[7]
@@ -261,20 +300,23 @@
         const actors = bodies(response, 'PERSONAGGIO_SETUP').map(fields).map(parts => ({
             name: parts[0], role: parts[1], faction: parts[2], description: parts[3], personality: parts[4],
             goal: parts[5], strategy: parts[6], resources: parts[7], influence: parts[8], relationship: parts[9],
-            status: parts[10], location: parts[11]
+            status: parts[10], location: parts[11], publicGoal: parts[12], privateGoal: parts[13],
+            leverage: parts[14], constraints: parts[15], knowledge: parts[16], agenda: parts[17], historicalRole: parts[18]
         })).map(item => normalizeActor(item, context)).filter(Boolean);
         const factions = bodies(response, 'FAZIONE_SETUP').map(fields).map(parts => ({
             name: parts[0], type: parts[1], leader: parts[2], description: parts[3], goal: parts[4],
             strategy: parts[5], resources: parts[6], influence: parts[7], relationship: parts[8],
-            status: parts[9], base: parts[10]
+            status: parts[9], base: parts[10], ideology: parts[11], legitimacy: parts[12],
+            leverage: parts[13], constraints: parts[14]
         })).map(item => normalizeFaction(item, context)).filter(Boolean);
         const relations = bodies(response, 'RELAZIONE_SETUP').map(fields).map(parts => ({
             from: parts[0], to: parts[1], type: parts[2], trust: parts[3], tension: parts[4], description: parts[5]
         })).map(item => normalizeRelation(item, context)).filter(Boolean);
         const forces = bodies(response, 'FORZA_SETUP').map(fields).map(parts => ({
-            name: parts[0], actor: parts[1], objective: parts[2], progress: parts[3], urgency: parts[4], status: parts[5]
+            name: parts[0], actor: parts[1], objective: parts[2], progress: parts[3], urgency: parts[4], status: parts[5],
+            cause: parts[6], opposition: parts[7], consequenceAt100: parts[8]
         })).map(item => normalizeForce(item, context)).filter(Boolean);
-        return { setup, locations, actors, factions, relations, forces };
+        return { setup, historicalContext, locations, actors, factions, relations, forces };
     }
 
     function fallbackNames(context = {}) {
@@ -301,25 +343,25 @@
             controller: index === 2 ? names.factions[1] : names.factions[0], source: 'deterministic-fallback'
         }));
         const fallbackFactions = [
-            { name: names.factions[0], type: 'autorità', leader: names.actors[0], description: 'Difende l’ordine esistente.', goal: 'Conservare controllo e stabilità.', strategy: 'Leggi, alleanze e pressione.', resources: 'istituzioni e informatori', influence: 65, relationship: 'neutrale' },
-            { name: names.factions[1], type: 'opposizione', leader: names.actors[1], description: 'Contesta l’equilibrio attuale.', goal: 'Cambiare i rapporti di potere.', strategy: 'Consenso, segreti e azioni indirette.', resources: 'sostenitori e contatti', influence: 55, relationship: 'incerta' }
+            { name: names.factions[0], type: 'autorità', leader: names.actors[0], description: 'Difende l’ordine esistente.', goal: 'Conservare controllo e stabilità.', strategy: 'Leggi, alleanze e pressione.', resources: 'istituzioni e informatori', influence: 65, relationship: 'neutrale', source: 'deterministic-fallback' },
+            { name: names.factions[1], type: 'opposizione', leader: names.actors[1], description: 'Contesta l’equilibrio attuale.', goal: 'Cambiare i rapporti di potere.', strategy: 'Consenso, segreti e azioni indirette.', resources: 'sostenitori e contatti', influence: 55, relationship: 'incerta', source: 'deterministic-fallback' }
         ];
         const fallbackActors = [
-            { name: names.actors[0], role: 'autorità', faction: names.factions[0], personality: 'prudente e determinato', goal: 'Proteggere l’ordine', strategy: 'osservare e intervenire', resources: 'informazioni e autorità', influence: 65, relationship: 'neutrale', location: names.locations[0] },
-            { name: names.actors[1], role: 'rivale', faction: names.factions[1], personality: 'ambiziosa e impaziente', goal: 'Spezzare l’equilibrio', strategy: 'reclutare alleati', resources: 'contatti e segreti', influence: 58, relationship: 'diffidente', location: names.locations[2] },
-            { name: names.actors[2], role: 'contatto', faction: '', personality: 'curiosa e pragmatica', goal: 'Capire chi prevarrà', strategy: 'scambiare informazioni', resources: 'conoscenza locale', influence: 40, relationship: 'amichevole', location: names.locations[0] },
-            { name: names.actors[3], role: 'intermediario', faction: '', personality: 'calmo e opportunista', goal: 'Trarre vantaggio dal cambiamento', strategy: 'mediare e commerciare', resources: 'denaro e relazioni', influence: 45, relationship: 'neutrale', location: names.locations[1] }
+            { name: names.actors[0], role: 'autorità', faction: names.factions[0], personality: 'prudente e determinato', goal: 'Proteggere l’ordine', strategy: 'osservare e intervenire', resources: 'informazioni e autorità', influence: 65, relationship: 'neutrale', location: names.locations[0], source: 'deterministic-fallback' },
+            { name: names.actors[1], role: 'rivale', faction: names.factions[1], personality: 'ambiziosa e impaziente', goal: 'Spezzare l’equilibrio', strategy: 'reclutare alleati', resources: 'contatti e segreti', influence: 58, relationship: 'diffidente', location: names.locations[2], source: 'deterministic-fallback' },
+            { name: names.actors[2], role: 'contatto', faction: '', personality: 'curiosa e pragmatica', goal: 'Capire chi prevarrà', strategy: 'scambiare informazioni', resources: 'conoscenza locale', influence: 40, relationship: 'amichevole', location: names.locations[0], source: 'deterministic-fallback' },
+            { name: names.actors[3], role: 'intermediario', faction: '', personality: 'calmo e opportunista', goal: 'Trarre vantaggio dal cambiamento', strategy: 'mediare e commerciare', resources: 'denaro e relazioni', influence: 45, relationship: 'neutrale', location: names.locations[1], source: 'deterministic-fallback' }
         ];
         world.locations = mergeByName(world.locations, fallbackLocations, normalizeLocation, LIMITS.locations, context);
         world.factions = mergeByName(world.factions, fallbackFactions, normalizeFaction, LIMITS.factions, context);
         world.actors = mergeByName(world.actors, fallbackActors, normalizeActor, LIMITS.actors, context);
         world.relations = mergeByName(world.relations, [
-            { from: names.factions[0], to: names.factions[1], type: 'rivalità', trust: 10, tension: 75, description: 'Le due forze competono per il controllo.' },
-            { from: names.actors[2], to: names.actors[0], type: 'contatto', trust: 55, tension: 20, description: 'Si scambiano informazioni con cautela.' }
+            { from: names.factions[0], to: names.factions[1], type: 'rivalità', trust: 10, tension: 75, description: 'Le due forze competono per il controllo.', source: 'deterministic-fallback' },
+            { from: names.actors[2], to: names.actors[0], type: 'contatto', trust: 55, tension: 20, description: 'Si scambiano informazioni con cautela.', source: 'deterministic-fallback' }
         ], normalizeRelation, LIMITS.relations, context);
         world.forces = mergeByName(world.forces, [{
             name: 'Equilibrio in cambiamento', actor: names.factions[1], objective: world.centralConflict,
-            progress: 10, urgency: 55, status: 'active'
+            progress: 10, urgency: 55, status: 'active', source: 'deterministic-fallback'
         }], normalizeForce, LIMITS.forces, context);
         world.initialized = isWorldReady(world);
         world.status = world.initialized ? 'provisional' : 'partial';
@@ -331,6 +373,18 @@
         const before = migrateWorld(currentWorld, context);
         const parsed = parseBootstrapTags(response, context);
         const next = migrateWorld(before, context);
+        const replacesProvisional = Boolean(parsed.setup && parsed.historicalContext &&
+            parsed.locations.length >= READY_MINIMUM.locations &&
+            parsed.actors.length >= READY_MINIMUM.actors &&
+            parsed.factions.length >= READY_MINIMUM.factions);
+        if (replacesProvisional) {
+            const keepSpecific = item => !/deterministic-fallback|timeline-recovery/.test(keyOf(item?.source));
+            next.locations = next.locations.filter(keepSpecific);
+            next.actors = next.actors.filter(keepSpecific);
+            next.factions = next.factions.filter(keepSpecific);
+            next.relations = next.relations.filter(keepSpecific);
+            next.forces = next.forces.filter(keepSpecific);
+        }
         if (parsed.setup) {
             next.name = cleanText(parsed.setup.name || next.name, 120);
             next.premise = cleanText(parsed.setup.premise || next.premise, 600);
@@ -338,6 +392,7 @@
             next.stakes = cleanText(parsed.setup.stakes || next.stakes, 320);
             next.provisional = false;
         }
+        if (parsed.historicalContext) next.historicalContext = parsed.historicalContext;
         next.locations = mergeByName(next.locations, parsed.locations, normalizeLocation, LIMITS.locations, context);
         next.actors = mergeByName(next.actors, parsed.actors, normalizeActor, LIMITS.actors, context);
         next.factions = mergeByName(next.factions, parsed.factions, normalizeFaction, LIMITS.factions, context);
@@ -348,7 +403,7 @@
         world.initialized = isWorldReady(world);
         world.status = world.initialized ? (world.provisional ? 'provisional' : 'ready') : 'partial';
         world.updatedAtTurn = Math.max(world.updatedAtTurn, Number(context.turn) || 0);
-        const parsedCount = parsed.locations.length + parsed.actors.length + parsed.factions.length + parsed.relations.length + parsed.forces.length + (parsed.setup ? 1 : 0);
+        const parsedCount = parsed.locations.length + parsed.actors.length + parsed.factions.length + parsed.relations.length + parsed.forces.length + (parsed.setup ? 1 : 0) + (parsed.historicalContext ? 1 : 0);
         return {
             world,
             parsed,
@@ -388,7 +443,11 @@
                 relationship: actor.relationship, personality: actor.personality, goals: actor.goal,
                 status: actor.status, location: actor.location, faction: actor.faction,
                 role: actor.role, strategy: actor.strategy, resources: actor.resources,
+                publicGoal: actor.publicGoal, privateGoal: actor.privateGoal,
+                leverage: actor.leverage, constraints: actor.constraints,
+                knowledge: actor.knowledge, agenda: actor.agenda, historicalRole: actor.historicalRole,
                 influence: actor.influence, lastMove: actor.lastMove,
+                source: actor.source,
                 lastMoveTurn: actor.lastMoveTurn, lastInteractionTurn: actor.lastInteractionTurn,
                 worldSeed: true,
                 level: Math.max(1, Math.ceil(actor.influence / 10)),
@@ -403,8 +462,11 @@
                 id: faction.id, name: faction.name, description: faction.description,
                 relationship: faction.relationship, goal: faction.goal, strategy: faction.strategy,
                 resources: faction.resources, influence: faction.influence, leader: faction.leader,
+                ideology: faction.ideology, legitimacy: faction.legitimacy,
+                leverage: faction.leverage, constraints: faction.constraints,
                 type: faction.type, status: faction.status, location: faction.base,
-                lastMove: faction.lastMove, lastMoveTurn: faction.lastMoveTurn, worldSeed: true
+                lastMove: faction.lastMove, lastMoveTurn: faction.lastMoveTurn, worldSeed: true,
+                source: faction.source
             });
         });
         world.forces.forEach(force => {
@@ -460,27 +522,50 @@
         return `- ${item.name} (${item.kind}, influenza ${Math.round(item.influence || 0)}/100)` +
             `${item.role || item.type ? ` — ${item.role || item.type}` : ''}` +
             `${item.goal ? `; vuole: ${item.goal}` : ''}` +
+            `${item.privateGoal ? `; obiettivo privato: ${item.privateGoal}` : ''}` +
             `${item.strategy ? `; agirà tramite: ${item.strategy}` : ''}` +
-            `${item.resources ? `; risorse: ${item.resources}` : ''}` +
+            `${item.leverage || item.resources ? `; leva: ${item.leverage || item.resources}` : ''}` +
+            `${item.constraints ? `; vincoli: ${item.constraints}` : ''}` +
             `${place ? `; base: ${place}` : ''}` +
             `${item.lastMove ? `; ultima mossa: ${item.lastMove}` : ''}`;
     }
 
+    function isGenericActorName(value) {
+        const key = keyOf(value);
+        return /^(?:(?:il|la|lo|i|gli|le) )?(autorita|opposizione|comunita|custode|voce dell opposizione|guida locale|mediatore indipendente)(\b| di )/.test(key);
+    }
+
+    function needsHistoricalRepair(worldValue, context = {}) {
+        const world = migrateWorld(worldValue, context);
+        const history = world.historicalContext || {};
+        const genericCount = [...world.actors, ...world.factions].filter(item =>
+            isGenericActorName(item.name) || /deterministic-fallback|timeline-recovery/.test(keyOf(item.source))
+        ).length;
+        const namedCount = [...world.actors, ...world.factions].length - genericCount;
+        return world.provisional || !cleanText(history.baseline, 40) ||
+            !cleanText(history.politicalSystem, 30) || namedCount < 4;
+    }
+
     function buildBootstrapPrompt(context = {}) {
         const story = context.story || {};
-        return `🌍 **CREAZIONE OBBLIGATORIA DEL MONDO ALL'AVVIO**
-Questa è la prima risposta della campagna. Oltre alla scena, costruisci subito un mondo persistente coerente con «${cleanText(story.title, 120) || 'la storia'}» e con ${cleanText(story.setting, 160) || 'l’ambientazione scelta'}.
-- Crea esattamente 1 MONDO_SETUP, almeno 4 LUOGO_SETUP, 5 PERSONAGGIO_SETUP, 3 FAZIONE_SETUP, 5 RELAZIONE_SETUP e 3 FORZA_SETUP.
-- Ogni personaggio e fazione deve avere un obiettivo autonomo, una strategia, risorse limitate e abbastanza influenza da produrre eventi anche fuori scena.
+        const currentDate = cleanText(context.currentDate || context.date, 120) || 'l’inizio della campagna';
+        return `🌍 **CREAZIONE STORICO-POLITICA OBBLIGATORIA DEL MONDO**
+Costruisci subito un mondo persistente coerente con «${cleanText(story.title, 120) || 'la storia'}», con ${cleanText(story.setting, 160) || 'l’ambientazione scelta'} e con la data ${currentDate}.
+- Crea esattamente 1 MONDO_SETUP, 1 CONTESTO_STORICO_SETUP, almeno 4 LUOGO_SETUP, 6 PERSONAGGIO_SETUP, 3 FAZIONE_SETUP, 6 RELAZIONE_SETUP e 3 FORZA_SETUP.
+- Se l'ambientazione è storica o contemporanea, usa persone, cariche, istituzioni, confini, crisi e rapporti di forza plausibili per luogo e data. Non spostare figure tra epoche e non presentare invenzioni come fatti storici certi. Se la campagna è alternativa, definisci il punto di divergenza.
+- Vietati segnaposto come «Autorità», «Opposizione», «Guida locale» e «Mediatore indipendente»: assegna nomi propri, cariche esatte e appartenenze riconoscibili.
+- Ogni personaggio deve avere obiettivo pubblico e privato, leva concreta, limiti, conoscenze parziali e un'agenda. Ogni fazione deve avere ideologia, legittimità, leve e vincoli.
+- Ogni forza storica deve avere una causa, avversari identificati e una conseguenza concreta al 100% di progresso.
 - Crea alleati potenziali, rivali e parti neutrali; non renderli tutti dipendenti dal protagonista.
 - Le relazioni devono contenere cooperazione, conflitto e tensioni capaci di evolvere nella timeline.
 - Non usare il carattere | o ] dentro i valori. Non citare i tag nella prosa.
 [MONDO_SETUP: nome_mondo|premessa|conflitto_centrale|posta_in_gioco]
+[CONTESTO_STORICO_SETUP: data_o_epoca|regione|istituzioni_e_assetto_politico|situazione_storica_di_partenza|tensioni_attive|vincoli_storici|regola_di_divergenza]
 [LUOGO_SETUP: nome|tipo|regione|descrizione|controllore|risorsa|pericolo|collegamenti_separati_da_virgola]
-[PERSONAGGIO_SETUP: nome|ruolo|fazione_o_vuoto|descrizione|personalità|obiettivo|strategia|risorse|influenza_0_100|relazione_col_protagonista|active|luogo]
-[FAZIONE_SETUP: nome|tipo|leader|descrizione|obiettivo|strategia|risorse|influenza_0_100|relazione_col_protagonista|active|base]
+[PERSONAGGIO_SETUP: nome|carica_o_ruolo|fazione_o_vuoto|descrizione|personalità|obiettivo_generale|strategia|risorse|influenza_0_100|relazione_col_protagonista|active|luogo|obiettivo_pubblico|obiettivo_privato|leva_concreta|vincoli|conoscenze|agenda|ruolo_storico]
+[FAZIONE_SETUP: nome_esatto|tipo|leader|descrizione|obiettivo|strategia|risorse|influenza_0_100|relazione_col_protagonista|active|base|ideologia|legittimità_0_100|leva_concreta|vincoli]
 [RELAZIONE_SETUP: soggetto|bersaglio|tipo|fiducia_0_100|tensione_0_100|descrizione]
-[FORZA_SETUP: nome|attore_responsabile|obiettivo|progresso_0_100|urgenza_0_100|active]
+[FORZA_SETUP: nome|attore_responsabile|obiettivo|progresso_0_100|urgenza_0_100|active|causa|avversari_separati_da_virgola|conseguenza_al_100]
 La scena iniziale deve inoltre usare [LUOGO] e [POSIZIONE] per il luogo in cui si trova davvero il protagonista.`;
     }
 
@@ -492,6 +577,8 @@ Completa in questo turno gli elementi mancanti usando i tag *_SETUP descritti al
         const names = new Set(influences.map(item => keyOf(item.name)));
         const relations = world.relations.filter(item => names.has(keyOf(item.from)) || names.has(keyOf(item.to))).slice(0, 6);
         return `🌍 **MONDO PERSISTENTE: ${world.name}**
+Contesto storico: ${world.historicalContext?.date || 'data corrente'} · ${world.historicalContext?.baseline || world.setting || 'assetto definito dalla campagna'}.
+Istituzioni: ${world.historicalContext?.politicalSystem || 'quelle già stabilite'}.
 Conflitto centrale: ${world.centralConflict || world.premise || 'equilibri in evoluzione'}.
 Posta in gioco: ${world.stakes || 'le conseguenze delle azioni delle parti'}.
 Attori che possono influenzare questo turno:
@@ -505,6 +592,7 @@ Almeno uno di questi attori deve avanzare il proprio obiettivo quando è plausib
         const world = migrateWorld(worldValue, context);
         const influences = selectInfluences(world, { ...context, limit: 6 });
         return `🌐 **SIMULAZIONE CAUSALE DEL MONDO NEL PERIODO**
+Base storico-politica: ${world.historicalContext?.date || 'data della campagna'}; ${world.historicalContext?.baseline || world.setting}; istituzioni ${world.historicalContext?.politicalSystem || 'già definite'}; tensioni ${world.historicalContext?.activeTensions || world.centralConflict}.
 Durante ${cleanText(context.duration || 'il periodo selezionato', 100)}, fai agire almeno ${Math.min(3, Math.max(2, influences.length))} parti del mondo secondo obiettivi, strategie, risorse e relazioni persistenti:
 ${influences.length ? influences.map(compactActor).join('\n') : '- Usa le trame aperte registrate.'}
 - Le loro mosse devono produrre EVENTO datati e, quando due parti comunicano, CHAT in prima persona.
@@ -516,7 +604,7 @@ ${influences.length ? influences.map(compactActor).join('\n') : '- Usa le trame 
         const world = migrateWorld(worldValue, context);
         const wanted = new Set(asArray(participantNames).map(keyOf));
         const participants = [...world.actors, ...world.factions].filter(item => wanted.has(keyOf(item.name)));
-        return participants.map(item => `${item.name}: personalità ${item.personality || 'coerente col ruolo'}; obiettivo ${item.goal || 'non dichiarato'}; strategia ${item.strategy || 'pragmatica'}; risorse ${item.resources || 'limitate'}; rapporto col protagonista ${item.relationship || 'neutrale'}.`).join('\n');
+        return participants.map(item => `${item.name}: carica ${item.role || item.type || 'parte coinvolta'}; personalità ${item.personality || 'coerente col ruolo'}; obiettivo pubblico ${item.publicGoal || item.goal || 'non dichiarato'}; obiettivo privato ${item.privateGoal || 'non noto'}; strategia e agenda ${item.agenda || item.strategy || 'pragmatica'}; leva ${item.leverage || item.resources || 'limitata'}; vincoli ${item.constraints || 'quelli del ruolo'}; conosce ${item.knowledge || 'solo ciò che è emerso'}; rapporto col protagonista ${item.relationship || 'neutrale'}.`).join('\n');
     }
 
     function applyWorldMoves(worldValue, moves, turn, context = {}) {
@@ -592,6 +680,51 @@ ${influences.length ? influences.map(compactActor).join('\n') : '- Usa le trame 
         return world;
     }
 
+    function applyConversationOutcomes(worldValue, outcomes, turn, context = {}) {
+        const world = migrateWorld(worldValue, { ...context, turn });
+        asArray(outcomes).forEach(outcome => {
+            const participants = splitList(outcome?.participants, 12);
+            const status = keyOf(outcome?.status);
+            const summary = cleanText(outcome?.summary || outcome?.terms || outcome?.consequence, 320);
+            [...world.actors, ...world.factions].forEach(actor => {
+                if (!participants.some(name => keyOf(name) === keyOf(actor.name))) return;
+                actor.lastInteractionTurn = Math.max(0, Number(turn) || 0);
+                actor.lastMoveTurn = Math.max(0, Number(turn) || 0);
+                actor.lastMove = summary || actor.lastMove;
+            });
+            for (let leftIndex = 0; leftIndex < participants.length; leftIndex++) {
+                for (let rightIndex = leftIndex + 1; rightIndex < participants.length; rightIndex++) {
+                    const left = participants[leftIndex];
+                    const right = participants[rightIndex];
+                    let relation = world.relations.find(item => {
+                        const ends = new Set([keyOf(item.from), keyOf(item.to)]);
+                        return ends.has(keyOf(left)) && ends.has(keyOf(right));
+                    });
+                    if (!relation) {
+                        relation = normalizeRelation({ from: left, to: right, type: 'negoziazione', trust: 45, tension: 35, description: summary, source: 'world-chat' }, { ...context, turn });
+                        if (relation) world.relations.push(relation);
+                    }
+                    if (!relation) continue;
+                    if (/agreement|accordo|active|resolved/.test(status)) {
+                        relation.trust = numberBetween(relation.trust + 8, 0, 100, relation.trust);
+                        relation.tension = numberBetween(relation.tension - 6, 0, 100, relation.tension);
+                        relation.type = 'accordo';
+                    } else if (/refused|rifiut|failed|fallit|broken/.test(status)) {
+                        relation.trust = numberBetween(relation.trust - 5, 0, 100, relation.trust);
+                        relation.tension = numberBetween(relation.tension + 8, 0, 100, relation.tension);
+                    } else if (/proposal|proposta|draft/.test(status)) {
+                        relation.tension = numberBetween(relation.tension + 1, 0, 100, relation.tension);
+                    }
+                    relation.description = summary || relation.description;
+                    relation.updatedAtTurn = Math.max(relation.updatedAtTurn || 0, Number(turn) || 0);
+                }
+            }
+        });
+        world.relations = world.relations.slice(-LIMITS.relations);
+        world.updatedAtTurn = Math.max(world.updatedAtTurn, Number(turn) || 0);
+        return world;
+    }
+
     return {
         WORLD_SCHEMA_VERSION,
         LIMITS,
@@ -600,6 +733,7 @@ ${influences.length ? influences.map(compactActor).join('\n') : '- Usa le trame 
         keyOf,
         createDefaultWorld,
         normalizeLocation,
+        normalizeHistoricalContext,
         normalizeActor,
         normalizeFaction,
         normalizeRelation,
@@ -616,8 +750,11 @@ ${influences.length ? influences.map(compactActor).join('\n') : '- Usa le trame 
         buildRuntimePrompt,
         buildTimelinePrompt,
         buildInteractionPrompt,
+        isGenericActorName,
+        needsHistoricalRepair,
         applyWorldMoves,
         applyTimelineEvents,
-        markInteraction
+        markInteraction,
+        applyConversationOutcomes
     };
 });
