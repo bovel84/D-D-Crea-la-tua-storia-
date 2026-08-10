@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const memoryApi = require('../js/memory-manager.js');
+const eventApi = require('../js/event-manager.js');
 const narrativeApi = require('../js/narrative-master.js');
 const ollamaApi = require('../js/ollama-cloud.js');
 const ollamaProxyHandler = require('../api/ollama/[action].js');
@@ -78,6 +79,76 @@ test('la memoria migrata è persistibile con JSON', () => {
     const restored = memoryApi.migrateMemory(JSON.parse(JSON.stringify(original)));
     assert.equal(restored.factions[0].name, 'Custodi');
     assert.equal(restored.mediumTerm.summary, 'Scena corrente');
+});
+
+test('interpreta eventi LLM strutturati con causa, attori e conseguenza', () => {
+    const events = eventApi.parseNarrativeTags(
+        '[EVENTO: relazione|Il patto del porto|Elara accetta di aiutare il protagonista|Porto Vecchio|Elara, protagonista|Elara preparerà una barca entro l\'alba|high|active]',
+        { turn: 7, location: 'Locanda', knownActors: ['Elara'] }
+    );
+    assert.equal(events.length, 1);
+    assert.equal(events[0].type, 'relazione');
+    assert.equal(events[0].title, 'Il patto del porto');
+    assert.equal(events[0].location, 'Porto Vecchio');
+    assert.deepEqual(events[0].actors, ['Elara', 'protagonista']);
+    assert.match(events[0].consequence, /barca entro l'alba/);
+    assert.equal(events[0].importance, 'high');
+    assert.equal(events[0].status, 'active');
+    assert.equal(events[0].turn, 7);
+});
+
+test('mantiene compatibili i vecchi EVENTO e ne deduce la categoria', () => {
+    const events = eventApi.parseNarrativeTags(
+        '[EVENTO: Sconfitto il brigante che minacciava la strada]',
+        { turn: 3, location: 'Via del Mulino' }
+    );
+    assert.equal(events[0].type, 'conflitto');
+    assert.equal(events[0].summary, 'Sconfitto il brigante che minacciava la strada');
+    assert.equal(events[0].location, 'Via del Mulino');
+    assert.equal(events[0].eventSchemaVersion, eventApi.EVENT_SCHEMA_VERSION);
+});
+
+test('recupera dal CRONISTA il fatto principale se manca EVENTO', () => {
+    const events = eventApi.parseNarrativeTags(
+        'Elara tende la mano. [CRONISTA: Alleanza al porto|Elara accetta di collaborare|critical]',
+        { turn: 4, location: 'Porto' }
+    );
+    assert.equal(events.length, 1);
+    assert.equal(events[0].title, 'Alleanza al porto');
+    assert.equal(events[0].summary, 'Elara accetta di collaborare');
+    assert.equal(events[0].importance, 'critical');
+    assert.equal(events[0].source, 'cronista-fallback');
+});
+
+test('deduplica lo stesso evento e conserva i dettagli più ricchi', () => {
+    const first = eventApi.normalizeEvent({
+        type: 'scoperta', title: 'La cripta', summary: 'Trovato l ingresso della cripta',
+        location: 'Bosco', actors: ['Elara'], consequence: '', turn: 5
+    });
+    const second = eventApi.normalizeEvent({
+        type: 'scoperta', title: 'La cripta', summary: 'Trovato l ingresso della cripta',
+        location: 'Bosco', actors: ['Varek'], consequence: 'La cripta può ora essere esplorata', importance: 'high', turn: 5
+    });
+    const result = eventApi.recordEvents([first], [second], { turn: 5 });
+    assert.equal(result.events.length, 1);
+    assert.equal(result.added.length, 0);
+    assert.equal(result.updated.length, 1);
+    assert.deepEqual(result.events[0].actors, ['Elara', 'Varek']);
+    assert.equal(result.events[0].importance, 'high');
+    assert.match(result.events[0].consequence, /esplorata/);
+});
+
+test('il prompt eventi impone tag completi e usa il contesto della campagna', () => {
+    const prompt = eventApi.buildPrompt({
+        location: 'Porto Vecchio',
+        activeQuests: [{ name: 'Trovare Elara' }],
+        recentEvents: [{ summary: 'Elara è scomparsa', turn: 2 }]
+    });
+    assert.match(prompt, /tipo\|titolo\|fatto_accaduto\|luogo/);
+    assert.match(prompt, /Registra l'ESITO realmente narrato/);
+    assert.match(prompt, /Trovare Elara/);
+    assert.match(prompt, /Porto Vecchio/);
+    assert.match(prompt, /Elara è scomparsa/);
 });
 
 test('il Master sceglie il focus e produce un beat proattivo', () => {
@@ -327,6 +398,18 @@ test('registra il turno del Game Director nella memoria persistente', () => {
     assert.equal(memory.director.timeline[0].turn, 7);
     assert.equal(memory.director.worldMoves[0].actor, 'Elara');
     assert.equal(memory.director.agents.chronicler.status, 'updated');
+});
+
+test('il Game Director usa correttamente EVENTO strutturato come fallback', () => {
+    const memory = { turnCount: 9 };
+    directorApi.commitTurn(
+        'Cerco la cripta',
+        '[EVENTO: scoperta|Ingresso della cripta|Il protagonista trova la porta sotto le radici|Bosco|protagonista|La cripta è accessibile|high|active]',
+        memory
+    );
+    assert.equal(memory.director.timeline[0].title, 'Ingresso della cripta');
+    assert.equal(memory.director.timeline[0].summary, 'Il protagonista trova la porta sotto le radici');
+    assert.equal(memory.director.timeline[0].importance, 'high');
 });
 
 test('mantiene compatibile e limitata la memoria del Game Director', () => {
