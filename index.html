@@ -4135,10 +4135,22 @@
             const elapsedMinutes = CronacheTimeEnergy.normalizeMinutes(minutes);
             if (!elapsedMinutes) return 0;
             const resting = options.resting === true;
+            const routine = CronacheTimeEnergy.simulateDailyRoutine(G.character, elapsedMinutes);
             G.time.minute += elapsedMinutes;
             
             const hoursElapsed = elapsedMinutes / 60;
             if (G.character) {
+                if (routine) {
+                    G.character.stamina.cur = routine.stamina;
+                    G.character.hunger.cur = routine.hunger;
+                    G.character.health.cur = routine.health;
+                    G.character._metabolismCarry = { stamina: 0, hunger: 0 };
+                    addStoryEntry(
+                        `🌙 Vita quotidiana: ${routine.nights} notti di riposo e circa ${routine.meals} pasti durante ${CronacheTimeEnergy.describePassage(elapsedMinutes)}.` +
+                        (routine.healed > 0 ? ` Recupero: +${routine.healed} HP.` : ''),
+                        'system'
+                    );
+                } else {
                 // Consumo risorse BILANCIATO e realistico
                 // Una persona può stare sveglia ~16 ore e senza cibo ~24 ore prima di problemi seri
                 // Stamina: 100 in 16 ore = ~6.25/ora, usiamo 4/ora (più tollerante)
@@ -4200,6 +4212,7 @@
                         }
                     }
                 }
+                }
             }
             
             while (G.time.minute >= 60) {
@@ -4222,6 +4235,43 @@
                     G.time.month = 1;
                     G.time.year++;
                 }
+            }
+
+            if (routine && G.worldMemory) {
+                const elapsedTurns = Math.max(1, Math.floor(elapsedMinutes / CronacheTimeEnergy.MINUTES_PER_DAY));
+                G.worldMemory.turnCount = Math.max(0, Number(G.worldMemory.turnCount) || 0) + elapsedTurns;
+                const businessResult = processBusinessTurn() || { deliveries: [], reports: [] };
+                const kingdomResult = processKingdomTurn() || { reports: [] };
+                const periodDetails = [
+                    businessResult.reports.length ? `${businessResult.reports.length} periodi delle attività elaborati` : '',
+                    kingdomResult.reports.length ? `${kingdomResult.reports.length} periodi del regno elaborati` : ''
+                ].filter(Boolean);
+                const description = CronacheTimeEnergy.describePassage(elapsedMinutes);
+                const summary = `${routine.nights} notti di sonno, circa ${routine.meals} pasti e normale vita quotidiana` +
+                    (periodDetails.length ? `; ${periodDetails.join('; ')}` : '');
+                G.pendingTimePassage = {
+                    elapsed: elapsedMinutes,
+                    days: routine.days,
+                    description,
+                    summary,
+                    startTurn: G.worldMemory.turnCount - elapsedTurns,
+                    endTurn: G.worldMemory.turnCount
+                };
+                const periodEvent = eventEngine.create({
+                    type: 'personale',
+                    title: `Vita durante ${description}`,
+                    summary: `Il protagonista ha vissuto normalmente per ${description}, dormendo, mangiando e portando avanti la propria quotidianità.`,
+                    location: G.currentLocation,
+                    consequence: summary,
+                    importance: 'normal',
+                    status: 'resolved',
+                    source: 'time-engine'
+                }, { turn: G.worldMemory.turnCount, location: G.currentLocation });
+                const recorded = eventEngine.record(G.worldMemory.events, [periodEvent], {
+                    turn: G.worldMemory.turnCount,
+                    location: G.currentLocation
+                });
+                G.worldMemory.events = recorded.events;
             }
             
             updateTimeDisplay();
@@ -6685,6 +6735,7 @@
                 (report.netProfit >= 0 ? '+' : '') + report.netProfit + ' di risultato netto).', 'mechanic'
             ));
             if (deliveries.length || periods.reports.length) updateInfoPanels();
+            return { deliveries, reports: periods.reports };
         }
 
         // ==================== PARSER TAG ATTIVITÀ (LLM → motore gestionale) ====================
@@ -7294,6 +7345,7 @@
                 (report.approvalDelta >= 0 ? '+' : '') + report.approvalDelta + ').', 'mechanic'
             ));
             if (result.reports.length) updateInfoPanels();
+            return result;
         }
 
         function parseKingdomTags(response, { deferEntries = false } = {}) {
@@ -9281,6 +9333,9 @@
                 if (last?.textContent?.includes('scrivendo')) last.remove();
 
                 parseAIResponse(response, { isStart });
+                // Il periodo è stato narrato dalla risposta appena ricevuta; non va
+                // riproposto come se dovesse ancora accadere al turno successivo.
+                G.pendingTimePassage = null;
                 lifeEngine.commitTurn(action, response, G.character, G.worldMemory);
                 updateCharacterUI();
                 const directorCommit = gameDirector.commitTurn(action, response, G.worldMemory, {
@@ -9408,7 +9463,8 @@ Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, pr
                 location: G.currentLocation,
                 recentEvents: G.worldMemory.events || [],
                 activeQuests: (G.worldMemory.quests || []).filter(quest => quest.status === 'active'),
-                knownActors: G.worldMemory.npcs || []
+                knownActors: G.worldMemory.npcs || [],
+                timePassage: G.pendingTimePassage || null
             });
             
             // Build critical conditions
@@ -10391,7 +10447,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[OGGETTO:[^\]]*\]/gi, '')
                 .replace(/\[PROPRIETA:[^\]]*\]/gi, '')
                 .replace(/\[(?:ATTIVITA|CATALOGO|VENDITA|RIFORNIMENTO|PREZZO|PRODOTTO|CLIENTE|FORNITORE|DIPENDENTE|CONTRATTO|ACCORDO|STATO|REPUTAZIONE|CASSA|EVENTO)_NEGOZIO:[^\]]*\]/gi, '')
-                .replace(/\[(?:REGNO|TERRITORIO_REGNO|FAZIONE_REGNO|ESERCITO_REGNO|DIPLOMAZIA_REGNO|LEGGE_REGNO|CONSIGLIERE_REGNO|TESORO_REGNO|EVENTO_REGNO):[^\]]*\]/gi, '')
+                .replace(/\[(?:REGNO|[A-ZÀ-Ü_]+_REGNO):[^\]]*\]/gi, '')
                 .replace(/\[CONTRATTO:[^\]]*\]/gi, '')
                 .replace(/\[ABILITÀ:[^\]]*\]/gi, '')
                 .replace(/\[FAMIGLIA:[^\]]*\]/gi, '')
@@ -11045,7 +11101,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     const timeStr = mins >= 1440 ? `${Math.floor(mins/1440)} giorno/i` : 
                                    mins >= 60 ? `${Math.floor(mins/60)} ora/e` : `${mins} minuti`;
                     addStoryEntry(`⏰ Passano ${timeStr}... Ora sono le ${getTimeString()}, ${getTimePeriod().name}.`, 'system');
-                    generateAI(`È passato del tempo. Ora è ${getFullTimeString()}. Descrivi brevemente cosa è cambiato nella scena o cosa succede.`);
+                    generateAI(`È trascorso ${timeStr}. Narra in ordine cronologico cosa è successo durante l'intero periodo, includendo la normale vita quotidiana del protagonista e gli eventi significativi. Concludi alla data e ora attuali: ${getFullTimeString()}.`);
                 };
             });
             $('btn-wait-until').onclick = () => {
@@ -11054,7 +11110,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 closeAllModals();
                 if (waited > 0) {
                     addStoryEntry(`⏰ Aspetti fino alle ${targetHour.toString().padStart(2,'0')}:00...`, 'system');
-                    generateAI(`È passato del tempo. Ora è ${getFullTimeString()}. Descrivi brevemente cosa è cambiato.`);
+                    generateAI(`È passato del tempo. Narra cosa è avvenuto durante l'attesa, compresa la normale routine del protagonista, e concludi a ${getFullTimeString()}.`);
                 }
             };
 
