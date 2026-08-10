@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const MEMORY_SCHEMA_VERSION = 3;
+    const MEMORY_SCHEMA_VERSION = 4;
     const DEFAULT_SHORT_TERM_MESSAGES = 10;
     const DEFAULT_RETRIEVAL_LIMIT = 5;
     const DEFAULT_COMPRESSION_THRESHOLD = 6000;
@@ -93,6 +93,7 @@
             employees: [],
             chats: [],
             pendingTimelineChoices: [],
+            world: {},
             storySummary: '',
             sceneSummary: '',
             mediumTerm: {

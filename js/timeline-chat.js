@@ -240,6 +240,7 @@
 EVENTO: ${item.eventTitle}
 PARTECIPANTI: ${participants}
 CONTESTO: ${cleanText(context.eventSummary, 500) || 'Usa i fatti registrati nell’evento.'}
+CONTESTO DELLE PARTI: ${cleanText(context.actorContext, 900) || 'Mantieni identità, obiettivi e risorse già stabiliti.'}
 CONVERSAZIONE RECENTE:
 ${history}
 

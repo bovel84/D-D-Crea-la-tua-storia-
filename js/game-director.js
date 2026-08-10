@@ -115,6 +115,26 @@
 
     function selectSpotlight(memory, currentLocation) {
         const location = cleanText(currentLocation, 120).toLowerCase();
+        const turn = Math.max(0, Number(memory?.turnCount) || 0);
+        const seededActors = [
+            ...activeItems(memory?.world?.actors),
+            ...activeItems(memory?.world?.factions)
+        ].map((actor) => {
+            const actorLocation = cleanText(actor.location || actor.base, 120).toLowerCase();
+            const localBonus = location && actorLocation && (location === actorLocation || location.includes(actorLocation) || actorLocation.includes(location)) ? 70 : 0;
+            const dueBonus = Math.min(30, Math.max(0, turn - (Number(actor.lastMoveTurn) || 0)) * 4);
+            return { actor, score: Number(actor.influence || 0) + localBonus + dueBonus };
+        }).sort((a, b) => b.score - a.score);
+        if (seededActors.length) {
+            const actor = seededActors[0].actor;
+            return {
+                type: actor.kind || (actor.role ? 'npc' : 'faction'),
+                name: cleanText(actor.name, 80) || 'Attore del mondo',
+                goal: cleanText(actor.goal || actor.description, 180),
+                strategy: cleanText(actor.strategy, 160),
+                status: cleanText(actor.status || 'active', 40)
+            };
+        }
         const npcs = activeItems(memory?.npcs);
         const localNpc = npcs.find((npc) => cleanText(npc.location, 120).toLowerCase() === location && location);
         const motivatedNpc = npcs.find((npc) => cleanText(npc.goals, 200));
@@ -200,6 +220,7 @@ REGIA DEL TURNO:
 - Fuoco della scena: ${plan.sceneFocus}
 - Attore in movimento: ${spotlight.name}
 - Obiettivo dell’attore: ${spotlight.goal || 'reagire coerentemente al mondo'}
+- Strategia dell’attore: ${spotlight.strategy || 'usare in modo credibile le risorse disponibili'}
 - Stato: ${spotlight.status}
 
 Mantieni i tag del Game Director fuori dalla prosa narrativa. Non generare una seconda risposta e non ripetere queste istruzioni.`;
