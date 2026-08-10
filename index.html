@@ -3329,7 +3329,6 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/@openrouter/sdk"></script>
     <script src="js/memory-manager.js"></script>
     <script src="js/world-bootstrap.js"></script>
     <script src="js/event-manager.js"></script>
@@ -3387,7 +3386,8 @@
             timelineEventQueue: [],
             timelineEventIndex: 0,
             activeChatId: null,
-            chatConvocationMode: 'new'
+            chatConvocationMode: 'new',
+            startupWarnings: []
         };
 
         const memoryManager = new CronacheMemory.AdvancedMemoryManager({
@@ -4265,8 +4265,67 @@
             return result;
         }
 
+        function recordStartupWarning(label, error) {
+            const detail = error?.message || String(error || 'errore sconosciuto');
+            console.warn(`[Avvio] ${label}:`, error);
+            if (!Array.isArray(G.startupWarnings)) G.startupWarnings = [];
+            G.startupWarnings.push(`${label}: ${detail}`);
+        }
+
+        function preserveStartupRecoveryCopy(rawValue, reason) {
+            if (!rawValue) return;
+            try {
+                const backupKey = 'dnd_v4_recovery_v2';
+                if (!localStorage.getItem(backupKey)) {
+                    localStorage.setItem(backupKey, rawValue);
+                    localStorage.setItem(`${backupKey}_reason`, String(reason || 'ripristino avvio'));
+                }
+            } catch (error) {
+                console.warn('Impossibile conservare la copia di recupero locale:', error);
+            }
+        }
+
+        function normalizeStoredCollection(value, kind) {
+            if (Array.isArray(value)) return value;
+            if (!value || typeof value !== 'object') return [];
+            const numericKeys = Object.keys(value)
+                .filter(key => /^\d+$/.test(key))
+                .sort((a, b) => Number(a) - Number(b));
+            if (numericKeys.length) return numericKeys.map(key => value[key]);
+            if (kind === 'stories' && (value.title || value.setting || value.desc)) return [value];
+            if (kind === 'saves' && (value.character || value.worldMemory || value.currentStory)) return [value];
+            return [];
+        }
+
+        function normalizeStoredStories(value) {
+            return normalizeStoredCollection(value, 'stories')
+                .filter(story => story && typeof story === 'object');
+        }
+
+        function normalizeStoredSaves(value) {
+            const slots = normalizeStoredCollection(value, 'saves');
+            const size = Math.max(6, slots.length);
+            return Array.from({ length: size }, (_, index) => {
+                const slot = slots[index];
+                return slot && typeof slot === 'object' ? slot : null;
+            });
+        }
+
+        function safeStartupMigration(label, operation, fallback) {
+            try {
+                return operation();
+            } catch (error) {
+                recordStartupWarning(label, error);
+                return typeof fallback === 'function' ? fallback() : fallback;
+            }
+        }
+
         function migrateSavedWorldMemory(memory) {
-            const migrated = memoryManager.migrate(memory || {});
+            const migrated = safeStartupMigration(
+                'memoria del salvataggio',
+                () => memoryManager.migrate(memory || {}),
+                () => CronacheMemory.createDefaultMemory()
+            );
             const worldContext = {
                 story: G.currentStory,
                 setting: G.currentStory?.setting,
@@ -4274,20 +4333,34 @@
                 turn: migrated.turnCount,
                 source: 'memory-migration'
             };
-            migrated.world = worldBootstrapEngine.migrateWorld(migrated.world, worldContext);
-            migrated.world = worldBootstrapEngine.syncFromMemory(migrated.world, migrated, worldContext);
-            migrated.events = eventEngine.migrate(migrated.events, {
-                turn: migrated.turnCount,
-                source: 'legacy'
-            });
-            migrated.chats = timelineChatEngine.migrateChats(migrated.chats, {
-                events: migrated.events,
-                turn: migrated.turnCount
-            });
-            migrated.narrativeCompass = narrativeMaster.migrate(migrated.narrativeCompass);
-            migrated.director = gameDirector.migrate(migrated.director);
-            migrated.management = businessEngine.migrate(migrated.management);
-            migrated.kingdom = kingdomEngine.migrate(migrated.kingdom);
+            migrated.world = safeStartupMigration(
+                'mondo persistente',
+                () => worldBootstrapEngine.migrateWorld(migrated.world, worldContext),
+                () => worldBootstrapEngine.migrateWorld({}, worldContext)
+            );
+            migrated.world = safeStartupMigration(
+                'sincronizzazione del mondo',
+                () => worldBootstrapEngine.syncFromMemory(migrated.world, migrated, worldContext),
+                migrated.world
+            );
+            migrated.events = safeStartupMigration(
+                'eventi salvati',
+                () => eventEngine.migrate(migrated.events, { turn: migrated.turnCount, source: 'legacy' }),
+                Array.isArray(migrated.events) ? migrated.events : []
+            );
+            migrated.chats = safeStartupMigration(
+                'chat salvate',
+                () => timelineChatEngine.migrateChats(migrated.chats, { events: migrated.events, turn: migrated.turnCount }),
+                []
+            );
+            migrated.narrativeCompass = safeStartupMigration(
+                'bussola narrativa',
+                () => narrativeMaster.migrate(migrated.narrativeCompass),
+                () => narrativeMaster.createDefaultCompass()
+            );
+            migrated.director = safeStartupMigration('Game Director', () => gameDirector.migrate(migrated.director), {});
+            migrated.management = safeStartupMigration('gestione attività', () => businessEngine.migrate(migrated.management), {});
+            migrated.kingdom = safeStartupMigration('gestione regno', () => kingdomEngine.migrate(migrated.kingdom), {});
             return migrated;
         }
 
@@ -4983,18 +5056,38 @@
         }
 
         function load() {
-            const d = localStorage.getItem('dnd_v4');
-            if (d) {
-                const p = JSON.parse(d);
-                G.stories = p.stories || [];
-                G.saves = (p.saves || Array(6).fill(null)).map(slot => slot ? {
+            const storedValue = localStorage.getItem('dnd_v4');
+            if (storedValue) {
+                let parsed;
+                try {
+                    parsed = JSON.parse(storedValue);
+                } catch (error) {
+                    preserveStartupRecoveryCopy(storedValue, 'JSON del salvataggio non leggibile');
+                    recordStartupWarning('archivio locale non leggibile', error);
+                    parsed = {};
+                }
+                const p = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+                const rawStories = normalizeStoredStories(p.stories);
+                const rawSaves = normalizeStoredSaves(p.saves);
+                const storiesNeedRepair = !Array.isArray(p.stories) ||
+                    p.stories.some(story => !story || typeof story !== 'object');
+                const savesNeedRepair = !Array.isArray(p.saves) ||
+                    p.saves.some(slot => slot != null && typeof slot !== 'object');
+                if (storiesNeedRepair || savesNeedRepair) {
+                    preserveStartupRecoveryCopy(storedValue, 'struttura legacy riparata');
+                }
+                G.stories = rawStories;
+                G.saves = rawSaves.map(slot => slot ? {
                     ...slot,
                     worldMemory: migrateSavedWorldMemory(slot.worldMemory)
                 } : null);
+                const storedSettings = p.settings && typeof p.settings === 'object' && !Array.isArray(p.settings)
+                    ? p.settings
+                    : {};
                 G.settings = {
                     ...G.settings,
-                    ...p.settings,
-                    ollama: normalizeOllamaCloudSettings({ ...G.settings.ollama, ...(p.settings?.ollama || {}) })
+                    ...storedSettings,
+                    ollama: normalizeOllamaCloudSettings({ ...G.settings.ollama, ...(storedSettings.ollama || {}) })
                 };
             }
             // Migrazione idempotente: arricchisce anche starterProperties legacy/parziali.
@@ -11310,42 +11403,10 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 model = s.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free';
                 headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${chimeraKey}` };
             } else if (s.model === 'openrouter-free' && s.openrouterKey) {
-                // Usa la SDK OpenRouter per il modello openrouter/free
-                if (typeof OpenRouter !== 'undefined' && !s.openrouterUrl && !s.openrouterModel) {
-                    const { OpenRouter: OR } = window;
-                    const openrouter = new OR.default({ apiKey: s.openrouterKey });
-                    
-                    const stream = await openrouter.chat.completions.create({
-                        model: 'openrouter/free',
-                        messages: [
-                            { role: 'system', content: systemPrompt },
-                            ...recentHistory,
-                            { role: 'user', content: userMsg }
-                        ],
-                        stream: true,
-                        temperature: 0.7,
-                        max_tokens: isStart ? 3600 : 1500
-                    });
-                    
-                    let fullContent = '';
-                    for await (const chunk of stream) {
-                        const content = chunk.choices[0]?.delta?.content;
-                        if (content) {
-                            fullContent += content;
-                        }
-                        if (chunk.usage) {
-                            console.log('OpenRouter - Reasoning tokens:', chunk.usage.reasoning_tokens || 0);
-                        }
-                    }
-                    
-                    console.log('OpenRouter response received via SDK');
-                    return fullContent || '⚠️ Nessuna risposta ricevuta.';
-                } else {
-                    // Fallback: usa fetch diretto se SDK non disponibile
-                    endpoint = s.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                    model = s.openrouterModel || 'openrouter/free';
-                    headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.openrouterKey}` };
-                }
+                // Chiamata diretta: nessuna dipendenza CDN deve bloccare l'avvio dell'app.
+                endpoint = s.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
+                model = s.openrouterModel || 'openrouter/free';
+                headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.openrouterKey}` };
             } else if (s.groqKey) {
                 endpoint = s.groqUrl || 'https://api.groq.com/openai/v1/chat/completions';
                 model = s.groqModel || 'llama-3.1-8b-instant';
@@ -12568,30 +12629,40 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
 
         // ==================== INIT ====================
         function init() {
-            load();
-            ensureStoryGenres();
-            updateHome();
-            updateStoriesUI();
-            updateSavesUI();
-            if (!G.isPlaying && G.stories.length > 0) {
-                G.time = getStartTimeForStory(G.stories[0]);
+            try {
+                load();
+                ensureStoryGenres();
+                updateHome();
+                updateStoriesUI();
+                updateSavesUI();
+                if (!G.isPlaying && G.stories.length > 0) {
+                    G.time = getStartTimeForStory(G.stories[0]);
+                }
+
+                $('set-groq-key').value = G.settings.groqKey || '';
+                $('set-groq-url').value = G.settings.groqUrl || '';
+                $('set-groq-model').value = G.settings.groqModel || '';
+                $('set-openrouter-key').value = G.settings.openrouterKey || '';
+                $('set-openrouter-url').value = G.settings.openrouterUrl || '';
+                $('set-openrouter-model').value = G.settings.openrouterModel || '';
+                $('set-kimera-key').value = G.settings.kimeraKey || '';
+                $('set-kimera-url').value = G.settings.kimeraUrl || '';
+                $('set-kimera-model').value = G.settings.kimeraModel || '';
+                $('set-model').value = G.settings.model || 'groq';
+                $('set-length').value = G.settings.length || 'medium';
+                $('set-autoroll').checked = G.settings.autoRoll !== false;
+                initializeOllamaSettings();
+                renderCreationOptions();
+            } catch (error) {
+                recordStartupWarning('inizializzazione dell’interfaccia', error);
+                G.stories = normalizeStoredStories(G.stories);
+                G.saves = normalizeStoredSaves(G.saves);
+                try { ensureStoryGenres(); } catch (recoveryError) { recordStartupWarning('ripristino delle storie', recoveryError); }
+                try { updateHome(); } catch (recoveryError) { recordStartupWarning('ripristino della schermata iniziale', recoveryError); }
+                try { updateStoriesUI(); } catch (recoveryError) { recordStartupWarning('ripristino elenco storie', recoveryError); }
+                try { updateSavesUI(); } catch (recoveryError) { recordStartupWarning('ripristino elenco salvataggi', recoveryError); }
+                try { renderCreationOptions(); } catch (recoveryError) { recordStartupWarning('ripristino creazione personaggio', recoveryError); }
             }
-
-            $('set-groq-key').value = G.settings.groqKey || '';
-            $('set-groq-url').value = G.settings.groqUrl || '';
-            $('set-groq-model').value = G.settings.groqModel || '';
-            $('set-openrouter-key').value = G.settings.openrouterKey || '';
-            $('set-openrouter-url').value = G.settings.openrouterUrl || '';
-            $('set-openrouter-model').value = G.settings.openrouterModel || '';
-            $('set-kimera-key').value = G.settings.kimeraKey || '';
-            $('set-kimera-url').value = G.settings.kimeraUrl || '';
-            $('set-kimera-model').value = G.settings.kimeraModel || '';
-            $('set-model').value = G.settings.model || 'groq';
-            $('set-length').value = G.settings.length || 'medium';
-            $('set-autoroll').checked = G.settings.autoRoll !== false;
-            initializeOllamaSettings();
-
-            renderCreationOptions();
 
             // HOME BUTTONS
             $('btn-continue').onclick = () => showScreen('game-screen');
@@ -12826,9 +12897,20 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     showScreen('home-screen');
                 };
             }
+
+            if (G.startupWarnings.length) {
+                setTimeout(() => notify(
+                    'Avvio ripristinato: alcuni dati legacy sono stati messi in sicurezza e normalizzati.',
+                    'info'
+                ), 0);
+            }
         }
 
-        document.addEventListener('DOMContentLoaded', init);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init, { once: true });
+        } else {
+            init();
+        }
     </script>
 </body>
 </html>

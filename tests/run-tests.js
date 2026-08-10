@@ -1866,6 +1866,20 @@ test('la barra mobile mostra soltanto la gestione di attività e regno', () => {
     assert.match(html, /managementActionBar\.hidden = businessManageButton\.hidden && kingdomButton\.hidden/);
 });
 
+test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migrazione incompleta', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /function preserveStartupRecoveryCopy/);
+    assert.match(html, /dnd_v4_recovery_v2/);
+    assert.match(html, /function normalizeStoredStories/);
+    assert.match(html, /function normalizeStoredSaves/);
+    assert.match(html, /function safeStartupMigration/);
+    assert.match(html, /recordStartupWarning\('inizializzazione dell’interfaccia'/);
+    assert.match(html, /Avvio ripristinato: alcuni dati legacy sono stati messi in sicurezza e normalizzati/);
+    assert.doesNotMatch(html, /unpkg\.com\/@openrouter\/sdk/);
+    assert.match(html, /nessuna dipendenza CDN deve bloccare l'avvio dell'app/);
+    assert.match(html, /document\.readyState === 'loading'/);
+});
+
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /src="js\/timeline-chat\.js"/);
