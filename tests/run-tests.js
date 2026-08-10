@@ -29,12 +29,13 @@ function test(name, fn) { tests.push({ name, fn }); }
 test('migra la memoria legacy senza perdere i campi esistenti', () => {
     const legacy = { npcs: [{ name: 'Elara' }], events: [{ summary: 'Incontro' }], customField: 42 };
     const migrated = memoryApi.migrateMemory(legacy);
-    assert.equal(migrated.memorySchemaVersion, 4);
+    assert.equal(migrated.memorySchemaVersion, 5);
     assert.equal(migrated.npcs[0].name, 'Elara');
     assert.equal(migrated.customField, 42);
     assert.deepEqual(migrated.factions, []);
     assert.deepEqual(migrated.revealedSecrets, []);
     assert.deepEqual(migrated.chats, []);
+    assert.deepEqual(migrated.agreements, []);
     assert.deepEqual(migrated.pendingTimelineChoices, []);
     assert.deepEqual(migrated.world, {});
 });
@@ -42,6 +43,7 @@ test('migra la memoria legacy senza perdere i campi esistenti', () => {
 test('costruisce all’avvio un mondo persistente con luoghi, attori, fazioni e forze', () => {
     const response = [
         '[MONDO_SETUP: Astaria|Sei potenze competono per le rotte|Il trono è vacante|Una guerra può travolgere la popolazione]',
+        '[CONTESTO_STORICO_SETUP: Anno 417 dell’Interregno|Daran|Consiglio oligarchico, Legione di frontiera e gilde portuali|La morte dell’ultimo sovrano ha aperto la successione|Legione e Consiglio competono per la nomina|Nessuna parte controlla insieme capitale, porto ed esercito|Ogni divergenza nasce dalle decisioni registrate]',
         '[LUOGO_SETUP: Khepra|capitale|Daran|Città sul Fiume Rosso|Consiglio di Daran|grano|rivolta|Porto Rosso, Frontiera]',
         '[LUOGO_SETUP: Porto Rosso|porto|Daran|Mercato delle rotte meridionali|Gilda dei Mercanti|navi|pirati|Khepra]',
         '[LUOGO_SETUP: Frontiera|confine|Daran|Terre contese tra fortezze|Legione|ferro|guerra|Khepra]',
@@ -63,6 +65,8 @@ test('costruisce all’avvio un mondo persistente con luoghi, attori, fazioni e 
     assert.equal(result.world.factions.length, 2);
     assert.equal(result.world.locations.length, 3);
     assert.equal(result.world.relations[0].tension, 78);
+    assert.match(result.world.historicalContext.politicalSystem, /Consiglio oligarchico/);
+    assert.equal(worldBootstrapApi.needsHistoricalRepair(result.world), false);
     const memory = worldBootstrapApi.projectToMemory(result.world, memoryApi.createDefaultMemory(), { turn: 0 });
     assert.equal(memory.npcs.find(item => item.name === 'Varos Kain').goals, 'ottenere pieni poteri');
     assert.equal(memory.factions.find(item => item.name === 'Legione').leader, 'Varos Kain');
@@ -80,6 +84,36 @@ test('garantisce un mondo minimo giocabile se il modello omette i tag iniziali',
     assert.ok(result.world.actors.length >= 4);
     assert.ok(result.world.factions.length >= 2);
     assert.ok(result.world.locations.length >= 3);
+    assert.equal(worldBootstrapApi.needsHistoricalRepair(result.world), true);
+});
+
+test('sostituisce i segnaposto provvisori con un mondo storico-politico specifico', () => {
+    const provisional = worldBootstrapApi.ensureMinimumWorld({}, {
+        story: { title: 'Firenze contesa', setting: 'Firenze, 1520' }, turn: 0,
+        source: 'timeline-recovery'
+    });
+    const response = [
+        '[MONDO_SETUP: Repubblica fiorentina|Firenze difende la propria autonomia|Le istituzioni repubblicane fronteggiano la pressione medicea|Il controllo della Signoria]',
+        '[CONTESTO_STORICO_SETUP: 12 luglio 1520|Firenze e contado|Signoria, Gonfaloniere e Consiglio degli Ottanta|La repubblica governa mentre i sostenitori dei Medici riorganizzano reti e credito|Pressione pontificia, rivalità tra ottimati e popolo minuto|Le cariche dipendono dai consigli e il tesoro è limitato|La storia diverge solo dopo mosse registrate]',
+        '[LUOGO_SETUP: Palazzo Vecchio|sede politica|Firenze|Sede della Signoria|Signoria di Firenze|archivi|congiure|Mercato Vecchio, Porta Romana]',
+        '[LUOGO_SETUP: Mercato Vecchio|mercato|Firenze|Centro del credito cittadino|Arti Maggiori|credito|serrate|Palazzo Vecchio]',
+        '[LUOGO_SETUP: Porta Romana|porta|Contado|Accesso meridionale alla città|Otto di Guardia|dazi|infiltrazioni|Palazzo Vecchio]',
+        '[PERSONAGGIO_SETUP: Niccolò Capponi|gonfaloniere|Signoria di Firenze|Magistrato repubblicano|prudente|difendere la repubblica|convocare i consigli|carica e reti patrizie|78|neutrale|active|Palazzo Vecchio|preservare le istituzioni|limitare i rivali ottimati|accesso alla Signoria|deve ottenere voti|conosce gli equilibri dei consigli|formare una maggioranza|magistrato fiorentino]',
+        '[PERSONAGGIO_SETUP: Jacopo Gherardi|banchiere|Arte del Cambio|Finanziere degli ottimati|calcolatore|proteggere il credito|condizionare i prestiti|capitale e clienti|69|incerta|active|Mercato Vecchio|evitare il panico|ottenere concessioni fiscali|credito cittadino|dipende dalla fiducia|conosce debiti privati|negoziare garanzie|banchiere influente]',
+        '[PERSONAGGIO_SETUP: Alessandra Macinghi|mercante|Arte della Lana|Rappresentante manifatturiera|diretta|tenere aperti i commerci|coordinare le botteghe|magazzini e maestranze|61|neutrale|active|Mercato Vecchio|difendere la produzione|ridurre i dazi|maestranze|teme serrate|conosce le scorte|formare un fronte delle arti|mercante cittadina]',
+        '[PERSONAGGIO_SETUP: Bernardo Segni|segretario|Signoria di Firenze|Segretario dei consigli|analitico|evitare una congiura|incrociare dispacci|archivi e messaggeri|57|alleato potenziale|active|Palazzo Vecchio|proteggere il governo|scoprire il finanziatore dei rivali|informazioni|non comanda truppe|conosce i dispacci|identificare la rete medicea|funzionario repubblicano]',
+        '[FAZIONE_SETUP: Signoria di Firenze|governo repubblicano|Niccolò Capponi|Magistratura cittadina|mantenere autonomia|voti e decreti|istituzioni|78|neutrale|active|Palazzo Vecchio|repubblicanesimo civico|68|nomine e leggi|maggioranze instabili]',
+        '[FAZIONE_SETUP: Arte del Cambio|gilda finanziaria|Jacopo Gherardi|Controlla credito e cambi|proteggere capitale|prestiti selettivi|credito|72|incerta|active|Mercato Vecchio|oligarchia mercantile|64|liquidità|rischio di panico]',
+        '[RELAZIONE_SETUP: Signoria di Firenze|Arte del Cambio|dipendenza conflittuale|42|63|Il governo necessita credito ma teme il ricatto finanziario]',
+        '[RELAZIONE_SETUP: Niccolò Capponi|Jacopo Gherardi|negoziazione|38|58|Si cercano senza fidarsi]',
+        '[FORZA_SETUP: Rete medicea|Arte del Cambio|ottenere appoggi nei consigli|35|76|active|Pressione degli esuli e dei creditori|Signoria di Firenze|La maggioranza della Signoria passa ai sostenitori medicei]'
+    ].join('\n');
+    const repaired = worldBootstrapApi.ingestResponse(response, provisional, {
+        story: { title: 'Firenze contesa', setting: 'Firenze, 1520' }, turn: 1, source: 'historical-repair'
+    });
+    assert.equal(repaired.world.provisional, false);
+    assert.equal(repaired.world.actors.some(item => worldBootstrapApi.isGenericActorName(item.name)), false);
+    assert.equal(worldBootstrapApi.needsHistoricalRepair(repaired.world), false);
 });
 
 test('seleziona attori influenti e registra le loro mosse e interazioni', () => {
@@ -103,7 +137,9 @@ test('seleziona attori influenti e registra le loro mosse e interazioni', () => 
 test('i prompt collegano il mondo iniziale a timeline e conversazioni', () => {
     const startPrompt = worldBootstrapApi.buildBootstrapPrompt({ story: { title: 'Astaria', setting: 'Khepra' } });
     assert.match(startPrompt, /MONDO_SETUP/);
-    assert.match(startPrompt, /5 PERSONAGGIO_SETUP/);
+    assert.match(startPrompt, /6 PERSONAGGIO_SETUP/);
+    assert.match(startPrompt, /CONTESTO_STORICO_SETUP/);
+    assert.match(startPrompt, /Vietati segnaposto/);
     const world = worldBootstrapApi.ensureMinimumWorld({}, { story: { title: 'Astaria', setting: 'Khepra' } });
     const timelinePrompt = worldBootstrapApi.buildTimelinePrompt(world, { duration: 'un mese', turn: 4 });
     assert.match(timelinePrompt, /SIMULAZIONE CAUSALE/);
@@ -173,6 +209,42 @@ test('completa i tag IA mancanti senza eliminare gli eventi validi', () => {
     assert.equal(arc.events.length, 3);
     assert.equal(arc.events[0].title, 'Il consiglio vota');
     assert.equal(arc.fallbackAdded, 2);
+});
+
+test('rifiuta eventi politici generici e mantiene soltanto attori specifici della storia', () => {
+    const world = worldBootstrapApi.migrateWorld({
+        name: 'Firenze', setting: 'Firenze, 1520', initialized: true,
+        historicalContext: {
+            date: '12 luglio 1520', region: 'Firenze', politicalSystem: 'Signoria e Consiglio degli Ottanta',
+            baseline: 'La repubblica difende la propria autonomia', activeTensions: 'Credito e influenza medicea'
+        },
+        actors: [
+            { name: 'Niccolò Capponi', role: 'gonfaloniere', goal: 'difendere la Signoria', strategy: 'convocare il consiglio', resources: 'carica e voti', influence: 80 },
+            { name: 'Jacopo Gherardi', role: 'banchiere', goal: 'condizionare il governo', strategy: 'limitare il credito', resources: 'capitale', influence: 70 },
+            { name: 'Bernardo Segni', role: 'segretario', goal: 'scoprire la congiura', strategy: 'incrociare dispacci', resources: 'archivi', influence: 55 },
+            { name: 'Alessandra Macinghi', role: 'mercante', goal: 'proteggere le botteghe', strategy: 'mobilitare le arti', resources: 'maestranze', influence: 60 }
+        ],
+        factions: [
+            { name: 'Signoria di Firenze', goal: 'mantenere autonomia', strategy: 'voti e decreti', resources: 'istituzioni', influence: 82 },
+            { name: 'Arte del Cambio', goal: 'proteggere il credito', strategy: 'prestiti selettivi', resources: 'liquidità', influence: 74 }
+        ],
+        relations: [{ from: 'Signoria di Firenze', to: 'Arte del Cambio', type: 'rivalità', trust: 30, tension: 70 }],
+        forces: [{ name: 'Crisi del credito', actor: 'Arte del Cambio', objective: 'ottenere garanzie fiscali', progress: 35, urgency: 70 }]
+    });
+    const generic = eventApi.normalizeEvent({
+        type: 'politica', title: 'Il mediatore propone un incontro',
+        summary: 'Il Mediatore convoca l’Autorità e l’Opposizione. Le parti promettono di discutere.',
+        actors: ['Il Mediatore indipendente', 'l’Autorità'],
+        consequence: 'La tensione potrebbe cambiare nei prossimi giorni.', source: 'timeline-ai'
+    });
+    assert.ok(timelineSimulatorApi.eventCentralityScore(generic, { world }) < 6);
+    const arc = timelineSimulatorApi.ensureEventArc([generic], {
+        story: { title: 'Firenze contesa', setting: 'Firenze, 1520' }, world,
+        passage: { days: 7, description: '1 settimana' }, location: 'Palazzo Vecchio'
+    });
+    assert.equal(arc.qualityRejected, 1);
+    assert.equal(arc.events.some(event => event.title === generic.title), false);
+    assert.ok(arc.events.every(event => event.actors.every(name => !timelineSimulatorApi.keyOf(name).includes('mediatore indipendente'))));
 });
 
 test('gli eventi della timeline aprono conversazioni vive in prima persona', () => {
@@ -357,6 +429,18 @@ test('gli eventi del periodo conservano data e scelta causale', () => {
     assert.match(prompt, /Aumentare la tassa sui mercanti/);
 });
 
+test('gli eventi centrali conservano causa storica, spostamento politico e trattativa', () => {
+    const events = eventApi.parseNarrativeTags(
+        '[EVENTO: politica|Il credito viene sospeso|Jacopo Gherardi ordina ai banchieri di congelare i prestiti alla Signoria. Niccolò Capponi convoca il Consiglio degli Ottanta.|Mercato Vecchio|Jacopo Gherardi, Niccolò Capponi, Arte del Cambio|Il governo non può finanziare le guardie senza nuove garanzie|critical|developing|14 luglio 1520|Il rifiuto della Signoria di concedere esenzioni|La repubblica fiorentina dipende dal credito delle Arti|L’Arte del Cambio ottiene potere di veto finanziario|Il pagamento delle guardie cittadine|Negoziare garanzie e durata dei prestiti|required]',
+        { turn: 14 }
+    );
+    assert.equal(events[0].cause, 'Il rifiuto della Signoria di concedere esenzioni');
+    assert.match(events[0].historicalAnchor, /repubblica fiorentina/);
+    assert.match(events[0].politicalShift, /potere di veto/);
+    assert.equal(events[0].conversationMode, 'required');
+    assert.match(events[0].conversationGoal, /garanzie/);
+});
+
 test('crea chat persistenti collegate agli eventi e in prima persona', () => {
     const event = eventApi.normalizeEvent({
         id: 'event-patto', type: 'relazione', title: 'Il patto del porto',
@@ -408,6 +492,70 @@ test('i prompt della simulazione e della chat fanno reagire le parti alle scelte
     }, 'Propongo una tregua', { eventSummary: 'Le botteghe sono chiuse' });
     assert.match(chatPrompt, /IL PROTAGONISTA DICE: Propongo una tregua/);
     assert.match(chatPrompt, /Non parlare mai al posto del protagonista/);
+});
+
+test('il giocatore convoca una chat multi-NPC e invita altri soggetti', () => {
+    const created = timelineChatApi.createThread([], {
+        title: 'Consiglio sul credito', purpose: 'contratto',
+        agenda: 'Definire garanzie, importo e durata del prestito',
+        participants: ['Jacopo Gherardi', 'Niccolò Capponi']
+    }, { protagonistName: 'Lorenzo', turn: 8, occurredAt: '14 luglio 1520' });
+    assert.equal(created.created, true);
+    assert.deepEqual(created.thread.participants, ['Jacopo Gherardi', 'Niccolò Capponi', 'Lorenzo']);
+    assert.equal(created.thread.purpose, 'contratto');
+    const invited = timelineChatApi.inviteParticipants(created.chats, created.thread.id, ['Alessandra Macinghi'], { turn: 9 });
+    assert.deepEqual(invited.invited, ['Alessandra Macinghi']);
+    assert.ok(invited.thread.participants.includes('Alessandra Macinghi'));
+    const prompt = timelineChatApi.buildChatPrompt(invited.thread, 'Propongo un prestito garantito dai dazi', {
+        actorContext: 'Jacopo controlla il credito; Alessandra rappresenta le botteghe.'
+    });
+    assert.match(prompt, /2-5 CHAT/);
+    assert.match(prompt, /almeno due soggetti/);
+    assert.match(prompt, /ACCORDO_CHAT/);
+});
+
+test('una negoziazione registra esito e contratto persistente senza accettazioni automatiche', () => {
+    const created = timelineChatApi.createThread([], {
+        title: 'Prestito alle guardie', purpose: 'contratto', agenda: 'Finanziare le guardie cittadine',
+        participants: ['Jacopo Gherardi', 'Niccolò Capponi']
+    }, { protagonistName: 'Lorenzo', turn: 10 });
+    const response = [
+        `[ESITO_CHAT: ${created.thread.id}|agreement|Le parti approvano il finanziamento|L’Arte del Cambio ottiene garanzie sui dazi|Verificare il primo pagamento]`,
+        `[ACCORDO_CHAT: ${created.thread.id}|Prestito delle guardie|Jacopo Gherardi, Niccolò Capponi, Lorenzo|contratto|Cento fiorini contro il gettito dei dazi per tre mesi|active|tre mesi|Il mancato pagamento sospende il credito|Tesoreria della Signoria]`
+    ].join('\n');
+    const parsed = timelineChatApi.parseOutcomeTags(response, { turn: 10 });
+    assert.equal(parsed.outcomes[0].status, 'agreement');
+    assert.equal(parsed.agreements[0].status, 'active');
+    const premature = timelineChatApi.applyConversationResults(created.chats, parsed, { turn: 10 });
+    assert.equal(premature.chats[0].agreements[0].status, 'draft');
+    assert.equal(premature.chats[0].resolution.status, 'proposal');
+    const acceptedMessages = timelineChatApi.recordMessages(created.chats, [
+        { threadId: created.thread.id, eventTitle: created.thread.eventTitle, speaker: 'Jacopo Gherardi', speakerType: 'npc', text: 'Io accetto questi termini.', source: 'llm' },
+        { threadId: created.thread.id, eventTitle: created.thread.eventTitle, speaker: 'Niccolò Capponi', speakerType: 'npc', text: 'Io approvo e firmo il prestito.', source: 'llm' },
+        { threadId: created.thread.id, eventTitle: created.thread.eventTitle, speaker: 'Lorenzo', speakerType: 'protagonista', text: 'Accetto il contratto.', source: 'player' }
+    ], { turn: 10 });
+    const applied = timelineChatApi.applyConversationResults(acceptedMessages.chats, parsed, { turn: 10 });
+    assert.equal(applied.changed, true);
+    assert.equal(applied.chats[0].resolution.status, 'agreement');
+    assert.equal(applied.chats[0].agreements[0].title, 'Prestito delle guardie');
+    assert.equal(applied.chats[0].agreements[0].status, 'active');
+});
+
+test('gli esiti delle chat modificano fiducia e tensione tra le parti', () => {
+    let world = worldBootstrapApi.migrateWorld({
+        actors: [
+            { name: 'Jacopo Gherardi', status: 'active' },
+            { name: 'Niccolò Capponi', status: 'active' }
+        ],
+        relations: [{ from: 'Jacopo Gherardi', to: 'Niccolò Capponi', type: 'negoziazione', trust: 40, tension: 60 }]
+    });
+    world = worldBootstrapApi.applyConversationOutcomes(world, [{
+        participants: ['Jacopo Gherardi', 'Niccolò Capponi'], status: 'agreement',
+        summary: 'Le parti firmano il prestito.'
+    }], 12);
+    assert.equal(world.relations[0].trust, 48);
+    assert.equal(world.relations[0].tension, 54);
+    assert.equal(world.actors[0].lastMoveTurn, 12);
 });
 
 test('il Master sceglie il focus e produce un beat proattivo', () => {
@@ -1729,8 +1877,15 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /id="modal-world-chat"/);
     assert.match(html, /id="chat-thread-list"/);
     assert.match(html, /id="chat-input"/);
+    assert.match(html, /id="btn-new-world-chat"/);
+    assert.match(html, /id="btn-invite-world-chat"/);
+    assert.match(html, /id="chat-invite-candidates"/);
     assert.match(html, /function simulateTimelineEvents/);
     assert.match(html, /function sendWorldChatMessage/);
+    assert.match(html, /function confirmWorldConvocation/);
+    assert.match(html, /function applyWorldChatResults/);
+    assert.match(html, /timelineChatEngine\.parseOutcomeTags/);
+    assert.match(html, /timelineChatEngine\.inviteParticipants/);
     assert.match(html, /function queueTimelineChoice/);
     assert.match(html, /function requestTimelineAI/);
     assert.match(html, /timelineSimulator\.ensureEventArc/);
@@ -1750,6 +1905,8 @@ test('integra la creazione iniziale del mondo con narrazione, timeline e chat', 
     assert.match(html, /worldBootstrapEngine\.buildInteractionPrompt/);
     assert.match(html, /worldBootstrapEngine\.applyWorldMoves/);
     assert.match(html, /worldBootstrapEngine\.applyTimelineEvents/);
+    assert.match(html, /worldBootstrapEngine\.needsHistoricalRepair/);
+    assert.match(html, /function repairTimelineWorldIfNeeded/);
     assert.match(html, /Mondo creato:/);
     assert.match(html, /isStart \? 3600/);
 });

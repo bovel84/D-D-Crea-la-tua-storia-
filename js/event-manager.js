@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const EVENT_SCHEMA_VERSION = 3;
+    const EVENT_SCHEMA_VERSION = 4;
     const MAX_EVENTS = 100;
     const EVENT_TYPES = [
         'conflitto', 'scoperta', 'relazione', 'decisione', 'missione', 'economia',
@@ -51,6 +51,17 @@
         if (/resolved|risolto|concluso|completed|completato|closed|chiuso/.test(key)) return 'resolved';
         if (/developing|evolving|sviluppo|evoluzione|pending|in corso/.test(key)) return 'developing';
         return 'resolved';
+    }
+
+    function normalizeConversationMode(value, type, actors, goal) {
+        const key = normalizeKey(value);
+        if (/none|nessuna|vietat|impossibil/.test(key)) return 'none';
+        if (/required|obbligator|urgent|necessar/.test(key)) return 'required';
+        if (/available|open|aperta|possibil|optional/.test(key)) return 'available';
+        if (cleanText(goal, 20)) return 'available';
+        return asArray(actors).length >= 2 && /politica|relazione|economia|decisione|conflitto|missione/.test(type)
+            ? 'available'
+            : 'none';
     }
 
     function classifyEvent(value) {
@@ -142,6 +153,11 @@
             ? parseActors(input.actors)
             : inferActors(`${title} ${summary}`, context.knownActors);
         const consequence = cleanText(input.consequence, 260);
+        const cause = cleanText(input.cause || input.causedBy, 320);
+        const historicalAnchor = cleanText(input.historicalAnchor || input.historicalContext, 280);
+        const politicalShift = cleanText(input.politicalShift || input.powerShift, 300);
+        const stakes = cleanText(input.stakes, 260);
+        const conversationGoal = cleanText(input.conversationGoal || input.agenda, 260);
         const importance = normalizeImportance(input.importance, `${title} ${summary} ${consequence}`);
         const status = normalizeStatus(input.status);
         const event = {
@@ -153,6 +169,12 @@
             location,
             actors,
             consequence,
+            cause,
+            historicalAnchor,
+            politicalShift,
+            stakes,
+            conversationGoal,
+            conversationMode: normalizeConversationMode(input.conversationMode, type, actors, conversationGoal),
             occurredAt: cleanText(input.occurredAt || input.date || input.moment || context.occurredAt || context.timePassage?.endDate, 100),
             choice: cleanText(input.choice || context.choice, 240),
             importance,
@@ -186,7 +208,13 @@
             consequence: parts[5],
             importance: parts[6],
             status: parts[7],
-            occurredAt: parts[8]
+            occurredAt: parts[8],
+            cause: parts[9],
+            historicalAnchor: parts[10],
+            politicalShift: parts[11],
+            stakes: parts[12],
+            conversationGoal: parts[13],
+            conversationMode: parts[14]
         }, context);
     }
 
@@ -254,6 +282,12 @@
             if (duplicate) {
                 duplicate.actors = [...new Set([...asArray(duplicate.actors), ...incoming.actors])].slice(0, 8);
                 duplicate.consequence = richerText(duplicate.consequence, incoming.consequence);
+                duplicate.cause = richerText(duplicate.cause, incoming.cause);
+                duplicate.historicalAnchor = richerText(duplicate.historicalAnchor, incoming.historicalAnchor);
+                duplicate.politicalShift = richerText(duplicate.politicalShift, incoming.politicalShift);
+                duplicate.stakes = richerText(duplicate.stakes, incoming.stakes);
+                duplicate.conversationGoal = richerText(duplicate.conversationGoal, incoming.conversationGoal);
+                if (incoming.conversationMode !== 'none') duplicate.conversationMode = incoming.conversationMode;
                 duplicate.importance = mergeImportance(duplicate.importance, incoming.importance);
                 duplicate.status = incoming.status || duplicate.status;
                 duplicate.updatedAtTurn = incoming.turn;
@@ -279,7 +313,8 @@
         const place = item.location ? ` @ ${item.location}` : '';
         const actors = item.actors.length ? ` · ${item.actors.join(', ')}` : '';
         const consequence = item.consequence ? ` → ${item.consequence}` : '';
-        return `${prefix}${item.title}: ${item.summary}${place}${actors}${consequence}`;
+        const shift = item.politicalShift ? ` ⇄ ${item.politicalShift}` : '';
+        return `${prefix}${item.title}: ${item.summary}${place}${actors}${consequence}${shift}`;
     }
 
     function buildPrompt(context = {}) {
@@ -310,16 +345,16 @@
         return `📜 **CRONACA STRUTTURATA DEL MONDO**
 - Dopo la narrazione registra ${eventCount} fatti che sono diventati veri in questo turno. Un fatto causale = un tag.
 - Formato completo obbligatorio per i nuovi tag:
-  [EVENTO: tipo|titolo|fatto_accaduto|luogo|entità_separate_da_virgola|conseguenza_persistente|normal/high/critical|active/developing/resolved|data_o_momento]
+  [EVENTO: tipo|titolo|fatto_accaduto|luogo|entità_separate_da_virgola|conseguenza_persistente|normal/high/critical|active/developing/resolved|data_o_momento|causa_precisa|ancoraggio_storico|spostamento_politico|posta_in_gioco|obiettivo_conversazione|available/required/none]
 - Tipi ammessi: ${EVENT_TYPES.join(', ')}.
 - Usa active quando una minaccia, un impegno o una conseguenza resta aperta; developing quando sta evolvendo; resolved quando il fatto è concluso.
 - Registra l'ESITO realmente narrato, non l'intenzione del giocatore, un'ipotesi, una scelta non ancora compiuta o informazioni hidden del Simulatore.
-- Il titolo deve distinguere l'evento; il fatto deve dire chi ha fatto cosa; la conseguenza deve indicare cosa i turni futuri dovranno rispettare. Se non c'è conseguenza persistente scrivi «nessuna».
+- Il titolo deve distinguere l'evento; il fatto deve dire chi ha fatto cosa; la conseguenza deve indicare cosa i turni futuri dovranno rispettare. Causa, ancoraggio storico e spostamento politico spiegano perché il fatto è centrale. Evita categorie anonime come «l'Autorità» o «l'Opposizione» quando esistono nomi e istituzioni precise. Se non c'è conseguenza persistente scrivi «nessuna».
 - Ogni evento deve avere una data o un momento concreto coerente con il periodo. Deve essere una conseguenza delle scelte recenti quando esiste un legame causale: ${recentChoices.length ? recentChoices.join(' / ') : 'nessuna scelta recente registrata'}.
 - EVENTO alimenta la cronaca ma non sostituisce i tag di stato: se il fatto cambia soldi, inventario, NPC, quest, attività o regno emetti nello stesso turno anche il relativo tag MECCANICA, LOOT, NPC, QUEST, *_NEGOZIO o *_REGNO.
 - Usa i nomi esatti già presenti nella memoria. Non inserire il carattere | o ] nei valori. Non duplicare eventi recenti e non spezzare lo stesso fatto in tag ripetitivi.
 - Collega gli eventi a missioni e persone solo quando la scena li modifica davvero. Missioni attive: ${questNames}. Posizione attuale: ${cleanText(context.location, 100) || 'Sconosciuta'}.
-- Esempio: [EVENTO: relazione|Il patto del porto|Elara accetta di aiutare il protagonista|Porto Vecchio|Elara, protagonista|Elara preparerà una barca entro l'alba|high|active|12 marzo, sera]
+- Esempio: [EVENTO: relazione|Il patto del porto|Elara accetta di aiutare il protagonista|Porto Vecchio|Elara, protagonista|Elara preparerà una barca entro l'alba|high|active|12 marzo, sera|La flotta di Varos chiude la rotta settentrionale|La crisi di successione divide il Consiglio di Daran|Elara lega la propria rete diplomatica al protagonista|Partire prima del blocco|Definire garanzie e rotta|available]
 - Esempio: [EVENTO: conflitto|Agguato respinto|Il protagonista mette in fuga i briganti della strada|Via del Mulino|protagonista, briganti|La via torna percorribile ma un brigante è fuggito|high|developing|giorno 3 del periodo]
 ${passageDirective}
 

@@ -859,6 +859,36 @@
         .event-screen-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
         .chat-layout { display: grid; grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr); min-height: 480px; }
+        .chat-tools { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
+        .chat-tool-btn {
+            flex: 1 1 145px; min-height: 40px; padding: 8px 11px; border: 1px solid rgba(107,46,155,0.35);
+            border-radius: 11px; background: rgba(255,255,255,0.82); color: var(--purple);
+            font: 700 0.82em 'Cinzel', serif; cursor: pointer;
+        }
+        .chat-tool-btn:disabled { opacity: 0.45; pointer-events: none; }
+        .chat-convocation-panel {
+            display: none; margin-bottom: 12px; padding: 12px; border: 1px solid rgba(107,46,155,0.28);
+            border-radius: 13px; background: rgba(239,229,255,0.72);
+        }
+        .chat-convocation-panel.visible { display: block; }
+        .chat-convocation-panel h4 { margin: 0 0 9px; font-family: 'Cinzel', serif; }
+        .chat-convocation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+        .chat-convocation-grid input, .chat-convocation-grid select {
+            width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid rgba(92,64,48,0.35);
+            border-radius: 9px; background: white; color: var(--ink); font: 0.95em 'Crimson Text', serif;
+        }
+        .chat-convocation-grid .wide { grid-column: 1 / -1; }
+        .chat-candidates { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; max-height: 170px; overflow-y: auto; margin: 9px 0; }
+        .chat-candidate { display: flex; gap: 7px; align-items: flex-start; padding: 7px; border-radius: 8px; background: rgba(255,255,255,0.76); }
+        .chat-candidate input { margin-top: 3px; }
+        .chat-candidate span { min-width: 0; }
+        .chat-candidate strong, .chat-candidate small { display: block; overflow: hidden; text-overflow: ellipsis; }
+        .chat-candidate small { color: var(--ink-light); }
+        .chat-participant-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+        .chat-participant-chips span, .chat-resolution-badge {
+            padding: 3px 7px; border-radius: 999px; background: rgba(107,46,155,0.1); color: var(--purple); font-size: 0.76em; font-weight: 700;
+        }
+        .chat-resolution { margin: 8px 0 0; padding: 8px 9px; border-radius: 9px; background: rgba(218,165,32,0.13); font-size: 0.88em; }
         .chat-thread-list { padding-right: 12px; border-right: 1px solid rgba(92,64,48,0.18); overflow-y: auto; max-height: 62vh; }
         .chat-thread {
             width: 100%;
@@ -2123,6 +2153,7 @@
             .timeline-event-card { grid-template-columns: 36px minmax(0, 1fr) auto; padding: 10px; gap: 7px; }
             .event-screen-actions { grid-template-columns: 1fr; }
             .chat-layout { display: block; min-height: 0; }
+            .chat-convocation-grid, .chat-candidates { grid-template-columns: 1fr; }
             .chat-thread-list { border-right: 0; padding-right: 0; max-height: 145px; margin-bottom: 10px; }
             .chat-conversation { padding-left: 0; }
             .chat-messages { min-height: 265px; max-height: 44vh; }
@@ -2836,6 +2867,30 @@
                 <button class="modal-close" data-close="modal-world-chat">✕</button>
             </div>
             <div class="modal-body">
+                <div class="chat-tools">
+                    <button class="chat-tool-btn" id="btn-new-world-chat">➕ Convoca una riunione</button>
+                    <button class="chat-tool-btn" id="btn-invite-world-chat">👥 Invita altri soggetti</button>
+                </div>
+                <div class="chat-convocation-panel" id="chat-convocation-panel">
+                    <h4 id="chat-convocation-title">Convoca una riunione</h4>
+                    <div class="chat-convocation-grid">
+                        <input id="chat-new-title" type="text" placeholder="Titolo della conversazione">
+                        <select id="chat-new-purpose" aria-label="Scopo della conversazione">
+                            <option value="risoluzione">Risolvere un problema</option>
+                            <option value="negoziazione">Negoziare</option>
+                            <option value="contratto">Creare un contratto</option>
+                            <option value="diplomazia">Diplomazia o trattato</option>
+                            <option value="strategia">Coordinare una strategia</option>
+                            <option value="personale">Conversazione personale</option>
+                        </select>
+                        <input class="wide" id="chat-new-agenda" type="text" placeholder="Problema, proposta o condizioni da discutere">
+                    </div>
+                    <div class="chat-candidates" id="chat-invite-candidates"></div>
+                    <div class="chat-tools">
+                        <button class="chat-tool-btn" id="btn-confirm-convocation">Convoca i soggetti selezionati</button>
+                        <button class="chat-tool-btn" id="btn-cancel-convocation">Annulla</button>
+                    </div>
+                </div>
                 <div class="chat-layout">
                     <div class="chat-thread-list" id="chat-thread-list"></div>
                     <div class="chat-conversation">
@@ -3331,7 +3386,8 @@
             pendingStoryScroll: false,
             timelineEventQueue: [],
             timelineEventIndex: 0,
-            activeChatId: null
+            activeChatId: null,
+            chatConvocationMode: 'new'
         };
 
         const memoryManager = new CronacheMemory.AdvancedMemoryManager({
@@ -4214,6 +4270,7 @@
             const worldContext = {
                 story: G.currentStory,
                 setting: G.currentStory?.setting,
+                currentDate: getFullTimeString(),
                 turn: migrated.turnCount,
                 source: 'memory-migration'
             };
@@ -4891,7 +4948,7 @@
 
         function updateActionBar() {
             if (!G.character) return;
-            ['btn-business-manage', 'btn-kingdom-manage', 'btn-advance-world', 'btn-world-chats'].forEach(id => {
+            ['btn-business-manage', 'btn-kingdom-manage', 'btn-advance-world', 'btn-world-chats', 'btn-new-world-chat', 'btn-confirm-convocation'].forEach(id => {
                 const button = $(id);
                 if (button) button.disabled = G.isProcessing;
             });
@@ -8778,6 +8835,18 @@
                 });
             }
 
+            const historicalContext = wm.world?.historicalContext;
+            if (historicalContext?.baseline) {
+                summary += `\n🏛️ BASE STORICO-POLITICA:\n- ${historicalContext.date || ''} ${historicalContext.region || ''}: ${historicalContext.baseline}\n- Istituzioni: ${historicalContext.politicalSystem || 'non definite'}\n- Tensioni: ${historicalContext.activeTensions || 'nessuna registrata'}\n`;
+            }
+
+            if ((wm.agreements || []).length > 0) {
+                summary += '\n🤝 ACCORDI E CONTRATTI ATTIVI:\n';
+                wm.agreements.slice(-10).forEach(agreement => {
+                    summary += `- ${agreement.title} [${agreement.status}] tra ${(agreement.parties || []).join(', ')}: ${agreement.terms}${agreement.deadline ? `; scadenza ${agreement.deadline}` : ''}\n`;
+                });
+            }
+
             // Recent important events
             if (wm.events.length > 0) {
                 const recentEvents = wm.events.slice(-5);
@@ -8962,7 +9031,7 @@
             const messages = [
                 {
                     role: 'system',
-                    content: `Interpreta NPC, fazioni, gruppi e regni di una campagna narrativa. Ogni parte parla in prima persona con voce e interessi propri. Non usare un narratore e non decidere mai le parole del protagonista. Rispondi soltanto con i tag CHAT richiesti.\nContesto persistente: ${G.worldMemory?.sceneSummary || G.currentStory?.desc || ''}`
+                    content: `Interpreta NPC, fazioni, gruppi e regni di una campagna narrativa storico-politica. Ogni parte parla in prima persona con carica, voce, obiettivi, leve, vincoli e conoscenze proprie; più interlocutori possono dissentire tra loro. Non usare un narratore e non decidere mai le parole del protagonista. Rispondi soltanto con i tag CHAT, ESITO_CHAT e ACCORDO_CHAT richiesti. Un accordo diventa active solo dopo accettazione esplicita di tutte le parti necessarie.\nContesto persistente: ${G.worldMemory?.sceneSummary || G.currentStory?.desc || ''}`
                 },
                 { role: 'user', content: prompt }
             ];
@@ -8976,7 +9045,7 @@
                         ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
                     ],
                     discoveredModels: config.discoveredModels,
-                    maxTokens: 1200
+                    maxTokens: 1800
                 });
                 return result.content;
             }
@@ -9005,7 +9074,7 @@
                     'Content-Type': 'application/json; charset=utf-8',
                     'Authorization': `Bearer ${apiKey}`
                 },
-                body: JSON.stringify({ model, messages, temperature: 0.75, max_tokens: 1200 })
+                body: JSON.stringify({ model, messages, temperature: 0.72, max_tokens: 1800 })
             });
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
@@ -9023,7 +9092,7 @@
             const messages = [
                 {
                     role: 'system',
-                    content: 'Sei un simulatore causale di timeline per un gioco narrativo persistente. Fai agire personaggi e fazioni secondo obiettivi, strategie, risorse e relazioni. Produci soltanto i tag EVENTO, MONDO e CHAT richiesti; niente routine, ipotesi o prosa generica.'
+                    content: 'Sei un simulatore storico-politico causale per un gioco narrativo persistente. Rispetta data, istituzioni, cariche, risorse, conoscenze e relazioni. Fai agire personaggi e fazioni secondo obiettivi pubblici e privati, leve e vincoli. Produci soltanto i tag strutturati richiesti dal prompt; niente routine, ipotesi, segnaposto generici o prosa esterna.'
                 },
                 { role: 'user', content: prompt }
             ];
@@ -9883,6 +9952,50 @@
             return world;
         }
 
+        async function repairTimelineWorldIfNeeded(worldValue) {
+            let world = worldValue;
+            if (!worldBootstrapEngine.needsHistoricalRepair(world, {
+                story: G.currentStory,
+                setting: G.currentStory?.setting,
+                currentDate: getFullTimeString()
+            })) return world;
+            const repairPrompt = worldBootstrapEngine.buildBootstrapPrompt({
+                story: G.currentStory,
+                turn: G.worldMemory.turnCount || 0,
+                currentDate: getFullTimeString(),
+                repair: true
+            }) + `\nIl mondo salvato usa ancora figure provvisorie o non possiede una base storico-politica precisa. Ricostruiscilo ora: conserva soltanto persone e istituzioni specifiche già coerenti con la storia e sostituisci ogni segnaposto generico. Restituisci esclusivamente i tag *_SETUP richiesti.`;
+            const response = await requestTimelineAI(repairPrompt);
+            const repaired = worldBootstrapEngine.ingestResponse(response, world, {
+                story: G.currentStory,
+                setting: G.currentStory?.setting,
+                currentDate: getFullTimeString(),
+                turn: G.worldMemory.turnCount || 0,
+                location: G.currentLocation,
+                source: 'historical-repair',
+                ensureMinimum: false
+            });
+            if (!repaired.parsed.setup || !repaired.parsed.historicalContext || repaired.parsed.actors.length < 4) {
+                throw new Error('ricostruzione storico-politica incompleta');
+            }
+            world = repaired.world;
+            const validActors = new Set(world.actors.map(item => timelineChatEngine.keyOf(item.name)));
+            const validFactions = new Set(world.factions.map(item => timelineChatEngine.keyOf(item.name)));
+            G.worldMemory.npcs = (G.worldMemory.npcs || []).filter(item =>
+                validActors.has(timelineChatEngine.keyOf(item.name)) ||
+                (!worldBootstrapEngine.isGenericActorName(item.name) && !/deterministic-fallback|timeline-recovery/i.test(item.source || ''))
+            );
+            G.worldMemory.factions = (G.worldMemory.factions || []).filter(item =>
+                validFactions.has(timelineChatEngine.keyOf(item.name)) ||
+                (!worldBootstrapEngine.isGenericActorName(item.name) && !/deterministic-fallback|timeline-recovery/i.test(item.source || ''))
+            );
+            G.worldMemory = worldBootstrapEngine.projectToMemory(world, G.worldMemory, {
+                story: G.currentStory,
+                turn: G.worldMemory.turnCount || 0
+            });
+            return world;
+        }
+
         function renderTimeline() {
             if (!G.worldMemory) return;
             $('timeline-current-date').textContent = getFullTimeString();
@@ -9907,10 +10020,12 @@
                         <div class="timeline-event-date">${escapeTimelineHtml(event.occurredAt || `Turno ${event.turn || 0}`)}</div>
                         <h4>${escapeTimelineHtml(event.title || 'Evento')}</h4>
                         <p>${escapeTimelineHtml(event.summary || '')}</p>
+                        ${event.politicalShift ? `<p>⚖️ ${escapeTimelineHtml(event.politicalShift)}</p>` : ''}
                         <div class="timeline-event-tags">
                             <span>${escapeTimelineHtml(event.type || 'mondo')}</span>
                             <span>${escapeTimelineHtml(event.status || 'resolved')}</span>
                             ${(event.actors || []).slice(0, 3).map(actor => `<span>👤 ${escapeTimelineHtml(actor)}</span>`).join('')}
+                            ${event.historicalAnchor ? `<span>🏛️ ${escapeTimelineHtml(String(event.historicalAnchor).slice(0, 90))}</span>` : ''}
                         </div>
                     </div>
                     <div class="timeline-event-arrow">›</div>
@@ -9948,6 +10063,7 @@
             $('btn-send').disabled = true;
             updateActionBar();
             let aiError = null;
+            let worldRepairError = null;
             let response = '';
             try {
                 if (!retryPassage) {
@@ -9975,7 +10091,13 @@
                     endDate: getFullTimeString(),
                     summary: 'Il protagonista ha continuato la propria vita quotidiana.'
                 };
-                const world = prepareTimelineWorld();
+                let world = prepareTimelineWorld();
+                try {
+                    world = await repairTimelineWorldIfNeeded(world);
+                } catch (error) {
+                    worldRepairError = error;
+                    console.warn('Ricostruzione storico-politica non disponibile, continuo col mondo persistente:', error.message);
+                }
                 const recentEvents = (G.worldMemory.events || []).filter(timelineSimulator.isMeaningfulEvent).slice(-8);
                 const prompt = timelineSimulator.buildPrompt({
                     story: G.currentStory,
@@ -9983,6 +10105,7 @@
                     passage,
                     choices,
                     recentEvents,
+                    agreements: G.worldMemory.agreements || [],
                     location: G.currentLocation
                 });
                 try {
@@ -10012,6 +10135,7 @@
                     passage,
                     choices,
                     recentEvents,
+                    agreements: G.worldMemory.agreements || [],
                     location: G.currentLocation
                 });
                 const normalizedEvents = arc.events
@@ -10025,7 +10149,7 @@
                 const ensuredChats = timelineChatEngine.ensureEventThreads(
                     G.worldMemory.chats,
                     generated,
-                    { events: G.worldMemory.events, turn: G.worldMemory.turnCount || 0, occurredAt: passage.endDate }
+                    { events: G.worldMemory.events, turn: G.worldMemory.turnCount || 0, occurredAt: passage.endDate, protagonistName: G.character?.name }
                 );
                 G.worldMemory.chats = ensuredChats.chats;
                 const aiMessages = timelineChatEngine.parseChatTags(response, {
@@ -10110,6 +10234,7 @@
                 closeModal('modal-timeline');
                 showEventScreens(generated, 0);
                 if (aiError) notify('Il mondo ha continuato a evolvere con la simulazione causale locale.', 'info');
+                else if (worldRepairError) notify('Eventi generati: la ricostruzione storica completa verrà ritentata al prossimo avanzamento.', 'info');
             } catch (error) {
                 console.error('Errore simulazione timeline:', error);
                 notify(`Timeline non completata: ${error.message}. Puoi riprovare senza far avanzare di nuovo il tempo.`, 'error');
@@ -10140,6 +10265,7 @@
             $('event-screen-progress').textContent = events.length > 1 ? `Evento ${index + 1} di ${events.length}` : 'Dettaglio evento';
             const actors = (event.actors || []).join(', ') || 'Mondo di gioco';
             const hasChat = (G.worldMemory.chats || []).some(thread => thread.eventId === event.id);
+            const canChat = event.conversationMode !== 'none' && (event.actors || []).length >= 2;
             $('event-screen-body').innerHTML = `
                 <div class="event-screen-hero">
                     <div class="event-screen-icon">${timelineChatEngine.iconForEvent(event.type)}</div>
@@ -10156,11 +10282,15 @@
                     <div class="event-screen-meta">
                         <div>📍 <strong>Luogo:</strong> ${escapeTimelineHtml(event.location || 'Non specificato')}</div>
                         <div>👥 <strong>Parti:</strong> ${escapeTimelineHtml(actors)}</div>
-                        ${event.choice ? `<div>⚡ <strong>Origine:</strong> ${escapeTimelineHtml(event.choice)}</div>` : ''}
+                        ${event.cause || event.choice ? `<div>⚡ <strong>Causa:</strong> ${escapeTimelineHtml(event.cause || event.choice)}</div>` : ''}
+                        ${event.historicalAnchor ? `<div>🏛️ <strong>Contesto storico:</strong> ${escapeTimelineHtml(event.historicalAnchor)}</div>` : ''}
+                        ${event.politicalShift ? `<div>⚖️ <strong>Equilibrio politico:</strong> ${escapeTimelineHtml(event.politicalShift)}</div>` : ''}
+                        ${event.stakes ? `<div>🎯 <strong>Posta in gioco:</strong> ${escapeTimelineHtml(event.stakes)}</div>` : ''}
                         <div>🔗 <strong>Conseguenza:</strong> ${escapeTimelineHtml(event.consequence || 'Nessuna conseguenza persistente')}</div>
+                        ${event.conversationGoal ? `<div>💬 <strong>Da discutere:</strong> ${escapeTimelineHtml(event.conversationGoal)}</div>` : ''}
                     </div>
                     <div class="event-screen-actions">
-                        <button class="btn secondary" id="btn-event-chat" ${hasChat ? '' : 'disabled'}>💬 Apri chat</button>
+                        <button class="btn secondary" id="btn-event-chat" ${canChat ? '' : 'disabled'}>💬 ${hasChat ? 'Apri chat' : 'Convoca le parti'}</button>
                         <button class="btn primary" id="btn-next-event">${index < events.length - 1 ? 'Evento successivo ›' : 'Apri timeline'}</button>
                     </div>
                 </div>`;
@@ -10176,11 +10306,121 @@
             };
         }
 
+        function getChatInviteCandidates() {
+            const world = G.worldMemory?.world || {};
+            const kingdom = G.worldMemory?.kingdom || {};
+            const raw = [
+                ...(world.actors || []),
+                ...(world.factions || []),
+                ...(G.worldMemory?.npcs || []),
+                ...(G.worldMemory?.factions || []),
+                ...(kingdom.council || []).map(item => ({ ...item, kind: 'npc', description: item.role })),
+                ...(kingdom.factions || []).map(item => ({ ...item, kind: 'faction', description: item.category }))
+            ];
+            const seen = new Set();
+            return raw.filter(item => item?.name && !/dead|morto|resolved|eliminat/i.test(item.status || '')).filter(item => {
+                const key = timelineChatEngine.keyOf(item.name);
+                if (!key || key === timelineChatEngine.keyOf(G.character?.name) || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            }).map(item => ({
+                name: item.name,
+                kind: item.kind || (item.type || item.category ? 'faction' : 'npc'),
+                role: item.role || item.type || item.category || item.faction || 'personaggio',
+                detail: item.publicGoal || item.goal || item.goals || item.description || item.relationship || '',
+                influence: Number(item.influence ?? item.power ?? 0) || 0
+            })).sort((left, right) => right.influence - left.influence || left.name.localeCompare(right.name));
+        }
+
+        function renderChatInviteCandidates(mode = G.chatConvocationMode) {
+            const thread = (G.worldMemory.chats || []).find(item => item.id === G.activeChatId);
+            const current = new Set((thread?.participants || []).map(timelineChatEngine.keyOf));
+            const candidates = getChatInviteCandidates().filter(item => mode !== 'invite' || !current.has(timelineChatEngine.keyOf(item.name)));
+            $('chat-invite-candidates').innerHTML = candidates.length ? candidates.map((item, index) => `
+                <label class="chat-candidate">
+                    <input type="checkbox" data-candidate-index="${index}" data-candidate-name="${escapeTimelineHtml(item.name)}">
+                    <span><strong>${escapeTimelineHtml(item.name)}</strong><small>${escapeTimelineHtml(item.role)}${item.detail ? ` · ${escapeTimelineHtml(String(item.detail).slice(0, 90))}` : ''}</small></span>
+                </label>
+            `).join('') : '<div class="timeline-empty">Nessun altro soggetto disponibile.</div>';
+        }
+
+        function openChatConvocation(mode = 'new') {
+            const thread = (G.worldMemory.chats || []).find(item => item.id === G.activeChatId);
+            if (mode === 'invite' && !thread) return;
+            G.chatConvocationMode = mode;
+            const inviteMode = mode === 'invite';
+            $('chat-convocation-title').textContent = inviteMode ? `Invita in «${thread.title}»` : 'Convoca una nuova riunione';
+            $('chat-new-title').value = inviteMode ? thread.title : '';
+            $('chat-new-purpose').value = inviteMode && [...$('chat-new-purpose').options].some(option => option.value === thread.purpose) ? thread.purpose : 'risoluzione';
+            $('chat-new-agenda').value = inviteMode ? thread.agenda : '';
+            $('chat-new-title').disabled = inviteMode;
+            $('chat-new-purpose').disabled = inviteMode;
+            $('chat-new-agenda').disabled = inviteMode;
+            $('btn-confirm-convocation').textContent = inviteMode ? 'Invita i soggetti selezionati' : 'Convoca i soggetti selezionati';
+            renderChatInviteCandidates(mode);
+            $('chat-convocation-panel').classList.add('visible');
+        }
+
+        function closeChatConvocation() {
+            $('chat-convocation-panel').classList.remove('visible');
+        }
+
+        function confirmWorldConvocation() {
+            const selected = $$('#chat-invite-candidates input[type="checkbox"]:checked')
+                .map(input => input.dataset.candidateName)
+                .filter(Boolean);
+            if (!selected.length) {
+                notify('Seleziona almeno un personaggio o una fazione.', 'error');
+                return;
+            }
+            if (G.chatConvocationMode === 'invite') {
+                const result = timelineChatEngine.inviteParticipants(G.worldMemory.chats, G.activeChatId, selected, {
+                    events: G.worldMemory.events,
+                    turn: G.worldMemory.turnCount || 0
+                });
+                G.worldMemory.chats = result.chats;
+                if (!result.invited.length) return;
+                queueTimelineChoice(`Ho convocato ${result.invited.join(', ')} nella conversazione «${result.thread.title}»`, 'world-chat-invite');
+                notify(`${result.invited.join(', ')} ${result.invited.length === 1 ? 'è stato invitato' : 'sono stati invitati'}.`, 'info');
+            } else {
+                const title = $('chat-new-title').value.trim();
+                const agenda = $('chat-new-agenda').value.trim();
+                if (!title || !agenda) {
+                    notify('Indica titolo e problema o proposta da discutere.', 'error');
+                    return;
+                }
+                const result = timelineChatEngine.createThread(G.worldMemory.chats, {
+                    title,
+                    agenda,
+                    purpose: $('chat-new-purpose').value,
+                    participants: selected,
+                    origin: 'player',
+                    occurredAt: getFullTimeString()
+                }, {
+                    events: G.worldMemory.events,
+                    protagonistName: G.character?.name || 'Protagonista',
+                    turn: G.worldMemory.turnCount || 0,
+                    occurredAt: getFullTimeString()
+                });
+                if (!result.created || !result.thread) {
+                    notify('Non è stato possibile creare la conversazione.', 'error');
+                    return;
+                }
+                G.worldMemory.chats = result.chats;
+                G.activeChatId = result.thread.id;
+                queueTimelineChoice(`Ho convocato «${title}» con ${selected.join(', ')} per ${agenda}`, 'world-chat-convocation');
+            }
+            closeChatConvocation();
+            renderWorldChats();
+            autoSave();
+        }
+
         function openWorldChats(preferredThreadId) {
             const chats = G.worldMemory.chats || [];
             if (preferredThreadId && chats.some(thread => thread.id === preferredThreadId)) G.activeChatId = preferredThreadId;
             else if (!chats.some(thread => thread.id === G.activeChatId)) G.activeChatId = chats.slice(-1)[0]?.id || null;
             G.worldMemory.unreadChatCount = 0;
+            closeChatConvocation();
             renderWorldChats();
             updateWorldChatBadge();
             autoSave();
@@ -10188,7 +10428,19 @@
         }
 
         function openChatForEvent(eventId) {
-            const thread = (G.worldMemory.chats || []).find(item => item.eventId === eventId);
+            let thread = (G.worldMemory.chats || []).find(item => item.eventId === eventId);
+            if (!thread) {
+                const event = (G.worldMemory.events || []).find(item => item.id === eventId);
+                if (event?.conversationMode === 'none' || (event?.actors || []).length < 2) return;
+                const ensured = timelineChatEngine.ensureEventThreads(G.worldMemory.chats, [event], {
+                    events: G.worldMemory.events,
+                    turn: G.worldMemory.turnCount || 0,
+                    occurredAt: event.occurredAt || getFullTimeString(),
+                    protagonistName: G.character?.name
+                });
+                G.worldMemory.chats = ensured.chats;
+                thread = ensured.created[0] || G.worldMemory.chats.find(item => item.eventId === eventId);
+            }
             if (!thread) return;
             closeModal('modal-event-screen');
             openWorldChats(thread.id);
@@ -10199,13 +10451,14 @@
             $('chat-thread-list').innerHTML = chats.length ? chats.map(thread => `
                 <button class="chat-thread ${thread.id === G.activeChatId ? 'active' : ''}" data-thread-id="${escapeTimelineHtml(thread.id)}">
                     <strong>${escapeTimelineHtml(thread.title || thread.eventTitle)}</strong>
-                    <small>${escapeTimelineHtml(thread.participants.join(', ') || 'Parti coinvolte')} · ${thread.messages.length} messaggi</small>
+                    <small>${escapeTimelineHtml(thread.participants.join(', ') || 'Parti coinvolte')} · ${thread.messages.length} messaggi · ${escapeTimelineHtml(thread.resolution?.status || 'open')}</small>
                 </button>
-            `).join('') : '<div class="timeline-empty">💬 Le conversazioni nasceranno dagli eventi della timeline.</div>';
+            `).join('') : '<div class="timeline-empty">💬 Convoca liberamente i personaggi oppure apri una trattativa da un evento.</div>';
             $$('#chat-thread-list .chat-thread').forEach(button => {
                 button.onclick = () => { G.activeChatId = button.dataset.threadId; renderWorldChats(); };
             });
             const thread = (G.worldMemory.chats || []).find(item => item.id === G.activeChatId);
+            $('btn-invite-world-chat').disabled = !thread;
             if (!thread) {
                 $('chat-conversation-head').innerHTML = '<strong>Nessuna conversazione selezionata</strong>';
                 $('chat-messages').innerHTML = '<div class="timeline-empty">Seleziona una chat collegata a un evento.</div>';
@@ -10215,7 +10468,13 @@
             }
             $('chat-input').disabled = false;
             $('btn-send-chat').disabled = G.isProcessing;
-            $('chat-conversation-head').innerHTML = `<strong>${escapeTimelineHtml(thread.title)}</strong><br><small>${escapeTimelineHtml(thread.occurredAt || '')}</small>`;
+            $('chat-conversation-head').innerHTML = `
+                <strong>${escapeTimelineHtml(thread.title)}</strong><br>
+                <small>${escapeTimelineHtml(thread.purpose || 'dialogo')} · ${escapeTimelineHtml(thread.occurredAt || '')}</small>
+                ${thread.agenda ? `<div class="chat-resolution"><strong>Ordine del giorno:</strong> ${escapeTimelineHtml(thread.agenda)}</div>` : ''}
+                <div class="chat-participant-chips">${thread.participants.map(name => `<span>👤 ${escapeTimelineHtml(name)}</span>`).join('')}</div>
+                ${thread.resolution?.summary ? `<div class="chat-resolution"><span class="chat-resolution-badge">${escapeTimelineHtml(thread.resolution.status)}</span> ${escapeTimelineHtml(thread.resolution.summary)}${thread.resolution.consequence ? `<br><small>Conseguenza: ${escapeTimelineHtml(thread.resolution.consequence)}</small>` : ''}</div>` : ''}
+                ${(thread.agreements || []).length ? `<div class="chat-resolution"><strong>Accordi:</strong> ${thread.agreements.map(agreement => `${escapeTimelineHtml(agreement.title)} [${escapeTimelineHtml(agreement.status)}]`).join(' · ')}</div>` : ''}`;
             $('chat-messages').innerHTML = thread.messages.length ? thread.messages.map(message => {
                 const isPlayer = message.source === 'player' || isProtagonistChatSpeaker(message);
                 return `<div class="chat-message ${isPlayer ? 'player' : ''}">
@@ -10224,6 +10483,140 @@
                 </div>`;
             }).join('') : '<div class="timeline-empty">La discussione è aperta. Parla direttamente alle parti coinvolte.</div>';
             $('chat-messages').scrollTop = $('chat-messages').scrollHeight;
+        }
+
+        function applyWorldChatResults(response, thread) {
+            const parsed = timelineChatEngine.parseOutcomeTags(response, {
+                turn: G.worldMemory.turnCount || 0,
+                source: 'world-chat'
+            });
+            const applied = timelineChatEngine.applyConversationResults(G.worldMemory.chats, parsed, {
+                events: G.worldMemory.events,
+                turn: G.worldMemory.turnCount || 0
+            });
+            G.worldMemory.chats = applied.chats;
+            if (!applied.changed) return applied;
+
+            if (!Array.isArray(G.worldMemory.agreements)) G.worldMemory.agreements = [];
+            applied.agreements.forEach(agreement => {
+                const existing = G.worldMemory.agreements.find(item => item.fingerprint === agreement.fingerprint || item.id === agreement.id);
+                if (existing) Object.assign(existing, agreement);
+                else G.worldMemory.agreements.push(agreement);
+
+                const management = G.worldMemory.management;
+                const scopeKey = CronacheBusiness.keyOf(agreement.scope);
+                const business = (management?.businesses || []).find(item =>
+                    scopeKey && (CronacheBusiness.keyOf(item.name) === scopeKey || CronacheBusiness.keyOf(item.propertyName) === scopeKey)
+                );
+                if (business && /contratt|fornitur|commercial/i.test(agreement.type)) {
+                    const counterparty = agreement.parties.find(name =>
+                        timelineChatEngine.keyOf(name) !== timelineChatEngine.keyOf(G.character?.name) &&
+                        CronacheBusiness.keyOf(name) !== CronacheBusiness.keyOf(business.name)
+                    );
+                    if (counterparty) {
+                        try {
+                            businessEngine.upsertContract(business, {
+                                title: agreement.title,
+                                kind: agreement.type,
+                                counterpartyType: 'altro',
+                                counterpartyName: counterparty,
+                                frequency: agreement.deadline || 'da definire',
+                                status: agreement.status === 'active' ? 'active' : 'draft',
+                                notes: `${agreement.terms}${agreement.consequence ? ` · ${agreement.consequence}` : ''}`,
+                                source: 'world-chat'
+                            }, G.worldMemory.turnCount || 0);
+                        } catch (error) {
+                            console.warn('Accordo chat non collegato all’attività:', error.message);
+                        }
+                    }
+                }
+            });
+            G.worldMemory.agreements = G.worldMemory.agreements.slice(-100);
+
+            const worldEffects = [
+                ...applied.outcomes.filter(outcome => !(
+                    outcome.status === 'agreement' && applied.agreements.some(agreement => agreement.status === 'active')
+                )).map(outcome => ({
+                    participants: outcome.participants,
+                    status: outcome.status,
+                    summary: outcome.summary,
+                    consequence: outcome.consequence
+                })),
+                ...applied.agreements.map(agreement => ({
+                    participants: agreement.parties,
+                    status: agreement.status,
+                    summary: agreement.terms,
+                    consequence: agreement.consequence
+                }))
+            ];
+            G.worldMemory.world = worldBootstrapEngine.applyConversationOutcomes(
+                G.worldMemory.world,
+                worldEffects,
+                G.worldMemory.turnCount || 0,
+                { story: G.currentStory, location: G.currentLocation }
+            );
+
+            const materialEvents = [];
+            applied.outcomes.filter(outcome => outcome.status !== 'open').forEach(outcome => {
+                const currentThread = G.worldMemory.chats.find(item => item.id === outcome.threadId) || thread;
+                const summary = `${outcome.summary}. ${outcome.consequence || 'Le posizioni espresse condizioneranno le prossime mosse.'}`;
+                materialEvents.push({
+                    type: /diplomaz|politic|strateg/i.test(currentThread.purpose) ? 'politica' : /contratt|negozia/i.test(currentThread.purpose) ? 'economia' : 'relazione',
+                    title: `Esito: ${currentThread.title}`,
+                    summary,
+                    location: G.currentLocation,
+                    actors: outcome.participants,
+                    consequence: outcome.consequence || outcome.followUp,
+                    importance: /agreement|failed/.test(outcome.status) ? 'high' : 'normal',
+                    status: outcome.status === 'proposal' ? 'developing' : 'active',
+                    occurredAt: getFullTimeString(),
+                    cause: `Conversazione convocata per ${currentThread.agenda}`,
+                    historicalAnchor: G.worldMemory.world?.historicalContext?.baseline || G.currentStory?.setting,
+                    politicalShift: outcome.consequence || outcome.summary,
+                    stakes: currentThread.agenda,
+                    conversationGoal: outcome.followUp,
+                    conversationMode: outcome.status === 'closed' ? 'none' : 'available',
+                    source: 'world-chat'
+                });
+            });
+            applied.agreements.filter(agreement => agreement.status === 'active').forEach(agreement => {
+                materialEvents.push({
+                    type: /trattato|diplomaz|politic/i.test(agreement.type) ? 'politica' : /contratt|fornitur|commercial/i.test(agreement.type) ? 'economia' : 'relazione',
+                    title: agreement.title,
+                    summary: `${agreement.parties.join(', ')} hanno accettato termini verificabili. ${agreement.terms}.`,
+                    location: G.currentLocation,
+                    actors: agreement.parties,
+                    consequence: agreement.consequence || `L'accordo resta vincolante${agreement.deadline ? ` fino a ${agreement.deadline}` : ''}.`,
+                    importance: 'high',
+                    status: 'active',
+                    occurredAt: getFullTimeString(),
+                    cause: `Accordo raggiunto nella conversazione «${thread.title}»`,
+                    historicalAnchor: G.worldMemory.world?.historicalContext?.baseline || G.currentStory?.setting,
+                    politicalShift: agreement.consequence || `${agreement.parties.join(', ')} sono ora legati dall'accordo.`,
+                    stakes: agreement.terms,
+                    conversationGoal: `Verificare rispetto, scadenze e possibili violazioni`,
+                    conversationMode: 'available',
+                    source: 'world-chat-agreement'
+                });
+            });
+            if (materialEvents.length) {
+                const eventContext = {
+                    turn: G.worldMemory.turnCount || 0,
+                    location: G.currentLocation,
+                    knownActors: [...(G.worldMemory.npcs || []), ...(G.worldMemory.factions || [])],
+                    occurredAt: getFullTimeString(),
+                    source: 'world-chat'
+                };
+                const recorded = eventEngine.record(G.worldMemory.events, materialEvents, eventContext);
+                G.worldMemory.events = recorded.events;
+                G.worldMemory.world = worldBootstrapEngine.applyTimelineEvents(
+                    G.worldMemory.world,
+                    recorded.added,
+                    G.worldMemory.turnCount || 0,
+                    { story: G.currentStory, location: G.currentLocation, days: 1 }
+                );
+            }
+            return applied;
         }
 
         async function sendWorldChatMessage() {
@@ -10294,11 +10687,14 @@
                 })
                     .filter(message => !isProtagonistChatSpeaker(message))
                     .map(message => ({ ...message, threadId: thread.id, eventId: thread.eventId, eventTitle: thread.eventTitle }));
-                if (!replies.length && String(response || '').trim()) {
+                const visibleFallback = String(response || '')
+                    .replace(/\[(?:ESITO_CHAT|ACCORDO_CHAT):[^\]]*\]/gi, '')
+                    .trim();
+                if (!replies.length && visibleFallback) {
                     const fallbackSpeaker = thread.participants.find(name => !isProtagonistChatSpeaker(name)) || 'Interlocutore';
                     replies = [{
                         threadId: thread.id, eventId: thread.eventId, eventTitle: thread.eventTitle,
-                        speaker: fallbackSpeaker, speakerType: 'npc', text: response,
+                        speaker: fallbackSpeaker, speakerType: 'npc', text: visibleFallback,
                         target: G.character?.name || 'Protagonista', mood: 'risposta',
                         turn: G.worldMemory.turnCount || 0, occurredAt: getFullTimeString(), source: 'llm'
                     }];
@@ -10308,6 +10704,7 @@
                     turn: G.worldMemory.turnCount || 0
                 });
                 G.worldMemory.chats = result.chats;
+                applyWorldChatResults(response, thread);
                 replies.forEach(reply => {
                     G.worldMemory.world = worldBootstrapEngine.markInteraction(
                         G.worldMemory.world,
@@ -10317,6 +10714,11 @@
                         { story: G.currentStory }
                     );
                 });
+                G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
+                    story: G.currentStory,
+                    turn: G.worldMemory.turnCount || 0
+                });
+                renderTimeline();
                 autoSave();
             } catch (error) {
                 notify(`Chat non disponibile: ${error.message}`, 'error');
@@ -10505,7 +10907,7 @@ Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, pr
                 recentChoices: recentTimelineChoices
             });
             const worldInfluenceDirective = isStart
-                ? worldBootstrapEngine.buildBootstrapPrompt({ story, turn: G.worldMemory.turnCount || 0 })
+                ? worldBootstrapEngine.buildBootstrapPrompt({ story, turn: G.worldMemory.turnCount || 0, currentDate: getFullTimeString() })
                 : worldBootstrapEngine.buildRuntimePrompt(G.worldMemory.world, {
                     story,
                     turn: G.worldMemory.turnCount || 0,
@@ -11020,6 +11422,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             const worldBootstrap = worldBootstrapEngine.ingestResponse(response, G.worldMemory.world, {
                 story: G.currentStory,
                 setting: G.currentStory?.setting,
+                currentDate: getFullTimeString(),
                 turn: G.worldMemory.turnCount || 0,
                 location: G.currentLocation,
                 source: isStart ? 'initial-world' : 'world-update',
@@ -11510,7 +11913,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             const ensuredChats = timelineChatEngine.ensureEventThreads(
                 G.worldMemory.chats,
                 eventResult.added,
-                { events: G.worldMemory.events, turn: G.worldMemory.turnCount, occurredAt: getFullTimeString() }
+                { events: G.worldMemory.events, turn: G.worldMemory.turnCount, occurredAt: getFullTimeString(), protagonistName: G.character?.name }
             );
             G.worldMemory.chats = ensuredChats.chats;
             const parsedChatMessages = timelineChatEngine.parseChatTags(response, {
@@ -11584,7 +11987,8 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[MORTE_FAMILIARE:[^\]]*\]/gi, '')
                 .replace(/\[EVENTO:[^\]]*\]/gi, '')
                 .replace(/\[CHAT:[^\]]*\]/gi, '')
-                .replace(/\[(?:MONDO|LUOGO|PERSONAGGIO|FAZIONE|RELAZIONE|FORZA)_SETUP:[^\]]*\]/gi, '')
+                .replace(/\[(?:ESITO_CHAT|ACCORDO_CHAT):[^\]]*\]/gi, '')
+                .replace(/\[(?:MONDO|LUOGO|PERSONAGGIO|FAZIONE|RELAZIONE|FORZA|CONTESTO_STORICO)_SETUP:[^\]]*\]/gi, '')
                 .replace(/\[POSIZIONE:[^\]]*\]/gi, '')
                 .replace(/\[SCELTA:[^\]]*\]/gi, '')
                 .replace(/\[(?:USA|CONSUMA|UTILIZZA|DROP|SCARTA):[^\]]*\]/gi, '')
@@ -12216,6 +12620,10 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if ($('btn-world-chats')) $('btn-world-chats').onclick = () => openWorldChats();
             if ($('btn-simulate-timeline')) $('btn-simulate-timeline').onclick = simulateTimelineEvents;
             if ($('btn-send-chat')) $('btn-send-chat').onclick = sendWorldChatMessage;
+            if ($('btn-new-world-chat')) $('btn-new-world-chat').onclick = () => openChatConvocation('new');
+            if ($('btn-invite-world-chat')) $('btn-invite-world-chat').onclick = () => openChatConvocation('invite');
+            if ($('btn-confirm-convocation')) $('btn-confirm-convocation').onclick = confirmWorldConvocation;
+            if ($('btn-cancel-convocation')) $('btn-cancel-convocation').onclick = closeChatConvocation;
             if ($('chat-input')) $('chat-input').onkeypress = event => {
                 if (event.key === 'Enter') sendWorldChatMessage();
             };

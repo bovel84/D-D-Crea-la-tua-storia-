@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 1;
+    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 2;
 
     function asArray(value) { return Array.isArray(value) ? value : []; }
 
@@ -55,11 +55,14 @@
 
     function actorLine(actor) {
         return `- ${cleanText(actor.name, 120)} (${actor.kind === 'faction' ? 'fazione' : cleanText(actor.role || 'personaggio', 80)})` +
-            `: vuole ${cleanText(actor.goal || 'rafforzare la propria posizione', 220)}; ` +
-            `strategia ${cleanText(actor.strategy || 'agire tramite contatti e risorse disponibili', 220)}; ` +
-            `risorse ${cleanText(actor.resources || 'limitate', 180)}; ` +
+            `: obiettivo pubblico ${cleanText(actor.publicGoal || actor.goal || 'rafforzare la propria posizione', 220)}; ` +
+            `obiettivo privato ${cleanText(actor.privateGoal || 'non noto', 180)}; ` +
+            `agenda ${cleanText(actor.agenda || actor.strategy || 'agire tramite contatti e risorse disponibili', 220)}; ` +
+            `leva ${cleanText(actor.leverage || actor.resources || 'limitata', 180)}; ` +
+            `vincoli ${cleanText(actor.constraints || 'coerenza col proprio ruolo', 180)}; ` +
             `influenza ${Math.round(Number(actor.influence) || 0)}/100; ` +
-            `luogo ${cleanText(actor.location || actor.base || 'non definito', 120)}.`;
+            `luogo ${cleanText(actor.location || actor.base || 'non definito', 120)}; ` +
+            `ultima mossa ${cleanText(actor.lastMove || 'nessuna', 180)}.`;
     }
 
     function buildPrompt(context = {}) {
@@ -75,6 +78,8 @@
             .filter(Boolean)
             .slice(-5);
         const recent = asArray(context.recentEvents).filter(isMeaningfulEvent).slice(-6);
+        const agreements = asArray(context.agreements).filter(item => !/rejected|broken|fulfilled/.test(keyOf(item.status))).slice(-8);
+        const history = world.historicalContext || {};
         return `SIMULATORE DEDICATO DELLA TIMELINE. Produci fatti accaduti, non ipotesi e non un riepilogo della routine.
 
 PERIODO: ${cleanText(passage.description || `${days} giorni`, 120)}; da ${cleanText(passage.startDate || 'inizio periodo', 120)} a ${cleanText(passage.endDate || 'fine periodo', 120)}.
@@ -82,6 +87,14 @@ VITA ORDINARIA GIÀ GESTITA DAL MOTORE: ${cleanText(passage.summary || 'il prota
 STORIA: ${cleanText(context.story?.title, 120)} — ${cleanText(context.story?.setting || world.setting, 180)}.
 CONFLITTO CENTRALE: ${cleanText(world.centralConflict || world.premise || context.story?.desc, 500)}.
 SCELTE DA FAR PESARE: ${choices.length ? choices.join(' / ') : 'nessuna nuova scelta: avanzano le trame e gli obiettivi autonomi'}.
+
+BASE STORICO-POLITICA:
+- Data/epoca: ${cleanText(history.date || passage.startDate || 'data della campagna', 160)}.
+- Area e istituzioni: ${cleanText(history.region || world.setting, 180)}; ${cleanText(history.politicalSystem || 'assetto già registrato', 420)}.
+- Situazione di partenza: ${cleanText(history.baseline || world.premise, 600)}.
+- Tensioni attive: ${cleanText(history.activeTensions || world.centralConflict, 500)}.
+- Vincoli: ${cleanText(history.constraints || 'rispetta cariche, distanze, risorse e conoscenze dell’epoca', 500)}.
+- Divergenza: ${cleanText(history.divergencePolicy || 'ogni deviazione nasce soltanto da eventi già accaduti nel gioco', 360)}.
 
 ATTORI VIVI:
 ${actors.length ? actors.map(actorLine).join('\n') : '- Usa le parti già nominate negli eventi e nella storia.'}
@@ -92,19 +105,24 @@ ${relations.length ? relations.map(item => `- ${cleanText(item.from, 100)} ↔ $
 FORZE E TRAME APERTE:
 ${forces.length ? forces.map(item => `- ${cleanText(item.name, 120)}: ${cleanText(item.actor, 100)} persegue ${cleanText(item.objective, 260)}; progresso ${Math.round(Number(item.progress) || 0)}%, urgenza ${Math.round(Number(item.urgency) || 0)}%.`).join('\n') : '- Il conflitto centrale deve avanzare.'}
 
+ACCORDI, CONTRATTI E TRATTATI DA RISPETTARE O METTERE ALLA PROVA:
+${agreements.length ? agreements.map(item => `- ${cleanText(item.title, 120)} tra ${asArray(item.parties).map(name => cleanText(name, 90)).join(', ')}: ${cleanText(item.terms, 360)}; stato ${cleanText(item.status, 40)}${item.deadline ? `; scadenza ${cleanText(item.deadline, 100)}` : ''}.`).join('\n') : '- Nessun accordo attivo.'}
+
 EVENTI RECENTI DA NON RIPETERE:
 ${recent.length ? recent.map(item => `- ${cleanText(item.title, 100)}: ${cleanText(item.summary, 240)}`).join('\n') : '- Nessuno.'}
 
 REGOLE OBBLIGATORIE:
 - Genera esattamente ${count} EVENTO distinti, distribuiti dall'inizio alla fine del periodo.
-- Costruisci un arco causale: una parte agisce, un'altra reagisce, l'equilibrio cambia e l'ultimo evento lascia una situazione concreta da affrontare.
+- Scegli UNA trama centrale tra conflitto storico, forza aperta o scelta del giocatore. Tutti gli eventi devono essere capitoli dello stesso arco: una parte agisce, un'altra reagisce, segue una decisione istituzionale o uno scontro e nasce un nuovo problema concreto.
 - Almeno due attori autonomi devono compiere mosse; non limitarti a “si diffondono voci”, “la vita continua” o “qualcuno sta pensando”.
-- Il fatto deve contenere azione osservabile e risultato. La conseguenza deve cambiare una relazione, una risorsa, un rischio, un'opportunità o una decisione futura.
-- Ogni sintesi EVENTO deve avere 2 frasi concrete e usare nomi esatti. Date e momenti devono cadere dentro il periodo.
-- Per ogni attore che agisce emetti MONDO. Per ogni EVENTO con almeno due parti emetti 1-3 CHAT in prima persona; mai parole inventate per il protagonista.
+- Usa soltanto nomi propri, cariche e istituzioni presenti nel contesto. Vietati attori generici come “l'Autorità”, “l'Opposizione”, “il Mediatore” o “la Comunità” se non sono nomi registrati.
+- Il fatto deve contenere azione osservabile e risultato verificabile: indica il verbo d'azione, lo strumento usato e chi subisce o beneficia dell'esito. La conseguenza deve cambiare controllo, legge, alleanza, risorsa, reputazione, rischio, opportunità o decisione futura.
+- Ogni sintesi EVENTO deve avere 2-3 frasi concrete. Indica causa precisa, ancoraggio storico, spostamento politico, posta in gioco e obiettivo dell'eventuale trattativa.
+- Ogni evento successivo deve citare nel campo causa l'evento, la scelta o la forza che lo ha prodotto. Date e momenti devono cadere dentro il periodo.
+- Per ogni attore che agisce emetti MONDO. Se l'evento consente comunicazione, negoziato, minaccia, contratto o mediazione, imposta available/required ed emetti 2-5 CHAT: quando vi sono almeno tre parti, fai parlare almeno due soggetti diversi in prima persona. Mai parole inventate per il protagonista.
 - Restituisci soltanto i tag seguenti, senza introduzioni, markdown o routine.
 
-[EVENTO: tipo|titolo|due frasi su ciò che è realmente accaduto|luogo|attori separati da virgola|conseguenza persistente concreta|normal/high/critical|active/developing/resolved|data o momento nel periodo]
+[EVENTO: tipo|titolo|due o tre frasi su ciò che è realmente accaduto|luogo|attori separati da virgola|conseguenza persistente concreta|normal/high/critical|active/developing/resolved|data o momento nel periodo|causa precisa|ancoraggio storico|spostamento politico|posta in gioco|obiettivo conversazione|available/required/none]
 [MONDO: attore|mossa concreta compiuta|stato della mossa|visible/hidden]
 [CHAT: titolo esatto evento|parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]`;
     }
@@ -151,6 +169,68 @@ REGOLE OBBLIGATORIE:
             { name: `Opposizione di ${place}`, kind: 'faction', goal: 'cambiare gli equilibri', strategy: 'organizzare sostenitori e fare pressione', resources: 'contatti e consenso', influence: 58, base: place },
             { name: `Comunità di ${place}`, kind: 'faction', goal: 'proteggere sicurezza e mezzi di sussistenza', strategy: 'negoziare e reagire collettivamente', resources: 'reti locali', influence: 45, base: place }
         ].filter((item, index, list) => list.findIndex(other => keyOf(other.name) === keyOf(item.name)) === index);
+    }
+
+    function isGenericActorName(value) {
+        return /^(?:(?:il|la|lo|i|gli|le) )?(autorita|opposizione|comunita|custode|voce dell opposizione|guida locale|mediatore indipendente)(\b| di )/.test(keyOf(value));
+    }
+
+    function eventCentralityScore(event, context = {}) {
+        if (!isMeaningfulEvent(event)) return 0;
+        const actors = asArray(event.actors).map(item => cleanText(item, 100)).filter(Boolean);
+        const summary = cleanText(event.summary, 600);
+        const consequence = cleanText(event.consequence, 400);
+        const known = new Set(activeActors(context.world || {}).map(item => keyOf(item.name)));
+        let score = 0;
+        if (summary.length >= 60 && summary.split(/[.!?]+/).filter(Boolean).length >= 2) score += 2;
+        if (actors.length >= 2) score += 2;
+        if (actors.length && actors.every(name => !isGenericActorName(name))) score += 2;
+        if (actors.some(isGenericActorName)) score -= 4;
+        if (actors.some(name => known.has(keyOf(name)))) score += 1;
+        if (consequence.length >= 15 && !/nessuna|da affrontare|dovra reagire$/i.test(consequence)) score += 2;
+        if (cleanText(event.cause, 30)) score += 1;
+        if (cleanText(event.historicalAnchor, 30)) score += 1;
+        if (cleanText(event.politicalShift, 30)) score += 1;
+        if (cleanText(event.stakes, 20)) score += 1;
+        if (/convoca|vota|approva|respinge|firma|ordina|mobilita|arresta|nomina|depone|occupa|attacca|negozia|blocca|confisca|promulga|invia|finanzia|riconosce|rifiuta|accetta/i.test(summary)) score += 2;
+        return score;
+    }
+
+    function conversationGoalFor(event) {
+        const actors = asArray(event?.actors).filter(Boolean);
+        if (actors.length < 2) return '';
+        const type = keyOf(event?.type);
+        if (type === 'economia') return `Negoziare condizioni, garanzie e costi tra ${actors.join(', ')}`;
+        if (type === 'politica' || type === 'decisione') return `Confrontare le posizioni e decidere chi sosterrà la prossima mossa`;
+        if (type === 'conflitto' || type === 'pericolo') return `Evitare l'escalation, imporre condizioni o organizzare una risposta comune`;
+        if (type === 'relazione') return `Definire impegni, fiducia e contropartite tra le parti`;
+        return `Chiarire responsabilità e prossime azioni dopo «${cleanText(event?.title, 100)}»`;
+    }
+
+    function enrichEvent(event, context = {}, index = 0, previousEvent = null) {
+        const world = context.world || {};
+        const history = world.historicalContext || {};
+        const force = asArray(world.forces).find(item => item.status !== 'resolved');
+        const choices = asArray(context.choices).map(choice => cleanText(typeof choice === 'string' ? choice : choice?.summary || choice?.description, 240)).filter(Boolean);
+        const cause = cleanText(event?.cause || event?.choice || (index > 0 ? previousEvent?.title : '') || choices[0] || force?.cause || force?.objective || world.centralConflict, 320);
+        const historicalAnchor = cleanText(event?.historicalAnchor || [history.date, history.baseline].filter(Boolean).join(' — ') || context.passage?.startDate || world.setting, 320);
+        const politicalShift = cleanText(event?.politicalShift || event?.consequence, 320);
+        const stakes = cleanText(event?.stakes || world.stakes || force?.consequenceAt100 || event?.consequence, 280);
+        const conversationGoal = cleanText(event?.conversationGoal || conversationGoalFor(event), 280);
+        const conversationMode = event?.conversationMode === 'none'
+            ? 'none'
+            : (conversationGoal ? (event?.conversationMode === 'required' ? 'required' : 'available') : 'none');
+        return {
+            ...event,
+            cause,
+            historicalAnchor,
+            politicalShift,
+            stakes,
+            conversationGoal,
+            conversationMode,
+            centralityScore: eventCentralityScore(event, context),
+            timelineSimulatorSchemaVersion: TIMELINE_SIMULATOR_SCHEMA_VERSION
+        };
     }
 
     function createFallbackArc(context = {}) {
@@ -238,10 +318,10 @@ REGOLE OBBLIGATORIE:
             event.occurredAt = momentFor(index, count, passage);
             event.choice = choice || choices[0] || '';
             event.source = 'timeline-fallback';
-            event.timelineSimulatorSchemaVersion = TIMELINE_SIMULATOR_SCHEMA_VERSION;
-            events.push(event);
+            const enrichedEvent = enrichEvent(event, context, index, events[index - 1]);
+            events.push(enrichedEvent);
             moves.push({
-                actor: event.actors[0], action: event.summary, status: event.status,
+                actor: enrichedEvent.actors[0], action: enrichedEvent.summary, status: enrichedEvent.status,
                 visibility: 'visible', source: 'timeline-fallback'
             });
         }
@@ -251,7 +331,10 @@ REGOLE OBBLIGATORIE:
     function ensureEventArc(incomingEvents, context = {}) {
         const passage = context.passage || {};
         const wanted = desiredEventCount(passage.days || Math.round(Number(passage.elapsed || 1440) / 1440));
-        const accepted = asArray(incomingEvents).filter(isMeaningfulEvent).slice(0, wanted);
+        const meaningful = asArray(incomingEvents).filter(isMeaningfulEvent);
+        const accepted = meaningful
+            .filter(event => eventCentralityScore(event, context) >= 6)
+            .slice(0, wanted);
         const fallback = createFallbackArc(context);
         const seen = new Set(accepted.map(item => keyOf(`${item.title}|${item.summary}`)));
         let fallbackAdded = 0;
@@ -263,11 +346,14 @@ REGOLE OBBLIGATORIE:
             seen.add(key);
             fallbackAdded++;
         }
+        const enriched = [];
+        accepted.forEach((event, index) => enriched.push(enrichEvent(event, context, index, enriched[index - 1])));
         return {
-            events: accepted,
+            events: enriched,
             moves: fallbackAdded ? fallback.moves.slice(0, fallbackAdded) : [],
             desiredCount: wanted,
             fallbackAdded,
+            qualityRejected: meaningful.length - (accepted.length - fallbackAdded),
             usedFallback: fallbackAdded > 0
         };
     }
@@ -277,18 +363,20 @@ REGOLE OBBLIGATORIE:
         const actorByName = name => actors.find(item => keyOf(item.name) === keyOf(name));
         const protagonistKey = keyOf(context.protagonistName || 'protagonista');
         const messages = [];
-        asArray(events).filter(isMeaningfulEvent).forEach(event => {
+        asArray(events).filter(event => isMeaningfulEvent(event) && event.conversationMode !== 'none').forEach(event => {
             const participants = asArray(event.actors).map(name => cleanText(name, 100)).filter(Boolean);
             const speakers = participants.filter(name => {
                 const key = keyOf(name);
                 return key && key !== protagonistKey && !/^(protagonista|giocatore|player)$/.test(key);
-            }).slice(0, 2);
+            }).slice(0, 4);
             speakers.forEach((name, index) => {
                 const actor = actorByName(name) || { name, kind: 'npc' };
                 const target = participants.find(item => keyOf(item) !== keyOf(name)) || context.protagonistName || 'protagonista';
                 const text = index === 0
-                    ? `Io non resterò fermo: voglio ${actorGoal(actor)}. ${target}, la mia mossa è iniziata e userò ${actorResources(actor)} per portarla avanti.`
-                    : `Io ho visto cosa stai facendo, ${target}. Difenderò il mio obiettivo e reagirò con ${actorStrategy(actor)}.`;
+                    ? `Io chiedo che discutiamo ${cleanText(event.conversationGoal || 'le conseguenze di quanto è accaduto', 220)}. Voglio ${actorGoal(actor)} e userò ${actorResources(actor)} come leva.`
+                    : index === 1
+                        ? `Io non accetterò una soluzione che ignori il mio obiettivo. ${target}, chiarisci quali condizioni sei disposto a sostenere.`
+                        : `Io rappresento interessi diversi dai vostri: ascolterò le proposte, ma difenderò ${actorGoal(actor)} con ${actorStrategy(actor)}.`;
                 messages.push({
                     eventId: event.id, eventTitle: event.title, speaker: name,
                     speakerType: actor.kind === 'faction' ? 'fazione' : 'npc',
@@ -297,7 +385,7 @@ REGOLE OBBLIGATORIE:
                 });
             });
         });
-        return messages.slice(0, 12);
+        return messages.slice(0, 20);
     }
 
     function buildChronicle(events, passage = {}) {
@@ -317,6 +405,8 @@ REGOLE OBBLIGATORIE:
         keyOf,
         desiredEventCount,
         isMeaningfulEvent,
+        eventCentralityScore,
+        enrichEvent,
         buildPrompt,
         createFallbackArc,
         ensureEventArc,
