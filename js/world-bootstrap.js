@@ -388,7 +388,9 @@
                 relationship: actor.relationship, personality: actor.personality, goals: actor.goal,
                 status: actor.status, location: actor.location, faction: actor.faction,
                 role: actor.role, strategy: actor.strategy, resources: actor.resources,
-                influence: actor.influence, worldSeed: true,
+                influence: actor.influence, lastMove: actor.lastMove,
+                lastMoveTurn: actor.lastMoveTurn, lastInteractionTurn: actor.lastInteractionTurn,
+                worldSeed: true,
                 level: Math.max(1, Math.ceil(actor.influence / 10)),
                 threat: actor.influence >= 80 ? 'boss' : actor.influence >= 60 ? 'high' : actor.influence >= 40 ? 'medium' : 'low',
                 interactions: asArray(state.npcs.find(item => keyOf(item?.name) === keyOf(actor.name))?.interactions),
@@ -401,7 +403,8 @@
                 id: faction.id, name: faction.name, description: faction.description,
                 relationship: faction.relationship, goal: faction.goal, strategy: faction.strategy,
                 resources: faction.resources, influence: faction.influence, leader: faction.leader,
-                type: faction.type, status: faction.status, location: faction.base, worldSeed: true
+                type: faction.type, status: faction.status, location: faction.base,
+                lastMove: faction.lastMove, lastMoveTurn: faction.lastMoveTurn, worldSeed: true
             });
         });
         world.forces.forEach(force => {
@@ -529,6 +532,56 @@ ${influences.length ? influences.map(compactActor).join('\n') : '- Usa le trame 
         return world;
     }
 
+    function applyTimelineEvents(worldValue, events, turn, context = {}) {
+        const world = migrateWorld(worldValue, { ...context, turn });
+        const elapsedDays = Math.max(1, Number(context.days) || 1);
+        asArray(events).forEach(event => {
+            const names = Array.isArray(event?.actors) ? event.actors : splitList(event?.actors, 8);
+            const actorKeys = new Set(names.map(keyOf));
+            const summary = cleanText(event?.summary || event?.description, 320);
+            [...world.actors, ...world.factions].forEach(actor => {
+                if (!actorKeys.has(keyOf(actor.name))) return;
+                actor.lastMove = summary || actor.lastMove;
+                actor.lastMoveTurn = Math.max(actor.lastMoveTurn || 0, Number(turn) || 0);
+            });
+
+            if (names.length >= 2) {
+                const relation = world.relations.find(item => {
+                    const ends = new Set([keyOf(item.from), keyOf(item.to)]);
+                    return ends.has(keyOf(names[0])) && ends.has(keyOf(names[1]));
+                });
+                if (relation) {
+                    const type = keyOf(event?.type);
+                    if (/conflitto|pericolo/.test(type)) {
+                        relation.tension = numberBetween(relation.tension + 6, 0, 100, relation.tension);
+                        relation.trust = numberBetween(relation.trust - 4, 0, 100, relation.trust);
+                    } else if (/relazione/.test(type)) {
+                        relation.trust = numberBetween(relation.trust + 4, 0, 100, relation.trust);
+                        relation.tension = numberBetween(relation.tension - 2, 0, 100, relation.tension);
+                    } else {
+                        relation.tension = numberBetween(relation.tension + 1, 0, 100, relation.tension);
+                    }
+                    relation.updatedAtTurn = Math.max(relation.updatedAtTurn || 0, Number(turn) || 0);
+                }
+            }
+
+            world.forces.forEach(force => {
+                const mentioned = actorKeys.has(keyOf(force.actor)) ||
+                    keyOf(`${event?.title || ''} ${summary}`).includes(keyOf(force.name));
+                if (!mentioned || force.status !== 'active') return;
+                const importance = keyOf(event?.importance);
+                const base = importance === 'critical' ? 12 : importance === 'high' ? 8 : 5;
+                const timeBonus = Math.min(8, Math.floor(elapsedDays / 14));
+                force.progress = numberBetween(force.progress + base + timeBonus, 0, 100, force.progress);
+                force.urgency = numberBetween(force.urgency + (importance === 'critical' ? 5 : 2), 0, 100, force.urgency);
+                force.updatedAtTurn = Math.max(force.updatedAtTurn || 0, Number(turn) || 0);
+                if (force.progress >= 100) force.status = 'resolved';
+            });
+        });
+        world.updatedAtTurn = Math.max(world.updatedAtTurn, Number(turn) || 0);
+        return world;
+    }
+
     function markInteraction(worldValue, speaker, turn, text, context = {}) {
         const world = migrateWorld(worldValue, { ...context, turn });
         const actor = [...world.actors, ...world.factions].find(item => keyOf(item.name) === keyOf(speaker));
@@ -564,6 +617,7 @@ ${influences.length ? influences.map(compactActor).join('\n') : '- Usa le trame 
         buildTimelinePrompt,
         buildInteractionPrompt,
         applyWorldMoves,
+        applyTimelineEvents,
         markInteraction
     };
 });
