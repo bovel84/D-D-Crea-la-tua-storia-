@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const EVENT_SCHEMA_VERSION = 2;
+    const EVENT_SCHEMA_VERSION = 3;
     const MAX_EVENTS = 100;
     const EVENT_TYPES = [
         'conflitto', 'scoperta', 'relazione', 'decisione', 'missione', 'economia',
@@ -153,6 +153,8 @@
             location,
             actors,
             consequence,
+            occurredAt: cleanText(input.occurredAt || input.date || input.moment || context.occurredAt || context.timePassage?.endDate, 100),
+            choice: cleanText(input.choice || context.choice, 240),
             importance,
             status,
             turn: Number.isFinite(turnValue) ? Math.max(0, Math.trunc(turnValue)) : 0,
@@ -183,7 +185,8 @@
             actors: parts[4],
             consequence: parts[5],
             importance: parts[6],
-            status: parts[7]
+            status: parts[7],
+            occurredAt: parts[8]
         }, context);
     }
 
@@ -293,6 +296,10 @@
             ? context.timePassage
             : null;
         const eventCount = passage ? 'da 2 a 6' : 'da 1 a 3';
+        const recentChoices = asArray(context.recentChoices)
+            .map(choice => cleanText(typeof choice === 'string' ? choice : choice?.summary || choice?.description, 220))
+            .filter(Boolean)
+            .slice(-5);
         const passageDirective = passage
             ? `\n⏳ PERIODO DA NARRARE: ${cleanText(passage.description, 120)}.
 - Non saltare direttamente alla scena finale: crea un breve montaggio cronologico dell'intero periodo.
@@ -303,16 +310,17 @@
         return `📜 **CRONACA STRUTTURATA DEL MONDO**
 - Dopo la narrazione registra ${eventCount} fatti che sono diventati veri in questo turno. Un fatto causale = un tag.
 - Formato completo obbligatorio per i nuovi tag:
-  [EVENTO: tipo|titolo|fatto_accaduto|luogo|entità_separate_da_virgola|conseguenza_persistente|normal/high/critical|active/developing/resolved]
+  [EVENTO: tipo|titolo|fatto_accaduto|luogo|entità_separate_da_virgola|conseguenza_persistente|normal/high/critical|active/developing/resolved|data_o_momento]
 - Tipi ammessi: ${EVENT_TYPES.join(', ')}.
 - Usa active quando una minaccia, un impegno o una conseguenza resta aperta; developing quando sta evolvendo; resolved quando il fatto è concluso.
 - Registra l'ESITO realmente narrato, non l'intenzione del giocatore, un'ipotesi, una scelta non ancora compiuta o informazioni hidden del Simulatore.
 - Il titolo deve distinguere l'evento; il fatto deve dire chi ha fatto cosa; la conseguenza deve indicare cosa i turni futuri dovranno rispettare. Se non c'è conseguenza persistente scrivi «nessuna».
+- Ogni evento deve avere una data o un momento concreto coerente con il periodo. Deve essere una conseguenza delle scelte recenti quando esiste un legame causale: ${recentChoices.length ? recentChoices.join(' / ') : 'nessuna scelta recente registrata'}.
 - EVENTO alimenta la cronaca ma non sostituisce i tag di stato: se il fatto cambia soldi, inventario, NPC, quest, attività o regno emetti nello stesso turno anche il relativo tag MECCANICA, LOOT, NPC, QUEST, *_NEGOZIO o *_REGNO.
 - Usa i nomi esatti già presenti nella memoria. Non inserire il carattere | o ] nei valori. Non duplicare eventi recenti e non spezzare lo stesso fatto in tag ripetitivi.
 - Collega gli eventi a missioni e persone solo quando la scena li modifica davvero. Missioni attive: ${questNames}. Posizione attuale: ${cleanText(context.location, 100) || 'Sconosciuta'}.
-- Esempio: [EVENTO: relazione|Il patto del porto|Elara accetta di aiutare il protagonista|Porto Vecchio|Elara, protagonista|Elara preparerà una barca entro l'alba|high|active]
-- Esempio: [EVENTO: conflitto|Agguato respinto|Il protagonista mette in fuga i briganti della strada|Via del Mulino|protagonista, briganti|La via torna percorribile ma un brigante è fuggito|high|developing]
+- Esempio: [EVENTO: relazione|Il patto del porto|Elara accetta di aiutare il protagonista|Porto Vecchio|Elara, protagonista|Elara preparerà una barca entro l'alba|high|active|12 marzo, sera]
+- Esempio: [EVENTO: conflitto|Agguato respinto|Il protagonista mette in fuga i briganti della strada|Via del Mulino|protagonista, briganti|La via torna percorribile ma un brigante è fuggito|high|developing|giorno 3 del periodo]
 ${passageDirective}
 
 EVENTI RECENTI DA NON DUPLICARE:

@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const memoryApi = require('../js/memory-manager.js');
 const eventApi = require('../js/event-manager.js');
+const timelineChatApi = require('../js/timeline-chat.js');
 const narrativeApi = require('../js/narrative-master.js');
 const ollamaApi = require('../js/ollama-cloud.js');
 const ollamaProxyHandler = require('../api/ollama/[action].js');
@@ -26,11 +27,13 @@ function test(name, fn) { tests.push({ name, fn }); }
 test('migra la memoria legacy senza perdere i campi esistenti', () => {
     const legacy = { npcs: [{ name: 'Elara' }], events: [{ summary: 'Incontro' }], customField: 42 };
     const migrated = memoryApi.migrateMemory(legacy);
-    assert.equal(migrated.memorySchemaVersion, 2);
+    assert.equal(migrated.memorySchemaVersion, 3);
     assert.equal(migrated.npcs[0].name, 'Elara');
     assert.equal(migrated.customField, 42);
     assert.deepEqual(migrated.factions, []);
     assert.deepEqual(migrated.revealedSecrets, []);
+    assert.deepEqual(migrated.chats, []);
+    assert.deepEqual(migrated.pendingTimelineChoices, []);
 });
 
 test('mantiene esattamente gli ultimi 10 messaggi a breve termine', () => {
@@ -165,6 +168,71 @@ test('il prompt di un salto lungo richiede routine ed eventi distribuiti nel per
     assert.match(prompt, /sonno, pasti, lavoro, relazioni/i);
     assert.match(prompt, /momenti diversi del periodo/i);
     assert.match(prompt, /30 notti di sonno e circa 90 pasti/i);
+});
+
+test('gli eventi del periodo conservano data e scelta causale', () => {
+    const events = eventApi.parseNarrativeTags(
+        '[EVENTO: politica|Il consiglio si divide|Il consiglio respinge la nuova tassa|Sala del Consiglio|Regina, mercanti|I mercanti sospendono i prestiti|high|active|18 marzo, mattina]',
+        { turn: 12, choice: 'Aumentare la tassa sui mercanti' }
+    );
+    assert.equal(events[0].occurredAt, '18 marzo, mattina');
+    assert.equal(events[0].choice, 'Aumentare la tassa sui mercanti');
+    const prompt = eventApi.buildPrompt({ recentChoices: ['Aumentare la tassa sui mercanti'] });
+    assert.match(prompt, /data_o_momento/);
+    assert.match(prompt, /Aumentare la tassa sui mercanti/);
+});
+
+test('crea chat persistenti collegate agli eventi e in prima persona', () => {
+    const event = eventApi.normalizeEvent({
+        id: 'event-patto', type: 'relazione', title: 'Il patto del porto',
+        summary: 'Elara propone un accordo', actors: ['Elara', 'Protagonista'], turn: 7,
+        occurredAt: '12 marzo, sera'
+    });
+    const parsed = timelineChatApi.parseChatTags(
+        '[CHAT: Il patto del porto|Elara|npc|Io accetto il patto, ma voglio una garanzia.|Protagonista|cauta]',
+        { events: [event], turn: 7 }
+    );
+    assert.equal(parsed.length, 1);
+    assert.equal(parsed[0].eventId, 'event-patto');
+    assert.equal(parsed[0].speaker, 'Elara');
+    assert.equal(timelineChatApi.speaksInFirstPerson(parsed[0].text), true);
+    const recorded = timelineChatApi.recordMessages([], parsed, { events: [event], turn: 7 });
+    assert.equal(recorded.chats.length, 1);
+    assert.deepEqual(recorded.chats[0].participants, ['Elara', 'Protagonista']);
+    assert.equal(recorded.chats[0].messages.length, 1);
+});
+
+test('normalizza in prima persona una risposta esterna e collega una chat anche prima dei messaggi', () => {
+    const event = eventApi.normalizeEvent({
+        id: 'event-gilda', type: 'economia', title: 'Sciopero della gilda',
+        summary: 'La gilda chiude le botteghe', actors: ['Gilda dei Fabbri', 'Consiglio'], turn: 8
+    });
+    const message = timelineChatApi.normalizeMessage({
+        event, speaker: 'Gilda dei Fabbri', speakerType: 'fazione',
+        text: 'La gilda non accetta le nuove imposte', source: 'llm', turn: 8
+    });
+    assert.match(message.text, /^Io dichiaro:/);
+    const ensured = timelineChatApi.ensureEventThreads([], [event], { events: [event], turn: 8 });
+    assert.equal(ensured.created.length, 1);
+    assert.deepEqual(ensured.chats[0].participants, ['Gilda dei Fabbri', 'Consiglio']);
+    const solitary = timelineChatApi.ensureEventThreads([], [{ ...event, id: 'event-solo', actors: ['Viandante'] }], {
+        events: [event], turn: 8
+    });
+    assert.equal(solitary.created.length, 0);
+});
+
+test('i prompt della simulazione e della chat fanno reagire le parti alle scelte', () => {
+    const simulationPrompt = timelineChatApi.buildSimulationPrompt({
+        recentChoices: [{ summary: 'Rifiutare il tributo della gilda' }]
+    });
+    assert.match(simulationPrompt, /Rifiutare il tributo della gilda/);
+    assert.match(simulationPrompt, /prima persona/i);
+    assert.match(simulationPrompt, /protagonista parla soltanto quando scrive il giocatore/i);
+    const chatPrompt = timelineChatApi.buildChatPrompt({
+        id: 'chat-1', eventTitle: 'Sciopero della gilda', participants: ['Gilda', 'Protagonista'], messages: []
+    }, 'Propongo una tregua', { eventSummary: 'Le botteghe sono chiuse' });
+    assert.match(chatPrompt, /IL PROTAGONISTA DICE: Propongo una tregua/);
+    assert.match(chatPrompt, /Non parlare mai al posto del protagonista/);
 });
 
 test('il Master sceglie il focus e produce un beat proattivo', () => {
@@ -1456,6 +1524,23 @@ test('la barra mobile mostra soltanto la gestione di attività e regno', () => {
     assert.doesNotMatch(actionBar, /id="btn-(?:rest|eat|heal|wait|train)"/);
     assert.doesNotMatch(actionBar, /id="quick-actions"/);
     assert.match(html, /managementActionBar\.hidden = businessManageButton\.hidden && kingdomButton\.hidden/);
+});
+
+test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /src="js\/timeline-chat\.js"/);
+    assert.match(html, /id="btn-advance-world"/);
+    assert.match(html, /id="modal-timeline"/);
+    assert.match(html, /id="btn-simulate-timeline"/);
+    assert.match(html, /id="modal-event-screen"/);
+    assert.match(html, /id="modal-world-chat"/);
+    assert.match(html, /id="chat-thread-list"/);
+    assert.match(html, /id="chat-input"/);
+    assert.match(html, /function simulateTimelineEvents/);
+    assert.match(html, /function sendWorldChatMessage/);
+    assert.match(html, /function queueTimelineChoice/);
+    assert.match(html, /NON emettere un altro tag TEMPO/);
+    assert.match(html, /timelineChatEngine\.parseChatTags/);
 });
 
 test('espone coerentemente la versione applicativa 1.9', () => {
