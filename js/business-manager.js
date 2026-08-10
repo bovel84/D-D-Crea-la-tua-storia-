@@ -648,9 +648,14 @@
         const reports = [];
         management.businesses.forEach(business => {
             const periodTurns = Math.max(1, parseInt(business.settings?.periodTurns, 10) || 5);
-            const due = turn - Math.max(0, parseInt(business.lastPeriodTurn, 10) || 0) >= periodTurns;
-            if (!due || business.status !== 'active' || business.narrativeInitialized !== true) return;
-            reports.push({ business, report: runPeriod(business, { ...context, turn }, random) });
+            if (business.status !== 'active' || business.narrativeInitialized !== true) return;
+            let nextTurn = Math.max(0, parseInt(business.lastPeriodTurn, 10) || 0) + periodTurns;
+            let processed = 0;
+            while (nextTurn <= turn && processed < 120) {
+                reports.push({ business, report: runPeriod(business, { ...context, turn: nextTurn }, random) });
+                nextTurn += periodTurns;
+                processed++;
+            }
         });
         return { management, reports };
     }

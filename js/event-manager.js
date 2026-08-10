@@ -214,7 +214,7 @@
             const fallback = chronicleFallback(text, context);
             if (fallback) events.push(fallback);
         }
-        return events.slice(0, 5);
+        return events.slice(0, 6);
     }
 
     function migrateEvents(events, context = {}) {
@@ -289,8 +289,19 @@
             .filter(Boolean)
             .slice(0, 5)
             .join(', ') || 'nessuna';
+        const passage = context.timePassage && Number(context.timePassage.elapsed) > 0
+            ? context.timePassage
+            : null;
+        const eventCount = passage ? 'da 2 a 6' : 'da 1 a 3';
+        const passageDirective = passage
+            ? `\n⏳ PERIODO DA NARRARE: ${cleanText(passage.description, 120)}.
+- Non saltare direttamente alla scena finale: crea un breve montaggio cronologico dell'intero periodo.
+- Mostra la normale vita del protagonista (sonno, pasti, lavoro, relazioni) senza elencare ogni gesto ripetitivo.
+- Distribuisci da 2 a ${Math.min(6, Math.max(3, Math.ceil(Number(passage.days || 1) / 7) + 2))} EVENTO significativi in momenti diversi del periodo e raccontane cause e conseguenze.
+- Resoconto già simulato dal motore, da rispettare: ${cleanText(passage.summary, 300)}\n`
+            : `\n- Se fai trascorrere almeno un giorno con [TEMPO], narra ciò che accade durante il periodo in ordine cronologico: il protagonista dorme, mangia e vive normalmente. Registra da 2 a 6 EVENTO significativi distribuiti nel periodo, non soltanto lo stato finale.\n`;
         return `📜 **CRONACA STRUTTURATA DEL MONDO**
-- Dopo la narrazione registra da 1 a 3 fatti che sono diventati veri in questo turno. Un fatto causale = un tag.
+- Dopo la narrazione registra ${eventCount} fatti che sono diventati veri in questo turno. Un fatto causale = un tag.
 - Formato completo obbligatorio per i nuovi tag:
   [EVENTO: tipo|titolo|fatto_accaduto|luogo|entità_separate_da_virgola|conseguenza_persistente|normal/high/critical|active/developing/resolved]
 - Tipi ammessi: ${EVENT_TYPES.join(', ')}.
@@ -302,6 +313,7 @@
 - Collega gli eventi a missioni e persone solo quando la scena li modifica davvero. Missioni attive: ${questNames}. Posizione attuale: ${cleanText(context.location, 100) || 'Sconosciuta'}.
 - Esempio: [EVENTO: relazione|Il patto del porto|Elara accetta di aiutare il protagonista|Porto Vecchio|Elara, protagonista|Elara preparerà una barca entro l'alba|high|active]
 - Esempio: [EVENTO: conflitto|Agguato respinto|Il protagonista mette in fuga i briganti della strada|Via del Mulino|protagonista, briganti|La via torna percorribile ma un brigante è fuggito|high|developing]
+${passageDirective}
 
 EVENTI RECENTI DA NON DUPLICARE:
 ${recentText}`;

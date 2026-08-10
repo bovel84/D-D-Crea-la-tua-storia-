@@ -151,6 +151,22 @@ test('il prompt eventi impone tag completi e usa il contesto della campagna', ()
     assert.match(prompt, /Elara è scomparsa/);
 });
 
+test('il prompt di un salto lungo richiede routine ed eventi distribuiti nel periodo', () => {
+    const prompt = eventApi.buildPrompt({
+        location: 'Castello di Montefeltro',
+        timePassage: {
+            elapsed: timeEnergyApi.MINUTES_PER_MONTH,
+            days: 30,
+            description: '30 giorni',
+            summary: '30 notti di sonno e circa 90 pasti'
+        }
+    });
+    assert.match(prompt, /montaggio cronologico dell'intero periodo/i);
+    assert.match(prompt, /sonno, pasti, lavoro, relazioni/i);
+    assert.match(prompt, /momenti diversi del periodo/i);
+    assert.match(prompt, /30 notti di sonno e circa 90 pasti/i);
+});
+
 test('il Master sceglie il focus e produce un beat proattivo', () => {
     const engine = new narrativeApi.NarrativeMasterEngine();
     const memory = memoryApi.migrateMemory({
@@ -343,6 +359,20 @@ test('interpreta il tempo narrativo e applica il metabolismo senza rigenerazione
     result = timeEnergyApi.consumeMetabolism({ _metabolismCarry: { stamina: 0, hunger: 0 } }, 480, true);
     assert.equal(result.staminaLoss, 0);
     assert.equal(result.hungerLoss, 12);
+});
+
+test('un mese simula pasti e sonno senza ridurre il protagonista a fame ed energia zero', () => {
+    const routine = timeEnergyApi.simulateDailyRoutine({
+        health: { cur: 3, max: 9 },
+        stamina: { cur: 4, max: 100 },
+        hunger: { cur: 2, max: 100 }
+    }, timeEnergyApi.MINUTES_PER_MONTH);
+    assert.equal(routine.nights, 30);
+    assert.equal(routine.meals, 90);
+    assert.ok(routine.stamina >= 70);
+    assert.ok(routine.hunger >= 65);
+    assert.equal(routine.health, 9);
+    assert.equal(timeEnergyApi.simulateDailyRoutine({}, 12 * 60), null, 'le azioni brevi usano ancora il metabolismo normale');
 });
 
 test('classifica gli intenti del Game Director', () => {
@@ -992,6 +1022,19 @@ test('chiude automaticamente il periodo quando l’attività matura i turni nece
     }, () => 0.5).reports.length, 0, 'non deve chiudere due volte lo stesso periodo');
 });
 
+test('un salto di molti turni chiude tutti i periodi economici intermedi', () => {
+    const property = { id: 42, name: 'Bottega del Mese', type: 'business', businessCash: 100 };
+    const business = businessApi.createBusinessFromProperty(property, 0);
+    initializeBusinessForTest(business, { stock: 500, baseDemand: 2, salePrice: 12, unitCost: 4 });
+    business.settings.periodTurns = 5;
+    const result = businessApi.processPeriods({ businesses: [business] }, {
+        properties: [property], employees: [], turn: 30
+    }, () => 0.5);
+    assert.equal(result.reports.length, 6);
+    assert.equal(result.management.businesses[0].period, 6);
+    assert.equal(result.management.businesses[0].lastPeriodTurn, 30);
+});
+
 test('evidenzia prodotti sotto scorta e ordini aperti', () => {
     const business = businessApi.createBusinessFromProperty({
         id: 5, name: 'Negozio Centro', type: 'business'
@@ -1397,6 +1440,9 @@ test('collega tempo ed energia al motore deterministico', () => {
     assert.match(html, /src="js\/time-energy\.js"/);
     assert.match(html, /CronacheTimeEnergy\.normalizeMinutes/);
     assert.match(html, /CronacheTimeEnergy\.parseTimeExpression/);
+    assert.match(html, /CronacheTimeEnergy\.simulateDailyRoutine/);
+    assert.match(html, /\[A-ZÀ-Ü_\]\+_REGNO/);
+    assert.match(html, /normale vita quotidiana del protagonista/);
     assert.match(html, /advanceTime\(480, \{ resting: true \}\)/);
     assert.match(html, /case 'stamina': case 'energia': case 'energy'/);
     assert.equal(html.includes('const regenAmount = 3'), false, 'l’energia non deve rigenerarsi durante ogni azione');
