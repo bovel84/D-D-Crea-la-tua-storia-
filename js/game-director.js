@@ -286,8 +286,10 @@ Mantieni i tag del Game Director fuori dalla prosa narrativa. Non generare una s
 
     function fallbackChronicle(action, response) {
         const eventMatch = String(response || '').match(/\[EVENTO:\s*([^\]]+)\]/i);
+        const eventParts = eventMatch ? eventMatch[1].split('|').map(part => cleanText(part, 320)) : [];
+        const isStructuredEvent = eventParts.length >= 3;
         const summary = eventMatch
-            ? cleanText(eventMatch[1], 320)
+            ? cleanText(isStructuredEvent ? eventParts[2] : eventParts[0], 320)
             : cleanText(
                 String(response || '')
                     .replace(/\[ANALISI\][\s\S]*?\[\/ANALISI\]/gi, '')
@@ -295,9 +297,9 @@ Mantieni i tag del Game Director fuori dalla prosa narrativa. Non generare una s
                 320
             );
         return {
-            title: cleanText(action, 80) || 'Nuovo capitolo',
+            title: cleanText(isStructuredEvent ? eventParts[1] : action, 80) || 'Nuovo capitolo',
             summary: summary || 'Il turno è stato registrato nella cronaca.',
-            importance: 'normal'
+            importance: normalizeImportance(isStructuredEvent ? eventParts[6] : 'normal')
         };
     }
 

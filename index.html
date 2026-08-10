@@ -3004,6 +3004,7 @@
 
     <script src="https://unpkg.com/@openrouter/sdk"></script>
     <script src="js/memory-manager.js"></script>
+    <script src="js/event-manager.js"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
@@ -3061,6 +3062,7 @@
             compressionThreshold: 6000,
             mediumTermTokens: 500
         });
+        const eventEngine = new CronacheEvents.EventManager({ maxEvents: 100 });
         const narrativeMaster = new CronacheNarrative.NarrativeMasterEngine();
         const gameDirector = new CronacheDirector.GameDirector();
         const lifeEngine = new CronacheLife.LifeLegacyEngine();
@@ -3928,6 +3930,10 @@
 
         function migrateSavedWorldMemory(memory) {
             const migrated = memoryManager.migrate(memory || {});
+            migrated.events = eventEngine.migrate(migrated.events, {
+                turn: migrated.turnCount,
+                source: 'legacy'
+            });
             migrated.narrativeCompass = narrativeMaster.migrate(migrated.narrativeCompass);
             migrated.director = gameDirector.migrate(migrated.director);
             migrated.management = businessEngine.migrate(migrated.management);
@@ -7567,17 +7573,23 @@
             }
         }
 
-        function addEvent(summary, importance = 'normal') {
-            G.worldMemory.events.push({
-                id: Date.now(),
-                summary,
+        function addEvent(event, importance = 'normal') {
+            const incoming = eventEngine.create(
+                typeof event === 'string' ? { summary: event, importance, source: 'game' } : event,
+                {
+                    turn: G.worldMemory.turnCount,
+                    location: G.currentLocation,
+                    knownActors: G.worldMemory.npcs || []
+                }
+            );
+            if (!incoming) return null;
+            const result = eventEngine.record(G.worldMemory.events, [incoming], {
                 turn: G.worldMemory.turnCount,
-                importance
+                location: G.currentLocation,
+                knownActors: G.worldMemory.npcs || []
             });
-            // Keep only last 50 events
-            if (G.worldMemory.events.length > 50) {
-                G.worldMemory.events = G.worldMemory.events.slice(-50);
-            }
+            G.worldMemory.events = result.events;
+            return result.added[0] || result.updated[0] || null;
         }
 
         function upsertLongTermMemory(field, identity, data) {
@@ -8398,7 +8410,7 @@
                 const recentEvents = wm.events.slice(-5);
                 summary += '\n📜 EVENTI RECENTI:\n';
                 recentEvents.forEach(e => {
-                    summary += `- ${e.summary}\n`;
+                    summary += `- ${eventEngine.format(e)}\n`;
                 });
             }
 
@@ -9391,6 +9403,13 @@ Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, pr
 
             // Build world memory summary
             const worldMemorySummary = buildWorldMemorySummary();
+            const eventTagDirective = eventEngine.buildPrompt({
+                turn: G.worldMemory.turnCount || 0,
+                location: G.currentLocation,
+                recentEvents: G.worldMemory.events || [],
+                activeQuests: (G.worldMemory.quests || []).filter(quest => quest.status === 'active'),
+                knownActors: G.worldMemory.npcs || []
+            });
             
             // Build critical conditions
             let criticalConditions = '';
@@ -9621,21 +9640,7 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 - NON assegnare EXP per azioni banali (camminare, parlare normalmente, acquisti semplici).
 - Il sistema gestisce automaticamente il level-up quando l'EXP raggiunge la soglia.
 
-📜 **CRONACA DEL MONDO (Sistema Eventi)**
-- Registra SEMPRE gli avvenimenti significativi per costruire la memoria narrativa.
-- Usa [EVENTO: descrizione breve ma significativa dell'accaduto] per ogni evento importante.
-- QUANDO usare [EVENTO:]:
-  - Combattimenti: [EVENTO: Sconfitto il brigante che minacciava la strada]
-  - Scoperte: [EVENTO: Trovato l'ingresso segreto della cripta]
-  - Incontri: [EVENTO: Alleanza stretta con il mercante Lorenzo]
-  - Scelte morali: [EVENTO: Risparmiata la vita al ladro pentito]
-  - Cambiamenti: [EVENTO: La taverna ha aperto le porte per la prima volta]
-  - Tragedie: [EVENTO: La tempesta ha danneggiato il raccolto]
-  - Successi: [EVENTO: Primo guadagno dalla vendita di birra]
-  - Fallimenti: [EVENTO: Negoziazione fallita con il barone]
-- OGNI risposta dovrebbe contenere almeno 1-3 tag [EVENTO:] per registrare cosa è successo.
-- Gli eventi formano la cronaca della storia e aiutano a ricordare il passato.
-- Sii specifico: "Combattuto contro lupi" è meglio di "Combattimento".
+${eventTagDirective}
 
 📋 **QUEST E OBIETTIVI**
 - Usa [QUEST: nome|descrizione|stato|progresso] per gestire le missioni.
@@ -10340,13 +10345,21 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 memoryChanged = true;
             }
 
-            // Extract Events
-            const eventRe = /\[EVENTO:\s*([^\]]+)\]/gi;
-            while ((m = eventRe.exec(response)) !== null) {
-                const summary = m[1].trim();
-                addEvent(summary);
-                memoryChanged = true;
-            }
+            // Estrae eventi strutturati. Se il provider omette EVENTO ma rispetta
+            // CRONISTA, il ledger recupera comunque il fatto principale del turno.
+            const parsedEvents = eventEngine.parse(response, {
+                turn: G.worldMemory.turnCount,
+                location: G.currentLocation,
+                knownActors: G.worldMemory.npcs || [],
+                includeChronicleFallback: true
+            });
+            const eventResult = eventEngine.record(G.worldMemory.events, parsedEvents, {
+                turn: G.worldMemory.turnCount,
+                location: G.currentLocation,
+                knownActors: G.worldMemory.npcs || []
+            });
+            G.worldMemory.events = eventResult.events;
+            if (eventResult.changed) memoryChanged = true;
 
             // Extract suggestions
             const suggRe = /\[SUGGERIMENTO:\s*([^|]+)\|([^\]]+)\]/gi;
@@ -10586,16 +10599,16 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             
             // Raggruppa eventi per tipologia
             const combatEvents = recentEvents.filter(e => 
-                /combatt|battaglia|sconfitt|vittoria|mort[eo]|attacc|ferit/i.test(e.summary)
+                e.type === 'conflitto' || /combatt|battaglia|sconfitt|vittoria|mort[eo]|attacc|ferit/i.test(e.summary)
             );
             const discoveryEvents = recentEvents.filter(e => 
-                /scopert|trovato|esplorat|raggiungt|entrat|arrivat/i.test(e.summary)
+                e.type === 'scoperta' || /scopert|trovato|esplorat|raggiungt|entrat|arrivat/i.test(e.summary)
             );
             const socialEvents = recentEvents.filter(e => 
-                /parlat|incontrat|alleat|negozia|accordo|promess/i.test(e.summary)
+                e.type === 'relazione' || /parlat|incontrat|alleat|negozia|accordo|promess/i.test(e.summary)
             );
             const questEvents = recentEvents.filter(e => 
-                /quest|missione|obiettivo|complet|incaric/i.test(e.summary)
+                e.type === 'missione' || /quest|missione|obiettivo|complet|incaric/i.test(e.summary)
             );
             
             // Costruisci narrazione fluida degli eventi
@@ -10772,7 +10785,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             summary += '⏳ ULTIMI AVVENIMENTI:\n';
             const last5Events = recentEvents.slice(-5);
             last5Events.forEach((e, i) => {
-                summary += `${i + 1}. ${e.summary}\n`;
+                summary += `${i + 1}. ${eventEngine.format(e)}\n`;
             });
             
             wm.storySummary = summary.trim();
@@ -10786,7 +10799,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[[A-ZÀ-Ü_]+\s*:[^\]]+\]/g, ' ')
                 .replace(/\s+/g, ' ')
                 .trim();
-            const recentEvents = (wm.events || []).slice(-6).map(event => event.summary).filter(Boolean);
+            const recentEvents = (wm.events || []).slice(-6).map(event => eventEngine.format(event)).filter(Boolean);
             const activeQuests = (wm.quests || []).filter(quest => quest.status === 'active').slice(-4);
             const sections = [
                 `Scena corrente: ${G.currentLocation || 'Sconosciuto'}, ${getFullTimeString()}.`,
