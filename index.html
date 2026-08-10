@@ -648,13 +648,10 @@
             display: flex;
             gap: 6px;
             margin-bottom: 8px;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+            flex-wrap: wrap;
             padding-bottom: 2px;
         }
-        .action-bar::-webkit-scrollbar { display: none; }
+        .action-bar[hidden] { display: none; }
 
         .action-btn {
             display: flex;
@@ -682,6 +679,12 @@
             opacity: 0.5;
             pointer-events: none;
         }
+        .action-btn.business-manage,
+        .action-btn.kingdom-manage {
+            flex: 1 1 145px;
+            justify-content: center;
+        }
+        .action-btn[hidden] { display: none; }
         .action-btn .action-cost {
             font-size: 0.75em;
             opacity: 0.7;
@@ -2414,16 +2417,10 @@
             </div>
 
             <div class="input-area">
-                <div class="action-bar" id="action-bar">
+                <div class="action-bar" id="action-bar" hidden>
+                    <button class="action-btn business-manage" id="btn-business-manage" title="Apri la gestione di imprese e negozi" hidden>🏢 Gestisci attività</button>
                     <button class="action-btn kingdom-manage" id="btn-kingdom-manage" title="Apri la gestione del regno" hidden>👑 Gestisci regno</button>
-                    <button class="action-btn business-manage" id="btn-business-manage" title="Apri la gestione di imprese e negozi" hidden>🏪 Gestisci negozio</button>
-                    <button class="action-btn rest" id="btn-rest" title="Riposa 8 ore">😴 Riposa</button>
-                    <button class="action-btn eat" id="btn-eat" title="Mangia">🍖 Mangia</button>
-                    <button class="action-btn heal" id="btn-heal" title="Curati">❤️‍🩹 Cura</button>
-                    <button class="action-btn wait" id="btn-wait" title="Aspetta">⏰ Aspetta</button>
-                    <button class="action-btn train" id="btn-train" title="Allenati">💪 Allenati</button>
                 </div>
-                <div class="quick-actions" id="quick-actions"></div>
                 <div class="input-row">
                     <input type="text" id="action-input" placeholder="Cosa fai?" autocomplete="off">
                     <button id="btn-send">➤</button>
@@ -4595,16 +4592,10 @@
 
         function updateActionBar() {
             if (!G.character) return;
-            const c = G.character;
-            const restBtn = $('btn-rest');
-            const eatBtn = $('btn-eat');
-            const healBtn = $('btn-heal');
-            const trainBtn = $('btn-train');
-            
-            if (restBtn) restBtn.disabled = G.isProcessing;
-            if (eatBtn) eatBtn.disabled = G.isProcessing;
-            if (healBtn) healBtn.disabled = G.isProcessing || c.health.cur >= c.health.max;
-            if (trainBtn) trainBtn.disabled = G.isProcessing || c.stamina.cur < 30 || c.hunger.cur < 20;
+            ['btn-business-manage', 'btn-kingdom-manage'].forEach(id => {
+                const button = $(id);
+                if (button) button.disabled = G.isProcessing;
+            });
         }
 
         // ==================== QUICK ACTIONS ====================
@@ -4614,6 +4605,8 @@
         }
 
         function updateQuickActions() {
+            const container = $('quick-actions');
+            if (!container) return;
             const actions = G.currentStory ? getGenreActions(G.currentStory) : DEFAULT_ACTIONS;
             
             const html = actions.map(a => `
@@ -4622,7 +4615,7 @@
                 </button>
             `).join('');
             
-            $('quick-actions').innerHTML = html;
+            container.innerHTML = html;
             
             $$('.quick-btn').forEach(btn => {
                 btn.onclick = () => {
@@ -7471,7 +7464,7 @@
                 const manageButton = $('btn-business-manage');
                 if (manageButton) {
                     manageButton.hidden = managed.count === 0;
-                    manageButton.textContent = managed.count === 1 ? '🏪 Gestisci negozio' : '🏢 Gestisci attività';
+                    manageButton.textContent = '🏢 Gestisci attività';
                     manageButton.classList.toggle('attention', managed.lowStock > 0);
                     manageButton.title = managed.lowStock > 0
                         ? managed.lowStock + ' prodotti sotto scorta: apri la gestione'
@@ -7491,6 +7484,11 @@
                 kingdomButton.title = kingdom.active
                     ? `${kingdom.name}: tesoro ${kingdom.treasury}, consenso ${Math.round(kingdom.people.approval)}%, disordini ${Math.round(kingdom.people.unrest)}%`
                     : 'Apri la gestione del regno';
+            }
+            const managementActionBar = $('action-bar');
+            const businessManageButton = $('btn-business-manage');
+            if (managementActionBar && businessManageButton && kingdomButton) {
+                managementActionBar.hidden = businessManageButton.hidden && kingdomButton.hidden;
             }
 
             // Panel Dipendenti

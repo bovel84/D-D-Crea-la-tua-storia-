@@ -1399,7 +1399,7 @@ test('le modifiche manuali vengono registrate come eventi nella cronaca visibile
 test('espone accessi visibili alla gestione del negozio', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /id="btn-business-manage"/);
-    assert.match(html, /Gestisci negozio/);
+    assert.match(html, /Gestisci attività/);
     assert.match(html, /property-manage-business/);
     assert.match(html, /Inventario → Proprietà & Beni/);
     assert.match(html, /ATTIVITA_NEGOZIO/);
@@ -1446,6 +1446,16 @@ test('collega tempo ed energia al motore deterministico', () => {
     assert.match(html, /advanceTime\(480, \{ resting: true \}\)/);
     assert.match(html, /case 'stamina': case 'energia': case 'energy'/);
     assert.equal(html.includes('const regenAmount = 3'), false, 'l’energia non deve rigenerarsi durante ogni azione');
+});
+
+test('la barra mobile mostra soltanto la gestione di attività e regno', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const actionBar = html.match(/<div class="action-bar" id="action-bar"[\s\S]*?<div class="input-row">/)?.[0] || '';
+    assert.match(actionBar, /id="btn-business-manage"/);
+    assert.match(actionBar, /id="btn-kingdom-manage"/);
+    assert.doesNotMatch(actionBar, /id="btn-(?:rest|eat|heal|wait|train)"/);
+    assert.doesNotMatch(actionBar, /id="quick-actions"/);
+    assert.match(html, /managementActionBar\.hidden = businessManageButton\.hidden && kingdomButton\.hidden/);
 });
 
 test('espone coerentemente la versione applicativa 1.9', () => {
