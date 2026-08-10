@@ -1,6 +1,6 @@
 {
   "name": "cronache-del-destino",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "private": true,
   "description": "Motore GDR narrativo con memoria multilivello e collegamento serverless a Ollama Cloud.",
   "scripts": {

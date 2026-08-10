@@ -1543,11 +1543,11 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /timelineChatEngine\.parseChatTags/);
 });
 
-test('espone coerentemente la versione applicativa 1.9', () => {
+test('espone coerentemente la versione applicativa 2.0', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.equal(packageMetadata.version, '1.9.0');
-    assert.match(html, /<title>🐉 Cronache del Destino v1\.9<\/title>/);
-    assert.match(html, /Un'avventura narrata dall'IA • v1\.9/);
+    assert.equal(packageMetadata.version, '2.0.0');
+    assert.match(html, /<title>🐉 Cronache del Destino v2\.0<\/title>/);
+    assert.match(html, /Un'avventura narrata dall'IA • v2\.0/);
 });
 
 test('inizializza e migra un regno senza confonderne il tesoro con altre finanze', () => {
