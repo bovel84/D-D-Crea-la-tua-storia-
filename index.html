@@ -3255,6 +3255,7 @@
 
     <script src="https://unpkg.com/@openrouter/sdk"></script>
     <script src="js/memory-manager.js"></script>
+    <script src="js/world-bootstrap.js"></script>
     <script src="js/event-manager.js"></script>
     <script src="js/timeline-chat.js"></script>
     <script src="js/narrative-master.js"></script>
@@ -3317,6 +3318,7 @@
             compressionThreshold: 6000,
             mediumTermTokens: 500
         });
+        const worldBootstrapEngine = CronacheWorldBootstrap;
         const eventEngine = new CronacheEvents.EventManager({ maxEvents: 100 });
         const timelineChatEngine = CronacheTimelineChat;
         const narrativeMaster = new CronacheNarrative.NarrativeMasterEngine();
@@ -4186,6 +4188,14 @@
 
         function migrateSavedWorldMemory(memory) {
             const migrated = memoryManager.migrate(memory || {});
+            const worldContext = {
+                story: G.currentStory,
+                setting: G.currentStory?.setting,
+                turn: migrated.turnCount,
+                source: 'memory-migration'
+            };
+            migrated.world = worldBootstrapEngine.migrateWorld(migrated.world, worldContext);
+            migrated.world = worldBootstrapEngine.syncFromMemory(migrated.world, migrated, worldContext);
             migrated.events = eventEngine.migrate(migrated.events, {
                 turn: migrated.turnCount,
                 source: 'legacy'
@@ -6162,6 +6172,15 @@
 
             if ($('memory-director')) {
                 const director = gameDirector.migrate(wm.director);
+                const seededWorld = worldBootstrapEngine.migrateWorld(wm.world, {
+                    story: G.currentStory,
+                    turn: wm.turnCount || 0
+                });
+                const worldInfluences = worldBootstrapEngine.selectInfluences(seededWorld, {
+                    turn: wm.turnCount || 0,
+                    location: G.currentLocation,
+                    limit: 4
+                });
                 const publicMoves = director.worldMoves.filter(move => move.visibility === 'visible').slice(-8).reverse();
                 const hiddenCount = director.worldMoves.filter(move => move.visibility !== 'visible').length;
                 const timeline = director.timeline.slice(-10).reverse();
@@ -6171,6 +6190,21 @@
                 const esc = CronacheDirector.escapeHtml;
                 const profile = CronacheCampaign.profileSummary(G.currentStory?.campaignProfile);
                 $('memory-director').innerHTML = `
+                    <div class="memory-section">
+                        <div class="memory-section-title">🌍 Mondo iniziale persistente</div>
+                        <div class="memory-card">
+                            <div class="memory-card-title">${esc(seededWorld.name)} · ${esc(seededWorld.status)}</div>
+                            <div class="memory-card-desc">${esc(seededWorld.centralConflict || seededWorld.premise || 'Il mondo è in costruzione.')}</div>
+                            <div class="memory-card-meta">${seededWorld.locations.length} luoghi · ${seededWorld.actors.length} personaggi · ${seededWorld.factions.length} fazioni · ${seededWorld.relations.length} relazioni</div>
+                        </div>
+                        ${worldInfluences.map(actor => `
+                            <div class="memory-card">
+                                <div class="memory-card-title">${esc(actor.name)} · influenza ${Math.round(actor.influence || 0)}/100</div>
+                                <div class="memory-card-desc">${esc(actor.goal || actor.description || 'Obiettivo non ancora definito')}</div>
+                                <div class="memory-card-meta">${esc(actor.strategy || 'Strategia in evoluzione')}${actor.lastMove ? ` · Ultima mossa: ${esc(actor.lastMove)}` : ''}</div>
+                            </div>
+                        `).join('')}
+                    </div>
                     <div class="director-hero">
                         <div>
                             <span class="director-kicker">GAME DIRECTOR</span>
@@ -9927,7 +9961,12 @@
                 const prompt = timelineChatEngine.buildChatPrompt(thread, text, {
                     events: G.worldMemory.events,
                     turn: G.worldMemory.turnCount || 0,
-                    eventSummary: event ? `${event.summary}. Conseguenza: ${event.consequence || 'nessuna'}` : ''
+                    eventSummary: event ? `${event.summary}. Conseguenza: ${event.consequence || 'nessuna'}` : '',
+                    actorContext: worldBootstrapEngine.buildInteractionPrompt(
+                        G.worldMemory.world,
+                        thread.participants,
+                        { story: G.currentStory, turn: G.worldMemory.turnCount || 0 }
+                    )
                 });
                 const response = await requestWorldChatAI(prompt);
                 let replies = timelineChatEngine.parseChatTags(response, {
@@ -9951,6 +9990,15 @@
                     turn: G.worldMemory.turnCount || 0
                 });
                 G.worldMemory.chats = result.chats;
+                replies.forEach(reply => {
+                    G.worldMemory.world = worldBootstrapEngine.markInteraction(
+                        G.worldMemory.world,
+                        reply.speaker,
+                        G.worldMemory.turnCount || 0,
+                        reply.text,
+                        { story: G.currentStory }
+                    );
+                });
                 autoSave();
             } catch (error) {
                 notify(`Chat non disponibile: ${error.message}`, 'error');
@@ -10003,6 +10051,13 @@
                     currentLocation: G.currentLocation
                 });
                 G.worldMemory.director = directorCommit.state;
+                const committedMoves = CronacheDirector.extractTags(response).worldMoves;
+                G.worldMemory.world = worldBootstrapEngine.applyWorldMoves(
+                    G.worldMemory.world,
+                    committedMoves,
+                    G.worldMemory.turnCount || 0,
+                    { story: G.currentStory, location: G.currentLocation }
+                );
                 updateMemoryUI();
                 updateInfoPanels(); // Aggiorna pannelli dopo modifiche AI
                 G.worldMemory = migrateSavedWorldMemory(G.worldMemory);
@@ -10131,6 +10186,22 @@ Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, pr
             const timelineChatDirective = timelineChatEngine.buildSimulationPrompt({
                 recentChoices: recentTimelineChoices
             });
+            const worldInfluenceDirective = isStart
+                ? worldBootstrapEngine.buildBootstrapPrompt({ story, turn: G.worldMemory.turnCount || 0 })
+                : worldBootstrapEngine.buildRuntimePrompt(G.worldMemory.world, {
+                    story,
+                    turn: G.worldMemory.turnCount || 0,
+                    location: G.currentLocation,
+                    limit: 5
+                });
+            const worldTimelineDirective = G.pendingTimePassage
+                ? worldBootstrapEngine.buildTimelinePrompt(G.worldMemory.world, {
+                    story,
+                    turn: G.worldMemory.turnCount || 0,
+                    location: G.currentLocation,
+                    duration: G.pendingTimePassage.description
+                })
+                : '';
             
             // Build critical conditions
             let criticalConditions = '';
@@ -10365,6 +10436,10 @@ ${eventTagDirective}
 
 ${timelineChatDirective}
 
+${worldInfluenceDirective}
+
+${worldTimelineDirective}
+
 📋 **QUEST E OBIETTIVI**
 - Usa [QUEST: nome|descrizione|stato|progresso] per gestire le missioni.
   - Stato: active, completed, failed
@@ -10492,7 +10567,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     apiKey: config.apiKey || '',
                     preferredModels,
                     discoveredModels: config.discoveredModels,
-                    maxTokens: { short: 800, medium: 1500, long: 2200 }[s.length] || 1500
+                    maxTokens: isStart ? 3600 : ({ short: 800, medium: 1500, long: 2200 }[s.length] || 1500)
                 });
                 if (result.attemptedModels.length > 1) {
                     console.warn(`Fallback Ollama riuscito con ${result.model}; tentativi: ${result.attemptedModels.join(' → ')}`);
@@ -10529,7 +10604,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                         ],
                         stream: true,
                         temperature: 0.7,
-                        max_tokens: 1500
+                        max_tokens: isStart ? 3600 : 1500
                     });
                     
                     let fullContent = '';
@@ -10563,7 +10638,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 model,
                 messages: requestMessages,
                 temperature: 0.7, // Leggermente più basso per essere più rigoroso
-                max_tokens: 1500
+                max_tokens: isStart ? 3600 : 1500
             };
 
             const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -10621,6 +10696,30 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             G.storyBatchMode = true;
 
             try {
+
+            // La prima risposta costruisce il mondo persistente. Il fallback
+            // deterministico garantisce una base giocabile anche con tag incompleti.
+            const worldBootstrap = worldBootstrapEngine.ingestResponse(response, G.worldMemory.world, {
+                story: G.currentStory,
+                setting: G.currentStory?.setting,
+                turn: G.worldMemory.turnCount || 0,
+                location: G.currentLocation,
+                source: isStart ? 'initial-world' : 'world-update',
+                ensureMinimum: isStart
+            });
+            G.worldMemory.world = worldBootstrap.world;
+            G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
+                story: G.currentStory,
+                turn: G.worldMemory.turnCount || 0
+            });
+            if (worldBootstrap.changed) memoryChanged = true;
+            if (isStart) {
+                const world = G.worldMemory.world;
+                addStoryEntry(
+                    `🌍 Mondo creato: ${world.name} · ${world.locations.length} luoghi · ${world.actors.length} personaggi · ${world.factions.length} fazioni.`,
+                    'system'
+                );
+            }
 
             // 1. ESTRAZIONE ANALISI (Nuova parte)
             const analysisRe = /\[ANALISI\]([\s\S]*?)\[\/ANALISI\]/gi;
@@ -11107,10 +11206,24 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 occurredAt: getFullTimeString()
             });
             G.worldMemory.chats = recordedChats.chats;
+            parsedChatMessages.forEach(message => {
+                G.worldMemory.world = worldBootstrapEngine.markInteraction(
+                    G.worldMemory.world,
+                    message.speaker,
+                    G.worldMemory.turnCount || 0,
+                    message.text,
+                    { story: G.currentStory }
+                );
+            });
             if (!$('modal-world-chat')?.classList.contains('active') && recordedChats.added.length) {
                 G.worldMemory.unreadChatCount = Math.max(0, Number(G.worldMemory.unreadChatCount) || 0) + recordedChats.added.length;
             }
             if (ensuredChats.created.length || recordedChats.changed) memoryChanged = true;
+            G.worldMemory.world = worldBootstrapEngine.syncFromMemory(G.worldMemory.world, G.worldMemory, {
+                story: G.currentStory,
+                turn: G.worldMemory.turnCount || 0,
+                location: G.currentLocation
+            });
             updateWorldChatBadge();
             if ($('modal-world-chat')?.classList.contains('active')) renderWorldChats();
 
@@ -11153,6 +11266,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[MORTE_FAMILIARE:[^\]]*\]/gi, '')
                 .replace(/\[EVENTO:[^\]]*\]/gi, '')
                 .replace(/\[CHAT:[^\]]*\]/gi, '')
+                .replace(/\[(?:MONDO|LUOGO|PERSONAGGIO|FAZIONE|RELAZIONE|FORZA)_SETUP:[^\]]*\]/gi, '')
                 .replace(/\[POSIZIONE:[^\]]*\]/gi, '')
                 .replace(/\[SCELTA:[^\]]*\]/gi, '')
                 .replace(/\[(?:USA|CONSUMA|UTILIZZA|DROP|SCARTA):[^\]]*\]/gi, '')

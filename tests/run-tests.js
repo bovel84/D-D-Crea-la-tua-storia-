@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const memoryApi = require('../js/memory-manager.js');
+const worldBootstrapApi = require('../js/world-bootstrap.js');
 const eventApi = require('../js/event-manager.js');
 const timelineChatApi = require('../js/timeline-chat.js');
 const narrativeApi = require('../js/narrative-master.js');
@@ -27,13 +28,88 @@ function test(name, fn) { tests.push({ name, fn }); }
 test('migra la memoria legacy senza perdere i campi esistenti', () => {
     const legacy = { npcs: [{ name: 'Elara' }], events: [{ summary: 'Incontro' }], customField: 42 };
     const migrated = memoryApi.migrateMemory(legacy);
-    assert.equal(migrated.memorySchemaVersion, 3);
+    assert.equal(migrated.memorySchemaVersion, 4);
     assert.equal(migrated.npcs[0].name, 'Elara');
     assert.equal(migrated.customField, 42);
     assert.deepEqual(migrated.factions, []);
     assert.deepEqual(migrated.revealedSecrets, []);
     assert.deepEqual(migrated.chats, []);
     assert.deepEqual(migrated.pendingTimelineChoices, []);
+    assert.deepEqual(migrated.world, {});
+});
+
+test('costruisce all’avvio un mondo persistente con luoghi, attori, fazioni e forze', () => {
+    const response = [
+        '[MONDO_SETUP: Astaria|Sei potenze competono per le rotte|Il trono è vacante|Una guerra può travolgere la popolazione]',
+        '[LUOGO_SETUP: Khepra|capitale|Daran|Città sul Fiume Rosso|Consiglio di Daran|grano|rivolta|Porto Rosso, Frontiera]',
+        '[LUOGO_SETUP: Porto Rosso|porto|Daran|Mercato delle rotte meridionali|Gilda dei Mercanti|navi|pirati|Khepra]',
+        '[LUOGO_SETUP: Frontiera|confine|Daran|Terre contese tra fortezze|Legione|ferro|guerra|Khepra]',
+        '[PERSONAGGIO_SETUP: Elara Vey|diplomatica|Consiglio di Daran|Ambasciatrice del consiglio|lucida e paziente|evitare la guerra|creare un’alleanza|rete diplomatica|72|alleata potenziale|active|Khepra]',
+        '[PERSONAGGIO_SETUP: Varos Kain|generale|Legione|Comandante della frontiera|rigido e ambizioso|ottenere pieni poteri|provocare una crisi|esercito|81|diffidente|active|Frontiera]',
+        '[PERSONAGGIO_SETUP: Mira Sol|mercante|Gilda dei Mercanti|Armatrice influente|pragmatica|proteggere le rotte|finanziare entrambe le parti|flotta commerciale|65|neutrale|active|Porto Rosso]',
+        '[PERSONAGGIO_SETUP: Taren|informatore||Guida dei quartieri|ironico e prudente|vendere il segreto giusto|osservare tutti|informatori|48|amichevole|active|Khepra]',
+        '[FAZIONE_SETUP: Consiglio di Daran|governo|Elara Vey|Governa la capitale|mantenere la pace|negoziare|leggi e diplomazia|75|neutrale|active|Khepra]',
+        '[FAZIONE_SETUP: Legione|militare|Varos Kain|Difende il confine|espandere il potere|pressione militare|soldati e fortezze|82|diffidente|active|Frontiera]',
+        '[RELAZIONE_SETUP: Consiglio di Daran|Legione|rivalità|25|78|Il governo teme un colpo di mano]',
+        '[RELAZIONE_SETUP: Elara Vey|Mira Sol|cooperazione|62|28|Collaborano per mantenere aperto il porto]',
+        '[FORZA_SETUP: Crisi di successione|Consiglio di Daran|trovare un nuovo equilibrio|20|80|active]'
+    ].join('\n');
+    const result = worldBootstrapApi.ingestResponse(response, {}, {
+        story: { title: 'Cronache di Astaria', setting: 'Astaria' }, turn: 0
+    });
+    assert.equal(result.world.status, 'ready');
+    assert.equal(result.world.actors.length, 4);
+    assert.equal(result.world.factions.length, 2);
+    assert.equal(result.world.locations.length, 3);
+    assert.equal(result.world.relations[0].tension, 78);
+    const memory = worldBootstrapApi.projectToMemory(result.world, memoryApi.createDefaultMemory(), { turn: 0 });
+    assert.equal(memory.npcs.find(item => item.name === 'Varos Kain').goals, 'ottenere pieni poteri');
+    assert.equal(memory.factions.find(item => item.name === 'Legione').leader, 'Varos Kain');
+    assert.equal(memory.narrativeGoals[0].name, 'Crisi di successione');
+});
+
+test('garantisce un mondo minimo giocabile se il modello omette i tag iniziali', () => {
+    const result = worldBootstrapApi.ingestResponse('La storia comincia.', {}, {
+        story: { title: 'Il porto', setting: 'Trieste, 1984', desc: 'Una rete di doppi agenti.' },
+        turn: 0,
+        ensureMinimum: true
+    });
+    assert.equal(result.usedFallback, true);
+    assert.equal(result.world.initialized, true);
+    assert.ok(result.world.actors.length >= 4);
+    assert.ok(result.world.factions.length >= 2);
+    assert.ok(result.world.locations.length >= 3);
+});
+
+test('seleziona attori influenti e registra le loro mosse e interazioni', () => {
+    let world = worldBootstrapApi.ensureMinimumWorld({}, {
+        story: { title: 'Astaria', setting: 'Khepra' }, turn: 0
+    });
+    world.actors[0].name = 'Elara';
+    world.actors[0].location = 'Palazzo';
+    world.actors[0].influence = 40;
+    world.actors[1].name = 'Varos';
+    world.actors[1].location = 'Frontiera';
+    world.actors[1].influence = 90;
+    const selected = worldBootstrapApi.selectInfluences(world, { turn: 2, location: 'Palazzo', limit: 1 });
+    assert.equal(selected[0].name, 'Elara', 'la presenza nella scena deve pesare oltre l’influenza remota');
+    world = worldBootstrapApi.applyWorldMoves(world, [{ actor: 'Elara', action: 'Convoca il consiglio', status: 'working' }], 3);
+    world = worldBootstrapApi.markInteraction(world, 'Elara', 3, 'Propone un patto');
+    assert.equal(world.actors.find(item => item.name === 'Elara').lastMoveTurn, 3);
+    assert.equal(world.actors.find(item => item.name === 'Elara').lastMove, 'Propone un patto');
+});
+
+test('i prompt collegano il mondo iniziale a timeline e conversazioni', () => {
+    const startPrompt = worldBootstrapApi.buildBootstrapPrompt({ story: { title: 'Astaria', setting: 'Khepra' } });
+    assert.match(startPrompt, /MONDO_SETUP/);
+    assert.match(startPrompt, /5 PERSONAGGIO_SETUP/);
+    const world = worldBootstrapApi.ensureMinimumWorld({}, { story: { title: 'Astaria', setting: 'Khepra' } });
+    const timelinePrompt = worldBootstrapApi.buildTimelinePrompt(world, { duration: 'un mese', turn: 4 });
+    assert.match(timelinePrompt, /SIMULAZIONE CAUSALE/);
+    assert.match(timelinePrompt, /EVENTO datati/);
+    const interaction = worldBootstrapApi.buildInteractionPrompt(world, [world.actors[0].name]);
+    assert.match(interaction, /obiettivo/i);
+    assert.match(interaction, /strategia/i);
 });
 
 test('mantiene esattamente gli ultimi 10 messaggi a breve termine', () => {
@@ -469,6 +545,23 @@ test('il Game Director coordina pressione e attore in movimento', () => {
     assert.ok(plan.pressure.level >= 70);
     assert.match(plan.prompt, /TRE RUOLI, UNA SOLA RISPOSTA/);
     assert.equal(plan.state.tick, 1);
+});
+
+test('il Game Director dà priorità agli attori creati dal mondo iniziale', () => {
+    const plan = directorApi.planTurn('Aspetto gli sviluppi', {
+        memory: {
+            turnCount: 5,
+            world: {
+                actors: [{ name: 'Varos', kind: 'npc', goal: 'prendere il potere', strategy: 'muovere la legione', influence: 85, status: 'active', location: 'Frontiera', lastMoveTurn: 0 }],
+                factions: []
+            },
+            npcs: [{ name: 'Comparsa', goals: 'restare ferma', status: 'active' }]
+        },
+        character: {},
+        currentLocation: 'Khepra'
+    });
+    assert.equal(plan.spotlight.name, 'Varos');
+    assert.match(plan.prompt, /muovere la legione/);
 });
 
 test('estrae i tag separati di Cronista e Simulatore del mondo', () => {
@@ -1541,6 +1634,19 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /function queueTimelineChoice/);
     assert.match(html, /NON emettere un altro tag TEMPO/);
     assert.match(html, /timelineChatEngine\.parseChatTags/);
+});
+
+test('integra la creazione iniziale del mondo con narrazione, timeline e chat', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /src="js\/world-bootstrap\.js"/);
+    assert.match(html, /worldBootstrapEngine\.buildBootstrapPrompt/);
+    assert.match(html, /worldBootstrapEngine\.ingestResponse/);
+    assert.match(html, /worldBootstrapEngine\.projectToMemory/);
+    assert.match(html, /worldBootstrapEngine\.buildTimelinePrompt/);
+    assert.match(html, /worldBootstrapEngine\.buildInteractionPrompt/);
+    assert.match(html, /worldBootstrapEngine\.applyWorldMoves/);
+    assert.match(html, /Mondo creato:/);
+    assert.match(html, /isStart \? 3600/);
 });
 
 test('espone coerentemente la versione applicativa 2.0', () => {
