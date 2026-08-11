@@ -2208,6 +2208,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /id="btn-invite-world-chat"/);
     assert.match(html, /id="chat-invite-candidates"/);
     assert.match(html, /function simulateTimelineEvents/);
+    assert.match(html, /function getActiveEventChat/);
     assert.match(html, /function sendWorldChatMessage/);
     assert.match(html, /function confirmWorldConvocation/);
     assert.match(html, /function applyWorldChatResults/);
@@ -2228,6 +2229,10 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /timelineChatEngine\.selectSingleReply/);
     assert.match(html, /simulateTimelineEvents\(\{ fromEventScreen: true \}\)/);
     assert.match(html, /Prepara azione/);
+    assert.match(html, /Conversazione attiva per questo evento/);
+    assert.doesNotMatch(html, /class="timeline-event-tags"/);
+    assert.doesNotMatch(html, /class="event-screen-meta"/);
+    assert.doesNotMatch(html, /Convoca le parti/);
     assert.match(html, /un interlocutore per chiamata/);
 });
 

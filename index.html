@@ -1112,14 +1112,17 @@
         .timeline-event-card h4 { margin: 0 0 3px; font-family: 'Cinzel', serif; }
         .timeline-event-card p { margin: 4px 0 0; color: var(--ink-light); line-height: 1.35; }
         .timeline-event-date { font-size: 0.76em; color: var(--purple); font-weight: 700; }
-        .timeline-event-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-        .timeline-event-tags span {
-            padding: 2px 7px;
+        .event-chat-active {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 6px 10px;
             border-radius: 999px;
-            background: rgba(107,46,155,0.1);
+            background: rgba(107,46,155,0.12);
             color: var(--purple);
-            font-size: 0.72em;
             font-weight: 700;
+            font-size: 0.82em;
         }
         .timeline-event-arrow { align-self: center; color: var(--purple); font-size: 1.25em; }
 
@@ -1136,17 +1139,7 @@
         .event-screen-content { padding: 20px; }
         .event-screen-content h2 { font-family: 'Cinzel', serif; margin-bottom: 10px; }
         .event-screen-fact { font-size: 1.08em; line-height: 1.55; }
-        .event-screen-meta { display: grid; gap: 7px; margin: 15px 0; }
-        .event-screen-meta div { padding: 9px 11px; border-radius: 9px; background: rgba(0,0,0,0.055); }
         .event-screen-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; }
-        .event-interaction-required {
-            margin: 12px 0;
-            padding: 10px 12px;
-            border-radius: 10px;
-            background: rgba(201,146,31,0.14);
-            border: 1px solid rgba(201,146,31,0.38);
-            color: var(--ink);
-        }
 
         .chat-layout { display: grid; grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr); min-height: 480px; }
         .chat-tools { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -10822,6 +10815,13 @@
             container.classList.add('visible');
         }
 
+        function getActiveEventChat(eventId) {
+            if (!eventId) return null;
+            return [...(G.worldMemory?.chats || [])].reverse().find(thread =>
+                thread.eventId === eventId && thread.status !== 'closed'
+            ) || null;
+        }
+
         function renderTimeline() {
             if (!G.worldMemory) return;
             $('timeline-current-date').textContent = getFullTimeString();
@@ -10866,24 +10866,20 @@
             }
             renderStrategicTimelineResults();
             const events = allEvents.filter(timelineSimulator.isMeaningfulEvent).slice(-40).reverse();
-            $('timeline-events-list').innerHTML = events.length ? events.map((event, index) => `
-                <article class="timeline-event-card ${escapeTimelineHtml(event.importance || 'normal')}" data-event-index="${index}">
-                    <div class="timeline-event-icon">${timelineChatEngine.iconForEvent(event.type)}</div>
-                    <div>
-                        <div class="timeline-event-date">${escapeTimelineHtml(event.occurredAt || `Turno ${event.turn || 0}`)}</div>
-                        <h4>${escapeTimelineHtml(event.title || 'Evento')}</h4>
-                        <p>${escapeTimelineHtml(event.summary || '')}</p>
-                        ${event.politicalShift ? `<p>⚖️ ${escapeTimelineHtml(event.politicalShift)}</p>` : ''}
-                        <div class="timeline-event-tags">
-                            <span>${escapeTimelineHtml(event.type || 'mondo')}</span>
-                            <span>${escapeTimelineHtml(event.status || 'resolved')}</span>
-                            ${(event.actors || []).slice(0, 3).map(actor => `<span>👤 ${escapeTimelineHtml(actor)}</span>`).join('')}
-                            ${event.historicalAnchor ? `<span>🏛️ ${escapeTimelineHtml(String(event.historicalAnchor).slice(0, 90))}</span>` : ''}
+            $('timeline-events-list').innerHTML = events.length ? events.map((event, index) => {
+                const activeChat = getActiveEventChat(event.id);
+                return `
+                    <article class="timeline-event-card ${escapeTimelineHtml(event.importance || 'normal')}" data-event-index="${index}">
+                        <div class="timeline-event-icon">${timelineChatEngine.iconForEvent(event.type)}</div>
+                        <div>
+                            <div class="timeline-event-date">${escapeTimelineHtml(event.occurredAt || `Turno ${event.turn || 0}`)}</div>
+                            <h4>${escapeTimelineHtml(event.title || 'Evento')}</h4>
+                            <p>${escapeTimelineHtml(event.summary || '')}</p>
+                            ${activeChat ? '<div class="event-chat-active">💬 Chat attiva</div>' : ''}
                         </div>
-                    </div>
-                    <div class="timeline-event-arrow">›</div>
-                </article>
-            `).join('') : '<div class="timeline-empty">📜 La timeline è ancora vuota. Vai avanti per simulare le conseguenze delle tue scelte.</div>';
+                        <div class="timeline-event-arrow">›</div>
+                    </article>`;
+            }).join('') : '<div class="timeline-empty">📜 La timeline è ancora vuota. Vai avanti per simulare le conseguenze delle tue scelte.</div>';
             $$('#timeline-events-list .timeline-event-card').forEach(card => {
                 card.onclick = () => showEventScreens([events[Number(card.dataset.eventIndex)]], 0);
             });
@@ -11471,25 +11467,13 @@
             const event = events[index];
             if (!event) return;
             const pendingCount = timelineSimulator.normalizeEventQueue(G.worldMemory?.pendingTimelineEvents).length;
-            $('event-screen-progress').textContent = pendingCount
-                ? `Evento · ${pendingCount} ${pendingCount === 1 ? 'sviluppo in attesa' : 'sviluppi in attesa'}`
-                : 'Dettaglio evento';
-            const actors = (event.actors || []).join(', ') || 'Mondo di gioco';
-            const hasChat = (G.worldMemory.chats || []).some(thread => thread.eventId === event.id);
+            const activeChat = getActiveEventChat(event.id);
+            $('event-screen-progress').textContent = activeChat ? 'Evento · Chat attiva' : 'Evento';
             const interactionMode = timelineSimulator.normalizeInteractionMode(
                 event.interactionMode,
                 event.conversationMode === 'required' ? 'dialogue' : event.conversationMode !== 'none' ? 'either' : 'none'
             );
-            const canChat = ['dialogue', 'either'].includes(interactionMode) &&
-                event.conversationMode !== 'none' && (event.actors || []).length >= 2;
             const canAct = ['action', 'either'].includes(interactionMode);
-            const interactionLabel = interactionMode === 'dialogue'
-                ? 'Questo evento richiede un dialogo con le parti coinvolte.'
-                : interactionMode === 'action'
-                    ? 'Questo evento richiede un’azione diretta del protagonista.'
-                    : interactionMode === 'either'
-                        ? 'Puoi affrontare questo evento con un dialogo o con un’azione.'
-                        : '';
             $('event-screen-body').innerHTML = `
                 <div class="event-screen-hero">
                     <div class="event-screen-icon">${timelineChatEngine.iconForEvent(event.type)}</div>
@@ -11497,27 +11481,12 @@
                 </div>
                 <div class="event-screen-content">
                     <h2>${escapeTimelineHtml(event.title || 'Evento')}</h2>
-                    <div class="timeline-event-tags">
-                        <span>${escapeTimelineHtml(event.type || 'mondo')}</span>
-                        <span>${escapeTimelineHtml(event.importance || 'normal')}</span>
-                        <span>${escapeTimelineHtml(event.status || 'resolved')}</span>
-                    </div>
                     <div class="event-screen-fact">${escapeTimelineHtml(event.summary || '')}</div>
-                    <div class="event-screen-meta">
-                        <div>📍 <strong>Luogo:</strong> ${escapeTimelineHtml(event.location || 'Non specificato')}</div>
-                        <div>👥 <strong>Parti:</strong> ${escapeTimelineHtml(actors)}</div>
-                        ${event.cause || event.choice ? `<div>⚡ <strong>Causa:</strong> ${escapeTimelineHtml(event.cause || event.choice)}</div>` : ''}
-                        ${event.historicalAnchor ? `<div>🏛️ <strong>Contesto storico:</strong> ${escapeTimelineHtml(event.historicalAnchor)}</div>` : ''}
-                        ${event.politicalShift ? `<div>⚖️ <strong>Equilibrio politico:</strong> ${escapeTimelineHtml(event.politicalShift)}</div>` : ''}
-                        ${event.stakes ? `<div>🎯 <strong>Posta in gioco:</strong> ${escapeTimelineHtml(event.stakes)}</div>` : ''}
-                        <div>🔗 <strong>Conseguenza:</strong> ${escapeTimelineHtml(event.consequence || 'Nessuna conseguenza persistente')}</div>
-                        ${event.conversationGoal ? `<div>💬 <strong>Da discutere:</strong> ${escapeTimelineHtml(event.conversationGoal)}</div>` : ''}
-                    </div>
-                    ${interactionLabel ? `<div class="event-interaction-required">🎯 ${escapeTimelineHtml(interactionLabel)}</div>` : ''}
+                    ${activeChat ? '<div class="event-chat-active">💬 Conversazione attiva per questo evento</div>' : ''}
                     <div class="event-screen-actions">
-                        ${canChat ? `<button class="btn secondary" id="btn-event-chat">💬 ${hasChat ? 'Apri dialogo' : 'Convoca le parti'}</button>` : ''}
+                        ${activeChat ? '<button class="btn secondary" id="btn-event-chat">💬 Apri chat</button>' : ''}
                         ${canAct ? '<button class="btn secondary" id="btn-event-action">⚡ Prepara azione</button>' : ''}
-                        <button class="btn primary" id="btn-next-event">${pendingCount ? `Evento successivo › (${pendingCount})` : 'Apri timeline'}</button>
+                        <button class="btn primary" id="btn-next-event">${pendingCount ? 'Evento successivo ›' : 'Apri timeline'}</button>
                     </div>
                 </div>`;
             if ($('btn-event-chat')) $('btn-event-chat').onclick = () => openChatForEvent(event.id);
@@ -11666,7 +11635,7 @@
         }
 
         function openChatForEvent(eventId) {
-            let thread = (G.worldMemory.chats || []).find(item => item.eventId === eventId);
+            let thread = getActiveEventChat(eventId);
             if (!thread) {
                 const event = (G.worldMemory.events || []).find(item => item.id === eventId);
                 if (event?.conversationMode === 'none' || (event?.actors || []).length < 2) return;
@@ -11677,7 +11646,7 @@
                     protagonistName: G.character?.name
                 });
                 G.worldMemory.chats = ensured.chats;
-                thread = ensured.created[0] || G.worldMemory.chats.find(item => item.eventId === eventId);
+                thread = ensured.created[0] || getActiveEventChat(eventId);
             }
             if (!thread) return;
             closeModal('modal-event-screen');
