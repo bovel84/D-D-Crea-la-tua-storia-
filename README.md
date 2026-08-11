@@ -46,7 +46,7 @@ Il Master LLM produce la narrazione, ma i dati importanti sono mantenuti da modu
 - Game Director con eventi, pressioni e mosse del mondo.
 - Eventi LLM strutturati per tipo, luogo, attori, conseguenza, importanza e stato, con deduplicazione e fallback dal Cronista.
 - PNG, fazioni, luoghi e conseguenze persistenti.
-- Consigliere strategico IA che ordina problemi, rischi e opportunità e propone azioni concrete eseguibili con un pulsante, senza rivelare informazioni nascoste.
+- Consigliere strategico IA che divide l’analisi per argomenti, propone alternative concrete e permette di selezionare più azioni anche nello stesso tema, senza rivelare informazioni nascoste. Le azioni restano in coda fino a **Vai avanti**, quando il simulatore ne valuta compatibilità ed esiti e sviluppa nella timeline conseguenze e contromosse autonome del mondo.
 - Audit prima/dopo per mantenere coerenti i sistemi gestionali.
 
 ### Personaggio e vita quotidiana
