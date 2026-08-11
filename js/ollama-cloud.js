@@ -10,6 +10,7 @@
     const OLLAMA_CLOUD_ENDPOINT = 'https://ollama.com';
     const OLLAMA_CLOUD_API = `${OLLAMA_CLOUD_ENDPOINT}/api`;
     const OLLAMA_NATIVE_PROXY = 'https://storia-app.vercel.app/api/ollama';
+    const DEFAULT_CLOUD_CONTEXT_SIZE = 65536;
     const OLLAMA_MODELS = Object.freeze([
         {
             id: 'gpt-oss:120b', displayName: 'GPT-OSS 120B · Cloud', apiId: 'gpt-oss:120b', localCloudId: 'gpt-oss:120b-cloud', contextSize: 131072,
@@ -45,7 +46,7 @@
         if (!isValidModelId(id)) return null;
         return {
             id, apiId: id, displayName: `${id} · ID personalizzato`, localCloudId: `${id}-cloud`,
-            contextSize: 32768, temperature: 0.7, topP: 0.9, topK: 40,
+            contextSize: DEFAULT_CLOUD_CONTEXT_SIZE, temperature: 0.7, topP: 0.9, topK: 40,
             notes: 'ID inserito manualmente: verifica che sia abilitato per la tua API key.'
         };
     }
@@ -62,7 +63,7 @@
                 apiId,
                 displayName: model.displayName || `${apiId} · Cloud`,
                 localCloudId: model.localCloudId || `${apiId}-cloud`,
-                contextSize: Number(model.contextSize) || 32768,
+                contextSize: Number(model.contextSize) || DEFAULT_CLOUD_CONTEXT_SIZE,
                 temperature: Number.isFinite(Number(model.temperature)) ? Number(model.temperature) : 0.7,
                 topP: Number.isFinite(Number(model.topP)) ? Number(model.topP) : 0.9,
                 topK: Number.isFinite(Number(model.topK)) ? Number(model.topK) : 40,
@@ -140,7 +141,7 @@
                 apiId,
                 displayName: `${apiId}${size} · Cloud`,
                 localCloudId: `${apiId}-cloud`,
-                contextSize: Number(details.context_length || raw.context_length) || 32768,
+                contextSize: Number(details.context_length || raw.context_length) || DEFAULT_CLOUD_CONTEXT_SIZE,
                 temperature: 0.7,
                 topP: 0.9,
                 topK: 40,
@@ -168,12 +169,26 @@
         async request(model, messages, config, maxTokens) {
             const endpoint = resolveEndpoint(config);
             const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-            const timeoutId = controller ? setTimeout(() => controller.abort(), this.timeoutMs) : null;
+            const timeoutMs = Math.max(1000, Number(config?.timeoutMs) || this.timeoutMs);
+            const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
             const common = {
                 model: model.apiId,
                 messages,
                 stream: false
             };
+            const nativeOptions = {
+                temperature: model.temperature,
+                top_p: model.topP,
+                top_k: model.topK,
+                num_predict: maxTokens || 1500
+            };
+            // Ollama Cloud usa automaticamente il massimo contesto del modello.
+            // Un override resta possibile per proxy/installazioni che lo richiedono,
+            // ma non limitiamo i modelli Cloud con un valore locale stimato.
+            const contextOverride = Number(config?.contextSizeOverride);
+            if (Number.isFinite(contextOverride) && contextOverride > 0) {
+                nativeOptions.num_ctx = Math.trunc(contextOverride);
+            }
             const body = endpoint.style === 'openai'
                 ? {
                     ...common,
@@ -183,13 +198,7 @@
                 }
                 : {
                     ...common,
-                    options: {
-                        temperature: model.temperature,
-                        top_p: model.topP,
-                        top_k: model.topK,
-                        num_ctx: model.contextSize,
-                        num_predict: maxTokens || 1500
-                    }
+                    options: nativeOptions
                 };
 
             try {
@@ -243,9 +252,13 @@
             const catalog = mergeCatalog(settings.discoveredModels);
             const preferred = uniqueModels(settings.preferredModels?.length ? settings.preferredModels : DEFAULT_FALLBACK_ORDER, catalog);
             if (!preferred.length) throw new Error('Configura almeno un modello Ollama valido.');
+            const requestedAttempts = Number(settings.maxAttempts);
+            const candidates = Number.isFinite(requestedAttempts) && requestedAttempts > 0
+                ? preferred.slice(0, Math.max(1, Math.trunc(requestedAttempts)))
+                : preferred;
 
             const failures = [];
-            for (const model of preferred) {
+            for (const model of candidates) {
                 try {
                     const result = await this.request(model, messages, settings, settings.maxTokens);
                     return { ...result, attemptedModels: [...failures.map(item => item.model), model.id] };
@@ -276,6 +289,7 @@
         fetchCloudModels,
         OLLAMA_CLOUD_ENDPOINT,
         OLLAMA_NATIVE_PROXY,
+        DEFAULT_CLOUD_CONTEXT_SIZE,
         resolveEndpoint,
         isValidModelId
     };

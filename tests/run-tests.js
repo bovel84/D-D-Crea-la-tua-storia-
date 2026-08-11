@@ -30,7 +30,7 @@ function test(name, fn) { tests.push({ name, fn }); }
 test('migra la memoria legacy senza perdere i campi esistenti', () => {
     const legacy = { npcs: [{ name: 'Elara' }], events: [{ summary: 'Incontro' }], customField: 42 };
     const migrated = memoryApi.migrateMemory(legacy);
-    assert.equal(migrated.memorySchemaVersion, 7);
+    assert.equal(migrated.memorySchemaVersion, 8);
     assert.equal(migrated.npcs[0].name, 'Elara');
     assert.equal(migrated.customField, 42);
     assert.deepEqual(migrated.factions, []);
@@ -41,6 +41,7 @@ test('migra la memoria legacy senza perdere i campi esistenti', () => {
     assert.deepEqual(migrated.pendingTimelineEvents, []);
     assert.deepEqual(migrated.pendingStrategicActions, []);
     assert.deepEqual(migrated.strategicActionHistory, []);
+    assert.equal(migrated.lastTimelineEventId, '');
     assert.deepEqual(migrated.world, {});
 });
 
@@ -184,6 +185,24 @@ test('il simulatore genera un solo prossimo evento importante e rinvia gli svilu
     assert.match(prompt, /CODA_EVENTO/);
     assert.match(prompt, /al massimo UNA CHAT/i);
     assert.match(prompt, /\[CHAT:/);
+});
+
+test('il simulatore usa più attori quando il modello dispone di contesto esteso', () => {
+    const actors = Array.from({ length: 12 }, (_, index) => ({
+        name: `Attore ${index + 1}`,
+        kind: 'npc',
+        role: 'consigliere',
+        goal: `obiettivo ${index + 1}`,
+        influence: 100 - index,
+        status: 'active'
+    }));
+    const prompt = timelineSimulatorApi.buildPrompt({
+        story: { title: 'Consiglio esteso', setting: 'Repubblica' },
+        world: { actors, factions: [], relations: [], forces: [], historicalContext: {} },
+        seed: { kind: 'world_initiative', cause: 'Il consiglio deve votare', title: 'Voto del consiglio' },
+        actorLimit: 12
+    });
+    assert.match(prompt, /Attore 12/);
 });
 
 test('ogni chiamata della timeline completa al massimo un evento vivo', () => {
@@ -420,6 +439,19 @@ test('mantiene esattamente gli ultimi 10 messaggi a breve termine', () => {
     assert.equal(short[0].content, 'messaggio 5');
 });
 
+test('usa una finestra di memoria più ampia quando il provider dispone di molto contesto', () => {
+    const manager = new memoryApi.AdvancedMemoryManager();
+    const history = Array.from({ length: 36 }, (_, index) => ({ role: 'user', content: `messaggio esteso ${index}` }));
+    const context = manager.buildContext('messaggio', history, memoryApi.createDefaultMemory(), {
+        shortTermMessages: 30,
+        retrievalLimit: 9,
+        mediumTermTokens: 1800
+    });
+    assert.equal(context.shortTerm.length, 30);
+    assert.equal(context.shortTerm[0].content, 'messaggio esteso 6');
+    assert.match(context.prompt, /top 9/);
+});
+
 test('comprime i messaggi vecchi entro 500 token e conserva i recenti', () => {
     const manager = new memoryApi.AdvancedMemoryManager({ compressionThreshold: 180 });
     const history = Array.from({ length: 18 }, (_, index) => ({
@@ -474,6 +506,41 @@ test('interpreta eventi LLM strutturati con causa, attori e conseguenza', () => 
     assert.equal(events[0].importance, 'high');
     assert.equal(events[0].status, 'active');
     assert.equal(events[0].turn, 7);
+});
+
+test('conserva per intero il testo narrativo lungo di un evento', () => {
+    const summary = [
+        'Lorenzo convoca i priori a Palazzo Vecchio e presenta le lettere intercettate.',
+        'I consiglieri confrontano i sigilli con gli archivi della cancelleria e riconoscono il messaggero papale.',
+        'Dopo un confronto teso, il consiglio autorizza una sorveglianza discreta sulle residenze dei Pazzi.',
+        'La decisione resta segreta per evitare che i sospettati interrompano i propri contatti.'
+    ].join(' ');
+    const consequence = 'Le guardie seguiranno i corrieri senza procedere ad arresti immediati. Lorenzo riceverà un rapporto completo prima della prossima riunione del consiglio.';
+    const events = eventApi.parseNarrativeTags(
+        `[EVENTO: politica|Sorveglianza sui Pazzi|${summary}|Palazzo Vecchio|Lorenzo de' Medici, Priori|${consequence}|high|developing]`,
+        { turn: 9 }
+    );
+    assert.ok(events[0].summary.length > 280);
+    assert.equal(events[0].summary, summary);
+    assert.equal(events[0].consequence, consequence);
+    assert.match(events[0].summary, /contatti\.$/);
+});
+
+test('riallinea dialogo e modalità quando il modello omette l’obiettivo conversazione', () => {
+    const events = eventApi.parseNarrativeTags(
+        '[EVENTO: politica|Convocazione urgente|Lorenzo convoca il consiglio. I priori arrivano a Palazzo Vecchio.|Firenze|Lorenzo, Priori|Il consiglio deve decidere prima del tramonto|high|developing|5 aprile 1472|Una lettera intercettata|Congiura dei Pazzi|La tensione cresce|Salvare la città|required|dialogue]',
+        { turn: 12 }
+    );
+    assert.equal(events[0].conversationGoal, '');
+    assert.equal(events[0].conversationMode, 'required');
+    assert.equal(events[0].interactionMode, 'dialogue');
+    const thread = timelineChatApi.normalizeThread({
+        eventId: events[0].id,
+        eventTitle: events[0].title,
+        participants: events[0].actors,
+        agenda: 'required'
+    }, { events, turn: 12 });
+    assert.match(thread.agenda, /consiglio deve decidere/i);
 });
 
 test('mantiene compatibili i vecchi EVENTO e ne deduce la categoria', () => {
@@ -669,6 +736,33 @@ test('le risposte di una chat multi-NPC vengono selezionate una alla volta', () 
     const selected = timelineChatApi.selectSingleReply(replies, 'Jacopo Gherardi');
     assert.equal(selected.length, 1);
     assert.equal(selected[0].speaker, 'Jacopo Gherardi');
+});
+
+test('la chat conserva la cronologia ampia e garantisce un turno NPC di fallback', () => {
+    const messages = Array.from({ length: 35 }, (_, index) => ({
+        speaker: index % 2 ? 'Jacopo Gherardi' : 'Lorenzo',
+        speakerType: index % 2 ? 'npc' : 'protagonista',
+        source: index % 2 ? 'llm' : 'player',
+        text: `Io ricordo il passaggio numero ${index}.`
+    }));
+    const thread = timelineChatApi.normalizeThread({
+        id: 'chat-contesto', title: 'Prestito cittadino', eventTitle: 'Prestito cittadino',
+        purpose: 'negoziazione', agenda: 'Definire garanzie sul prestito',
+        participants: ['Jacopo Gherardi', 'Lorenzo'], messages
+    }, { protagonistName: 'Lorenzo', turn: 11 });
+    const prompt = timelineChatApi.buildChatPrompt(thread, 'Offro i dazi come garanzia', {
+        protagonistName: 'Lorenzo', nextSpeaker: 'Jacopo Gherardi', historyLimit: 32
+    });
+    assert.doesNotMatch(prompt, /passaggio numero 0\b/);
+    assert.match(prompt, /passaggio numero 3\b/);
+    assert.match(prompt, /passaggio numero 34\b/);
+    const fallback = timelineChatApi.buildFallbackReply(thread, 'Offro i dazi come garanzia', {
+        protagonistName: 'Lorenzo', nextSpeaker: 'Jacopo Gherardi', turn: 11
+    });
+    assert.equal(fallback.speaker, 'Jacopo Gherardi');
+    assert.equal(fallback.source, 'local-fallback');
+    assert.match(fallback.text, /^Io /);
+    assert.match(fallback.text, /\?$/);
 });
 
 test('una negoziazione registra esito e contratto persistente senza accettazioni automatiche', () => {
@@ -949,6 +1043,45 @@ test('usa il modello successivo quando Ollama è sovraccarico', async () => {
     assert.deepEqual(calls, ['gpt-oss:120b', 'deepseek-v4-flash']);
     assert.equal(result.model, 'deepseek-v4-flash');
     assert.equal(result.content, 'La storia continua.');
+});
+
+test('lascia a Ollama Cloud il contesto massimo automatico e limita i tentativi della chat', async () => {
+    const bodies = [];
+    const client = new ollamaApi.OllamaCloudClient({
+        fetch: async (_url, options) => {
+            const body = JSON.parse(options.body);
+            bodies.push(body);
+            if (body.model !== 'gpt-oss:120b') {
+                return { ok: false, status: 503, json: async () => ({ error: 'overloaded' }) };
+            }
+            return { ok: true, status: 200, json: async () => ({ message: { content: 'Risposta completa.' } }) };
+        },
+        timeoutMs: 1000
+    });
+    const result = await client.generate([{ role: 'user', content: 'Continua' }], {
+        apiKey: 'test-key',
+        preferredModels: ['gpt-oss:120b', 'deepseek-v4-flash', 'qwen3.5:397b'],
+        maxTokens: 1800,
+        maxAttempts: 2
+    });
+    assert.equal(result.content, 'Risposta completa.');
+    assert.equal(bodies[0].options.num_predict, 1800);
+    assert.equal(Object.hasOwn(bodies[0].options, 'num_ctx'), false);
+
+    const failedCalls = [];
+    const failingClient = new ollamaApi.OllamaCloudClient({
+        fetch: async (_url, options) => {
+            failedCalls.push(JSON.parse(options.body).model);
+            return { ok: false, status: 503, json: async () => ({ error: 'overloaded' }) };
+        },
+        timeoutMs: 1000
+    });
+    await assert.rejects(() => failingClient.generate([{ role: 'user', content: 'Continua' }], {
+        apiKey: 'test-key',
+        preferredModels: ['gpt-oss:120b', 'deepseek-v4-flash', 'qwen3.5:397b'],
+        maxAttempts: 2
+    }), /Tutti i modelli/);
+    assert.deepEqual(failedCalls, ['gpt-oss:120b', 'deepseek-v4-flash']);
 });
 
 test('accetta un ID modello Ollama inserito manualmente', async () => {
@@ -2195,6 +2328,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /src="js\/timeline-chat\.js"/);
     assert.match(html, /src="js\/timeline-simulator\.js"/);
     assert.match(html, /id="btn-advance-world"/);
+    assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);
     assert.match(html, /id="btn-simulate-timeline"/);
     assert.match(html, /Vai al prossimo evento importante/);
@@ -2210,6 +2344,8 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /function simulateTimelineEvents/);
     assert.match(html, /function getActiveEventChat/);
     assert.match(html, /function sendWorldChatMessage/);
+    assert.match(html, /function reopenLastTimelineEvent/);
+    assert.match(html, /function eventNarrativeMarkup/);
     assert.match(html, /function confirmWorldConvocation/);
     assert.match(html, /function applyWorldChatResults/);
     assert.match(html, /timelineChatEngine\.parseOutcomeTags/);
@@ -2227,9 +2363,13 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /timelineChatEngine\.parseChatTags/);
     assert.match(html, /timelineChatEngine\.chooseNextSpeaker/);
     assert.match(html, /timelineChatEngine\.selectSingleReply/);
+    assert.match(html, /timelineChatEngine\.buildFallbackReply/);
+    assert.match(html, /pendingChatSpeaker/);
     assert.match(html, /simulateTimelineEvents\(\{ fromEventScreen: true \}\)/);
     assert.match(html, /Prepara azione/);
     assert.match(html, /Conversazione attiva per questo evento/);
+    assert.match(html, /G\.worldMemory\.lastTimelineEventId = generatedEvent\.id/);
+    assert.match(html, /eventNarrativeMarkup\(event\)/);
     assert.doesNotMatch(html, /class="timeline-event-tags"/);
     assert.doesNotMatch(html, /class="event-screen-meta"/);
     assert.doesNotMatch(html, /Convoca le parti/);
