@@ -298,6 +298,40 @@ test('la coda causale conserva più azioni e sceglie quella disponibile per prim
     assert.equal(remaining[0].notBeforeMinutes, 1395);
 });
 
+test('una risposta causale precedente non viene scavalcata da una nuova azione', () => {
+    const queue = timelineSimulatorApi.normalizeEventQueue([
+        {
+            id: 'reply-old', kind: 'action_reply', cause: 'Il corriere torna con la risposta del consiglio',
+            notBeforeMinutes: 1440, priority: 60, createdAtTurn: 4, originTurn: 2,
+            causalLane: 'player', causalRootId: 'action-old', sequence: 1
+        },
+        {
+            id: 'action-new', kind: 'player_action', cause: 'Il giocatore ordina una nuova ispezione',
+            notBeforeMinutes: 30, priority: 95, createdAtTurn: 5, originTurn: 5,
+            causalLane: 'player', causalRootId: 'action-new', sequence: 0
+        },
+        {
+            id: 'world-now', kind: 'world_initiative', cause: 'La gilda apre una nuova trattativa',
+            notBeforeMinutes: 5, priority: 100, createdAtTurn: 5, originTurn: 5,
+            causalLane: 'world'
+        }
+    ]);
+    assert.equal(timelineSimulatorApi.selectNextEventSeed(queue).id, 'reply-old');
+});
+
+test('un evento risposta del giocatore non genera una catena automatica senza nuove scelte', () => {
+    const parentSeed = timelineSimulatorApi.normalizeEventSeed({
+        id: 'player-first', kind: 'player_action', title: 'Ispezione del porto',
+        cause: 'Il giocatore ordina di ispezionare il porto', causalLane: 'player', originTurn: 3
+    });
+    const followUps = timelineSimulatorApi.buildFollowUpSeeds({
+        id: 'event-player-first', title: 'Il carico viene trovato',
+        consequence: 'Le casse sequestrate restano sotto custodia.',
+        actors: ['Capitano Riva'], importance: 'high'
+    }, null, { parentSeed, turn: 4, batchId: 'player-batch' });
+    assert.equal(followUps.length, 0);
+});
+
 test('la risposta a una mossa autonoma del mondo resta in coda', () => {
     const parentSeed = timelineSimulatorApi.normalizeEventSeed({
         id: 'world-first', kind: 'world_initiative', title: 'Blocco del porto',
@@ -2567,7 +2601,7 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /src="js\/timeline-chat\.js\?v=20260811-chat-4"/);
-    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260811-continuity-2"/);
+    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260811-causal-6"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);
@@ -2600,6 +2634,8 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /timelineSimulator\.advanceEventQueue/);
     assert.match(html, /timelineSimulator\.buildConversationStarters/);
     assert.match(html, /timelineSimulator\.isMeaningfulEvent/);
+    assert.match(html, /deferActionEventToTimeline/);
+    assert.match(html, /deferActionEvents \? \[\] : timelineSimulator\.parsePendingEventSeeds/);
     assert.match(html, /Vita quotidiana garantita/);
     assert.match(html, /timelineChatEngine\.parseChatTags/);
     assert.match(html, /timelineChatEngine\.chooseNextSpeaker/);

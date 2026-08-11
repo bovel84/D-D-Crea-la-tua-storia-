@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 5;
+    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 6;
     const EVENT_QUEUE_LIMIT = 40;
     const MIN_EVENT_DELAY_MINUTES = 5;
     const MAX_EVENT_DELAY_MINUTES = 5256000;
@@ -145,7 +145,7 @@
                                 : choice ? 'player_action' : 'world_initiative';
         const actors = asArray(input.actors || choice?.actors)
             .map(item => cleanText(item, 100)).filter(Boolean).slice(0, 8);
-        const createdAtTurn = Math.max(0, Number(input.createdAtTurn ?? context.turn) || 0);
+        const createdAtTurn = Math.max(0, Number(input.createdAtTurn ?? choice?.turn ?? context.turn) || 0);
         const batchId = cleanText(input.batchId || context.batchId || `event-batch-${createdAtTurn}`, 180);
         const rawId = cleanText(input.id, 170).replace(/[^a-zA-Z0-9_-]/g, '');
         const sourceId = cleanText(input.sourceId || choice?.id, 160).replace(/[^a-zA-Z0-9_-]/g, '');
@@ -153,8 +153,19 @@
             input.interactionMode,
             inferInteractionMode(`${choice?.command || ''} ${cause}`)
         );
+        const id = rawId || `pending-${hashText(`${batchId}|${sourceId}|${kind}|${cause}|${index}`)}`;
+        const inferredLane = choice || ['strategic_action', 'player_action', 'dialogue_reply', 'action_reply'].includes(kind)
+            ? 'player'
+            : 'world';
+        const causalLane = keyOf(input.causalLane) === 'player' ? 'player'
+            : keyOf(input.causalLane) === 'world' ? 'world'
+                : inferredLane;
+        const causalRootId = cleanText(input.causalRootId || input.rootId, 170).replace(/[^a-zA-Z0-9_-]/g, '') || id;
+        const parentSeedId = cleanText(input.parentSeedId, 170).replace(/[^a-zA-Z0-9_-]/g, '');
+        const originTurn = Math.max(0, Number(input.originTurn ?? input.causalOriginTurn ?? choice?.turn ?? createdAtTurn) || 0);
+        const sequence = Math.max(0, Math.min(20, Math.round(Number(input.sequence) || 0)));
         return {
-            id: rawId || `pending-${hashText(`${batchId}|${sourceId}|${kind}|${cause}|${index}`)}`,
+            id,
             kind,
             title: cleanText(input.title || choice?.actionTitle || choice?.topic || 'Sviluppo in attesa', 160),
             topic: cleanText(input.topic || choice?.topic, 140),
@@ -169,6 +180,11 @@
             batchId,
             depth: Math.max(0, Math.min(4, Math.round(Number(input.depth) || 0))),
             createdAtTurn,
+            causalLane,
+            causalRootId,
+            parentSeedId,
+            originTurn,
+            sequence,
             status: 'pending'
         };
     }
@@ -206,6 +222,7 @@
             risk: cleanText(input.risk, 60),
             tradeoff: cleanText(input.tradeoff, 320),
             actors: asArray(input.actors).map(item => cleanText(item, 100)).filter(Boolean).slice(0, 8),
+            turn: Math.max(0, Number(input.turn) || 0),
             summary
         };
     }
@@ -388,6 +405,8 @@ ${recent.length ? recent.map(item => `- ${cleanText(item.occurredAt, 100) ? `${c
 
 REGOLE OBBLIGATORIE:
 - Genera esattamente UN EVENTO: il primo fatto importante prodotto dalla causa in coda. Non generare eventi successivi nella stessa risposta.
+- Questo evento deve essere la risposta diretta e riconoscibile alla «Causa già vera» indicata sopra. Non sostituirla con una nuova iniziativa, un altro argomento o un riepilogo generico.
+- Se la causa è una scelta o una chat del giocatore, mostra prima che cosa produce quella scelta; soltanto una chiamata successiva potrà sviluppare nuove chat, nuove azioni o un seguito esplicitamente lasciato in coda.
 - ${strategicInstruction}
 - Il fatto deve contenere 3-5 frasi complete, azione osservabile, strumento usato, risultato verificabile e conseguenza persistente. Un'intenzione non è un risultato.
 - La conseguenza deve contenere 1-2 frasi complete. Chiudi ogni frase e ogni campo prima del separatore |; non interrompere mai un testo a metà.
@@ -668,7 +687,10 @@ REGOLE OBBLIGATORIE:
             source: choice.source,
             choice,
             batchId,
-            createdAtTurn: turn
+            createdAtTurn: choice.turn || turn,
+            originTurn: choice.turn || turn,
+            causalLane: 'player',
+            sequence: 0
         }, index, { turn, batchId })).filter(Boolean);
 
         if (context.includeWorld !== false) {
@@ -697,7 +719,9 @@ REGOLE OBBLIGATORIE:
                     sourceId: force?.id || force?.name || actor?.id || actor?.name,
                     source: 'world-autonomy',
                     batchId,
-                    createdAtTurn: turn
+                    createdAtTurn: turn,
+                    originTurn: turn,
+                    causalLane: 'world'
                 }, seeds.length, { turn, batchId });
                 if (worldSeed) seeds.push(worldSeed);
             } else {
@@ -715,7 +739,9 @@ REGOLE OBBLIGATORIE:
                         sourceId: previousEvent.id,
                         source: 'event-continuity',
                         batchId,
-                        createdAtTurn: turn
+                        createdAtTurn: turn,
+                        originTurn: turn,
+                        causalLane: 'world'
                     }, seeds.length, { turn, batchId });
                     if (worldSeed) seeds.push(worldSeed);
                 }
@@ -740,11 +766,22 @@ REGOLE OBBLIGATORIE:
 
     function selectNextEventSeed(queue) {
         const normalized = normalizeEventQueue(queue);
-        return normalized.slice().sort((left, right) =>
-            Number(left.notBeforeMinutes || 0) - Number(right.notBeforeMinutes || 0) ||
-            Number(right.priority || 0) - Number(left.priority || 0) ||
-            Number(left.createdAtTurn || 0) - Number(right.createdAtTurn || 0)
-        )[0] || null;
+        const playerCausalQueue = normalized.filter(seed => seed.causalLane === 'player');
+        const candidates = playerCausalQueue.length ? playerCausalQueue : normalized;
+        return candidates.slice().sort((left, right) => {
+            if (playerCausalQueue.length) {
+                const rootOrder = Number(left.originTurn || 0) - Number(right.originTurn || 0);
+                if (rootOrder) return rootOrder;
+                const sameRoot = left.causalRootId && left.causalRootId === right.causalRootId;
+                if (sameRoot) {
+                    const sequenceOrder = Number(left.sequence || 0) - Number(right.sequence || 0);
+                    if (sequenceOrder) return sequenceOrder;
+                }
+            }
+            return Number(left.notBeforeMinutes || 0) - Number(right.notBeforeMinutes || 0) ||
+                Number(right.priority || 0) - Number(left.priority || 0) ||
+                Number(left.createdAtTurn || 0) - Number(right.createdAtTurn || 0);
+        })[0] || null;
     }
 
     function advanceEventQueue(queue, consumedId, elapsedMinutes) {
@@ -780,7 +817,12 @@ REGOLE OBBLIGATORIE:
                 id: parts[0], kind: parts[1], cause: parts[2], actors: String(parts[3] || '').split(/[,;]/),
                 priority: parts[4], notBeforeMinutes: parts[5], interactionMode: parts[6], sourceId: parts[7],
                 title: parts[2], source: 'timeline-ai-queue', batchId: context.batchId,
-                createdAtTurn: context.turn, depth: Math.min(4, Number(context.parentSeed?.depth || 0) + 1)
+                createdAtTurn: context.turn, depth: Math.min(4, Number(context.parentSeed?.depth || 0) + 1),
+                causalLane: context.parentSeed?.causalLane,
+                causalRootId: context.parentSeed?.causalRootId || context.parentSeed?.id,
+                parentSeedId: context.parentSeed?.id,
+                originTurn: context.parentSeed?.originTurn ?? context.parentSeed?.createdAtTurn ?? context.turn,
+                sequence: Math.min(20, Number(context.parentSeed?.sequence || 0) + 1)
             }, seeds.length, context);
             if (seed) seeds.push(seed);
         }
@@ -885,11 +927,19 @@ REGOLE OBBLIGATORIE:
                 choice: parent.choice,
                 batchId,
                 depth: nextDepth,
-                createdAtTurn: turn
+                createdAtTurn: turn,
+                causalLane: parent.causalLane,
+                causalRootId: parent.causalRootId || parent.id,
+                parentSeedId: parent.id,
+                originTurn: parent.originTurn,
+                sequence: Math.min(20, Number(parent.sequence || 0) + 1)
             });
         }
-        const needsWorldReply = ['strategic_action', 'player_action', 'dialogue_reply', 'action_reply', 'world_initiative'].includes(parent.kind) &&
-            Boolean(outcome?.worldResponse || event?.consequence);
+        // L'evento appena generato è già la risposta alla scelta che lo ha causato.
+        // Una seconda reazione automatica viene accodata solo per una vera iniziativa
+        // autonoma del mondo; le azioni del giocatore proseguono con una nuova scelta,
+        // una chat o una CODA_EVENTO esplicita emessa dal modello.
+        const needsWorldReply = parent.kind === 'world_initiative' && Boolean(outcome?.worldResponse || event?.consequence);
         if (needsWorldReply) {
             seeds.push({
                 id: `pending-reply-${hashText(`${parent.id}|${nextDepth}|world`)}`,
@@ -905,7 +955,12 @@ REGOLE OBBLIGATORIE:
                 source: 'causal-world-reply',
                 batchId,
                 depth: nextDepth,
-                createdAtTurn: turn
+                createdAtTurn: turn,
+                causalLane: parent.causalLane,
+                causalRootId: parent.causalRootId || parent.id,
+                parentSeedId: parent.id,
+                originTurn: parent.originTurn,
+                sequence: Math.min(20, Number(parent.sequence || 0) + 1)
             });
         }
         return normalizeEventQueue(seeds, { turn, batchId });
