@@ -29,6 +29,20 @@
             .trim();
     }
 
+    function isSamePersonName(left, right) {
+        const leftKey = keyOf(left);
+        const rightKey = keyOf(right);
+        if (!leftKey || !rightKey) return false;
+        if (leftKey === rightKey) return true;
+        if (/^(protagonista|giocatore|player)$/.test(leftKey) || /^(protagonista|giocatore|player)$/.test(rightKey)) return false;
+        const leftTokens = leftKey.split(/\s+/).filter(Boolean);
+        const rightTokens = rightKey.split(/\s+/).filter(Boolean);
+        if (leftTokens.length !== 1 && rightTokens.length !== 1) return false;
+        const short = leftTokens.length === 1 ? leftTokens[0] : rightTokens[0];
+        const long = leftTokens.length === 1 ? rightTokens : leftTokens;
+        return short.length >= 3 && long.includes(short);
+    }
+
     function hashText(value) {
         let hash = 2166136261;
         const text = String(value || '');
@@ -397,6 +411,9 @@
         if (parsed.historicalContext) next.historicalContext = parsed.historicalContext;
         next.locations = mergeByName(next.locations, parsed.locations, normalizeLocation, LIMITS.locations, context);
         next.actors = mergeByName(next.actors, parsed.actors, normalizeActor, LIMITS.actors, context);
+        if (context.protagonistName) {
+            next.actors = next.actors.filter(actor => !isSamePersonName(actor.name, context.protagonistName));
+        }
         next.factions = mergeByName(next.factions, parsed.factions, normalizeFaction, LIMITS.factions, context);
         next.relations = mergeByName(next.relations, parsed.relations, normalizeRelation, LIMITS.relations, context);
         next.forces = mergeByName(next.forces, parsed.forces, normalizeForce, LIMITS.forces, context);
@@ -426,9 +443,11 @@
     function projectToMemory(worldValue, memory, context = {}) {
         const world = migrateWorld(worldValue, context);
         const state = memory && typeof memory === 'object' ? memory : {};
+        const protagonistName = cleanText(context.protagonistName, 100);
+        if (protagonistName) world.actors = world.actors.filter(actor => !isSamePersonName(actor.name, protagonistName));
         state.world = world;
         state.locations = asArray(state.locations);
-        state.npcs = asArray(state.npcs);
+        state.npcs = asArray(state.npcs).filter(actor => !protagonistName || !isSamePersonName(actor?.name, protagonistName));
         state.factions = asArray(state.factions);
         state.narrativeGoals = asArray(state.narrativeGoals);
         world.locations.forEach(location => {
@@ -565,9 +584,12 @@
         const story = context.story || {};
         const currentDate = cleanText(context.currentDate || context.date, 120) || 'l’inizio della campagna';
         const continuity = cleanText(context.continuityPrompt, 14000);
+        const protagonistName = cleanText(context.protagonistName, 100);
         return `🌍 **CREAZIONE STORICO-POLITICA OBBLIGATORIA DEL MONDO**
 Costruisci subito un mondo persistente coerente con «${cleanText(story.title, 120) || 'la storia'}», con ${cleanText(story.setting, 160) || 'l’ambientazione scelta'} e con la data ${currentDate}.
 ${continuity ? `\nCANONE GIÀ REGISTRATO DA CONSERVARE:\n${continuity}\n` : ''}
+- La data del CONTESTO_STORICO_SETUP deve contenere un anno di calendario esatto e coerente con premessa, figure storiche e tecnologie; non usare l'anno reale corrente come riempitivo.
+${protagonistName ? `- Il protagonista controllato dal giocatore è «${protagonistName}»: NON crearlo come PERSONAGGIO_SETUP, neppure con cognome, titolo, abbreviazione o variante. Non scrivere mai le sue battute.\n` : ''}
 - Crea esattamente 1 MONDO_SETUP, 1 CONTESTO_STORICO_SETUP, almeno 4 LUOGO_SETUP, 6 PERSONAGGIO_SETUP, 3 FAZIONE_SETUP, 6 RELAZIONE_SETUP e 3 FORZA_SETUP.
 - Il canone persistente, gli eventi già registrati e i nomi già usati hanno precedenza su etichette generiche della scheda. Se la data dell'interfaccia contraddice ripetutamente il canone narrativo, segnala il conflitto nel CONTESTO_STORICO_SETUP e conserva l'epoca della storia: non fondere epoche diverse.
 - Se l'ambientazione è storica o contemporanea, usa persone, cariche, istituzioni, confini, crisi e rapporti di forza plausibili per luogo e data. Non spostare figure tra epoche e non presentare invenzioni come fatti storici certi. Se la campagna è alternativa, definisci il punto di divergenza.

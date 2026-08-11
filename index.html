@@ -3663,18 +3663,18 @@
     </div>
 
     <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
-    <script src="js/world-bootstrap.js?v=20260811-continuity-2"></script>
+    <script src="js/world-bootstrap.js?v=20260811-chat-4"></script>
     <script src="js/event-manager.js"></script>
-    <script src="js/timeline-chat.js?v=20260811-continuity-2"></script>
+    <script src="js/timeline-chat.js?v=20260811-chat-4"></script>
     <script src="js/timeline-simulator.js?v=20260811-continuity-2"></script>
-    <script src="js/strategic-advisor.js?v=20260811-continuity-2"></script>
+    <script src="js/strategic-advisor.js?v=20260811-strategy-3"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
     <script src="js/time-energy.js"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
-    <script src="js/story-generator.js"></script>
+    <script src="js/story-generator.js?v=20260811-calendar-2"></script>
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
@@ -4671,6 +4671,7 @@
                 setting: G.currentStory?.setting,
                 currentDate: getFullTimeString(),
                 turn: migrated.turnCount,
+                protagonistName: G.character?.name,
                 source: 'memory-migration'
             };
             migrated.world = safeStartupMigration(
@@ -4682,6 +4683,11 @@
                 'sincronizzazione del mondo',
                 () => worldBootstrapEngine.syncFromMemory(migrated.world, migrated, worldContext),
                 migrated.world
+            );
+            safeStartupMigration(
+                'identità del protagonista',
+                () => worldBootstrapEngine.projectToMemory(migrated.world, migrated, worldContext),
+                migrated
             );
             migrated.events = safeStartupMigration(
                 'eventi salvati',
@@ -4698,7 +4704,11 @@
             migrated.lastTimelineEventId = storedLastEvent?.id || legacyLastEvent?.id || '';
             migrated.chats = safeStartupMigration(
                 'chat salvate',
-                () => timelineChatEngine.migrateChats(migrated.chats, { events: migrated.events, turn: migrated.turnCount }),
+                () => timelineChatEngine.migrateChats(migrated.chats, {
+                    events: migrated.events,
+                    turn: migrated.turnCount,
+                    protagonistName: G.character?.name
+                }),
                 []
             );
             migrated.narrativeCompass = safeStartupMigration(
@@ -4806,7 +4816,13 @@
                 pirate: { day: 5, month: 7, year: 1720, hour: 14, minute: 0 },
                 spy: { day: 3, month: 3, year: 1968, hour: 21, minute: 0 }
             };
-            const base = (story?.startTime) ? { ...story.startTime } : (presets[genreKey] || presets.fantasy);
+            const inferredStart = typeof CronacheStoryGenerator !== 'undefined' &&
+                typeof CronacheStoryGenerator.inferStartTime === 'function'
+                ? CronacheStoryGenerator.inferStartTime(story || {}, genreKey)
+                : null;
+            const base = (story?.startTime)
+                ? { ...story.startTime }
+                : (inferredStart || presets[genreKey] || presets.fantasy);
             base.dayName = base.dayName || computeDayName(base.year, base.month, base.day);
             return base;
         }
@@ -4819,7 +4835,17 @@
                 : null;
             // Un vecchio asset in cache non deve mai impedire l'avvio della partita.
             if (!inferYear) return null;
-            const inferred = inferYear(memory, G.currentStory || {});
+            const story = G.currentStory || {};
+            const inferredStoryTime = typeof CronacheStoryGenerator !== 'undefined' &&
+                typeof CronacheStoryGenerator.inferStartTime === 'function'
+                ? CronacheStoryGenerator.inferStartTime(story, resolveGenreKey(story))
+                : null;
+            const storyDateEvidence = [story.setting, story.idea, story.desc, story.prologue].join(' ');
+            const hasCanonicalHint = /\b(?:1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\b/.test(storyDateEvidence) ||
+                /\b(?:storico|medici|pazzi|signoria|rinascimento|rinascimentale|quattrocento|cinquecento)\b/i.test(storyDateEvidence);
+            const inferred = inferYear(memory, story.startTime || !inferredStoryTime || !hasCanonicalHint
+                ? story
+                : { ...story, startTime: inferredStoryTime });
             if (!inferred || Number(G.time.year) === Number(inferred.year)) return null;
             const previousYear = Number(G.time.year);
             G.time.year = inferred.year;
@@ -9670,8 +9696,9 @@
             return content;
         }
 
-        async function requestStrategicAI(prompt) {
+        async function requestStrategicAI(prompt, options = {}) {
             const settings = G.settings;
+            const maxTokens = Math.max(2400, Math.min(7000, Number(options.maxTokens) || 5200));
             const messages = [
                 {
                     role: 'system',
@@ -9690,7 +9717,9 @@
                         ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
                     ],
                     discoveredModels: config.discoveredModels,
-                    maxTokens: 3200
+                    maxTokens,
+                    maxAttempts: 2,
+                    timeoutMs: 70000
                 });
                 if (!String(result.content || '').trim()) throw new Error('Risposta vuota dal consigliere strategico');
                 return result.content;
@@ -9721,7 +9750,7 @@
                     'Content-Type': 'application/json; charset=utf-8',
                     'Authorization': `Bearer ${apiKey}`
                 },
-                body: JSON.stringify({ model, messages, temperature: 0.45, max_tokens: 3200 })
+                body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens })
             });
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
@@ -10624,8 +10653,14 @@
             setStrategicLoading(true);
             try {
                 const prompt = strategicAdvisor.buildPrompt(context);
-                const response = await requestStrategicAI(prompt);
-                const analysis = strategicAdvisor.ensureAnalysis(response, context);
+                let response = await requestStrategicAI(prompt);
+                let analysis = strategicAdvisor.parseResponse(response, context);
+                if (!analysis) {
+                    const repairPrompt = strategicAdvisor.buildRepairPrompt(response, context);
+                    response = await requestStrategicAI(repairPrompt, { maxTokens: 4200 });
+                    analysis = strategicAdvisor.parseResponse(response, context);
+                }
+                analysis = analysis || strategicAdvisor.buildFallback(context);
                 G.strategicAnalysis = analysis;
                 G.worldMemory.strategicAnalysis = analysis;
                 renderStrategicAnalysis(analysis);
@@ -10748,7 +10783,9 @@
             const name = message ? message.speaker : messageOrName;
             const key = timelineChatEngine.keyOf(name);
             return message?.speakerType === 'protagonista' ||
-                key === timelineChatEngine.keyOf(G.character?.name) ||
+                (typeof timelineChatEngine.isProtagonistAlias === 'function'
+                    ? timelineChatEngine.isProtagonistAlias(name, G.character?.name)
+                    : key === timelineChatEngine.keyOf(G.character?.name)) ||
                 /^(protagonista|giocatore|player)$/.test(key);
         }
 
@@ -10828,7 +10865,7 @@
                 story: G.currentStory, setting, turn, location: G.currentLocation, source: 'timeline-recovery'
             });
             G.worldMemory = worldBootstrapEngine.projectToMemory(world, G.worldMemory, {
-                story: G.currentStory, turn
+                story: G.currentStory, turn, protagonistName: G.character?.name
             });
             if (!G.currentLocation || /sconosciut|unknown/i.test(G.currentLocation)) {
                 G.currentLocation = kingdom.capital || world.locations[0]?.name || G.currentStory?.setting || G.currentLocation;
@@ -10856,6 +10893,7 @@
                 turn: G.worldMemory.turnCount || 0,
                 currentDate: getFullTimeString(),
                 continuityPrompt: continuity.prompt,
+                protagonistName: G.character?.name,
                 repair: true
             }) + `\nIl mondo salvato usa ancora figure provvisorie o non possiede una base storico-politica precisa. Ricostruiscilo ora: conserva soltanto persone e istituzioni specifiche già coerenti con la storia e sostituisci ogni segnaposto generico. Restituisci esclusivamente i tag *_SETUP richiesti.`;
             const response = await requestTimelineAI(repairPrompt, { maxTokens: 7000, timeoutMs: 90000 });
@@ -10865,6 +10903,7 @@
                 currentDate: getFullTimeString(),
                 turn: G.worldMemory.turnCount || 0,
                 location: G.currentLocation,
+                protagonistName: G.character?.name,
                 source: 'historical-repair',
                 ensureMinimum: false
             });
@@ -10884,7 +10923,8 @@
             );
             G.worldMemory = worldBootstrapEngine.projectToMemory(world, G.worldMemory, {
                 story: G.currentStory,
-                turn: G.worldMemory.turnCount || 0
+                turn: G.worldMemory.turnCount || 0,
+                protagonistName: G.character?.name
             });
             return world;
         }
@@ -11258,7 +11298,7 @@
                 const chatResult = timelineChatEngine.recordMessages(
                     G.worldMemory.chats,
                     openingMessages.slice(0, 1),
-                    { events: G.worldMemory.events, turn: eventContext.turn, occurredAt: endDate }
+                    { events: G.worldMemory.events, turn: eventContext.turn, occurredAt: endDate, protagonistName: G.character?.name }
                 );
                 G.worldMemory.chats = chatResult.chats;
                 chatResult.added.forEach(message => {
@@ -11294,7 +11334,8 @@
                 );
                 G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
                     story: G.currentStory,
-                    turn: eventContext.turn
+                    turn: eventContext.turn,
+                    protagonistName: G.character?.name
                 });
 
                 let remainingEvents = timelineSimulator.advanceEventQueue(pendingEvents, seed.id, timing.minutes);
@@ -12076,7 +12117,8 @@
             }, { events: G.worldMemory.events });
             let result = timelineChatEngine.recordMessages(G.worldMemory.chats, [playerMessage], {
                 events: G.worldMemory.events,
-                turn: G.worldMemory.turnCount || 0
+                turn: G.worldMemory.turnCount || 0,
+                protagonistName: G.character?.name
             });
             G.worldMemory.chats = result.chats;
             const activeThread = G.worldMemory.chats.find(item => item.id === thread.id) || thread;
@@ -12118,10 +12160,16 @@
                     historyLimit: getAIContextProfile().chatHistoryLimit
                 });
                 const response = await requestWorldChatAI(prompt);
-                let replies = timelineChatEngine.parseChatTags(response, {
+                let replies = timelineChatEngine.parseChatResponse(response, {
                     events: G.worldMemory.events,
                     turn: G.worldMemory.turnCount || 0,
-                    occurredAt: getFullTimeString()
+                    occurredAt: getFullTimeString(),
+                    protagonistName: G.character?.name,
+                    nextSpeaker,
+                    threadId: activeThread.id,
+                    eventId: activeThread.eventId,
+                    eventTitle: activeThread.eventTitle,
+                    event
                 })
                     .filter(message => !isProtagonistChatSpeaker(message))
                     .map(message => ({
@@ -12145,7 +12193,8 @@
                 }
                 result = timelineChatEngine.recordMessages(G.worldMemory.chats, replies, {
                     events: G.worldMemory.events,
-                    turn: G.worldMemory.turnCount || 0
+                    turn: G.worldMemory.turnCount || 0,
+                    protagonistName: G.character?.name
                 });
                 G.worldMemory.chats = result.chats;
                 if (!usedLocalFallback) applyWorldChatResults(response, activeThread);
@@ -12160,7 +12209,8 @@
                 });
                 G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
                     story: G.currentStory,
-                    turn: G.worldMemory.turnCount || 0
+                    turn: G.worldMemory.turnCount || 0,
+                    protagonistName: G.character?.name
                 });
                 const latestReply = result.added[0];
                 updateMediumTermMemory(`Nella chat «${thread.title}»: ${text}`, latestReply ? `${latestReply.speaker}: ${latestReply.text}` : response, {
@@ -12187,7 +12237,8 @@
                     if (!fallbackReply) throw error;
                     result = timelineChatEngine.recordMessages(G.worldMemory.chats, [fallbackReply], {
                         events: G.worldMemory.events,
-                        turn: G.worldMemory.turnCount || 0
+                        turn: G.worldMemory.turnCount || 0,
+                        protagonistName: G.character?.name
                     });
                     G.worldMemory.chats = result.chats;
                     result.added.forEach(reply => {
@@ -12201,7 +12252,8 @@
                     });
                     G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
                         story: G.currentStory,
-                        turn: G.worldMemory.turnCount || 0
+                        turn: G.worldMemory.turnCount || 0,
+                        protagonistName: G.character?.name
                     });
                     const latestReply = result.added[0];
                     updateMediumTermMemory(`Nella chat «${thread.title}»: ${text}`, `${latestReply.speaker}: ${latestReply.text}`, {
@@ -12414,7 +12466,7 @@ Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, pr
                 recentChoices: recentTimelineChoices
             });
             const worldInfluenceDirective = isStart
-                ? worldBootstrapEngine.buildBootstrapPrompt({ story, turn: G.worldMemory.turnCount || 0, currentDate: getFullTimeString() })
+                ? worldBootstrapEngine.buildBootstrapPrompt({ story, turn: G.worldMemory.turnCount || 0, currentDate: getFullTimeString(), protagonistName: G.character?.name })
                 : worldBootstrapEngine.buildRuntimePrompt(G.worldMemory.world, {
                     story,
                     turn: G.worldMemory.turnCount || 0,
@@ -12900,13 +12952,15 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 currentDate: getFullTimeString(),
                 turn: G.worldMemory.turnCount || 0,
                 location: G.currentLocation,
+                protagonistName: G.character?.name,
                 source: isStart ? 'initial-world' : 'world-update',
                 ensureMinimum: isStart
             });
             G.worldMemory.world = worldBootstrap.world;
             G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
                 story: G.currentStory,
-                turn: G.worldMemory.turnCount || 0
+                turn: G.worldMemory.turnCount || 0,
+                protagonistName: G.character?.name
             });
             if (isStart) reconcileCampaignClock(G.worldMemory);
             if (worldBootstrap.changed) memoryChanged = true;

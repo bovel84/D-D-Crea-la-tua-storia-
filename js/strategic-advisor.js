@@ -49,6 +49,23 @@
             .replace(/^-+|-+$/g, '');
     }
 
+    function isSamePersonName(left, right) {
+        const leftKey = keyOf(left);
+        const rightKey = keyOf(right);
+        if (!leftKey || !rightKey) return false;
+        if (leftKey === rightKey) return true;
+        const placeholders = new Set(['protagonista', 'giocatore', 'player']);
+        if (placeholders.has(leftKey) || placeholders.has(rightKey)) return false;
+        const leftTokens = leftKey.split('-').filter(Boolean);
+        const rightTokens = rightKey.split('-').filter(Boolean);
+        if (leftTokens.length === 1 || rightTokens.length === 1) {
+            const short = leftTokens.length === 1 ? leftTokens[0] : rightTokens[0];
+            const long = leftTokens.length === 1 ? rightTokens : leftTokens;
+            return short.length >= 3 && long.includes(short);
+        }
+        return false;
+    }
+
     function hashText(value) {
         let hash = 2166136261;
         const text = String(value || '');
@@ -111,7 +128,8 @@
         const input = source && typeof source === 'object' ? source : {};
         const title = cleanText(input.title || input.name || input.label, 120);
         const command = sanitizeCommand(
-            input.command || input.playerAction || input.executableAction || input.action
+            input.command || input.playerAction || input.executableAction || input.action ||
+            input.proposedAction || input.proposed_action || input.instruction
         );
         if (!title || command.length < 8 || containsPlaceholder(`${title} ${command}`)) return null;
         return {
@@ -134,7 +152,7 @@
         const title = cleanText(input.title || input.name || input.topic, 140);
         if (!title || isPlaceholderName(title)) return null;
         const issueId = cleanText(input.id, 120) || `issue-${index}-${hashText(title)}`;
-        const actions = asArray(input.actions || input.options || input.responses)
+        const actions = asArray(input.actions || input.options || input.responses || input.alternatives || input.recommendations)
             .map((action, actionIndex) => normalizeAction(action, actionIndex, issueId))
             .filter(Boolean)
             .filter((action, actionIndex, all) =>
@@ -332,10 +350,10 @@
             ...asArray(memory.events).slice(-12).flatMap(item => asArray(item?.actors)),
             ...asArray(memory.chats).filter(item => item?.status !== 'closed').flatMap(item => asArray(item?.participants))
         ].map(name => ({ name, role: 'parte già registrata', influence: 25, source: 'event-memory' }));
-        const protagonistKey = keyOf(character.name || 'Protagonista');
+        const protagonistName = character.name || 'Protagonista';
         const actors = [...asArray(world.actors), ...asArray(memory.npcs), ...rememberedNames]
             .map(compactActor).filter(Boolean)
-            .filter(item => keyOf(item.name) !== protagonistKey)
+            .filter(item => !isSamePersonName(item.name, protagonistName))
             .filter((item, index, all) => all.findIndex(other => keyOf(other.name) === keyOf(item.name)) === index)
             .sort((left, right) => right.influence - left.influence)
             .slice(0, 10);
@@ -486,9 +504,25 @@ PUBLIC_STATE:
 ${JSON.stringify(snapshot, null, 2)}`;
     }
 
+    function buildRepairPrompt(previousResponse, context = {}) {
+        const snapshot = buildPublicContext(context);
+        return `CORREZIONE FORMATO — restituisci soltanto JSON valido.
+La risposta precedente non è stata leggibile dall'interfaccia. Rigenera un oggetto compatto con ESATTAMENTE 3 issues e ESATTAMENTE 2 actions per issue. Ogni action deve avere almeno title, command, objective, expectedOutcome, cost, duration, risk e tradeoff. command deve essere un'azione completa in prima persona. Non usare Markdown, commenti, ellissi, testo prima o dopo il JSON e non troncare l'ultima parentesi.
+
+Struttura minima obbligatoria:
+{"headline":"...","situation":"...","horizon":"...","priorities":[],"risks":[],"opportunities":[],"issues":[{"title":"...","category":"...","urgency":"media","assessment":"...","stakes":"...","actors":[],"actions":[{"title":"...","description":"...","command":"Io ...","objective":"...","expectedOutcome":"...","cost":"...","duration":"...","risk":"medio","tradeoff":"...","prerequisites":[]}]}]}
+
+STATO PUBBLICO AUTOREVOLE:
+${JSON.stringify(snapshot)}
+
+RISPOSTA PRECEDENTE DA NON COPIARE SE INCOMPLETA:
+${cleanText(previousResponse, 2400)}`;
+    }
+
     function normalizeAnalysis(input, context = {}, source = 'ai') {
-        const data = input && typeof input === 'object' ? (input.analysis || input) : {};
-        const issues = asArray(data.issues || data.topics || data.fronts)
+        const root = input && typeof input === 'object' ? input : {};
+        const data = root.analysis || root.strategicAnalysis || root.strategic_analysis || root.result || root.data || root;
+        const issues = asArray(data.issues || data.topics || data.fronts || data.arguments || data.argomenti)
             .map(normalizeIssue).filter(Boolean)
             .filter((issue, index, all) => all.findIndex(item => keyOf(item.title) === keyOf(issue.title)) === index)
             .slice(0, MAX_ISSUES);
@@ -510,23 +544,82 @@ ${JSON.stringify(snapshot, null, 2)}`;
         };
     }
 
+    function stripModelReasoning(response) {
+        return String(response || '')
+            .replace(/<think>[\s\S]*?<\/think>/gi, ' ')
+            .replace(/<analysis>[\s\S]*?<\/analysis>/gi, ' ')
+            .replace(/^\s*(?:analysis|ragionamento|reasoning)\s*:\s*[\s\S]*?(?=\{)/i, '')
+            .trim();
+    }
+
+    function extractJsonCandidates(response) {
+        const raw = stripModelReasoning(response);
+        if (!raw) return [];
+        const candidates = [];
+        const fenced = [...raw.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)].map(match => match[1].trim());
+        candidates.push(...fenced, raw);
+        const balanced = [];
+        for (const source of candidates) {
+            let start = -1;
+            let depth = 0;
+            let quote = '';
+            let escaped = false;
+            for (let index = 0; index < source.length; index++) {
+                const char = source[index];
+                if (quote) {
+                    if (escaped) escaped = false;
+                    else if (char === '\\') escaped = true;
+                    else if (char === quote) quote = '';
+                    continue;
+                }
+                if (char === '"' || char === "'") {
+                    quote = char;
+                    continue;
+                }
+                if (char === '{' || char === '[') {
+                    if (depth === 0) start = index;
+                    depth++;
+                } else if (char === '}' || char === ']') {
+                    depth--;
+                    if (depth === 0 && start >= 0) {
+                        balanced.push(source.slice(start, index + 1));
+                        start = -1;
+                    }
+                }
+            }
+        }
+        return [...new Set([...balanced, ...candidates].filter(Boolean))];
+    }
+
+    function repairJsonSyntax(value) {
+        return String(value || '')
+            .replace(/[“”]/g, '"')
+            .replace(/[‘’]/g, "'")
+            .replace(/\bTrue\b/g, 'true')
+            .replace(/\bFalse\b/g, 'false')
+            .replace(/\bNone\b/g, 'null')
+            .replace(/,\s*([}\]])/g, '$1');
+    }
+
     function extractJson(response) {
-        const raw = String(response || '').trim();
-        if (!raw) return '';
-        const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-        const candidate = fenced ? fenced[1].trim() : raw;
-        const start = candidate.indexOf('{');
-        const end = candidate.lastIndexOf('}');
-        return start >= 0 && end > start ? candidate.slice(start, end + 1) : candidate;
+        return extractJsonCandidates(response)[0] || '';
     }
 
     function parseResponse(response, context = {}) {
-        try {
-            const parsed = JSON.parse(extractJson(response));
-            return normalizeAnalysis(parsed, context, 'ai');
-        } catch (error) {
-            return null;
+        for (const candidate of extractJsonCandidates(response)) {
+            for (const source of [candidate, repairJsonSyntax(candidate)]) {
+                try {
+                    const parsed = JSON.parse(source);
+                    const root = Array.isArray(parsed) ? { issues: parsed } : parsed;
+                    const normalized = normalizeAnalysis(root, context, 'ai');
+                    if (normalized) return normalized;
+                } catch (error) {
+                    // Prova il prossimo candidato: i modelli Cloud possono includere
+                    // ragionamento o piccole imperfezioni prima del JSON utile.
+                }
+            }
         }
+        return null;
     }
 
     function action(input) {
@@ -912,6 +1005,7 @@ ${JSON.stringify(snapshot, null, 2)}`;
         isPlaceholderName,
         stateSignature,
         buildPrompt,
+        buildRepairPrompt,
         normalizeAnalysis,
         parseResponse,
         buildFallback,

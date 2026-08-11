@@ -32,6 +32,50 @@
             .trim();
     }
 
+    function nameTokens(value) {
+        return keyOf(value).split(/\s+/).filter(token => token.length >= 2);
+    }
+
+    function isSamePersonName(left, right) {
+        const leftKey = keyOf(left);
+        const rightKey = keyOf(right);
+        if (!leftKey || !rightKey) return false;
+        if (leftKey === rightKey) return true;
+        const placeholders = /^(protagonista|giocatore|player)$/;
+        if (placeholders.test(leftKey) || placeholders.test(rightKey)) return false;
+        const leftTokens = nameTokens(left);
+        const rightTokens = nameTokens(right);
+        if (leftTokens.length === 1 || rightTokens.length === 1) {
+            const short = leftTokens.length === 1 ? leftTokens[0] : rightTokens[0];
+            const long = leftTokens.length === 1 ? rightTokens : leftTokens;
+            return short.length >= 3 && long.includes(short);
+        }
+        return false;
+    }
+
+    function isProtagonistAlias(value, protagonistName) {
+        const key = keyOf(value);
+        return /^(protagonista|giocatore|player)$/.test(key) ||
+            (protagonistName && isSamePersonName(value, protagonistName));
+    }
+
+    function dedupeParticipants(values, context = {}, limit = 12) {
+        const protagonistName = cleanText(context.protagonistName, 100);
+        const source = Array.isArray(values) ? values : String(values || '').split(/[,;]/);
+        const result = [];
+        let includedProtagonist = Boolean(protagonistName);
+        source.map(item => cleanText(item, 100)).filter(Boolean).forEach(name => {
+            if (protagonistName && isProtagonistAlias(name, protagonistName)) {
+                includedProtagonist = true;
+                return;
+            }
+            if (result.some(existing => keyOf(existing) === keyOf(name))) return;
+            result.push(name);
+        });
+        if (includedProtagonist && protagonistName) result.push(protagonistName);
+        return result.slice(0, limit);
+    }
+
     function hashText(value) {
         let hash = 2166136261;
         const text = String(value || '');
@@ -183,14 +227,20 @@
         const eventId = cleanText(input.eventId || event?.id, 140);
         const eventTitle = cleanText(input.eventTitle || input.title || event?.title || 'Conversazione del mondo', 120);
         const id = cleanText(input.id, 140) || threadIdFor(eventId, eventTitle);
-        const messages = asArray(input.messages)
+        const normalizedMessages = asArray(input.messages)
             .map(message => normalizeMessage({ ...message, threadId: id, eventId, eventTitle }, context))
             .filter(Boolean)
             .slice(-MAX_MESSAGES_PER_THREAD);
-        const participants = [...new Set([
+        const recordedPlayerName = normalizedMessages.find(message => message.source === 'player')?.speaker || '';
+        const protagonistName = cleanText(context.protagonistName || recordedPlayerName, 100);
+        const messages = normalizedMessages.filter(message =>
+            !protagonistName || !isProtagonistAlias(message.speaker, protagonistName) ||
+            message.source === 'player' || message.speakerType === 'protagonista'
+        );
+        const participants = dedupeParticipants([
             ...asArray(input.participants).map(item => cleanText(item, 100)),
             ...messages.flatMap(message => [message.speaker, ...splitParticipants(message.target, 12)])
-        ].filter(Boolean))].slice(0, 12);
+        ].filter(Boolean), { protagonistName }, 12);
         const resolutionInput = input.resolution && typeof input.resolution === 'object' ? input.resolution : {};
         const resolution = {
             status: normalizeResolutionStatus(resolutionInput.status || input.resolutionStatus),
@@ -259,6 +309,37 @@
         return messages.slice(0, 24);
     }
 
+    function parseChatResponse(response, context = {}) {
+        const tagged = parseChatTags(response, context).filter(message =>
+            !isProtagonistAlias(message.speaker, context.protagonistName)
+        );
+        if (tagged.length) return tagged;
+        const speaker = cleanText(context.nextSpeaker, 100);
+        if (!speaker || isProtagonistAlias(speaker, context.protagonistName)) return [];
+        let text = String(response || '')
+            .replace(/<think>[\s\S]*?<\/think>/gi, ' ')
+            .replace(/<analysis>[\s\S]*?<\/analysis>/gi, ' ')
+            .replace(/```(?:\w+)?/g, ' ')
+            .replace(/\[(?:ESITO_CHAT|ACCORDO_CHAT):[^\]]*\]/gi, ' ')
+            .replace(/^\s*(?:risposta|reply|assistant)\s*:\s*/i, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!text || /^[\[{]/.test(text) || text.length < 8) return [];
+        const message = normalizeMessage({
+            event: context.event,
+            eventId: context.eventId,
+            eventTitle: context.eventTitle,
+            threadId: context.threadId,
+            speaker,
+            speakerType: context.speakerType || 'npc',
+            text,
+            target: context.protagonistName || 'Protagonista',
+            mood: 'reattivo',
+            source: 'llm'
+        }, context);
+        return message ? [message] : [];
+    }
+
     function recordMessages(chats, incomingMessages, context = {}) {
         const threads = migrateChats(chats, context);
         const added = [];
@@ -277,14 +358,19 @@
                 }, context);
                 threads.push(thread);
             }
+            const protagonistName = cleanText(
+                context.protagonistName || thread.messages.find(item => item.source === 'player')?.speaker,
+                100
+            );
+            if (message.source !== 'player' && isProtagonistAlias(message.speaker, protagonistName)) return;
             if (thread.messages.some(item => item.fingerprint === message.fingerprint)) return;
             thread.messages.push(message);
             thread.messages = thread.messages.slice(-MAX_MESSAGES_PER_THREAD);
-            thread.participants = splitParticipants([
+            thread.participants = dedupeParticipants([
                 ...thread.participants,
                 message.speaker,
                 ...splitParticipants(message.target, 12)
-            ], 12);
+            ], { protagonistName }, 12);
             thread.updatedAtTurn = Math.max(thread.updatedAtTurn, message.turn);
             added.push(message);
         });
@@ -296,10 +382,10 @@
         const created = [];
         asArray(events).forEach(event => {
             if (event?.conversationMode === 'none') return;
-            const participants = splitParticipants([
+            const participants = dedupeParticipants([
                 ...asArray(event?.actors),
                 ...(context.protagonistName ? [context.protagonistName] : [])
-            ], 12);
+            ], context, 12);
             if (participants.length < 2) return;
             const id = threadIdFor(event.id, event.title);
             if (threads.some(thread => thread.id === id)) return;
@@ -324,10 +410,10 @@
 
     function createThread(chats, input = {}, context = {}) {
         const threads = migrateChats(chats, context);
-        const participants = splitParticipants([
+        const participants = dedupeParticipants([
             ...splitParticipants(input.participants, 12),
             ...(context.protagonistName ? [context.protagonistName] : [])
-        ], 12);
+        ], context, 12);
         const title = cleanText(input.title || input.subject, 120);
         const agenda = cleanText(input.agenda || input.subject, 420);
         if (!title || !agenda || participants.length < 2) return { chats: threads, thread: null, created: false };
@@ -357,35 +443,48 @@
         const threads = migrateChats(chats, context);
         const thread = threads.find(item => item.id === threadId);
         if (!thread) return { chats: threads, thread: null, invited: [] };
-        const current = new Set(thread.participants.map(keyOf));
-        const invited = splitParticipants(participants, 12).filter(name => !current.has(keyOf(name)));
-        thread.participants = splitParticipants([...thread.participants, ...invited], 12);
+        const protagonistName = cleanText(context.protagonistName || thread.messages.find(item => item.source === 'player')?.speaker, 100);
+        const invited = splitParticipants(participants, 12).filter(name =>
+            !isProtagonistAlias(name, protagonistName) &&
+            !thread.participants.some(existing => keyOf(existing) === keyOf(name))
+        );
+        thread.participants = dedupeParticipants([...thread.participants, ...invited], { protagonistName }, 12);
         thread.updatedAtTurn = Math.max(thread.updatedAtTurn, Number(context.turn) || 0);
         return { chats: threads, thread, invited };
     }
 
     function chooseNextSpeaker(thread, playerMessage = '', context = {}) {
         const item = normalizeThread(thread, context);
-        const protagonistKey = keyOf(context.protagonistName || 'protagonista');
-        const playerSpeakers = new Set(item.messages
+        const protagonistName = cleanText(
+            context.protagonistName || item.messages.find(message => message.source === 'player')?.speaker,
+            100
+        );
+        const playerSpeakers = item.messages
             .filter(message => message.source === 'player' || message.speakerType === 'protagonista')
-            .map(message => keyOf(message.speaker))
-            .filter(Boolean));
+            .map(message => message.speaker)
+            .filter(Boolean);
         const candidates = item.participants.filter(name => {
             const key = keyOf(name);
-            return key && key !== protagonistKey && !playerSpeakers.has(key) && !/^(protagonista|giocatore|player)$/.test(key);
+            return key && !isProtagonistAlias(name, protagonistName) &&
+                !playerSpeakers.some(player => isSamePersonName(name, player));
         });
         if (!candidates.length) return '';
         const messageKey = keyOf(playerMessage);
-        const addressed = candidates.find(name => {
+        const addressed = candidates.map(name => {
             const nameKey = keyOf(name);
-            return nameKey.length >= 3 && messageKey.includes(nameKey);
-        });
-        if (addressed) return addressed;
+            if (nameKey.length >= 3 && messageKey.includes(nameKey)) return { name, score: 1000 + nameKey.length };
+            const tokens = nameTokens(name).filter(token =>
+                token.length >= 3 && !/^(?:del|della|dello|dei|degli|delle|van|von|de|di|da|la|lo|il)$/.test(token)
+            );
+            const matched = tokens.filter(token => new RegExp(`(?:^|\\s)${token}(?:\\s|$)`).test(messageKey));
+            return { name, score: matched.reduce((total, token) => total + token.length, 0) };
+        }).filter(item => item.score > 0).sort((left, right) => right.score - left.score)[0];
+        if (addressed) return addressed.name;
         const counts = new Map(candidates.map(name => [keyOf(name), 0]));
         item.messages.forEach(message => {
-            const speakerKey = keyOf(message.speaker);
-            if (counts.has(speakerKey)) counts.set(speakerKey, counts.get(speakerKey) + 1);
+            const candidate = candidates.find(name => isSamePersonName(name, message.speaker));
+            const speakerKey = keyOf(candidate);
+            if (candidate && counts.has(speakerKey)) counts.set(speakerKey, counts.get(speakerKey) + 1);
         });
         const minimum = Math.min(...counts.values());
         return candidates.find(name => counts.get(keyOf(name)) === minimum) || candidates[0];
@@ -394,11 +493,10 @@
     function selectSingleReply(messages, requestedSpeaker) {
         const replies = asArray(messages).filter(Boolean);
         if (!replies.length) return [];
-        const requestedKey = keyOf(requestedSpeaker);
-        const selected = requestedKey
-            ? replies.find(message => keyOf(message.speaker) === requestedKey)
+        const selected = requestedSpeaker
+            ? replies.find(message => isSamePersonName(message.speaker, requestedSpeaker))
             : replies[0];
-        return [selected || replies[0]];
+        return selected ? [selected] : [];
     }
 
     function buildFallbackReply(thread, playerMessage, context = {}) {
@@ -409,21 +507,24 @@
             100
         );
         if (!speaker) return null;
-        const statement = cleanText(playerMessage, 260) || 'la tua posizione';
         const agenda = cleanText(item.agenda || item.purpose || 'questa questione', 240);
         const purpose = keyOf(item.purpose);
+        const statementKey = keyOf(playerMessage);
         let text;
         let mood = 'prudente';
-        if (/contratt|negozia|diplomaz|trattat/.test(purpose)) {
-            text = `Io ho ascoltato la tua proposta: «${statement}». Prima di impegnarmi su ${agenda}, voglio una garanzia concreta e termini che tutelino anche i miei interessi. Quale concessione sei disposto a mettere per iscritto?`;
+        if (/\b(accetto|accettiamo|va bene|firmiamo|confermo|confermiamo)\b/.test(statementKey)) {
+            text = `Io registro la tua disponibilità, ma prima di considerare chiuso l'accordo su ${agenda} voglio che importo, obblighi, garanzie e scadenza siano messi per iscritto. Confermi questi termini senza altre condizioni?`;
+            mood = 'concreto';
+        } else if (/contratt|negozia|diplomaz|trattat/.test(purpose)) {
+            text = `Io sono disposto a discutere ${agenda}, ma voglio una garanzia concreta e termini che tutelino anche i miei interessi. Quale concessione sei disposto a mettere per iscritto?`;
         } else if (/strateg/.test(purpose)) {
             text = `Io posso discutere il piano su ${agenda}, ma non darò il mio appoggio al buio. Indicami il compito che affidi a me, le risorse disponibili e il rischio che sei disposto ad assumerti.`;
             mood = 'determinato';
         } else if (/personal/.test(purpose)) {
-            text = `Io ti ho ascoltato quando hai detto «${statement}». Voglio capire se parli con sincerità: dimmi che cosa chiedi davvero a me e che cosa sei pronto a fare in cambio.`;
+            text = `Io voglio capire se parli con sincerità: dimmi che cosa chiedi davvero a me e che cosa sei pronto a fare in cambio.`;
             mood = 'attento';
         } else {
-            text = `Io prendo sul serio ciò che hai detto: «${statement}». Su ${agenda} non posso limitarmi a un assenso generico; dimmi quale risultato concreto vuoi ottenere e quale responsabilità chiedi a me.`;
+            text = `Io prendo sul serio la tua posizione. Su ${agenda} non posso limitarmi a un assenso generico: dimmi quale risultato concreto vuoi ottenere e quale responsabilità chiedi a me.`;
         }
         return normalizeMessage({
             threadId: item.id,
@@ -589,7 +690,7 @@ PROSSIMO E UNICO PARLANTE: ${nextSpeaker}
 Rispondi senza narrazione esterna e produci ESATTAMENTE UNA CHAT, pronunciata soltanto da ${nextSpeaker}:
 [CHAT: ${item.eventTitle}|${nextSpeaker}|npc/fazione/regno/gruppo|messaggio_in_prima_persona|destinatario|emozione]
 ${nextSpeaker} parla in prima persona e conserva carica, obiettivi pubblici e privati, carattere, alleanze, leve, vincoli e conoscenze parziali. Può contraddire quanto detto prima, mentire, chiedere garanzie, rifiutare o fare una controproposta. Non far parlare nessun altro in questa chiamata, non parlare mai al posto del protagonista e non rendere tutti automaticamente disponibili o concordi.
-La battuta deve essere completa, reattiva e dialogica: 2-5 frasi, circa 50-180 parole, senza interrompere l'ultima frase. Deve rispondere a ciò che il giocatore ha appena detto e concludere con una posizione, una domanda, una richiesta o una controproposta che permetta di continuare l'interazione.
+La battuta deve essere completa, reattiva e dialogica: 2-5 frasi, circa 50-160 parole, senza interrompere l'ultima frase. Reagisci prima di tutto all'ULTIMA battuta del giocatore: se contiene una domanda, rispondi; se accetta o rifiuta, riconoscilo; se propone termini, valutali uno per uno. Non ripetere né parafrasare la battuta del protagonista e non ricominciare dall'ordine del giorno. Fai avanzare il dialogo con una decisione, un fatto noto al parlante, una richiesta concreta o una controproposta coerente. Non usare formule metanarrative come «dimmi quale risultato vuoi ottenere» quando il giocatore lo ha già specificato.
 
 Se e soltanto se questo scambio cambia davvero la situazione, aggiungi:
 [ESITO_CHAT: ${item.id}|open/proposal/agreement/refused/failed/closed|esito concreto|conseguenza sul mondo|azione successiva]
@@ -621,6 +722,9 @@ Usa active soltanto se tutte le parti necessarie hanno accettato esplicitamente 
         normalizeThread,
         migrateChats,
         parseChatTags,
+        parseChatResponse,
+        isSamePersonName,
+        isProtagonistAlias,
         recordMessages,
         ensureEventThreads,
         createThread,

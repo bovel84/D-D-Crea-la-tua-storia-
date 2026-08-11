@@ -111,6 +111,20 @@ test('costruisce all’avvio un mondo persistente con luoghi, attori, fazioni e 
     assert.equal(memory.narrativeGoals[0].name, 'Crisi di successione');
 });
 
+test('il mondo non registra una seconda copia del protagonista come NPC', () => {
+    const world = worldBootstrapApi.migrateWorld({
+        actors: [
+            { name: 'Andrea Torrigiani', role: 'banchiere', status: 'active', source: 'llm' },
+            { name: 'Niccolò di Lapo Portigiani', role: 'mercante', status: 'active', source: 'llm' }
+        ]
+    });
+    const memory = worldBootstrapApi.projectToMemory(world, {
+        npcs: [{ name: 'Andrea Torrigiani' }], locations: [], factions: [], narrativeGoals: []
+    }, { protagonistName: 'Andrea', turn: 0 });
+    assert.deepEqual(memory.world.actors.map(actor => actor.name), ['Niccolò di Lapo Portigiani']);
+    assert.deepEqual(memory.npcs.map(actor => actor.name), ['Niccolò di Lapo Portigiani']);
+});
+
 test('non trasforma i segnaposto di recupero in fatti canonici se il modello omette i tag iniziali', () => {
     const result = worldBootstrapApi.ingestResponse('La storia comincia.', {}, {
         story: { title: 'Il porto', setting: 'Trieste, 1984', desc: 'Una rete di doppi agenti.' },
@@ -828,6 +842,36 @@ test('le risposte di una chat multi-NPC vengono selezionate una alla volta', () 
     assert.equal(selected[0].speaker, 'Jacopo Gherardi');
 });
 
+test('la chat unifica il protagonista, riconosce i nomi brevi e accetta una risposta Cloud in prosa', () => {
+    const thread = timelineChatApi.normalizeThread({
+        id: 'chat-banco', title: 'Inventario del Banco', eventTitle: 'Inventario del Banco',
+        participants: ['Maddalena Torrigiani', 'Andrea Torrigiani', 'Niccolò di Lapo Portigiani', 'Andrea'],
+        messages: [
+            { speaker: 'Andrea', speakerType: 'protagonista', source: 'player', text: 'Va bene Niccolò, firmiamo le carte.' },
+            { speaker: 'Andrea Torrigiani', speakerType: 'npc', source: 'llm', text: 'Io rispondo al posto del giocatore.' }
+        ]
+    }, { protagonistName: 'Andrea', turn: 3 });
+    assert.deepEqual(thread.participants, ['Maddalena Torrigiani', 'Niccolò di Lapo Portigiani', 'Andrea']);
+    assert.equal(thread.messages.some(message => message.speaker === 'Andrea Torrigiani'), false);
+    assert.equal(
+        timelineChatApi.chooseNextSpeaker(thread, 'Va bene Niccolò, firmiamo le carte.', { protagonistName: 'Andrea' }),
+        'Niccolò di Lapo Portigiani'
+    );
+    const direct = timelineChatApi.parseChatResponse(
+        'Accetto, ma voglio che il pegno sulla lana sia descritto nel contratto prima della firma.',
+        {
+            protagonistName: 'Andrea', nextSpeaker: 'Niccolò di Lapo Portigiani',
+            threadId: thread.id, eventTitle: thread.eventTitle, turn: 3
+        }
+    );
+    assert.equal(direct.length, 1);
+    assert.equal(direct[0].speaker, 'Niccolò di Lapo Portigiani');
+    assert.match(direct[0].text, /pegno sulla lana/);
+    assert.deepEqual(timelineChatApi.selectSingleReply([
+        { speaker: 'Maddalena Torrigiani', text: 'Io intervengo.' }
+    ], 'Niccolò di Lapo Portigiani'), []);
+});
+
 test('la chat conserva la cronologia ampia e garantisce un turno NPC di fallback', () => {
     const messages = Array.from({ length: 35 }, (_, index) => ({
         speaker: index % 2 ? 'Jacopo Gherardi' : 'Lorenzo',
@@ -967,6 +1011,24 @@ test('interpreta il piano JSON dell’IA in questioni e pulsanti azione eseguibi
     const selected = strategicAdvisorApi.getAction(parsed, 0, 0);
     assert.match(selected.action.command, /Convoco la Gilda dei Portuali/);
     assert.doesNotMatch(selected.action.command, /<b>|MECCANICA|soldi=999/);
+});
+
+test('recupera il piano Ollama da ragionamento, contenitori alternativi e virgole finali', () => {
+    const context = {
+        story: { title: 'Banco Torrigiani', desc: 'Firenze nel Quattrocento.' },
+        character: {
+            name: 'Andrea', gold: 2000, currency: { short: 'fiorini' },
+            health: { cur: 100, max: 100 }, stamina: { cur: 100, max: 100 }, hunger: { cur: 100, max: 100 }
+        },
+        memory: { turnCount: 1, events: [], world: {} }, management: { businesses: [] }, kingdom: { active: false }
+    };
+    const response = `<think>Devo preparare il formato.</think>\n\`\`\`json
+{"result":{"headline":"Credito da impiegare","arguments":[{"title":"Prestito Portigiani","category":"economia","urgency":"alta","assessment":"Niccolò cerca credito.","alternatives":[{"title":"Prestito garantito","proposed_action":"Io offro seicento fiorini contro un pegno verificato sulla lana.","objective":"Aprire il primo credito","risk":"medio",},],}],},}
+\`\`\``;
+    const parsed = strategicAdvisorApi.parseResponse(response, context);
+    assert.equal(parsed.source, 'ai');
+    assert.equal(parsed.issues[0].title, 'Prestito Portigiani');
+    assert.match(parsed.issues[0].actions[0].command, /seicento fiorini/);
 });
 
 test('seleziona e deseleziona più azioni strategiche in tutti gli argomenti', () => {
@@ -2504,7 +2566,7 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
 
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/timeline-chat\.js\?v=20260811-continuity-2"/);
+    assert.match(html, /src="js\/timeline-chat\.js\?v=20260811-chat-4"/);
     assert.match(html, /src="js\/timeline-simulator\.js\?v=20260811-continuity-2"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
@@ -2557,7 +2619,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
 
 test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260811-continuity-2"/);
+    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260811-strategy-3"/);
     assert.match(html, /id="btn-strategic-actions"/);
     assert.match(html, /id="modal-strategic-actions"/);
     assert.match(html, /id="btn-strategic-analyze"/);
@@ -2571,7 +2633,8 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
     assert.match(html, /function removeStrategicAction/);
     assert.match(html, /function openTimelineWithStrategicActions/);
     assert.match(html, /strategicAdvisor\.buildPrompt/);
-    assert.match(html, /strategicAdvisor\.ensureAnalysis/);
+    assert.match(html, /strategicAdvisor\.parseResponse/);
+    assert.match(html, /strategicAdvisor\.buildRepairPrompt/);
     assert.match(html, /strategicAdvisor\.toTimelineChoices/);
     assert.match(html, /timelineSimulator\.parseStrategicOutcomes/);
     assert.match(html, /timelineSimulator\.ensureStrategicOutcomes/);
@@ -2582,7 +2645,7 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
 
 test('integra la creazione iniziale del mondo con narrazione, timeline e chat', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260811-continuity-2"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260811-chat-4"/);
     assert.match(html, /worldBootstrapEngine\.buildBootstrapPrompt/);
     assert.match(html, /worldBootstrapEngine\.ingestResponse/);
     assert.match(html, /worldBootstrapEngine\.projectToMemory/);
@@ -3162,6 +3225,19 @@ test('normalizza il JSON generato dall’IA e conserva l’idea del giocatore', 
     assert.ok(story.depth.length > 20);
 });
 
+test('la storia conserva una data iniziale canonica e non usa l’anno corrente come riempitivo', () => {
+    const explicit = storyGeneratorApi.parseGeneratedStory(
+        '{"title":"Il Banco Torrigiani","startTime":{"day":2,"month":4,"year":1472,"hour":9,"minute":0}}',
+        { genre: 'business', setting: 'Firenze rinascimentale', idea: 'Un banchiere entra nell’orbita dei Medici.' }
+    );
+    assert.deepEqual(explicit.startTime, { day: 2, month: 4, year: 1472, hour: 9, minute: 0 });
+    const legacy = storyGeneratorApi.completeStory({
+        genre: 'business', setting: 'Storico / Business', desc: 'Il Banco dei Torrigiani tratta in fiorini con i Medici.'
+    });
+    assert.equal(legacy.startTime.year, 1472);
+    assert.match(storyGeneratorApi.buildGenerationPrompt({ genre: 'historical' }), /startTime/);
+});
+
 test('rende gestibili le attività iniziali create dal generatore', () => {
     const story = storyGeneratorApi.completeStory({
         title: 'La Locanda Assediata',
@@ -3186,7 +3262,7 @@ test('il prompt del generatore richiede una campagna giocabile e JSON puro', () 
 
 test('integra il generatore nella schermata Crea storia', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/story-generator\.js"/);
+    assert.match(html, /src="js\/story-generator\.js\?v=20260811-calendar-2"/);
     assert.match(html, /id="edit-story-idea"/);
     assert.match(html, /id="btn-generate-story"/);
     assert.match(html, /function generateStoryFromEditor/);
