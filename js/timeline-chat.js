@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const CHAT_SCHEMA_VERSION = 3;
+    const CHAT_SCHEMA_VERSION = 4;
     const MAX_THREADS = 60;
     const MAX_MESSAGES_PER_THREAD = 80;
     const SPEAKER_TYPES = ['protagonista', 'npc', 'fazione', 'regno', 'gruppo'];
@@ -333,7 +333,7 @@
             speaker,
             speakerType: context.speakerType || 'npc',
             text,
-            target: context.protagonistName || 'Protagonista',
+            target: context.target || context.triggerSpeaker || context.protagonistName || 'Protagonista',
             mood: 'reattivo',
             source: 'llm'
         }, context);
@@ -490,6 +490,40 @@
         return candidates.find(name => counts.get(keyOf(name)) === minimum) || candidates[0];
     }
 
+    function chooseSpeakerRound(thread, playerMessage = '', context = {}) {
+        const item = normalizeThread(thread, context);
+        const protagonistName = cleanText(
+            context.protagonistName || item.messages.find(message => message.source === 'player')?.speaker,
+            100
+        );
+        const candidates = item.participants.filter(name =>
+            !isProtagonistAlias(name, protagonistName) &&
+            !item.messages.some(message =>
+                (message.source === 'player' || message.speakerType === 'protagonista') &&
+                isSamePersonName(message.speaker, name)
+            )
+        );
+        if (!candidates.length) return [];
+        const limit = Math.max(1, Math.min(3, Math.trunc(Number(context.maxSpeakers) || 2)));
+        const primary = chooseNextSpeaker(item, playerMessage, context);
+        const counts = new Map(candidates.map(name => [keyOf(name), 0]));
+        const lastSpokenAt = new Map(candidates.map(name => [keyOf(name), -1]));
+        item.messages.forEach((message, index) => {
+            const candidate = candidates.find(name => isSamePersonName(name, message.speaker));
+            if (!candidate) return;
+            const key = keyOf(candidate);
+            counts.set(key, counts.get(key) + 1);
+            lastSpokenAt.set(key, index);
+        });
+        return candidates.slice().sort((left, right) => {
+            if (primary && isSamePersonName(left, primary)) return -1;
+            if (primary && isSamePersonName(right, primary)) return 1;
+            return Number(counts.get(keyOf(left)) || 0) - Number(counts.get(keyOf(right)) || 0) ||
+                Number(lastSpokenAt.get(keyOf(left)) ?? -1) - Number(lastSpokenAt.get(keyOf(right)) ?? -1) ||
+                candidates.indexOf(left) - candidates.indexOf(right);
+        }).slice(0, Math.min(limit, candidates.length));
+    }
+
     function selectSingleReply(messages, requestedSpeaker) {
         const replies = asArray(messages).filter(Boolean);
         if (!replies.length) return [];
@@ -510,9 +544,25 @@
         const agenda = cleanText(item.agenda || item.purpose || 'questa questione', 240);
         const purpose = keyOf(item.purpose);
         const statementKey = keyOf(playerMessage);
+        const personality = keyOf(context.actor?.personality || context.personality);
+        const triggerSpeaker = cleanText(context.triggerSpeaker, 100);
+        const target = triggerSpeaker && !isSamePersonName(triggerSpeaker, speaker)
+            ? triggerSpeaker
+            : cleanText(context.protagonistName || 'Protagonista', 100);
         let text;
         let mood = 'prudente';
-        if (/\b(accetto|accettiamo|va bene|firmiamo|confermo|confermiamo)\b/.test(statementKey)) {
+        if (context.autonomous && triggerSpeaker) {
+            if (/ambiz|domin|aggress|impuls|orgogli|autorit/.test(personality)) {
+                text = `Io non lascio che sia ${triggerSpeaker} a fissare da solo i termini su ${agenda}. La mia posizione conta, e pretendo che rischi, vantaggi e responsabilità siano ripartiti in modo esplicito prima di procedere.`;
+                mood = 'assertivo';
+            } else if (/diffident|caut|prudent|sospett|meticol/.test(personality)) {
+                text = `Io ho ascoltato ${triggerSpeaker}, ma non considero ancora sufficienti le garanzie su ${agenda}. Prima di appoggiare questa linea voglio verificare i fatti, chiarire chi risponde di un fallimento e stabilire una scadenza concreta.`;
+                mood = 'cauto';
+            } else {
+                text = `Io comprendo la posizione di ${triggerSpeaker}, ma su ${agenda} devo aggiungere la mia. Posso collaborare soltanto se il mio ruolo, le risorse disponibili e la responsabilità di ciascuno vengono chiariti prima della decisione.`;
+                mood = 'partecipe';
+            }
+        } else if (/\b(accetto|accettiamo|va bene|firmiamo|confermo|confermiamo)\b/.test(statementKey)) {
             text = `Io registro la tua disponibilità, ma prima di considerare chiuso l'accordo su ${agenda} voglio che importo, obblighi, garanzie e scadenza siano messi per iscritto. Confermi questi termini senza altre condizioni?`;
             mood = 'concreto';
         } else if (/contratt|negozia|diplomaz|trattat/.test(purpose)) {
@@ -533,7 +583,7 @@
             speaker,
             speakerType: 'npc',
             text,
-            target: cleanText(context.protagonistName || 'Protagonista', 100),
+            target,
             mood,
             turn: context.turn,
             occurredAt: context.occurredAt || item.occurredAt,
@@ -670,6 +720,12 @@
             : 'nessuno';
         const nextSpeaker = cleanText(context.nextSpeaker || chooseNextSpeaker(item, playerMessage, context), 100) ||
             item.participants.find(name => !/^(protagonista|giocatore|player)$/i.test(keyOf(name))) || 'Interlocutore';
+        const triggerSpeaker = cleanText(context.triggerSpeaker, 100);
+        const triggerMessage = cleanText(context.triggerMessage || playerMessage, 1400);
+        const autonomousExchange = Boolean(context.autonomous && triggerSpeaker);
+        const triggerBlock = autonomousExchange
+            ? `MESSAGGIO ORIGINALE DEL PROTAGONISTA: ${cleanText(playerMessage, 1400)}\nULTIMA BATTUTA DI ${triggerSpeaker}: ${triggerMessage}`
+            : `IL PROTAGONISTA DICE: ${triggerMessage}`;
         return `Sei il motore di dialogo di un gioco narrativo. Interpreta esclusivamente gli interlocutori diversi dal protagonista.
 
 EVENTO: ${item.eventTitle}
@@ -684,13 +740,13 @@ CONTESTO DELLE PARTI: ${cleanText(context.actorContext, 6000) || 'Mantieni ident
 CONVERSAZIONE RECENTE:
 ${history}
 
-IL PROTAGONISTA DICE: ${cleanText(playerMessage, 1400)}
+${triggerBlock}
 PROSSIMO E UNICO PARLANTE: ${nextSpeaker}
 
 Rispondi senza narrazione esterna e produci ESATTAMENTE UNA CHAT, pronunciata soltanto da ${nextSpeaker}:
 [CHAT: ${item.eventTitle}|${nextSpeaker}|npc/fazione/regno/gruppo|messaggio_in_prima_persona|destinatario|emozione]
-${nextSpeaker} parla in prima persona e conserva carica, obiettivi pubblici e privati, carattere, alleanze, leve, vincoli e conoscenze parziali. Può contraddire quanto detto prima, mentire, chiedere garanzie, rifiutare o fare una controproposta. Non far parlare nessun altro in questa chiamata, non parlare mai al posto del protagonista e non rendere tutti automaticamente disponibili o concordi.
-La battuta deve essere completa, reattiva e dialogica: 2-5 frasi, circa 50-160 parole, senza interrompere l'ultima frase. Reagisci prima di tutto all'ULTIMA battuta del giocatore: se contiene una domanda, rispondi; se accetta o rifiuta, riconoscilo; se propone termini, valutali uno per uno. Non ripetere né parafrasare la battuta del protagonista e non ricominciare dall'ordine del giorno. Fai avanzare il dialogo con una decisione, un fatto noto al parlante, una richiesta concreta o una controproposta coerente. Non usare formule metanarrative come «dimmi quale risultato vuoi ottenere» quando il giocatore lo ha già specificato.
+${nextSpeaker} parla in prima persona e conserva carica, obiettivi pubblici e privati, carattere, alleanze, leve, vincoli e conoscenze parziali. La personalità deve essere udibile nel lessico, nella lunghezza delle frasi, nella deferenza o aggressività e nel modo di dissentire: non usare una voce da assistente generico. Può contraddire quanto detto prima, mentire, chiedere garanzie, rifiutare o fare una controproposta. Non far parlare nessun altro in questa chiamata, non parlare mai al posto del protagonista e non rendere tutti automaticamente disponibili o concordi.
+La battuta deve essere completa, reattiva e dialogica: 2-5 frasi, circa 50-160 parole, senza interrompere l'ultima frase. Reagisci prima di tutto all'ULTIMA battuta disponibile: ${autonomousExchange ? `quella di ${triggerSpeaker}, intervenendo come partecipante autonomo e rivolgendoti a lui, al protagonista o al gruppo secondo il tuo interesse` : 'quella del giocatore'}. Se contiene una domanda, rispondi; se accetta o rifiuta, riconoscilo; se propone termini, valutali uno per uno. Non ripetere né parafrasare le battute precedenti e non ricominciare dall'ordine del giorno. Fai avanzare il dialogo con una decisione, un fatto noto al parlante, una richiesta concreta o una controproposta coerente. Non usare formule metanarrative come «dimmi quale risultato vuoi ottenere» quando è già stato specificato.
 
 Se e soltanto se questo scambio cambia davvero la situazione, aggiungi:
 [ESITO_CHAT: ${item.id}|open/proposal/agreement/refused/failed/closed|esito concreto|conseguenza sul mondo|azione successiva]
@@ -730,6 +786,7 @@ Usa active soltanto se tutte le parti necessarie hanno accettato esplicitamente 
         createThread,
         inviteParticipants,
         chooseNextSpeaker,
+        chooseSpeakerRound,
         selectSingleReply,
         buildFallbackReply,
         normalizeAgreement,

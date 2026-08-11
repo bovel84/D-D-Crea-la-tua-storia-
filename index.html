@@ -3663,9 +3663,9 @@
     </div>
 
     <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
-    <script src="js/world-bootstrap.js?v=20260811-chat-4"></script>
+    <script src="js/world-bootstrap.js?v=20260811-chat-5"></script>
     <script src="js/event-manager.js"></script>
-    <script src="js/timeline-chat.js?v=20260811-chat-4"></script>
+    <script src="js/timeline-chat.js?v=20260811-chat-5"></script>
     <script src="js/timeline-simulator.js?v=20260811-causal-6"></script>
     <script src="js/strategic-advisor.js?v=20260811-strategy-3"></script>
     <script src="js/narrative-master.js"></script>
@@ -9573,7 +9573,7 @@
             const messages = [
                 {
                     role: 'system',
-                    content: `Interpreta NPC, fazioni, gruppi e regni di una campagna narrativa storico-politica. In ogni chiamata parla un solo interlocutore, in prima persona, con carica, voce, obiettivi, leve, vincoli e conoscenze proprie. Non usare un narratore e non decidere mai le parole del protagonista. Rispondi soltanto con un tag CHAT e, soltanto se necessari, ESITO_CHAT o ACCORDO_CHAT. Un accordo diventa active solo dopo accettazione esplicita di tutte le parti necessarie.\n${continuity.prompt}`
+                    content: `Interpreta NPC, fazioni, gruppi e regni di una campagna narrativa storico-politica. In ogni chiamata parla un solo interlocutore, in prima persona, con carica, voce, obiettivi, leve, vincoli e conoscenze proprie. In una chat di gruppo gli NPC reagiscono anche tra loro: la personalità del parlante deve essere riconoscibile nel lessico, nel tono e nel modo di dissentire. Non usare un narratore e non decidere mai le parole del protagonista. Rispondi soltanto con un tag CHAT e, soltanto se necessari, ESITO_CHAT o ACCORDO_CHAT. Un accordo diventa active solo dopo accettazione esplicita di tutte le parti necessarie.\n${continuity.prompt}`
                 },
                 { role: 'user', content: prompt }
             ];
@@ -12080,17 +12080,130 @@
             return applied;
         }
 
+        function findWorldChatActor(name) {
+            return [
+                ...(G.worldMemory?.world?.actors || []),
+                ...(G.worldMemory?.world?.factions || [])
+            ].find(actor => timelineChatEngine.isSamePersonName(actor?.name, name)) || null;
+        }
+
+        async function runWorldChatNpcTurn(threadId, playerText, nextSpeaker, options = {}) {
+            const activeThread = (G.worldMemory.chats || []).find(item => item.id === threadId);
+            if (!activeThread || !nextSpeaker) return { reply: null, response: '', usedLocalFallback: false, error: null };
+            const triggerMessage = String(options.triggerMessage || playerText || '').trim();
+            const triggerSpeaker = String(options.triggerSpeaker || G.character?.name || 'Protagonista').trim();
+            const autonomous = options.autonomous === true;
+            const actor = findWorldChatActor(nextSpeaker);
+            G.pendingChatThreadId = activeThread.id;
+            G.pendingChatSpeaker = nextSpeaker;
+            renderWorldChats();
+
+            const event = (G.worldMemory.events || []).find(item => item.id === activeThread.eventId);
+            const actorContext = worldBootstrapEngine.buildInteractionPrompt(
+                G.worldMemory.world,
+                activeThread.participants,
+                { story: G.currentStory, turn: G.worldMemory.turnCount || 0 }
+            );
+            const prompt = timelineChatEngine.buildChatPrompt(activeThread, playerText, {
+                events: G.worldMemory.events,
+                turn: G.worldMemory.turnCount || 0,
+                protagonistName: G.character?.name,
+                nextSpeaker,
+                triggerMessage,
+                triggerSpeaker,
+                autonomous,
+                eventSummary: event ? `${event.summary}. Conseguenza: ${event.consequence || 'nessuna'}` : '',
+                actorContext,
+                continuityPrompt: CronacheMemory.buildContinuityContext(G.worldMemory, {
+                    story: G.currentStory,
+                    currentDate: getFullTimeString(),
+                    location: G.currentLocation,
+                    protagonistName: G.character?.name,
+                    maxTokens: getAIContextProfile().continuityTokens
+                }).prompt,
+                historyLimit: getAIContextProfile().chatHistoryLimit
+            });
+
+            let response = '';
+            let requestError = null;
+            let replies = [];
+            if (!options.localOnly) {
+                try {
+                    response = await requestWorldChatAI(prompt);
+                    replies = timelineChatEngine.parseChatResponse(response, {
+                        events: G.worldMemory.events,
+                        turn: G.worldMemory.turnCount || 0,
+                        occurredAt: getFullTimeString(),
+                        protagonistName: G.character?.name,
+                        nextSpeaker,
+                        triggerSpeaker,
+                        target: autonomous ? triggerSpeaker : G.character?.name,
+                        threadId: activeThread.id,
+                        eventId: activeThread.eventId,
+                        eventTitle: activeThread.eventTitle,
+                        event
+                    })
+                        .filter(message => !isProtagonistChatSpeaker(message))
+                        .map(message => ({
+                            ...message,
+                            threadId: activeThread.id,
+                            eventId: activeThread.eventId,
+                            eventTitle: activeThread.eventTitle
+                        }));
+                    replies = timelineChatEngine.selectSingleReply(replies, nextSpeaker);
+                } catch (error) {
+                    requestError = error;
+                }
+            }
+
+            let usedLocalFallback = false;
+            if (!replies.length) {
+                const fallbackReply = timelineChatEngine.buildFallbackReply(activeThread, triggerMessage, {
+                    events: G.worldMemory.events,
+                    turn: G.worldMemory.turnCount || 0,
+                    occurredAt: getFullTimeString(),
+                    protagonistName: G.character?.name,
+                    nextSpeaker,
+                    triggerSpeaker,
+                    autonomous,
+                    actor
+                });
+                replies = fallbackReply ? [fallbackReply] : [];
+                usedLocalFallback = Boolean(fallbackReply);
+            }
+
+            const result = timelineChatEngine.recordMessages(G.worldMemory.chats, replies, {
+                events: G.worldMemory.events,
+                turn: G.worldMemory.turnCount || 0,
+                protagonistName: G.character?.name
+            });
+            G.worldMemory.chats = result.chats;
+            if (response && !usedLocalFallback) applyWorldChatResults(response, activeThread);
+            result.added.forEach(reply => {
+                G.worldMemory.world = worldBootstrapEngine.markInteraction(
+                    G.worldMemory.world,
+                    reply.speaker,
+                    G.worldMemory.turnCount || 0,
+                    reply.text,
+                    { story: G.currentStory }
+                );
+            });
+            G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
+                story: G.currentStory,
+                turn: G.worldMemory.turnCount || 0,
+                protagonistName: G.character?.name
+            });
+            renderTimeline();
+            autoSave();
+            return { reply: result.added[0] || null, response, usedLocalFallback, error: requestError };
+        }
+
         async function sendWorldChatMessage() {
             if (G.isProcessing) return;
             const thread = (G.worldMemory.chats || []).find(item => item.id === G.activeChatId);
             const input = $('chat-input');
             const text = input.value.trim();
             if (!thread || !text) return;
-            const nextSpeaker = timelineChatEngine.chooseNextSpeaker(thread, text, {
-                events: G.worldMemory.events,
-                protagonistName: G.character?.name,
-                turn: G.worldMemory.turnCount || 0
-            }) || thread.participants.find(name => !isProtagonistChatSpeaker(name)) || '';
             campaignVault.capture({
                 character: G.character,
                 currentStory: G.currentStory,
@@ -12129,91 +12242,41 @@
                 source: 'world-chat'
             });
             queueTimelineChoice(`Nella chat «${thread.title}»: ${text}`, 'world-chat');
+            const speakerRound = timelineChatEngine.chooseSpeakerRound(activeThread, text, {
+                events: G.worldMemory.events,
+                protagonistName: G.character?.name,
+                turn: G.worldMemory.turnCount || 0,
+                maxSpeakers: 2
+            });
             G.isProcessing = true;
             G.pendingChatThreadId = activeThread.id;
-            G.pendingChatSpeaker = nextSpeaker || 'Interlocutore';
             try {
                 $('btn-send').disabled = true;
                 updateActionBar();
-                renderWorldChats();
                 autoSave();
-                const event = (G.worldMemory.events || []).find(item => item.id === activeThread.eventId);
-                const actorContext = worldBootstrapEngine.buildInteractionPrompt(
-                    G.worldMemory.world,
-                    activeThread.participants,
-                    { story: G.currentStory, turn: G.worldMemory.turnCount || 0 }
-                );
-                const prompt = timelineChatEngine.buildChatPrompt(activeThread, text, {
-                    events: G.worldMemory.events,
-                    turn: G.worldMemory.turnCount || 0,
-                    protagonistName: G.character?.name,
-                    nextSpeaker,
-                    eventSummary: event ? `${event.summary}. Conseguenza: ${event.consequence || 'nessuna'}` : '',
-                    actorContext,
-                    continuityPrompt: CronacheMemory.buildContinuityContext(G.worldMemory, {
-                        story: G.currentStory,
-                        currentDate: getFullTimeString(),
-                        location: G.currentLocation,
-                        protagonistName: G.character?.name,
-                        maxTokens: getAIContextProfile().continuityTokens
-                    }).prompt,
-                    historyLimit: getAIContextProfile().chatHistoryLimit
-                });
-                const response = await requestWorldChatAI(prompt);
-                let replies = timelineChatEngine.parseChatResponse(response, {
-                    events: G.worldMemory.events,
-                    turn: G.worldMemory.turnCount || 0,
-                    occurredAt: getFullTimeString(),
-                    protagonistName: G.character?.name,
-                    nextSpeaker,
-                    threadId: activeThread.id,
-                    eventId: activeThread.eventId,
-                    eventTitle: activeThread.eventTitle,
-                    event
-                })
-                    .filter(message => !isProtagonistChatSpeaker(message))
-                    .map(message => ({
-                        ...message,
-                        threadId: activeThread.id,
-                        eventId: activeThread.eventId,
-                        eventTitle: activeThread.eventTitle
-                    }));
-                replies = timelineChatEngine.selectSingleReply(replies, nextSpeaker);
+                let triggerMessage = text;
+                let triggerSpeaker = G.character?.name || 'Protagonista';
+                let cloudAvailable = true;
                 let usedLocalFallback = false;
-                if (!replies.length) {
-                    const fallbackReply = timelineChatEngine.buildFallbackReply(activeThread, text, {
-                        events: G.worldMemory.events,
-                        turn: G.worldMemory.turnCount || 0,
-                        occurredAt: getFullTimeString(),
-                        protagonistName: G.character?.name,
-                        nextSpeaker
+                const roundReplies = [];
+                for (let index = 0; index < speakerRound.length; index++) {
+                    const turnResult = await runWorldChatNpcTurn(activeThread.id, text, speakerRound[index], {
+                        triggerMessage,
+                        triggerSpeaker,
+                        autonomous: index > 0,
+                        localOnly: !cloudAvailable
                     });
-                    replies = fallbackReply ? [fallbackReply] : [];
-                    usedLocalFallback = Boolean(fallbackReply);
+                    if (turnResult.error) cloudAvailable = false;
+                    if (turnResult.usedLocalFallback) usedLocalFallback = true;
+                    if (!turnResult.reply) break;
+                    roundReplies.push(turnResult.reply);
+                    triggerMessage = turnResult.reply.text;
+                    triggerSpeaker = turnResult.reply.speaker;
+                    const currentThread = (G.worldMemory.chats || []).find(item => item.id === activeThread.id);
+                    if (currentThread?.status === 'closed') break;
                 }
-                result = timelineChatEngine.recordMessages(G.worldMemory.chats, replies, {
-                    events: G.worldMemory.events,
-                    turn: G.worldMemory.turnCount || 0,
-                    protagonistName: G.character?.name
-                });
-                G.worldMemory.chats = result.chats;
-                if (!usedLocalFallback) applyWorldChatResults(response, activeThread);
-                result.added.forEach(reply => {
-                    G.worldMemory.world = worldBootstrapEngine.markInteraction(
-                        G.worldMemory.world,
-                        reply.speaker,
-                        G.worldMemory.turnCount || 0,
-                        reply.text,
-                        { story: G.currentStory }
-                    );
-                });
-                G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
-                    story: G.currentStory,
-                    turn: G.worldMemory.turnCount || 0,
-                    protagonistName: G.character?.name
-                });
-                const latestReply = result.added[0];
-                updateMediumTermMemory(`Nella chat «${thread.title}»: ${text}`, latestReply ? `${latestReply.speaker}: ${latestReply.text}` : response, {
+                const replySummary = roundReplies.map(reply => `${reply.speaker}: ${reply.text}`).join(' / ');
+                updateMediumTermMemory(`Nella chat «${thread.title}»: ${text}`, replySummary || 'Nessun interlocutore ha risposto.', {
                     type: 'chat',
                     title: thread.title,
                     actors: activeThread.participants,
@@ -12223,52 +12286,10 @@
                 renderTimeline();
                 autoSave();
                 if (usedLocalFallback) {
-                    notify('La risposta Cloud non era utilizzabile: la conversazione è proseguita senza bloccare il turno.', 'info');
+                    notify('La risposta Cloud non era utilizzabile per tutto il giro: gli NPC hanno continuato a parlare uno alla volta senza bloccare la chat.', 'info');
                 }
             } catch (error) {
-                try {
-                    const fallbackReply = timelineChatEngine.buildFallbackReply(activeThread, text, {
-                        events: G.worldMemory.events,
-                        turn: G.worldMemory.turnCount || 0,
-                        occurredAt: getFullTimeString(),
-                        protagonistName: G.character?.name,
-                        nextSpeaker
-                    });
-                    if (!fallbackReply) throw error;
-                    result = timelineChatEngine.recordMessages(G.worldMemory.chats, [fallbackReply], {
-                        events: G.worldMemory.events,
-                        turn: G.worldMemory.turnCount || 0,
-                        protagonistName: G.character?.name
-                    });
-                    G.worldMemory.chats = result.chats;
-                    result.added.forEach(reply => {
-                        G.worldMemory.world = worldBootstrapEngine.markInteraction(
-                            G.worldMemory.world,
-                            reply.speaker,
-                            G.worldMemory.turnCount || 0,
-                            reply.text,
-                            { story: G.currentStory }
-                        );
-                    });
-                    G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
-                        story: G.currentStory,
-                        turn: G.worldMemory.turnCount || 0,
-                        protagonistName: G.character?.name
-                    });
-                    const latestReply = result.added[0];
-                    updateMediumTermMemory(`Nella chat «${thread.title}»: ${text}`, `${latestReply.speaker}: ${latestReply.text}`, {
-                        type: 'chat',
-                        title: thread.title,
-                        actors: activeThread.participants,
-                        date: getFullTimeString(),
-                        source: 'chat-local-fallback'
-                    });
-                    renderTimeline();
-                    autoSave();
-                    notify(`Il provider IA non ha completato la risposta (${error.message}); il turno NPC è proseguito senza bloccare la chat.`, 'info');
-                } catch (fallbackError) {
-                    notify(`Chat non disponibile: ${fallbackError.message}`, 'error');
-                }
+                notify(`Chat non disponibile: ${error.message}`, 'error');
             } finally {
                 G.pendingChatThreadId = null;
                 G.pendingChatSpeaker = '';
