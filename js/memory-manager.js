@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const MEMORY_SCHEMA_VERSION = 6;
+    const MEMORY_SCHEMA_VERSION = 7;
     const DEFAULT_SHORT_TERM_MESSAGES = 10;
     const DEFAULT_RETRIEVAL_LIMIT = 5;
     const DEFAULT_COMPRESSION_THRESHOLD = 6000;
@@ -14,7 +14,7 @@
     const ARRAY_FIELDS = [
         'npcs', 'locations', 'factions', 'quests', 'events', 'playerDecisions',
         'narrativeGoals', 'revealedSecrets', 'acquiredItems', 'acquiredAbilities',
-        'properties', 'family', 'employees', 'chats', 'agreements', 'pendingTimelineChoices',
+        'properties', 'family', 'employees', 'chats', 'agreements', 'pendingTimelineChoices', 'pendingTimelineEvents',
         'pendingStrategicActions', 'strategicActionHistory'
     ];
 
@@ -95,6 +95,7 @@
             chats: [],
             agreements: [],
             pendingTimelineChoices: [],
+            pendingTimelineEvents: [],
             pendingStrategicActions: [],
             strategicActionHistory: [],
             world: {},

@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const EVENT_SCHEMA_VERSION = 4;
+    const EVENT_SCHEMA_VERSION = 5;
     const MAX_EVENTS = 100;
     const EVENT_TYPES = [
         'conflitto', 'scoperta', 'relazione', 'decisione', 'missione', 'economia',
@@ -62,6 +62,15 @@
         return asArray(actors).length >= 2 && /politica|relazione|economia|decisione|conflitto|missione/.test(type)
             ? 'available'
             : 'none';
+    }
+
+    function normalizeInteractionMode(value, conversationMode) {
+        const key = normalizeKey(value);
+        if (/either|entramb|scelta|dialogo o azione/.test(key)) return 'either';
+        if (/dialog|chat|parl|negozi|riunione|udienza/.test(key)) return 'dialogue';
+        if (/action|azione|agire|missione|intervento/.test(key)) return 'action';
+        if (/none|nessun|automatic/.test(key)) return 'none';
+        return conversationMode === 'required' ? 'dialogue' : conversationMode === 'available' ? 'either' : 'none';
     }
 
     function classifyEvent(value) {
@@ -160,6 +169,7 @@
         const conversationGoal = cleanText(input.conversationGoal || input.agenda, 260);
         const importance = normalizeImportance(input.importance, `${title} ${summary} ${consequence}`);
         const status = normalizeStatus(input.status);
+        const conversationMode = normalizeConversationMode(input.conversationMode, type, actors, conversationGoal);
         const event = {
             ...input,
             eventSchemaVersion: EVENT_SCHEMA_VERSION,
@@ -174,7 +184,8 @@
             politicalShift,
             stakes,
             conversationGoal,
-            conversationMode: normalizeConversationMode(input.conversationMode, type, actors, conversationGoal),
+            conversationMode,
+            interactionMode: normalizeInteractionMode(input.interactionMode, conversationMode),
             occurredAt: cleanText(input.occurredAt || input.date || input.moment || context.occurredAt || context.timePassage?.endDate, 100),
             choice: cleanText(input.choice || context.choice, 240),
             importance,
@@ -214,7 +225,8 @@
             politicalShift: parts[11],
             stakes: parts[12],
             conversationGoal: parts[13],
-            conversationMode: parts[14]
+            conversationMode: parts[14],
+            interactionMode: parts[15]
         }, context);
     }
 
@@ -245,7 +257,7 @@
             const fallback = chronicleFallback(text, context);
             if (fallback) events.push(fallback);
         }
-        return events.slice(0, 6);
+        return events.slice(0, 1);
     }
 
     function migrateEvents(events, context = {}) {
@@ -330,27 +342,28 @@
         const passage = context.timePassage && Number(context.timePassage.elapsed) > 0
             ? context.timePassage
             : null;
-        const eventCount = passage ? 'da 2 a 6' : 'da 1 a 3';
+        const eventCount = 'esattamente 1';
         const recentChoices = asArray(context.recentChoices)
             .map(choice => cleanText(typeof choice === 'string' ? choice : choice?.summary || choice?.description, 220))
             .filter(Boolean)
             .slice(-5);
         const passageDirective = passage
-            ? `\n⏳ PERIODO DA NARRARE: ${cleanText(passage.description, 120)}.
-- Non saltare direttamente alla scena finale: crea un breve montaggio cronologico dell'intero periodo.
-- Mostra la normale vita del protagonista (sonno, pasti, lavoro, relazioni) senza elencare ogni gesto ripetitivo.
-- Distribuisci da 2 a ${Math.min(6, Math.max(3, Math.ceil(Number(passage.days || 1) / 7) + 2))} EVENTO significativi in momenti diversi del periodo e raccontane cause e conseguenze.
+            ? `\n⏳ PERIODO DA CONSIDERARE: ${cleanText(passage.description, 120)}.
+- La vita ordinaria è già simulata: riassumila brevemente senza trasformare sonno, pasti o lavoro ripetitivo in eventi.
+- Registra soltanto il PRIMO evento importante del periodo. Qualunque reazione o conseguenza successiva resta in attesa con CODA_EVENTO e non viene narrata ora.
 - Resoconto già simulato dal motore, da rispettare: ${cleanText(passage.summary, 300)}\n`
-            : `\n- Se fai trascorrere almeno un giorno con [TEMPO], narra ciò che accade durante il periodo in ordine cronologico: il protagonista dorme, mangia e vive normalmente. Registra da 2 a 6 EVENTO significativi distribuiti nel periodo, non soltanto lo stato finale.\n`;
+            : `\n- Se fai trascorrere del tempo con [TEMPO], registra soltanto il primo evento importante. Le conseguenze successive restano in attesa con CODA_EVENTO.\n`;
         return `📜 **CRONACA STRUTTURATA DEL MONDO**
-- Dopo la narrazione registra ${eventCount} fatti che sono diventati veri in questo turno. Un fatto causale = un tag.
+- Dopo la narrazione registra ${eventCount} fatto diventato vero in questo turno. Un fatto causale = un tag.
 - Formato completo obbligatorio per i nuovi tag:
-  [EVENTO: tipo|titolo|fatto_accaduto|luogo|entità_separate_da_virgola|conseguenza_persistente|normal/high/critical|active/developing/resolved|data_o_momento|causa_precisa|ancoraggio_storico|spostamento_politico|posta_in_gioco|obiettivo_conversazione|available/required/none]
+  [EVENTO: tipo|titolo|fatto_accaduto|luogo|entità_separate_da_virgola|conseguenza_persistente|normal/high/critical|active/developing/resolved|data_o_momento|causa_precisa|ancoraggio_storico|spostamento_politico|posta_in_gioco|obiettivo_conversazione|available/required/none|dialogue/action/either/none]
 - Tipi ammessi: ${EVENT_TYPES.join(', ')}.
 - Usa active quando una minaccia, un impegno o una conseguenza resta aperta; developing quando sta evolvendo; resolved quando il fatto è concluso.
 - Registra l'ESITO realmente narrato, non l'intenzione del giocatore, un'ipotesi, una scelta non ancora compiuta o informazioni hidden del Simulatore.
 - Il titolo deve distinguere l'evento; il fatto deve dire chi ha fatto cosa; la conseguenza deve indicare cosa i turni futuri dovranno rispettare. Causa, ancoraggio storico e spostamento politico spiegano perché il fatto è centrale. Evita categorie anonime come «l'Autorità» o «l'Opposizione» quando esistono nomi e istituzioni precise. Se non c'è conseguenza persistente scrivi «nessuna».
-- Ogni evento deve avere una data o un momento concreto coerente con il periodo. Deve essere una conseguenza delle scelte recenti quando esiste un legame causale: ${recentChoices.length ? recentChoices.join(' / ') : 'nessuna scelta recente registrata'}.
+  - L'unico evento deve avere una data o un momento concreto coerente con il periodo. Deve essere una conseguenza delle scelte recenti quando esiste un legame causale: ${recentChoices.length ? recentChoices.join(' / ') : 'nessuna scelta recente registrata'}.
+  - Usa interaction dialogue se richiede una risposta parlata, action se richiede un'azione del protagonista, either se ammette entrambe, none se non richiede intervento.
+  - Per le risposte o reazioni future emetti soltanto [CODA_EVENTO: id_o_vuoto|player_action/world_reply/action_reply/dialogue_reply/world_initiative|causa_già_vera|attori|priorità_0_100|minuti_minimi|dialogue/action/either/none|id_sorgente]. Non narrarne ancora l'esito.
 - EVENTO alimenta la cronaca ma non sostituisce i tag di stato: se il fatto cambia soldi, inventario, NPC, quest, attività o regno emetti nello stesso turno anche il relativo tag MECCANICA, LOOT, NPC, QUEST, *_NEGOZIO o *_REGNO.
 - Usa i nomi esatti già presenti nella memoria. Non inserire il carattere | o ] nei valori. Non duplicare eventi recenti e non spezzare lo stesso fatto in tag ripetitivi.
 - Collega gli eventi a missioni e persone solo quando la scena li modifica davvero. Missioni attive: ${questNames}. Posizione attuale: ${cleanText(context.location, 100) || 'Sconosciuta'}.
@@ -385,6 +398,7 @@ ${recentText}`;
         cleanText,
         normalizeImportance,
         normalizeStatus,
+        normalizeInteractionMode,
         classifyEvent,
         normalizeEvent,
         parseEventBody,

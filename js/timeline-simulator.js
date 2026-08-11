@@ -5,7 +5,10 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 3;
+    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 4;
+    const EVENT_QUEUE_LIMIT = 40;
+    const MIN_EVENT_DELAY_MINUTES = 5;
+    const MAX_EVENT_DELAY_MINUTES = 5256000;
 
     function asArray(value) { return Array.isArray(value) ? value : []; }
 
@@ -25,6 +28,138 @@
             .replace(/[^a-z0-9\s_-]/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
+    }
+
+    function hashText(value) {
+        let hash = 2166136261;
+        const text = String(value || '');
+        for (let index = 0; index < text.length; index++) {
+            hash ^= text.charCodeAt(index);
+            hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(36);
+    }
+
+    function clampEventDelay(value, fallback = 1440) {
+        const parsed = Number(value);
+        const safe = Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : fallback;
+        return Math.max(MIN_EVENT_DELAY_MINUTES, Math.min(MAX_EVENT_DELAY_MINUTES, safe));
+    }
+
+    function parseDurationMinutes(value) {
+        const raw = String(value == null ? '' : value).trim().toLowerCase();
+        if (!raw) return 0;
+        if (/^\+?\d+$/.test(raw)) {
+            return Math.max(0, Math.min(MAX_EVENT_DELAY_MINUTES, Number(raw.replace('+', ''))));
+        }
+        const units = [
+            { pattern: /(\d+(?:[.,]\d+)?)\s*(?:anni?|years?|yrs?)(?!\w)/g, multiplier: 525600 },
+            { pattern: /(\d+(?:[.,]\d+)?)\s*(?:mesi?|months?|mo)(?!\w)/g, multiplier: 43200 },
+            { pattern: /(\d+(?:[.,]\d+)?)\s*(?:settimane?|weeks?|w)(?!\w)/g, multiplier: 10080 },
+            { pattern: /(\d+(?:[.,]\d+)?)\s*(?:giorni?|days?|d)(?!\w)/g, multiplier: 1440 },
+            { pattern: /(\d+(?:[.,]\d+)?)\s*(?:ore?|hours?|hrs?|h)(?!\w)/g, multiplier: 60 },
+            { pattern: /(\d+(?:[.,]\d+)?)\s*(?:minuti?|mins?|min|m)(?!\w)/g, multiplier: 1 }
+        ];
+        let total = 0;
+        units.forEach(({ pattern, multiplier }) => {
+            let match;
+            while ((match = pattern.exec(raw)) !== null) {
+                total += Number(match[1].replace(',', '.')) * multiplier;
+            }
+        });
+        return total > 0 ? clampEventDelay(total) : 0;
+    }
+
+    function normalizeInteractionMode(value, fallback = 'none') {
+        const mode = keyOf(value);
+        if (/either|entramb|scelta|dialogo o azione/.test(mode)) return 'either';
+        if (/dialog|chat|parl|negozi|riunione|udienza/.test(mode)) return 'dialogue';
+        if (/action|azione|agire|missione|intervento/.test(mode)) return 'action';
+        if (/none|nessun|automatic/.test(mode)) return 'none';
+        return ['dialogue', 'action', 'either', 'none'].includes(fallback) ? fallback : 'none';
+    }
+
+    function inferInteractionMode(value) {
+        const text = keyOf(value);
+        if (/convoc|negozi|incontr|parl|chied|discut|intervist|udienza|mediazione/.test(text)) return 'dialogue';
+        if (/attacc|difend|costru|invi|schier|indag|arrest|viaggi|acquist|finanzi|ordino|ispezion|sabota/.test(text)) return 'action';
+        return 'either';
+    }
+
+    function inferEventDelay(source = {}) {
+        const rawDelay = source.notBeforeMinutes ?? source.delayMinutes;
+        const numericDelay = Number(rawDelay);
+        if (Number.isFinite(numericDelay) && numericDelay >= 0) {
+            return Math.min(MAX_EVENT_DELAY_MINUTES, Math.round(numericDelay));
+        }
+        const explicit = parseDurationMinutes(rawDelay || source.duration);
+        if (explicit) return explicit;
+        const text = keyOf([
+            source.cause, source.title, source.summary, source.command, source.duration, source.kind
+        ].filter(Boolean).join(' '));
+        if (/immediat|urgente|\bora\b|\badesso\b|attacco|agguato|incendio|arresto/.test(text)) return 30;
+        if (/minut|telefon|messaggio|ordine|convoc/.test(text)) return 120;
+        if (/ora|giornata|dialog|incontro|udienza/.test(text)) return 480;
+        if (/breve periodo|domani|giorno/.test(text)) return 1440;
+        if (/settimana|negoziato|indagine|preparazione/.test(text)) return 10080;
+        if (/mese|medio periodo|campagna|costruzione/.test(text)) return 43200;
+        if (/anno|lungo periodo|successione|riforma strutturale/.test(text)) return 525600;
+        return source.kind === 'world_initiative' ? 2880 : 1440;
+    }
+
+    function normalizeEventSeed(source, index = 0, context = {}) {
+        const input = source && typeof source === 'object' ? source : { cause: source };
+        const choice = input.choice ? normalizeTimelineChoice(input.choice, index) : null;
+        const cause = cleanText(input.cause || input.summary || choice?.summary || input.title, 700);
+        if (!cause) return null;
+        const kindKey = keyOf(input.kind || input.type || (choice?.isStrategic ? 'strategic_action' : choice ? 'player_action' : 'world_initiative'));
+        const kind = /strateg/.test(kindKey) ? 'strategic_action'
+            : /chat|dialog/.test(kindKey) ? 'dialogue_reply'
+                : /player|giocatore/.test(kindKey) ? 'player_action'
+                    : /world.?initiative|iniziativa/.test(kindKey) ? 'world_initiative'
+                        : /world|mondo|reaction|reazione/.test(kindKey) ? 'world_reply'
+                            : /action|continu|follow|azione/.test(kindKey) ? 'action_reply'
+                                : choice ? 'player_action' : 'world_initiative';
+        const actors = asArray(input.actors || choice?.actors)
+            .map(item => cleanText(item, 100)).filter(Boolean).slice(0, 8);
+        const createdAtTurn = Math.max(0, Number(input.createdAtTurn ?? context.turn) || 0);
+        const batchId = cleanText(input.batchId || context.batchId || `event-batch-${createdAtTurn}`, 180);
+        const rawId = cleanText(input.id, 170).replace(/[^a-zA-Z0-9_-]/g, '');
+        const sourceId = cleanText(input.sourceId || choice?.id, 160).replace(/[^a-zA-Z0-9_-]/g, '');
+        const interactionMode = normalizeInteractionMode(
+            input.interactionMode,
+            inferInteractionMode(`${choice?.command || ''} ${cause}`)
+        );
+        return {
+            id: rawId || `pending-${hashText(`${batchId}|${sourceId}|${kind}|${cause}|${index}`)}`,
+            kind,
+            title: cleanText(input.title || choice?.actionTitle || choice?.topic || 'Sviluppo in attesa', 160),
+            topic: cleanText(input.topic || choice?.topic, 140),
+            cause,
+            actors,
+            priority: Math.max(0, Math.min(100, Math.round(Number(input.priority) || (choice?.isStrategic ? 90 : choice ? 80 : 55)))),
+            notBeforeMinutes: inferEventDelay({ ...input, choice, kind, cause }),
+            interactionMode,
+            sourceId,
+            source: cleanText(input.source || choice?.source || 'timeline-queue', 60),
+            choice,
+            batchId,
+            depth: Math.max(0, Math.min(4, Math.round(Number(input.depth) || 0))),
+            createdAtTurn,
+            status: 'pending'
+        };
+    }
+
+    function normalizeEventQueue(queue, context = {}) {
+        const seen = new Set();
+        return asArray(queue).map((item, index) => normalizeEventSeed(item, index, context)).filter(item => {
+            if (!item) return false;
+            const fingerprint = keyOf(`${item.sourceId}|${item.kind}|${item.cause}`);
+            if (seen.has(item.id) || seen.has(fingerprint)) return false;
+            seen.add(item.id);
+            seen.add(fingerprint);
+            return true;
+        }).slice(-EVENT_QUEUE_LIMIT);
     }
 
     function normalizeTimelineChoice(source, index = 0) {
@@ -112,79 +247,93 @@
     }
 
     function buildPrompt(context = {}) {
-        const passage = context.passage || {};
         const world = context.world || {};
-        const days = Math.max(1, Number(passage.days) || Math.round(Number(passage.elapsed || 1440) / 1440) || 1);
-        const normalizedChoices = normalizeTimelineChoices(context.choices);
-        const strategicGroups = strategicChoiceGroups(normalizedChoices);
-        const count = desiredEventCount(days, strategicGroups.length);
+        let queue = normalizeEventQueue(context.pendingEvents, { turn: context.turn, batchId: context.batchId });
+        if (!context.seed && asArray(context.choices).length) {
+            queue = scheduleEventSeeds(queue, createEventSeeds(context.choices, world, {
+                turn: context.turn,
+                batchId: context.batchId,
+                currentDate: context.currentDate,
+                includeWorld: false
+            }), { turn: context.turn, batchId: context.batchId });
+        }
+        const seed = normalizeEventSeed(context.seed || selectNextEventSeed(queue), 0, {
+            turn: context.turn,
+            batchId: context.batchId
+        });
         const actors = activeActors(world).slice(0, 8);
-        const relations = asArray(world.relations).filter(item => item.status !== 'resolved').slice(0, 8);
-        const forces = asArray(world.forces).filter(item => item.status !== 'resolved').slice(0, 6);
-        const choices = normalizedChoices.filter(item => !item.isStrategic).slice(-5);
-        const strategicPlan = strategicGroups.length
-            ? strategicGroups.map(group => `ARGOMENTO — ${group.topic}\n${group.actions.map(item =>
-                `- ID ${item.id}; AZIONE ${item.actionTitle || item.command}; COMANDO ${item.command}; ` +
-                `OBIETTIVO ${item.objective || 'da verificare'}; DURATA ${item.duration || 'da stimare'}; ` +
-                `COSTO ${item.cost || 'da stimare'}; RISCHIO ${item.risk || 'medio'}; CONTROPARTITA ${item.tradeoff || 'da verificare'}.`
-            ).join('\n')}`).join('\n')
-            : '- Nessuna azione strategica selezionata.';
+        const relations = asArray(world.relations).filter(item => item.status !== 'resolved').slice(0, 6);
+        const forces = asArray(world.forces).filter(item => item.status !== 'resolved').slice(0, 5);
         const recent = asArray(context.recentEvents).filter(isMeaningfulEvent).slice(-6);
-        const agreements = asArray(context.agreements).filter(item => !/rejected|broken|fulfilled/.test(keyOf(item.status))).slice(-8);
+        const agreements = asArray(context.agreements).filter(item => !/rejected|broken|fulfilled/.test(keyOf(item.status))).slice(-6);
         const history = world.historicalContext || {};
-        return `SIMULATORE DEDICATO DELLA TIMELINE. Produci fatti accaduti, non ipotesi e non un riepilogo della routine.
+        const choice = seed?.choice || null;
+        const manualLimit = Number(context.maxAdvanceMinutes) > 0
+            ? `Non superare ${Math.round(Number(context.maxAdvanceMinutes))} minuti prima dell'evento.`
+            : 'Il tempo può essere di minuti, ore, giorni, mesi o anni: scegli il primo momento causalmente realistico, senza usare intervalli predefiniti.';
+        const strategicInstruction = choice?.isStrategic
+            ? `Questa è l'unica azione strategica da risolvere ora. Emetti esattamente un ESITO_STRATEGICO con ID ${choice.id}. Se richiede altri passaggi usa in_corso e pianifica il seguito con CODA_EVENTO.`
+            : 'Non emettere ESITO_STRATEGICO in questa chiamata.';
+        return `SIMULATORE DEL PROSSIMO EVENTO IMPORTANTE. Questa chiamata deve creare UN SOLO evento, non un arco completo e non un riepilogo.
 
-PERIODO: ${cleanText(passage.description || `${days} giorni`, 120)}; da ${cleanText(passage.startDate || 'inizio periodo', 120)} a ${cleanText(passage.endDate || 'fine periodo', 120)}.
-VITA ORDINARIA GIÀ GESTITA DAL MOTORE: ${cleanText(passage.summary || 'il protagonista dorme, mangia, lavora e cura la quotidianità', 320)}. Non trasformarla in EVENTO.
+DATA ATTUALE: ${cleanText(context.currentDate || history.date || 'data corrente della campagna', 160)}.
 STORIA: ${cleanText(context.story?.title, 120)} — ${cleanText(context.story?.setting || world.setting, 180)}.
 CONFLITTO CENTRALE: ${cleanText(world.centralConflict || world.premise || context.story?.desc, 500)}.
-SCELTE LIBERE DA FAR PESARE: ${choices.length ? choices.map(item => item.summary).join(' / ') : 'nessuna nuova scelta libera'}.
 
-PIANO STRATEGICO SELEZIONATO DAL GIOCATORE:
-${strategicPlan}
-Le azioni del piano sono intenzioni simultanee, non successi automatici. Valuta tutte le azioni, anche quando appartengono allo stesso argomento: compatibilità, precedenze, tempo, costi, risorse condivise, opposizione e possibili conflitti fra loro.
+SVILUPPO DA CONSUMARE ORA:
+- ID coda: ${seed?.id || 'world-next'}
+- Tipo: ${seed?.kind || 'world_initiative'}
+- Causa già vera: ${seed?.cause || 'La trama più urgente del mondo continua a muoversi'}
+- Titolo/argomento: ${seed?.title || seed?.topic || 'iniziativa del mondo'}
+- Argomento strategico: ${seed?.topic || 'nessuno'}
+- Attori già collegati: ${seed?.actors?.join(', ') || 'scegli soltanto fra gli attori registrati'}
+- Interazione prevista: ${seed?.interactionMode || 'either'}
+${choice ? `- Azione del giocatore: ${choice.command}\n- Obiettivo: ${choice.objective || 'da verificare'}; costo: ${choice.cost || 'da verificare'}; durata stimata: ${choice.duration || 'da stimare'}; rischio: ${choice.risk || 'medio'}; contropartita: ${choice.tradeoff || 'da verificare'}` : ''}
+
+TEMPO FINO ALL'EVENTO:
+- ${manualLimit}
+- Emetti ATTESA_EVENTO con minuti interi e una motivazione causale. Il motore farà vivere normalmente il protagonista durante l'attesa; non trasformare sonno, pasti o routine in un evento.
+- Non anticipare un fatto che richiede viaggio, preparazione, risposta istituzionale o maturazione economica; non rinviare artificialmente un pericolo immediato.
 
 BASE STORICO-POLITICA:
-- Data/epoca: ${cleanText(history.date || passage.startDate || 'data della campagna', 160)}.
+- Data/epoca: ${cleanText(history.date || context.currentDate || 'data della campagna', 160)}.
 - Area e istituzioni: ${cleanText(history.region || world.setting, 180)}; ${cleanText(history.politicalSystem || 'assetto già registrato', 420)}.
-- Situazione di partenza: ${cleanText(history.baseline || world.premise, 600)}.
-- Tensioni attive: ${cleanText(history.activeTensions || world.centralConflict, 500)}.
-- Vincoli: ${cleanText(history.constraints || 'rispetta cariche, distanze, risorse e conoscenze dell’epoca', 500)}.
-- Divergenza: ${cleanText(history.divergencePolicy || 'ogni deviazione nasce soltanto da eventi già accaduti nel gioco', 360)}.
+- Situazione: ${cleanText(history.baseline || world.premise, 560)}.
+- Tensioni: ${cleanText(history.activeTensions || world.centralConflict, 460)}.
+- Vincoli: ${cleanText(history.constraints || 'rispetta cariche, distanze, risorse e conoscenze dell’epoca', 460)}.
+- Divergenza: ${cleanText(history.divergencePolicy || 'ogni deviazione nasce soltanto da fatti già registrati', 340)}.
 
 ATTORI VIVI:
-${actors.length ? actors.map(actorLine).join('\n') : '- Usa le parti già nominate negli eventi e nella storia.'}
+${actors.length ? actors.map(actorLine).join('\n') : '- Usa esclusivamente nomi già presenti nella storia.'}
 
 RELAZIONI:
-${relations.length ? relations.map(item => `- ${cleanText(item.from, 100)} ↔ ${cleanText(item.to, 100)}: ${cleanText(item.type, 80)}, fiducia ${Math.round(Number(item.trust) || 0)}, tensione ${Math.round(Number(item.tension) || 0)}; ${cleanText(item.description, 220)}.`).join('\n') : '- Nessuna relazione strutturata: fai comunque reagire almeno due parti.'}
+${relations.length ? relations.map(item => `- ${cleanText(item.from, 100)} ↔ ${cleanText(item.to, 100)}: ${cleanText(item.type, 80)}, fiducia ${Math.round(Number(item.trust) || 0)}, tensione ${Math.round(Number(item.tension) || 0)}; ${cleanText(item.description, 220)}.`).join('\n') : '- Nessuna relazione strutturata.'}
 
-FORZE E TRAME APERTE:
-${forces.length ? forces.map(item => `- ${cleanText(item.name, 120)}: ${cleanText(item.actor, 100)} persegue ${cleanText(item.objective, 260)}; progresso ${Math.round(Number(item.progress) || 0)}%, urgenza ${Math.round(Number(item.urgency) || 0)}%.`).join('\n') : '- Il conflitto centrale deve avanzare.'}
+FORZE APERTE:
+${forces.length ? forces.map(item => `- ${cleanText(item.name, 120)}: ${cleanText(item.actor, 100)} persegue ${cleanText(item.objective, 260)}; progresso ${Math.round(Number(item.progress) || 0)}%, urgenza ${Math.round(Number(item.urgency) || 0)}%.`).join('\n') : '- Fai avanzare il conflitto centrale senza introdurre forze anonime.'}
 
-ACCORDI, CONTRATTI E TRATTATI DA RISPETTARE O METTERE ALLA PROVA:
-${agreements.length ? agreements.map(item => `- ${cleanText(item.title, 120)} tra ${asArray(item.parties).map(name => cleanText(name, 90)).join(', ')}: ${cleanText(item.terms, 360)}; stato ${cleanText(item.status, 40)}${item.deadline ? `; scadenza ${cleanText(item.deadline, 100)}` : ''}.`).join('\n') : '- Nessun accordo attivo.'}
+ACCORDI ATTIVI:
+${agreements.length ? agreements.map(item => `- ${cleanText(item.title, 120)} tra ${asArray(item.parties).map(name => cleanText(name, 90)).join(', ')}: ${cleanText(item.terms, 340)}; stato ${cleanText(item.status, 40)}.`).join('\n') : '- Nessuno.'}
 
 EVENTI RECENTI DA NON RIPETERE:
 ${recent.length ? recent.map(item => `- ${cleanText(item.title, 100)}: ${cleanText(item.summary, 240)}`).join('\n') : '- Nessuno.'}
 
 REGOLE OBBLIGATORIE:
-- Genera esattamente ${count} EVENTO distinti, distribuiti dall'inizio alla fine del periodo.
-- Se esiste un piano strategico, dedica almeno un EVENTO a ogni ARGOMENTO selezionato. Puoi riunire più azioni dello stesso argomento nello stesso evento, ma nessuna azione può essere ignorata.
-- Per OGNI azione strategica emetti esattamente un ESITO_STRATEGICO con lo stesso ID. L'esito può essere completata, parziale, fallita o in_corso: non garantire mai il successo soltanto perché il giocatore ha cliccato l'azione.
-- Dopo gli effetti delle azioni del giocatore, mostra contromosse autonome coerenti con obiettivi, risorse e informazioni degli attori del mondo. Almeno un EVENTO deve essere una reazione o iniziativa del mondo non controllata dal protagonista.
-- Scegli UNA trama centrale tra conflitto storico, forza aperta o scelta del giocatore. Tutti gli eventi devono essere capitoli dello stesso arco: una parte agisce, un'altra reagisce, segue una decisione istituzionale o uno scontro e nasce un nuovo problema concreto.
-- Almeno due attori autonomi devono compiere mosse; non limitarti a “si diffondono voci”, “la vita continua” o “qualcuno sta pensando”.
-- Usa soltanto nomi propri, cariche e istituzioni presenti nel contesto. Vietati attori generici come “l'Autorità”, “l'Opposizione”, “il Mediatore” o “la Comunità” se non sono nomi registrati.
-- Il fatto deve contenere azione osservabile e risultato verificabile: indica il verbo d'azione, lo strumento usato e chi subisce o beneficia dell'esito. La conseguenza deve cambiare controllo, legge, alleanza, risorsa, reputazione, rischio, opportunità o decisione futura.
-- Ogni sintesi EVENTO deve avere 2-3 frasi concrete. Indica causa precisa, ancoraggio storico, spostamento politico, posta in gioco e obiettivo dell'eventuale trattativa.
-- Ogni evento successivo deve citare nel campo causa l'evento, la scelta o la forza che lo ha prodotto. Date e momenti devono cadere dentro il periodo.
-- Per ogni attore che agisce emetti MONDO. Se l'evento consente comunicazione, negoziato, minaccia, contratto o mediazione, imposta available/required ed emetti 2-5 CHAT: quando vi sono almeno tre parti, fai parlare almeno due soggetti diversi in prima persona. Mai parole inventate per il protagonista.
-- Restituisci soltanto i tag seguenti, senza introduzioni, markdown o routine.
+- Genera esattamente UN EVENTO: il primo fatto importante prodotto dalla causa in coda. Non generare eventi successivi nella stessa risposta.
+- ${strategicInstruction}
+- Il fatto deve contenere 2-3 frasi, azione osservabile, strumento usato, risultato verificabile e conseguenza persistente. Un'intenzione non è un risultato.
+- Usa soltanto nomi propri, cariche e istituzioni presenti nel contesto. Vietati segnaposto come Autorità, Opposizione, Mediatore o Comunità.
+- interaction è dialogue se il giocatore deve rispondere parlando, action se deve agire nella scena, either se può scegliere, none se il fatto si risolve senza intervento.
+- Se serve un dialogo, puoi emettere al massimo UNA CHAT di apertura pronunciata da un solo interlocutore. Mai parole inventate per il protagonista.
+- Le conseguenze future non vanno narrate ora: lasciale in attesa con massimo 3 CODA_EVENTO compatti. Una CODA_EVENTO descrive solo causa e attori del futuro sviluppo, non il suo esito.
+- Per l'attore che agisce emetti al massimo un MONDO. Restituisci soltanto i tag seguenti.
 
-[EVENTO: tipo|titolo|due o tre frasi su ciò che è realmente accaduto|luogo|attori separati da virgola|conseguenza persistente concreta|normal/high/critical|active/developing/resolved|data o momento nel periodo|causa precisa|ancoraggio storico|spostamento politico|posta in gioco|obiettivo conversazione|available/required/none]
-[ESITO_STRATEGICO: ID esatto|completata/parziale/fallita/in_corso|risultato osservabile del tentativo|conseguenza persistente|reazione concreta del mondo|attori separati da virgola]
+[ATTESA_EVENTO: minuti_interi|motivo del tempo necessario]
+[EVENTO: tipo|titolo|due o tre frasi su ciò che è realmente accaduto|luogo|attori separati da virgola|conseguenza persistente concreta|normal/high/critical|active/developing/resolved|momento relativo|causa precisa|ancoraggio storico|spostamento politico|posta in gioco|obiettivo conversazione|available/required/none|dialogue/action/either/none]
+[ESITO_STRATEGICO: ID esatto|completata/parziale/fallita/in_corso|risultato osservabile del tentativo|conseguenza persistente|reazione concreta del mondo ancora da sviluppare|attori separati da virgola]
 [MONDO: attore|mossa concreta compiuta|stato della mossa|visible/hidden]
-[CHAT: titolo esatto evento|parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]`;
+[CHAT: titolo esatto evento|un solo parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]
+[CODA_EVENTO: id o vuoto|player_action/world_reply/action_reply/dialogue_reply/world_initiative|causa già vera da sviluppare|attori separati da virgola|priorità 0-100|minuti minimi|dialogue/action/either/none|id sorgente o vuoto]`;
     }
 
     function momentFor(index, total, passage = {}) {
@@ -438,6 +587,241 @@ REGOLE OBBLIGATORIE:
         };
     }
 
+    function createEventSeeds(choices, world, context = {}) {
+        const normalizedChoices = normalizeTimelineChoices(choices);
+        const turn = Math.max(0, Number(context.turn) || 0);
+        const batchId = cleanText(context.batchId || `event-batch-${turn}-${hashText(context.currentDate || turn)}`, 180);
+        const seeds = normalizedChoices.map((choice, index) => normalizeEventSeed({
+            id: `pending-${choice.id}-${hashText(batchId)}`,
+            kind: choice.isStrategic ? 'strategic_action' : keyOf(choice.source).includes('chat') ? 'dialogue_reply' : 'player_action',
+            title: choice.actionTitle || choice.topic || 'Risposta alla scelta del giocatore',
+            topic: choice.topic,
+            cause: choice.command || choice.summary,
+            actors: choice.actors,
+            priority: choice.isStrategic ? 92 : 82,
+            duration: choice.duration,
+            interactionMode: inferInteractionMode(choice.command || choice.summary),
+            sourceId: choice.id,
+            source: choice.source,
+            choice,
+            batchId,
+            createdAtTurn: turn
+        }, index, { turn, batchId })).filter(Boolean);
+
+        if (context.includeWorld !== false) {
+            const forces = asArray(world?.forces)
+                .filter(item => item && item.status !== 'resolved')
+                .sort((left, right) => Number(right.urgency || 0) - Number(left.urgency || 0));
+            const actors = activeActors(world);
+            const force = forces[0];
+            const actor = actors.find(item => keyOf(item.name) === keyOf(force?.actor)) || actors[0];
+            if (force || actor) {
+                const urgency = Math.max(0, Math.min(100, Number(force?.urgency) || 45));
+                const delay = Math.max(60, Math.round(43200 * (1 - urgency / 110)));
+                const worldSeed = normalizeEventSeed({
+                    id: `pending-world-${hashText(`${batchId}|${force?.name || actor?.name}`)}`,
+                    kind: 'world_initiative',
+                    title: force?.name || `Iniziativa di ${actor?.name}`,
+                    cause: force
+                        ? `${force.actor || actor?.name} porta avanti «${force.name}» per ${force.objective || actor?.goal || 'rafforzare la propria posizione'}`
+                        : `${actor.name} continua a perseguire ${actor.goal || actor.publicGoal || 'il proprio obiettivo'} tramite ${actor.strategy || actor.agenda || 'le risorse disponibili'}`,
+                    actors: [force?.actor || actor?.name].filter(Boolean),
+                    priority: Math.max(45, Math.round(urgency)),
+                    notBeforeMinutes: delay,
+                    interactionMode: 'either',
+                    sourceId: force?.id || force?.name || actor?.id || actor?.name,
+                    source: 'world-autonomy',
+                    batchId,
+                    createdAtTurn: turn
+                }, seeds.length, { turn, batchId });
+                if (worldSeed) seeds.push(worldSeed);
+            }
+        }
+        return normalizeEventQueue(seeds, { turn, batchId });
+    }
+
+    function scheduleEventSeeds(queue, incoming, context = {}) {
+        const merged = normalizeEventQueue(queue, context);
+        const ids = new Set(merged.map(item => item.id));
+        const fingerprints = new Set(merged.map(item => keyOf(`${item.sourceId}|${item.kind}|${item.cause}`)));
+        normalizeEventQueue(incoming, context).forEach(seed => {
+            const fingerprint = keyOf(`${seed.sourceId}|${seed.kind}|${seed.cause}`);
+            if (ids.has(seed.id) || fingerprints.has(fingerprint)) return;
+            merged.push(seed);
+            ids.add(seed.id);
+            fingerprints.add(fingerprint);
+        });
+        return merged.slice(-EVENT_QUEUE_LIMIT);
+    }
+
+    function selectNextEventSeed(queue) {
+        const normalized = normalizeEventQueue(queue);
+        return normalized.slice().sort((left, right) =>
+            Number(left.notBeforeMinutes || 0) - Number(right.notBeforeMinutes || 0) ||
+            Number(right.priority || 0) - Number(left.priority || 0) ||
+            Number(left.createdAtTurn || 0) - Number(right.createdAtTurn || 0)
+        )[0] || null;
+    }
+
+    function advanceEventQueue(queue, consumedId, elapsedMinutes) {
+        const elapsed = Math.max(0, Number(elapsedMinutes) || 0);
+        return normalizeEventQueue(queue).filter(seed => seed.id !== consumedId).map(seed => ({
+            ...seed,
+            notBeforeMinutes: Math.max(0, Number(seed.notBeforeMinutes || 0) - elapsed)
+        })).slice(-EVENT_QUEUE_LIMIT);
+    }
+
+    function parseEventTiming(response, seed, options = {}) {
+        const match = String(response || '').match(/\[ATTESA_EVENTO:\s*([^|\]]+)(?:\|([^\]]*))?\]/i);
+        const parsed = match ? parseDurationMinutes(match[1]) : 0;
+        const minimum = Math.max(0, Number(seed?.notBeforeMinutes) || 0);
+        const fallback = Math.max(MIN_EVENT_DELAY_MINUTES, minimum || inferEventDelay(seed || {}));
+        const maxAdvance = Number(options.maxAdvanceMinutes) > 0
+            ? Math.max(MIN_EVENT_DELAY_MINUTES, Number(options.maxAdvanceMinutes))
+            : MAX_EVENT_DELAY_MINUTES;
+        return {
+            minutes: Math.min(maxAdvance, clampEventDelay(Math.max(minimum, parsed || fallback), fallback)),
+            reason: cleanText(match?.[2] || `Tempo necessario perché maturi «${seed?.title || 'il prossimo evento'}»`, 320),
+            source: parsed ? 'timeline-ai' : 'timeline-fallback'
+        };
+    }
+
+    function parsePendingEventSeeds(response, context = {}) {
+        const seeds = [];
+        const regex = /\[CODA_EVENTO:\s*([^\]]+)\]/gi;
+        let match;
+        while ((match = regex.exec(String(response || ''))) !== null && seeds.length < 3) {
+            const parts = match[1].split('|').map(item => cleanText(item, 700));
+            const seed = normalizeEventSeed({
+                id: parts[0], kind: parts[1], cause: parts[2], actors: String(parts[3] || '').split(/[,;]/),
+                priority: parts[4], notBeforeMinutes: parts[5], interactionMode: parts[6], sourceId: parts[7],
+                title: parts[2], source: 'timeline-ai-queue', batchId: context.batchId,
+                createdAtTurn: context.turn, depth: Math.min(4, Number(context.parentSeed?.depth || 0) + 1)
+            }, seeds.length, context);
+            if (seed) seeds.push(seed);
+        }
+        return normalizeEventQueue(seeds, context);
+    }
+
+    function createFallbackEvent(context = {}) {
+        const seed = normalizeEventSeed(context.seed || {
+            kind: 'world_initiative',
+            cause: context.world?.centralConflict || context.story?.desc || 'Il mondo continua a cambiare'
+        }, 0, context);
+        const actors = fallbackActors(context.world || {}, context);
+        const named = seed?.actors?.map(name => actors.find(actor => keyOf(actor.name) === keyOf(name))).filter(Boolean) || [];
+        const actor = named[0] || actors[0];
+        const target = named[1] || actors.find(item => keyOf(item.name) !== keyOf(actor?.name)) || actors[1] || actor;
+        const place = actorPlace(actor, context);
+        const choice = seed?.choice;
+        const strategic = choice?.isStrategic;
+        const worldLed = /^world/.test(seed?.kind || '');
+        const event = worldLed ? {
+            type: actor?.kind === 'faction' ? 'politica' : 'mondo',
+            title: seed?.title || `La mossa di ${actor.name}`,
+            summary: `${actor.name}, perseguendo ${actorGoal(actor)}, ha usato ${actorResources(actor)} per ${actorStrategy(actor)}. La mossa è diventata visibile a ${target.name}, che ora deve ricalcolare la propria posizione.`,
+            consequence: `${actor.name} conquista temporaneamente l'iniziativa e ${target.name} deve decidere se reagire, negoziare o ostacolarlo.`,
+            actors: [actor.name, target.name]
+        } : {
+            type: strategic ? 'decisione' : 'missione',
+            title: seed?.title || (strategic ? `${choice.topic}: il piano entra in azione` : 'La scelta produce un primo effetto'),
+            summary: `Il protagonista ha avviato «${cleanText(choice?.command || seed?.cause, 300)}» usando le risorse realmente disponibili. ${actor.name}, interessato a ${actorGoal(actor)}, ha osservato il tentativo e ne ha condizionato il primo risultato.`,
+            consequence: strategic
+                ? `L'azione su «${choice.topic || seed?.topic || 'la questione'}» produce un primo esito verificabile, mentre la risposta di ${actor.name} resta da sviluppare.`
+                : `La scelta del protagonista cambia le opzioni di ${actor.name} e prepara una risposta del mondo.`,
+            actors: [actor.name, target.name],
+            strategicTopic: choice?.topic,
+            strategicActionIds: strategic ? [choice.id] : []
+        };
+        return enrichEvent({
+            ...event,
+            location: place,
+            importance: seed?.priority >= 85 ? 'critical' : 'high',
+            status: 'developing',
+            occurredAt: context.occurredAt || context.passage?.endDate || 'prossimo momento importante',
+            cause: seed?.cause,
+            interactionMode: seed?.interactionMode || 'either',
+            source: 'timeline-fallback',
+            seedId: seed?.id,
+            queueKind: seed?.kind
+        }, context, 0, null);
+    }
+
+    function ensureSingleEvent(incomingEvents, context = {}) {
+        const meaningful = asArray(incomingEvents).filter(isMeaningfulEvent);
+        const accepted = meaningful.find(event => eventCentralityScore(event, context) >= 6);
+        const event = accepted
+            ? enrichEvent({
+                ...accepted,
+                occurredAt: context.occurredAt || context.passage?.endDate || accepted.occurredAt,
+                interactionMode: normalizeInteractionMode(
+                    accepted.interactionMode,
+                    context.seed?.interactionMode || (accepted.conversationMode === 'required' ? 'dialogue' : 'either')
+                ),
+                seedId: context.seed?.id,
+                queueKind: context.seed?.kind,
+                strategicTopic: context.seed?.choice?.topic || accepted.strategicTopic,
+                strategicActionIds: context.seed?.choice?.isStrategic ? [context.seed.choice.id] : asArray(accepted.strategicActionIds)
+            }, context, 0, null)
+            : createFallbackEvent(context);
+        return {
+            event,
+            events: event ? [event] : [],
+            usedFallback: !accepted,
+            qualityRejected: meaningful.length - (accepted ? 1 : 0)
+        };
+    }
+
+    function buildFollowUpSeeds(event, outcome, context = {}) {
+        const parent = normalizeEventSeed(context.parentSeed, 0, context);
+        if (!parent || parent.depth >= 4) return [];
+        const nextDepth = parent.depth + 1;
+        const batchId = parent.batchId || context.batchId;
+        const turn = Math.max(0, Number(context.turn) || 0);
+        const actors = asArray(event?.actors).filter(Boolean);
+        const seeds = [];
+        if (parent.kind === 'strategic_action' && outcome?.status === 'in_corso') {
+            seeds.push({
+                id: `pending-follow-${hashText(`${parent.id}|${nextDepth}|action`)}`,
+                kind: 'action_reply',
+                title: `Seguito: ${parent.title}`,
+                topic: parent.topic,
+                cause: outcome.consequence || event?.consequence || `L'azione «${parent.title}» richiede un ulteriore passaggio`,
+                actors,
+                priority: Math.max(65, parent.priority - 5),
+                notBeforeMinutes: inferEventDelay({ duration: parent.choice?.duration, kind: 'action_reply' }),
+                interactionMode: parent.interactionMode,
+                sourceId: parent.sourceId,
+                source: 'strategic-follow-up',
+                choice: parent.choice,
+                batchId,
+                depth: nextDepth,
+                createdAtTurn: turn
+            });
+        }
+        const needsWorldReply = ['strategic_action', 'player_action', 'dialogue_reply', 'action_reply', 'world_initiative'].includes(parent.kind) &&
+            Boolean(outcome?.worldResponse || event?.consequence);
+        if (needsWorldReply) {
+            seeds.push({
+                id: `pending-reply-${hashText(`${parent.id}|${nextDepth}|world`)}`,
+                kind: 'world_reply',
+                title: `Reazione a ${parent.title}`,
+                topic: parent.topic,
+                cause: outcome?.worldResponse || `Gli attori coinvolti reagiscono a: ${event.consequence}`,
+                actors: outcome?.actors?.length ? outcome.actors : actors,
+                priority: Math.max(60, parent.priority - 8),
+                notBeforeMinutes: event?.importance === 'critical' ? 60 : 720,
+                interactionMode: 'either',
+                sourceId: parent.sourceId || event?.id,
+                source: 'causal-world-reply',
+                batchId,
+                depth: nextDepth,
+                createdAtTurn: turn
+            });
+        }
+        return normalizeEventQueue(seeds, { turn, batchId });
+    }
+
     function normalizeOutcomeStatus(value) {
         const status = keyOf(value);
         if (/complet|success|riuscit|resolved/.test(status)) return 'completata';
@@ -581,7 +965,7 @@ REGOLE OBBLIGATORIE:
         return `\n\nEsito del piano strategico:\n${groups.map(group =>
             `${group.topic}:\n${group.outcomes.map(outcome =>
                 `• ${cleanText(outcome.actionTitle, 140)} — ${cleanText(outcome.status, 40)}. ${cleanText(outcome.result, 420)} ` +
-                `Conseguenza: ${cleanText(outcome.consequence, 320)} Reazione del mondo: ${cleanText(outcome.worldResponse, 320)}`
+                `Conseguenza: ${cleanText(outcome.consequence, 320)} Sviluppo del mondo in attesa: ${cleanText(outcome.worldResponse, 320)}`
             ).join('\n')}`
         ).join('\n\n')}`;
     }
@@ -590,30 +974,31 @@ REGOLE OBBLIGATORIE:
         const actors = activeActors(world);
         const actorByName = name => actors.find(item => keyOf(item.name) === keyOf(name));
         const protagonistKey = keyOf(context.protagonistName || 'protagonista');
-        const messages = [];
-        asArray(events).filter(event => isMeaningfulEvent(event) && event.conversationMode !== 'none').forEach(event => {
-            const participants = asArray(event.actors).map(name => cleanText(name, 100)).filter(Boolean);
-            const speakers = participants.filter(name => {
-                const key = keyOf(name);
-                return key && key !== protagonistKey && !/^(protagonista|giocatore|player)$/.test(key);
-            }).slice(0, 4);
-            speakers.forEach((name, index) => {
-                const actor = actorByName(name) || { name, kind: 'npc' };
-                const target = participants.find(item => keyOf(item) !== keyOf(name)) || context.protagonistName || 'protagonista';
-                const text = index === 0
-                    ? `Io chiedo che discutiamo ${cleanText(event.conversationGoal || 'le conseguenze di quanto è accaduto', 220)}. Voglio ${actorGoal(actor)} e userò ${actorResources(actor)} come leva.`
-                    : index === 1
-                        ? `Io non accetterò una soluzione che ignori il mio obiettivo. ${target}, chiarisci quali condizioni sei disposto a sostenere.`
-                        : `Io rappresento interessi diversi dai vostri: ascolterò le proposte, ma difenderò ${actorGoal(actor)} con ${actorStrategy(actor)}.`;
-                messages.push({
-                    eventId: event.id, eventTitle: event.title, speaker: name,
-                    speakerType: actor.kind === 'faction' ? 'fazione' : 'npc',
-                    text, target, mood: index === 0 ? 'determinato' : 'guardingo',
-                    turn: context.turn, occurredAt: event.occurredAt, source: 'timeline-fallback'
-                });
-            });
+        const event = asArray(events).find(item =>
+            isMeaningfulEvent(item) && item.conversationMode !== 'none' &&
+            ['dialogue', 'either'].includes(normalizeInteractionMode(item.interactionMode, item.conversationMode === 'required' ? 'dialogue' : 'either'))
+        );
+        if (!event) return [];
+        const participants = asArray(event.actors).map(name => cleanText(name, 100)).filter(Boolean);
+        const name = participants.find(item => {
+            const key = keyOf(item);
+            return key && key !== protagonistKey && !/^(protagonista|giocatore|player)$/.test(key);
         });
-        return messages.slice(0, 20);
+        if (!name) return [];
+        const actor = actorByName(name) || { name, kind: 'npc' };
+        const target = participants.find(item => keyOf(item) !== keyOf(name)) || context.protagonistName || 'protagonista';
+        return [{
+            eventId: event.id,
+            eventTitle: event.title,
+            speaker: name,
+            speakerType: actor.kind === 'faction' ? 'fazione' : 'npc',
+            text: `Io chiedo che discutiamo ${cleanText(event.conversationGoal || 'le conseguenze di quanto è accaduto', 220)}. Voglio ${actorGoal(actor)} e userò ${actorResources(actor)} come leva.`,
+            target,
+            mood: 'determinato',
+            turn: context.turn,
+            occurredAt: event.occurredAt,
+            source: 'timeline-fallback'
+        }];
     }
 
     function buildChronicle(events, passage = {}) {
@@ -629,10 +1014,25 @@ REGOLE OBBLIGATORIE:
 
     return {
         TIMELINE_SIMULATOR_SCHEMA_VERSION,
+        EVENT_QUEUE_LIMIT,
+        MIN_EVENT_DELAY_MINUTES,
+        MAX_EVENT_DELAY_MINUTES,
         cleanText,
         keyOf,
+        parseDurationMinutes,
+        normalizeInteractionMode,
+        inferInteractionMode,
+        inferEventDelay,
         normalizeTimelineChoice,
         normalizeTimelineChoices,
+        normalizeEventSeed,
+        normalizeEventQueue,
+        createEventSeeds,
+        scheduleEventSeeds,
+        selectNextEventSeed,
+        advanceEventQueue,
+        parseEventTiming,
+        parsePendingEventSeeds,
         strategicChoiceGroups,
         desiredEventCount,
         isMeaningfulEvent,
@@ -641,6 +1041,9 @@ REGOLE OBBLIGATORIE:
         buildPrompt,
         createFallbackArc,
         ensureEventArc,
+        createFallbackEvent,
+        ensureSingleEvent,
+        buildFollowUpSeeds,
         parseStrategicOutcomes,
         ensureStrategicOutcomes,
         mergeStrategicOutcomeHistory,
