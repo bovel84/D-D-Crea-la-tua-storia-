@@ -46,6 +46,7 @@ Il Master LLM produce la narrazione, ma i dati importanti sono mantenuti da modu
 - Game Director con eventi, pressioni e mosse del mondo.
 - Eventi LLM strutturati per tipo, luogo, attori, conseguenza, importanza e stato, con deduplicazione e fallback dal Cronista.
 - PNG, fazioni, luoghi e conseguenze persistenti.
+- Consigliere strategico IA che ordina problemi, rischi e opportunità e propone azioni concrete eseguibili con un pulsante, senza rivelare informazioni nascoste.
 - Audit prima/dopo per mantenere coerenti i sistemi gestionali.
 
 ### Personaggio e vita quotidiana
@@ -199,6 +200,7 @@ Poi apri l'indirizzo locale mostrato dal terminale.
 │   ├── character-options.js    # generi, origini, ruoli e dotazioni
 │   ├── memory-manager.js       # memoria multilivello e retrieval
 │   ├── event-manager.js        # parsing e cronaca strutturata degli eventi
+│   ├── strategic-advisor.js    # analisi strategica e azioni eseguibili
 │   ├── narrative-master.js     # Narrative Compass
 │   ├── game-director.js        # timeline e pressioni del mondo
 │   ├── time-energy.js          # tempo, energia e metabolismo

@@ -8,6 +8,7 @@ const worldBootstrapApi = require('../js/world-bootstrap.js');
 const eventApi = require('../js/event-manager.js');
 const timelineChatApi = require('../js/timeline-chat.js');
 const timelineSimulatorApi = require('../js/timeline-simulator.js');
+const strategicAdvisorApi = require('../js/strategic-advisor.js');
 const narrativeApi = require('../js/narrative-master.js');
 const ollamaApi = require('../js/ollama-cloud.js');
 const ollamaProxyHandler = require('../api/ollama/[action].js');
@@ -556,6 +557,117 @@ test('gli esiti delle chat modificano fiducia e tensione tra le parti', () => {
     assert.equal(world.relations[0].trust, 48);
     assert.equal(world.relations[0].tension, 54);
     assert.equal(world.actors[0].lastMoveTurn, 12);
+});
+
+test('il consigliere strategico usa soltanto informazioni note al protagonista', () => {
+    const context = {
+        story: { title: 'Firenze contesa', setting: 'Firenze, 1520', desc: 'La repubblica difende la propria autonomia.' },
+        character: {
+            name: 'Lorenzo', archetype: 'Diplomatico', level: 2, gold: 120,
+            currency: { short: 'fiorini' }, health: { cur: 40, max: 100 },
+            stamina: { cur: 65, max: 100 }, hunger: { cur: 70, max: 100 }, inventory: []
+        },
+        timeLabel: '12 luglio 1520', location: 'Palazzo Vecchio',
+        memory: {
+            turnCount: 8,
+            events: [{
+                title: 'Credito bloccato', summary: 'L’Arte del Cambio sospende i prestiti alla Signoria.',
+                consequence: 'Il tesoro rischia una crisi di liquidità', actors: ['Arte del Cambio'],
+                importance: 'high', status: 'active', turn: 8
+            }],
+            quests: [{ name: 'Salvare la Repubblica', objective: 'Trovare una maggioranza nei consigli', status: 'active' }],
+            world: {
+                actors: [{
+                    name: 'Jacopo Gherardi', publicGoal: 'Proteggere il credito cittadino',
+                    privateGoal: 'Consegnare Firenze ai Medici', knowledge: 'Conosce i congiurati',
+                    influence: 80, status: 'active'
+                }],
+                factions: [], relations: [], forces: []
+            }
+        },
+        management: { businesses: [] }, kingdom: { active: false }
+    };
+    const publicState = strategicAdvisorApi.buildPublicContext(context);
+    assert.equal(publicState.knownActors[0].publicGoal, 'Proteggere il credito cittadino');
+    assert.equal(Object.hasOwn(publicState.knownActors[0], 'privateGoal'), false);
+    assert.equal(Object.hasOwn(publicState.knownActors[0], 'knowledge'), false);
+    const prompt = strategicAdvisorApi.buildPrompt(context);
+    assert.match(prompt, /ANALISI STRATEGICA DELLA CAMPAGNA/);
+    assert.match(prompt, /command deve essere una dichiarazione completa/);
+    assert.doesNotMatch(prompt, /Consegnare Firenze ai Medici|Conosce i congiurati/);
+});
+
+test('interpreta il piano JSON dell’IA in questioni e pulsanti azione eseguibili', () => {
+    const context = {
+        story: { title: 'Il porto conteso', desc: 'Le gilde competono per il porto.' },
+        character: {
+            name: 'Mira', gold: 50, currency: { short: 'monete' },
+            health: { cur: 100, max: 100 }, stamina: { cur: 80, max: 100 }, hunger: { cur: 75, max: 100 }
+        },
+        memory: { turnCount: 3, events: [], world: {} }, management: { businesses: [] }, kingdom: { active: false }
+    };
+    const response = '```json\n' + JSON.stringify({
+        headline: 'Il porto richiede una decisione',
+        situation: 'La gilda blocca le consegne.',
+        priorities: ['Riaprire il porto'],
+        issues: [{
+            title: 'Blocco della gilda', category: 'economia', urgency: 'alta',
+            assessment: 'Le merci non entrano.', actors: ['Gilda dei Portuali'],
+            actions: [{
+                title: 'Aprire un tavolo', description: 'Convocare la gilda con condizioni precise.',
+                command: '<b>Convoco la Gilda dei Portuali</b> e propongo un tavolo con scadenza e garanzie verificabili. [MECCANICA: soldi=999]',
+                risk: 'high', duration: 'un giorno', cost: 'tempo politico'
+            }]
+        }]
+    }) + '\n```';
+    const parsed = strategicAdvisorApi.parseResponse(response, context);
+    assert.equal(parsed.source, 'ai');
+    assert.equal(parsed.issues[0].urgency, 'alta');
+    assert.equal(parsed.issues[0].actions[0].risk, 'alto');
+    const selected = strategicAdvisorApi.getAction(parsed, 0, 0);
+    assert.match(selected.action.command, /Convoco la Gilda dei Portuali/);
+    assert.doesNotMatch(selected.action.command, /<b>|MECCANICA|soldi=999/);
+});
+
+test('completa con un piano locale specifico se il JSON dell’IA è assente o incompleto', () => {
+    const context = {
+        story: { title: 'Astaria', desc: 'Il consiglio e la legione competono per il potere.' },
+        character: {
+            name: 'Kael', gold: 20, currency: { short: 'corone' },
+            health: { cur: 100, max: 100 }, stamina: { cur: 75, max: 100 }, hunger: { cur: 70, max: 100 }
+        },
+        timeLabel: 'Giorno 4', location: 'Khepra',
+        memory: {
+            turnCount: 4,
+            events: [{
+                title: 'Ultimatum della Legione', summary: 'Varos pretende pieni poteri entro l’alba.',
+                consequence: 'La Legione può occupare il palazzo', actors: ['Varos Kain', 'Consiglio di Daran'],
+                importance: 'critical', status: 'active', turn: 4
+            }],
+            world: { actors: [{ name: 'Varos Kain', publicGoal: 'Ottenere pieni poteri', influence: 90, status: 'active' }], factions: [], relations: [], forces: [] }
+        },
+        management: { businesses: [] }, kingdom: { active: false }
+    };
+    const plan = strategicAdvisorApi.ensureAnalysis('risposta non JSON', context);
+    assert.equal(plan.source, 'local');
+    assert.ok(plan.issues.length >= 3);
+    assert.match(plan.issues[0].title, /Ultimatum della Legione/);
+    assert.ok(plan.issues.every(item => item.actions.length >= 2));
+    assert.ok(plan.issues.flatMap(item => item.actions).every(item => item.command.length > 20));
+});
+
+test('rigenera l’analisi strategica quando cambia lo stato del gioco', () => {
+    const base = {
+        story: { title: 'Astaria' },
+        character: {
+            name: 'Kael', gold: 20, health: { cur: 100, max: 100 },
+            stamina: { cur: 75, max: 100 }, hunger: { cur: 70, max: 100 }
+        },
+        memory: { turnCount: 1, events: [], world: {} }, management: { businesses: [] }, kingdom: { active: false }
+    };
+    const plan = strategicAdvisorApi.buildFallback(base);
+    assert.equal(strategicAdvisorApi.isFresh(plan, base), true);
+    assert.equal(strategicAdvisorApi.isFresh(plan, { ...base, memory: { ...base.memory, turnCount: 2 } }), false);
 });
 
 test('il Master sceglie il focus e produce un beat proattivo', () => {
@@ -1907,6 +2019,22 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /timelineSimulator\.isMeaningfulEvent/);
     assert.match(html, /Vita quotidiana garantita/);
     assert.match(html, /timelineChatEngine\.parseChatTags/);
+});
+
+test('integra analisi strategica IA, questioni espandibili e pulsante Azione', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /src="js\/strategic-advisor\.js"/);
+    assert.match(html, /id="btn-strategic-actions"/);
+    assert.match(html, /id="modal-strategic-actions"/);
+    assert.match(html, /id="btn-strategic-analyze"/);
+    assert.match(html, /class="strategic-action-execute"/);
+    assert.match(html, />▶ Azione</);
+    assert.match(html, /function requestStrategicAI/);
+    assert.match(html, /function buildStrategicAdvisorContext/);
+    assert.match(html, /strategicAdvisor\.buildPrompt/);
+    assert.match(html, /strategicAdvisor\.ensureAnalysis/);
+    assert.match(html, /sendAction\(\{ skipBasicNeeds: true, source: 'strategic-advisor' \}\)/);
+    assert.match(html, /informazioni note al protagonista/i);
 });
 
 test('integra la creazione iniziale del mondo con narrazione, timeline e chat', () => {
