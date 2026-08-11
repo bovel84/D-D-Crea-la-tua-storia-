@@ -2463,7 +2463,19 @@ test('mostra l’anno e recupera il canone senza bloccare i browser con asset pr
     assert.match(html, /time-date'\)\.textContent = `\$\{G\.time\.dayName\} \$\{G\.time\.day\} \$\{MONTHS\[G\.time\.month - 1\]\.name\} \$\{G\.time\.year\}/);
     assert.match(html, /typeof CronacheMemory\.inferCanonicalYear === 'function'/);
     assert.doesNotMatch(html, /memoryManager\.inferCanonicalYear/);
-    assert.match(html, /src="js\/memory-manager\.js\?v=20260811-continuity-2"/);
+    assert.match(html, /src="js\/memory-manager\.js\?v=20260811-continuity-3"/);
+    assert.match(html, /CronacheMemory\.recordContinuity\(wm/);
+    assert.doesNotMatch(html, /memoryManager\.(?:inferCanonicalYear|recordContinuity|buildContinuityContext)/);
+});
+
+test('espone gli helper canonici anche sull’istanza per compatibilità con interfacce precedenti', () => {
+    const manager = new memoryApi.AdvancedMemoryManager();
+    const memory = manager.createDefault();
+    manager.recordContinuity(memory, { title: 'Primo fatto', summary: 'Il villaggio chiude le porte.', turn: 1 });
+    const continuity = manager.buildContinuityContext(memory, { maxTokens: 800 });
+    assert.equal(memory.continuityLog.length, 1);
+    assert.match(continuity.prompt, /Primo fatto/);
+    assert.equal(manager.inferCanonicalYear(memory, { startTime: { year: 1400 } }).year, 1400);
 });
 
 test('la barra mobile mostra soltanto la gestione di attività e regno', () => {
