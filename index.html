@@ -2887,7 +2887,7 @@
                     <span class="time-icon" id="time-icon">?~????</span>
                     <div class="time-block">
                         <span class="time-main" id="time-text">08:00</span>
-                        <span class="time-sub" id="time-date">Luned? 1 Marzo (Primavera)</span>
+                        <span class="time-sub" id="time-date">Lunedì 1 Marzo 1400 (Primavera)</span>
                         <span class="time-location" id="time-location">📍 Sconosciuto</span>
                     </div>
                 </div>
@@ -3662,12 +3662,12 @@
         </div>
     </div>
 
-    <script src="js/memory-manager.js"></script>
-    <script src="js/world-bootstrap.js"></script>
+    <script src="js/memory-manager.js?v=20260811-continuity-2"></script>
+    <script src="js/world-bootstrap.js?v=20260811-continuity-2"></script>
     <script src="js/event-manager.js"></script>
-    <script src="js/timeline-chat.js"></script>
-    <script src="js/timeline-simulator.js"></script>
-    <script src="js/strategic-advisor.js"></script>
+    <script src="js/timeline-chat.js?v=20260811-continuity-2"></script>
+    <script src="js/timeline-simulator.js?v=20260811-continuity-2"></script>
+    <script src="js/strategic-advisor.js?v=20260811-continuity-2"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
@@ -4813,7 +4813,13 @@
 
         function reconcileCampaignClock(memory = G.worldMemory) {
             if (!G.time || !memory) return null;
-            const inferred = memoryManager.inferCanonicalYear(memory, G.currentStory || {});
+            const inferYear = typeof CronacheMemory !== 'undefined' &&
+                typeof CronacheMemory.inferCanonicalYear === 'function'
+                ? CronacheMemory.inferCanonicalYear
+                : null;
+            // Un vecchio asset in cache non deve mai impedire l'avvio della partita.
+            if (!inferYear) return null;
+            const inferred = inferYear(memory, G.currentStory || {});
             if (!inferred || Number(G.time.year) === Number(inferred.year)) return null;
             const previousYear = Number(G.time.year);
             G.time.year = inferred.year;
@@ -5155,7 +5161,7 @@
             $('time-icon').textContent = period.icon;
             $('time-text').textContent = `${getTimeString()}`;
             if ($('time-date')) {
-                $('time-date').textContent = `${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} (${getCurrentSeason()})`;
+                $('time-date').textContent = `${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year} (${getCurrentSeason()})`;
             }
             if ($('wait-current-time')) {
                 $('wait-current-time').textContent = `${getTimeString()} - ${period.name}`;
