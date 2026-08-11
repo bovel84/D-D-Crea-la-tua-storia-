@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const CHAT_SCHEMA_VERSION = 2;
+    const CHAT_SCHEMA_VERSION = 3;
     const MAX_THREADS = 60;
     const MAX_MESSAGES_PER_THREAD = 80;
     const SPEAKER_TYPES = ['protagonista', 'npc', 'fazione', 'regno', 'gruppo'];
@@ -359,6 +359,43 @@
         return { chats: threads, thread, invited };
     }
 
+    function chooseNextSpeaker(thread, playerMessage = '', context = {}) {
+        const item = normalizeThread(thread, context);
+        const protagonistKey = keyOf(context.protagonistName || 'protagonista');
+        const playerSpeakers = new Set(item.messages
+            .filter(message => message.source === 'player' || message.speakerType === 'protagonista')
+            .map(message => keyOf(message.speaker))
+            .filter(Boolean));
+        const candidates = item.participants.filter(name => {
+            const key = keyOf(name);
+            return key && key !== protagonistKey && !playerSpeakers.has(key) && !/^(protagonista|giocatore|player)$/.test(key);
+        });
+        if (!candidates.length) return '';
+        const messageKey = keyOf(playerMessage);
+        const addressed = candidates.find(name => {
+            const nameKey = keyOf(name);
+            return nameKey.length >= 3 && messageKey.includes(nameKey);
+        });
+        if (addressed) return addressed;
+        const counts = new Map(candidates.map(name => [keyOf(name), 0]));
+        item.messages.forEach(message => {
+            const speakerKey = keyOf(message.speaker);
+            if (counts.has(speakerKey)) counts.set(speakerKey, counts.get(speakerKey) + 1);
+        });
+        const minimum = Math.min(...counts.values());
+        return candidates.find(name => counts.get(keyOf(name)) === minimum) || candidates[0];
+    }
+
+    function selectSingleReply(messages, requestedSpeaker) {
+        const replies = asArray(messages).filter(Boolean);
+        if (!replies.length) return [];
+        const requestedKey = keyOf(requestedSpeaker);
+        const selected = requestedKey
+            ? replies.find(message => keyOf(message.speaker) === requestedKey)
+            : replies[0];
+        return [selected || replies[0]];
+    }
+
     function parseOutcomeTags(response, context = {}) {
         const outcomes = [];
         const agreements = [];
@@ -465,7 +502,7 @@
         return `💬 **CONVERSAZIONI GENERATE DAGLI EVENTI**
 - Le conseguenze devono derivare dalle scelte recenti del giocatore, dagli eventi aperti e dagli obiettivi autonomi degli altri attori.
 - Scelte da sviluppare: ${choices.length ? choices.join(' / ') : 'nessuna scelta esplicita; sviluppa soltanto le trame già aperte'}.
-- Per ogni EVENTO che consente una conversazione, genera da 2 a 5 messaggi che aprano o sviluppino la relativa chat. Se le parti sono almeno tre, fai parlare almeno due soggetti diversi e lascia emergere alleanze, dissensi e interessi incompatibili.
+- Se l'unico EVENTO generato consente una conversazione, genera al massimo UNA battuta di apertura pronunciata da un solo soggetto. Gli altri interlocutori risponderanno in chiamate successive, uno alla volta.
 - Formato: [CHAT: titolo_esatto_evento|nome_parlante|protagonista/npc/fazione/regno/gruppo|messaggio_in_prima_persona|destinatario|emozione]
 - Ogni parte parla direttamente in prima persona («io» o «noi»), con voce, interessi e conoscenze proprie. Vietato descriverla dall'esterno.
 - Non generare mai battute del protagonista: nella chat il protagonista parla soltanto quando scrive il giocatore.
@@ -482,6 +519,8 @@
         const activeAgreements = item.agreements.length
             ? item.agreements.map(agreement => `${agreement.title}: ${agreement.terms} [${agreement.status}]`).join(' / ')
             : 'nessuno';
+        const nextSpeaker = cleanText(context.nextSpeaker || chooseNextSpeaker(item, playerMessage, context), 100) ||
+            item.participants.find(name => !/^(protagonista|giocatore|player)$/i.test(keyOf(name))) || 'Interlocutore';
         return `Sei il motore di dialogo di un gioco narrativo. Interpreta esclusivamente gli interlocutori diversi dal protagonista.
 
 EVENTO: ${item.eventTitle}
@@ -496,10 +535,11 @@ CONVERSAZIONE RECENTE:
 ${history}
 
 IL PROTAGONISTA DICE: ${cleanText(playerMessage, 700)}
+PROSSIMO E UNICO PARLANTE: ${nextSpeaker}
 
-Rispondi senza narrazione esterna. Produci 2-5 CHAT quando sono presenti più interlocutori; con almeno tre partecipanti diversi dal protagonista fai intervenire almeno due soggetti, ciascuno soltanto se ha motivo di parlare:
-[CHAT: ${item.eventTitle}|nome_parlante|npc/fazione/regno/gruppo|messaggio_in_prima_persona|destinatario|emozione]
-Ogni interlocutore parla in prima persona, conserva carica, obiettivi pubblici e privati, carattere, alleanze, leve, vincoli e conoscenze parziali. Può contraddire un altro NPC, mentire, chiedere garanzie, rifiutare o fare una controproposta. Non parlare mai al posto del protagonista e non rendere tutti automaticamente disponibili o concordi.
+Rispondi senza narrazione esterna e produci ESATTAMENTE UNA CHAT, pronunciata soltanto da ${nextSpeaker}:
+[CHAT: ${item.eventTitle}|${nextSpeaker}|npc/fazione/regno/gruppo|messaggio_in_prima_persona|destinatario|emozione]
+${nextSpeaker} parla in prima persona e conserva carica, obiettivi pubblici e privati, carattere, alleanze, leve, vincoli e conoscenze parziali. Può contraddire quanto detto prima, mentire, chiedere garanzie, rifiutare o fare una controproposta. Non far parlare nessun altro in questa chiamata, non parlare mai al posto del protagonista e non rendere tutti automaticamente disponibili o concordi.
 
 Se e soltanto se questo scambio cambia davvero la situazione, aggiungi:
 [ESITO_CHAT: ${item.id}|open/proposal/agreement/refused/failed/closed|esito concreto|conseguenza sul mondo|azione successiva]
@@ -535,6 +575,8 @@ Usa active soltanto se tutte le parti necessarie hanno accettato esplicitamente 
         ensureEventThreads,
         createThread,
         inviteParticipants,
+        chooseNextSpeaker,
+        selectSingleReply,
         normalizeAgreement,
         normalizeOutcome,
         canActivateAgreement,

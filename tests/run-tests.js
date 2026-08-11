@@ -30,7 +30,7 @@ function test(name, fn) { tests.push({ name, fn }); }
 test('migra la memoria legacy senza perdere i campi esistenti', () => {
     const legacy = { npcs: [{ name: 'Elara' }], events: [{ summary: 'Incontro' }], customField: 42 };
     const migrated = memoryApi.migrateMemory(legacy);
-    assert.equal(migrated.memorySchemaVersion, 6);
+    assert.equal(migrated.memorySchemaVersion, 7);
     assert.equal(migrated.npcs[0].name, 'Elara');
     assert.equal(migrated.customField, 42);
     assert.deepEqual(migrated.factions, []);
@@ -38,6 +38,7 @@ test('migra la memoria legacy senza perdere i campi esistenti', () => {
     assert.deepEqual(migrated.chats, []);
     assert.deepEqual(migrated.agreements, []);
     assert.deepEqual(migrated.pendingTimelineChoices, []);
+    assert.deepEqual(migrated.pendingTimelineEvents, []);
     assert.deepEqual(migrated.pendingStrategicActions, []);
     assert.deepEqual(migrated.strategicActionHistory, []);
     assert.deepEqual(migrated.world, {});
@@ -152,7 +153,7 @@ test('i prompt collegano il mondo iniziale a timeline e conversazioni', () => {
     assert.match(interaction, /strategia/i);
 });
 
-test('il simulatore dedicato impone un arco causale invece della sola routine', () => {
+test('il simulatore genera un solo prossimo evento importante e rinvia gli sviluppi successivi', () => {
     const world = worldBootstrapApi.ensureMinimumWorld({}, {
         story: { title: 'Montefeltro', setting: 'Contea di Montefeltro' }, turn: 30
     });
@@ -173,34 +174,99 @@ test('il simulatore dedicato impone un arco causale invece della sola routine', 
             objective: 'Riaprire il credito', risk: 'medio'
         }]
     });
-    assert.match(prompt, /esattamente 4 EVENTO/);
-    assert.match(prompt, /ARGOMENTO — Crisi del credito/);
+    assert.match(prompt, /UN SOLO evento/i);
+    assert.match(prompt, /Crisi del credito/);
     assert.match(prompt, /ID strategic-credito/);
-    assert.match(prompt, /OGNI azione strategica emetti esattamente un ESITO_STRATEGICO/);
-    assert.match(prompt, /contromosse autonome/i);
-    assert.match(prompt, /una parte agisce, un'altra reagisce/i);
-    assert.match(prompt, /non trasformarla in EVENTO/i);
-    assert.match(prompt, /azione osservabile e risultato/i);
+    assert.match(prompt, /esattamente un ESITO_STRATEGICO/i);
+    assert.match(prompt, /minuti, ore, giorni, mesi o anni/i);
+    assert.match(prompt, /azione osservabile/i);
+    assert.match(prompt, /ATTESA_EVENTO/);
+    assert.match(prompt, /CODA_EVENTO/);
+    assert.match(prompt, /al massimo UNA CHAT/i);
     assert.match(prompt, /\[CHAT:/);
 });
 
-test('un mese produce sempre eventi vivi distribuiti con attori e conseguenze', () => {
+test('ogni chiamata della timeline completa al massimo un evento vivo', () => {
     const world = worldBootstrapApi.ensureMinimumWorld({}, {
         story: { title: 'Astaria', setting: 'Khepra' }, turn: 10
     });
-    const arc = timelineSimulatorApi.ensureEventArc([], {
+    const seeds = timelineSimulatorApi.createEventSeeds([{
+        id: 'choice-porta', source: 'player-action', summary: 'Ordino di rinforzare la porta orientale.'
+    }], world, { turn: 10, batchId: 'batch-single', includeWorld: false });
+    const single = timelineSimulatorApi.ensureSingleEvent([], {
         story: { title: 'Astaria', setting: 'Khepra' },
         world,
-        passage: { elapsed: timeEnergyApi.MINUTES_PER_MONTH, days: 30, description: '1 mese' },
+        seed: seeds[0],
+        passage: { elapsed: 180, days: 0.125, description: '3 ore', endDate: '12 marzo, 12:00' },
+        occurredAt: '12 marzo, 12:00',
         location: 'Khepra'
     });
-    assert.equal(arc.events.length, 4);
-    assert.equal(arc.fallbackAdded, 4);
-    assert.ok(arc.events.every(event => event.actors.length >= 2));
-    assert.ok(arc.events.every(event => event.summary.split('.').filter(Boolean).length >= 2));
-    assert.ok(arc.events.every(event => event.consequence && /giorno \d+ di 30/i.test(event.occurredAt)));
-    assert.match(arc.events[1].summary, new RegExp(arc.events[0].actors[0], 'i'));
-    assert.equal(arc.events.some(event => /^Vita durante/i.test(event.title)), false);
+    assert.equal(single.events.length, 1);
+    assert.equal(single.usedFallback, true);
+    assert.ok(single.event.actors.length >= 2);
+    assert.ok(single.event.summary.split('.').filter(Boolean).length >= 2);
+    assert.equal(single.event.occurredAt, '12 marzo, 12:00');
+    assert.equal(single.event.seedId, seeds[0].id);
+    assert.equal(/^Vita durante/i.test(single.event.title), false);
+});
+
+test('la coda causale conserva più azioni e sceglie quella disponibile per prima', () => {
+    const world = worldBootstrapApi.migrateWorld({
+        actors: [{ name: 'Elara Vey', goal: 'convocare il consiglio', status: 'active', influence: 70 }],
+        forces: [{ id: 'force-1', name: 'Crisi del porto', actor: 'Elara Vey', objective: 'riaprire le rotte', urgency: 80, status: 'active' }]
+    });
+    const choices = [
+        { id: 'strategic-a', source: 'strategic-advisor', topic: 'Credito', actionTitle: 'Convocare i banchieri', command: 'Convoco i banchieri.', duration: '2 giorni' },
+        { id: 'choice-b', source: 'player-action', summary: 'Invio subito un messaggero.' }
+    ];
+    const queue = timelineSimulatorApi.createEventSeeds(choices, world, {
+        turn: 5, batchId: 'batch-queue', includeWorld: true
+    });
+    assert.equal(queue.length, 3);
+    assert.ok(queue.some(seed => seed.kind === 'strategic_action'));
+    assert.ok(queue.some(seed => seed.kind === 'player_action'));
+    assert.ok(queue.some(seed => seed.kind === 'world_initiative'));
+    const custom = timelineSimulatorApi.normalizeEventQueue([
+        { id: 'later', kind: 'world_reply', cause: 'Risposta diplomatica', notBeforeMinutes: 1440, priority: 90 },
+        { id: 'first', kind: 'action_reply', cause: 'Il messaggero ritorna', notBeforeMinutes: 45, priority: 60 }
+    ]);
+    assert.equal(timelineSimulatorApi.selectNextEventSeed(custom).id, 'first');
+    const remaining = timelineSimulatorApi.advanceEventQueue(custom, 'first', 45);
+    assert.equal(remaining.length, 1);
+    assert.equal(remaining[0].notBeforeMinutes, 1395);
+});
+
+test('la risposta a una mossa autonoma del mondo resta in coda', () => {
+    const parentSeed = timelineSimulatorApi.normalizeEventSeed({
+        id: 'world-first', kind: 'world_initiative', title: 'Blocco del porto',
+        cause: 'La Lega chiude il porto', notBeforeMinutes: 60, depth: 0
+    });
+    const followUps = timelineSimulatorApi.buildFollowUpSeeds({
+        id: 'event-world-first', title: 'Il porto viene chiuso',
+        consequence: 'I mercanti devono scegliere se negoziare o forzare il blocco.',
+        actors: ['Lega del Porto', 'Gilda dei Mercanti'], importance: 'high'
+    }, null, { parentSeed, turn: 5, batchId: 'world-batch' });
+    assert.equal(followUps.length, 1);
+    assert.equal(followUps[0].kind, 'world_reply');
+    assert.match(followUps[0].cause, /mercanti/i);
+});
+
+test('il tempo del prossimo evento può variare da minuti ad anni', () => {
+    assert.equal(timelineSimulatorApi.parseDurationMinutes('0'), 0);
+    const seed = timelineSimulatorApi.normalizeEventSeed({
+        id: 'dyn', kind: 'world_reply', cause: 'Matura una successione dinastica', notBeforeMinutes: 0
+    });
+    const minutes = timelineSimulatorApi.parseEventTiming('[ATTESA_EVENTO: 45 minuti|Il corriere è già vicino]', seed);
+    assert.equal(minutes.minutes, 45);
+    assert.match(minutes.reason, /corriere/);
+    assert.equal(timelineSimulatorApi.parseDurationMinutes('2 anni e 3 mesi'), 1180800);
+    const queued = timelineSimulatorApi.parsePendingEventSeeds(
+        '[CODA_EVENTO: reply-1|world_reply|La corte reagisce alla nomina|Elara Vey|85|2 giorni|dialogue|dyn]',
+        { turn: 6, batchId: 'batch-dyn', parentSeed: seed }
+    );
+    assert.equal(queued.length, 1);
+    assert.equal(queued[0].notBeforeMinutes, 2880);
+    assert.equal(queued[0].interactionMode, 'dialogue');
 });
 
 test('risolve ogni azione strategica e conserva anche le reazioni del mondo', () => {
@@ -244,7 +310,7 @@ test('risolve ogni azione strategica e conserva anche le reazioni del mondo', ()
     const history = timelineSimulatorApi.mergeStrategicOutcomeHistory([], outcomes);
     assert.equal(history.length, 2);
     assert.match(timelineSimulatorApi.buildStrategicOutcomeChronicle(history), /Credito cittadino/);
-    assert.match(timelineSimulatorApi.buildStrategicOutcomeChronicle(history), /Reazione del mondo/);
+    assert.match(timelineSimulatorApi.buildStrategicOutcomeChronicle(history), /Sviluppo del mondo in attesa/);
     const fallbackArc = timelineSimulatorApi.createFallbackArc({
         story: { title: 'Firenze contesa', setting: 'Firenze' }, world,
         passage: { days: 7, description: '1 settimana' }, choices, location: 'Firenze'
@@ -310,7 +376,7 @@ test('rifiuta eventi politici generici e mantiene soltanto attori specifici dell
     assert.ok(arc.events.every(event => event.actors.every(name => !timelineSimulatorApi.keyOf(name).includes('mediatore indipendente'))));
 });
 
-test('gli eventi della timeline aprono conversazioni vive in prima persona', () => {
+test('la timeline apre una sola battuta di chat per evento', () => {
     const world = worldBootstrapApi.ensureMinimumWorld({}, {
         story: { title: 'Astaria', setting: 'Khepra' }, turn: 10
     });
@@ -322,7 +388,7 @@ test('gli eventi della timeline aprono conversazioni vive in prima persona', () 
     const messages = timelineSimulatorApi.buildConversationStarters(events, world, {
         turn: 17, protagonistName: 'Nerissa'
     });
-    assert.ok(messages.length >= 3);
+    assert.equal(messages.length, 1);
     assert.ok(messages.every(message => timelineChatApi.speaksInFirstPerson(message.text)));
     assert.ok(messages.every(message => message.eventId && message.target));
 });
@@ -464,7 +530,7 @@ test('il prompt eventi impone tag completi e usa il contesto della campagna', ()
     assert.match(prompt, /Elara è scomparsa/);
 });
 
-test('il prompt di un salto lungo richiede routine ed eventi distribuiti nel periodo', () => {
+test('il prompt di un salto lungo conserva la routine ma registra un solo evento', () => {
     const prompt = eventApi.buildPrompt({
         location: 'Castello di Montefeltro',
         timePassage: {
@@ -474,10 +540,11 @@ test('il prompt di un salto lungo richiede routine ed eventi distribuiti nel per
             summary: '30 notti di sonno e circa 90 pasti'
         }
     });
-    assert.match(prompt, /montaggio cronologico dell'intero periodo/i);
-    assert.match(prompt, /sonno, pasti, lavoro, relazioni/i);
-    assert.match(prompt, /momenti diversi del periodo/i);
+    assert.match(prompt, /vita ordinaria è già simulata/i);
+    assert.match(prompt, /PRIMO evento importante/i);
+    assert.match(prompt, /conseguenza successiva resta in attesa/i);
     assert.match(prompt, /30 notti di sonno e circa 90 pasti/i);
+    assert.match(prompt, /CODA_EVENTO/);
 });
 
 test('gli eventi del periodo conservano data e scelta causale', () => {
@@ -494,14 +561,24 @@ test('gli eventi del periodo conservano data e scelta causale', () => {
 
 test('gli eventi centrali conservano causa storica, spostamento politico e trattativa', () => {
     const events = eventApi.parseNarrativeTags(
-        '[EVENTO: politica|Il credito viene sospeso|Jacopo Gherardi ordina ai banchieri di congelare i prestiti alla Signoria. Niccolò Capponi convoca il Consiglio degli Ottanta.|Mercato Vecchio|Jacopo Gherardi, Niccolò Capponi, Arte del Cambio|Il governo non può finanziare le guardie senza nuove garanzie|critical|developing|14 luglio 1520|Il rifiuto della Signoria di concedere esenzioni|La repubblica fiorentina dipende dal credito delle Arti|L’Arte del Cambio ottiene potere di veto finanziario|Il pagamento delle guardie cittadine|Negoziare garanzie e durata dei prestiti|required]',
+        '[EVENTO: politica|Il credito viene sospeso|Jacopo Gherardi ordina ai banchieri di congelare i prestiti alla Signoria. Niccolò Capponi convoca il Consiglio degli Ottanta.|Mercato Vecchio|Jacopo Gherardi, Niccolò Capponi, Arte del Cambio|Il governo non può finanziare le guardie senza nuove garanzie|critical|developing|14 luglio 1520|Il rifiuto della Signoria di concedere esenzioni|La repubblica fiorentina dipende dal credito delle Arti|L’Arte del Cambio ottiene potere di veto finanziario|Il pagamento delle guardie cittadine|Negoziare garanzie e durata dei prestiti|required|dialogue]',
         { turn: 14 }
     );
     assert.equal(events[0].cause, 'Il rifiuto della Signoria di concedere esenzioni');
     assert.match(events[0].historicalAnchor, /repubblica fiorentina/);
     assert.match(events[0].politicalShift, /potere di veto/);
     assert.equal(events[0].conversationMode, 'required');
+    assert.equal(events[0].interactionMode, 'dialogue');
     assert.match(events[0].conversationGoal, /garanzie/);
+});
+
+test('una risposta IA non può registrare più di un evento alla volta', () => {
+    const events = eventApi.parseNarrativeTags([
+        '[EVENTO: politica|Primo voto|Il consiglio approva la mozione. I mercanti protestano.|Palazzo|Consiglio, Mercanti|La tassa entra in vigore|high|active|mattina|La proposta del governo|Statuto cittadino|Il governo ottiene fondi|Consenso|Negoziare esenzioni|available|either]',
+        '[EVENTO: politica|Secondo voto|Il consiglio vota una seconda misura. Le guardie la applicano.|Palazzo|Consiglio, Guardie|La città cambia assetto|high|active|pomeriggio|Il primo voto|Statuto cittadino|Le guardie ottengono potere|Ordine|Discutere limiti|available|dialogue]'
+    ].join('\n'), { turn: 12 });
+    assert.equal(events.length, 1);
+    assert.equal(events[0].title, 'Primo voto');
 });
 
 test('crea chat persistenti collegate agli eventi e in prima persona', () => {
@@ -554,7 +631,8 @@ test('i prompt della simulazione e della chat fanno reagire le parti alle scelte
         id: 'chat-1', eventTitle: 'Sciopero della gilda', participants: ['Gilda', 'Protagonista'], messages: []
     }, 'Propongo una tregua', { eventSummary: 'Le botteghe sono chiuse' });
     assert.match(chatPrompt, /IL PROTAGONISTA DICE: Propongo una tregua/);
-    assert.match(chatPrompt, /Non parlare mai al posto del protagonista/);
+    assert.match(chatPrompt, /non parlare mai al posto del protagonista/i);
+    assert.match(chatPrompt, /ESATTAMENTE UNA CHAT/);
 });
 
 test('il giocatore convoca una chat multi-NPC e invita altri soggetti', () => {
@@ -572,9 +650,25 @@ test('il giocatore convoca una chat multi-NPC e invita altri soggetti', () => {
     const prompt = timelineChatApi.buildChatPrompt(invited.thread, 'Propongo un prestito garantito dai dazi', {
         actorContext: 'Jacopo controlla il credito; Alessandra rappresenta le botteghe.'
     });
-    assert.match(prompt, /2-5 CHAT/);
-    assert.match(prompt, /almeno due soggetti/);
+    assert.match(prompt, /ESATTAMENTE UNA CHAT/);
+    assert.match(prompt, /PROSSIMO E UNICO PARLANTE: Jacopo Gherardi/);
+    assert.doesNotMatch(prompt, /2-5 CHAT/);
     assert.match(prompt, /ACCORDO_CHAT/);
+});
+
+test('le risposte di una chat multi-NPC vengono selezionate una alla volta', () => {
+    const thread = timelineChatApi.createThread([], {
+        title: 'Consiglio cittadino', purpose: 'politica', agenda: 'Decidere la tassa',
+        participants: ['Elara Vey', 'Jacopo Gherardi']
+    }, { protagonistName: 'Lorenzo', turn: 4 }).thread;
+    assert.equal(timelineChatApi.chooseNextSpeaker(thread, 'Elara, cosa proponi?', { protagonistName: 'Lorenzo' }), 'Elara Vey');
+    const replies = timelineChatApi.parseChatTags([
+        '[CHAT: Consiglio cittadino|Elara Vey|npc|Io propongo una tassa temporanea.|Lorenzo|decisa]',
+        '[CHAT: Consiglio cittadino|Jacopo Gherardi|npc|Io rifiuto questa tassa.|Lorenzo|ostile]'
+    ].join('\n'), { turn: 4 });
+    const selected = timelineChatApi.selectSingleReply(replies, 'Jacopo Gherardi');
+    assert.equal(selected.length, 1);
+    assert.equal(selected[0].speaker, 'Jacopo Gherardi');
 });
 
 test('una negoziazione registra esito e contratto persistente senza accettazioni automatiche', () => {
@@ -2103,6 +2197,9 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="modal-timeline"/);
     assert.match(html, /id="btn-simulate-timeline"/);
+    assert.match(html, /Vai al prossimo evento importante/);
+    assert.doesNotMatch(html, /id="timeline-step"/);
+    assert.match(html, /id="timeline-pending-events"/);
     assert.match(html, /id="modal-event-screen"/);
     assert.match(html, /id="modal-world-chat"/);
     assert.match(html, /id="chat-thread-list"/);
@@ -2118,11 +2215,20 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /timelineChatEngine\.inviteParticipants/);
     assert.match(html, /function queueTimelineChoice/);
     assert.match(html, /function requestTimelineAI/);
-    assert.match(html, /timelineSimulator\.ensureEventArc/);
+    assert.match(html, /timelineSimulator\.createEventSeeds/);
+    assert.match(html, /timelineSimulator\.selectNextEventSeed/);
+    assert.match(html, /timelineSimulator\.parseEventTiming/);
+    assert.match(html, /timelineSimulator\.ensureSingleEvent/);
+    assert.match(html, /timelineSimulator\.advanceEventQueue/);
     assert.match(html, /timelineSimulator\.buildConversationStarters/);
     assert.match(html, /timelineSimulator\.isMeaningfulEvent/);
     assert.match(html, /Vita quotidiana garantita/);
     assert.match(html, /timelineChatEngine\.parseChatTags/);
+    assert.match(html, /timelineChatEngine\.chooseNextSpeaker/);
+    assert.match(html, /timelineChatEngine\.selectSingleReply/);
+    assert.match(html, /simulateTimelineEvents\(\{ fromEventScreen: true \}\)/);
+    assert.match(html, /Prepara azione/);
+    assert.match(html, /un interlocutore per chiamata/);
 });
 
 test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
