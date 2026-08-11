@@ -70,6 +70,8 @@
             'btn-inventory': 'Apri inventario',
             'btn-character': 'Apri scheda personaggio',
             'btn-memory': 'Apri cronaca e memoria del mondo',
+            'btn-strategic-actions': 'Apri analisi strategica e azioni consigliate',
+            'btn-strategic-analyze': 'Genera una nuova analisi strategica',
             'btn-send': 'Invia azione al Master'
         };
         Object.entries(labels).forEach(([id, label]) => {
