@@ -24,6 +24,20 @@
         spy: ['Spionaggio internazionale', 'un’informazione rubata può impedire una crisi o provocarla', 'una rete di città, coperture, servizi segreti e doppi giochi', 'Teso, intelligente e cinematografico.', 'Coperture, prove, sospetti, contatti e obiettivi delle agenzie restano coerenti e persistenti.']
     };
 
+    const START_PRESETS = {
+        fantasy: { day: 1, month: 3, year: 1400, hour: 8, minute: 0 },
+        contemporary: { day: 2, month: 5, year: 2024, hour: 9, minute: 0 },
+        sport: { day: 15, month: 8, year: 2024, hour: 10, minute: 0 },
+        business: { day: 2, month: 4, year: 2023, hour: 9, minute: 0 },
+        crime: { day: 7, month: 10, year: 1986, hour: 22, minute: 0 },
+        historical: { day: 2, month: 4, year: 1472, hour: 9, minute: 0 },
+        military: { day: 1, month: 11, year: 1943, hour: 5, minute: 0 },
+        diplomatic: { day: 10, month: 9, year: 2025, hour: 10, minute: 0 },
+        rural: { day: 20, month: 4, year: 1890, hour: 6, minute: 0 },
+        pirate: { day: 5, month: 7, year: 1720, hour: 14, minute: 0 },
+        spy: { day: 3, month: 3, year: 1968, hour: 21, minute: 0 }
+    };
+
     function clean(value, limit = 1200) {
         const text = String(value == null ? '' : value)
             .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -40,6 +54,33 @@
     function blueprintFor(genre) {
         const values = BLUEPRINTS[genreOf(genre)] || BLUEPRINTS.fantasy;
         return { setting: values[0], hook: values[1], place: values[2], tone: values[3], depth: values[4] };
+    }
+
+    function inferStartTime(source = {}, genreValue) {
+        const genre = genreOf(genreValue || source.genre);
+        const explicit = source.startTime && typeof source.startTime === 'object' ? source.startTime : {};
+        const explicitYear = Number(explicit.year);
+        const combined = [source.setting, source.idea, source.desc, source.prologue]
+            .map(value => clean(value, 2000)).filter(Boolean).join(' ');
+        const historicalBusiness = genre === 'business' &&
+            /\b(?:storico|medici|pazzi|signoria|rinascimento|rinascimentale|quattrocento|cinquecento|fiorini)\b/i.test(combined);
+        const preset = { ...(START_PRESETS[historicalBusiness ? 'historical' : genre] || START_PRESETS.fantasy) };
+        const years = combined.match(/\b(?:1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\b/g) || [];
+        const inferredYear = years.length ? Number(years[0]) : NaN;
+        const year = Number.isFinite(explicitYear) && explicitYear >= 1000 && explicitYear <= 2199
+            ? explicitYear
+            : (Number.isFinite(inferredYear) ? inferredYear : preset.year);
+        const integer = (value, fallback, min, max) => {
+            const parsed = Math.trunc(Number(value));
+            return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
+        };
+        return {
+            day: integer(explicit.day, preset.day, 1, 31),
+            month: integer(explicit.month, preset.month, 1, 12),
+            year,
+            hour: integer(explicit.hour, preset.hour, 0, 23),
+            minute: integer(explicit.minute, preset.minute, 0, 59)
+        };
     }
 
     function titleFrom(seed, blueprint) {
@@ -92,6 +133,7 @@
             personality: clean(seed.personality, 800) || blueprint.tone,
             depth: clean(seed.depth, 1200) || `${blueprint.depth} Introduci obiettivi chiari, almeno tre fazioni o gruppi d’interesse e PNG con motivazioni indipendenti. Non regalare successi: applica costi, rischi e conseguenze.`,
             prologue: clean(seed.prologue, 1600) || `È l’inizio di una giornata destinata a cambiare tutto. Ti trovi in ${blueprint.place}: ${premise}. Un segnale concreto della crisi è già davanti a te, mentre due possibili strade richiedono una decisione immediata. Nessuno sceglierà al posto tuo.`,
+            startTime: inferStartTime(seed, genre),
             starterProperties: properties
         };
     }
@@ -121,6 +163,7 @@
             personality: clean(merged.personality, 800) || fallback.personality,
             depth: clean(merged.depth, 1200) || fallback.depth,
             prologue: clean(merged.prologue, 1600) || fallback.prologue,
+            startTime: inferStartTime(merged, fallback.genre),
             starterProperties: properties
         };
     }
@@ -141,7 +184,8 @@
             `Idea del giocatore: ${clean(seed.idea || seed.desc, 700) || 'nessuna idea aggiuntiva'}`,
             `Genere: ${base.genre}. Ambientazione richiesta: ${clean(seed.setting, 160) || base.setting}.`,
             `Difficoltà: ${base.difficulty}. Titolo suggerito: ${clean(seed.title, 100) || 'da inventare'}.`,
-            'Campi obbligatori: title, setting, genre, difficulty, starterGold, desc, personality, depth, prologue, starterProperties.',
+            'Campi obbligatori: title, setting, genre, difficulty, starterGold, desc, personality, depth, prologue, startTime, starterProperties.',
+            'startTime deve essere un oggetto {"day":numero,"month":numero,"year":numero,"hour":numero,"minute":numero}. Scegli la data di calendario esatta della scena iniziale in base alla premessa e all’epoca; non usare l’anno reale corrente come riempitivo.',
             'desc deve fissare mondo, conflitto centrale, posta in gioco e almeno tre forze attive.',
             'depth deve imporre coerenza di PNG, fazioni, economia, tempo, proprietà e conseguenze.',
             'prologue deve essere una scena iniziale in seconda persona con luogo, problema concreto e una scelta aperta; non decidere per il protagonista.',
@@ -155,6 +199,8 @@
         GENRES,
         BLUEPRINTS,
         genreOf,
+        START_PRESETS,
+        inferStartTime,
         createFallbackStory,
         completeStory,
         parseGeneratedStory,
