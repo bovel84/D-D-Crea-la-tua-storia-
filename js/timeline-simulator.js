@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 4;
+    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 5;
     const EVENT_QUEUE_LIMIT = 40;
     const MIN_EVENT_DELAY_MINUTES = 5;
     const MAX_EVENT_DELAY_MINUTES = 5256000;
@@ -38,6 +38,29 @@
             hash = Math.imul(hash, 16777619);
         }
         return (hash >>> 0).toString(36);
+    }
+
+    function isGenericActorName(value) {
+        return /^(?:(?:il|la|lo|i|gli|le) )?(autorita|opposizione|comunita|custode|voce dell opposizione|guida locale|mediatore indipendente)(\b| di )/.test(keyOf(value));
+    }
+
+    function containsPlaceholder(value) {
+        const text = cleanText(value, 1600);
+        return /\b(?:Autorità|Opposizione|Comunità) di\b/i.test(text) ||
+            /\b(?:Custode|Guida locale|Mediatore indipendente|Voce dell['’ ]Opposizione)\b/i.test(text) ||
+            /\b(?:Equilibrio in cambiamento|Prossimo sviluppo del mondo|Definire il prossimo passo)\b/i.test(text) ||
+            /(?:Storico|Historical)\s*\/\s*(?:Business|Economia)/i.test(text);
+    }
+
+    function isPlaceholderActor(actor) {
+        return !actor || isGenericActorName(actor.name) || /deterministic-fallback|timeline-recovery/i.test(actor.source || '');
+    }
+
+    function isPlaceholderSeed(seed) {
+        return Boolean(seed && containsPlaceholder([
+            seed.title, seed.topic, seed.cause, seed.choice?.topic,
+            seed.choice?.actionTitle, seed.choice?.command
+        ].filter(Boolean).join(' ')));
     }
 
     function clampEventDelay(value, fallback = 1440) {
@@ -153,7 +176,7 @@
     function normalizeEventQueue(queue, context = {}) {
         const seen = new Set();
         return asArray(queue).map((item, index) => normalizeEventSeed(item, index, context)).filter(item => {
-            if (!item) return false;
+            if (!item || isPlaceholderSeed(item)) return false;
             const fingerprint = keyOf(`${item.sourceId}|${item.kind}|${item.cause}`);
             if (seen.has(item.id) || seen.has(fingerprint)) return false;
             seen.add(item.id);
@@ -165,7 +188,7 @@
     function normalizeTimelineChoice(source, index = 0) {
         const input = source && typeof source === 'object' ? source : { summary: source };
         const summary = cleanText(input.summary || input.description || input.command, 700);
-        if (!summary) return null;
+        if (!summary || containsPlaceholder(`${input.topic || ''} ${input.actionTitle || input.title || ''} ${summary}`)) return null;
         const sourceName = cleanText(input.source || 'player-action', 60);
         const isStrategic = keyOf(sourceName) === 'strategic-advisor' || Boolean(input.topic && input.actionTitle);
         const rawId = cleanText(input.id, 150).replace(/[^a-zA-Z0-9_-]/g, '');
@@ -223,13 +246,45 @@
             source !== 'time-engine' && !/^vita durante\b/.test(title);
     }
 
-    function activeActors(world) {
-        return [...asArray(world?.actors), ...asArray(world?.factions)]
+    function normalizeKnownActor(actor) {
+        if (typeof actor === 'string') {
+            return { name: cleanText(actor, 120), kind: 'npc', influence: 20, source: 'event-memory' };
+        }
+        const input = actor && typeof actor === 'object' ? actor : {};
+        return {
+            ...input,
+            name: cleanText(input.name, 120),
+            kind: input.kind === 'faction' || input.type === 'fazione' ? 'faction' : (input.kind || 'npc'),
+            goal: cleanText(input.goal || input.goals || input.publicGoal, 300),
+            strategy: cleanText(input.strategy || input.agenda, 260),
+            resources: cleanText(input.resources || input.leverage, 240),
+            influence: Number(input.influence) || Math.max(10, Number(input.level || 1) * 10),
+            source: cleanText(input.source || 'memory', 60)
+        };
+    }
+
+    function activeActors(world, context = {}) {
+        const recentNames = asArray(context.recentEvents).flatMap(event => asArray(event?.actors));
+        const protagonistKey = keyOf(context.protagonistName || 'protagonista');
+        const seen = new Set();
+        return [
+            ...asArray(world?.actors),
+            ...asArray(world?.factions),
+            ...asArray(context.knownActors),
+            ...recentNames
+        ]
+            .map(normalizeKnownActor)
             .filter(actor => actor && actor.status !== 'dead' && actor.status !== 'resolved' && cleanText(actor.name, 120))
+            .filter(actor => !isPlaceholderActor(actor) && keyOf(actor.name) !== protagonistKey)
+            .filter(actor => {
+                const key = keyOf(actor.name);
+                if (!key || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            })
             .sort((left, right) => {
                 const score = actor => Number(actor.influence || 0) +
-                    (actor.kind === 'faction' ? 4 : 0) -
-                    (/fallback|recovery/.test(keyOf(actor.source)) ? 25 : 0);
+                    (actor.kind === 'faction' ? 4 : 0);
                 return score(right) - score(left);
             });
     }
@@ -266,9 +321,15 @@
         const forceLimit = Math.max(1, Math.min(16, Number(context.forceLimit) || 5));
         const recentEventLimit = Math.max(1, Math.min(20, Number(context.recentEventLimit) || 6));
         const agreementLimit = Math.max(1, Math.min(16, Number(context.agreementLimit) || 6));
-        const actors = activeActors(world).slice(0, actorLimit);
-        const relations = asArray(world.relations).filter(item => item.status !== 'resolved').slice(0, relationLimit);
-        const forces = asArray(world.forces).filter(item => item.status !== 'resolved').slice(0, forceLimit);
+        const actors = activeActors(world, context).slice(0, actorLimit);
+        const relations = asArray(world.relations).filter(item =>
+            item.status !== 'resolved' && !isGenericActorName(item.from) && !isGenericActorName(item.to)
+        ).slice(0, relationLimit);
+        const forces = asArray(world.forces).filter(item =>
+            item.status !== 'resolved' &&
+            !containsPlaceholder(`${item.name || ''} ${item.actor || ''}`) &&
+            !/deterministic-fallback|timeline-recovery/i.test(item.source || '')
+        ).slice(0, forceLimit);
         const recent = asArray(context.recentEvents).filter(isMeaningfulEvent).slice(-recentEventLimit);
         const agreements = asArray(context.agreements).filter(item => !/rejected|broken|fulfilled/.test(keyOf(item.status))).slice(-agreementLimit);
         const history = world.historicalContext || {};
@@ -280,6 +341,8 @@
             ? `Questa è l'unica azione strategica da risolvere ora. Emetti esattamente un ESITO_STRATEGICO con ID ${choice.id}. Se richiede altri passaggi usa in_corso e pianifica il seguito con CODA_EVENTO.`
             : 'Non emettere ESITO_STRATEGICO in questa chiamata.';
         return `SIMULATORE DEL PROSSIMO EVENTO IMPORTANTE. Questa chiamata deve creare UN SOLO evento, non un arco completo e non un riepilogo.
+
+${cleanText(context.continuityPrompt, 16000) || 'CANONE PERSISTENTE: usa i fatti concreti già registrati e non sostituirli con categorie astratte.'}
 
 DATA ATTUALE: ${cleanText(context.currentDate || history.date || 'data corrente della campagna', 160)}.
 STORIA: ${cleanText(context.story?.title, 120)} — ${cleanText(context.story?.setting || world.setting, 180)}.
@@ -320,8 +383,8 @@ ${forces.length ? forces.map(item => `- ${cleanText(item.name, 120)}: ${cleanTex
 ACCORDI ATTIVI:
 ${agreements.length ? agreements.map(item => `- ${cleanText(item.title, 120)} tra ${asArray(item.parties).map(name => cleanText(name, 90)).join(', ')}: ${cleanText(item.terms, 340)}; stato ${cleanText(item.status, 40)}.`).join('\n') : '- Nessuno.'}
 
-EVENTI RECENTI DA NON RIPETERE:
-${recent.length ? recent.map(item => `- ${cleanText(item.title, 100)}: ${cleanText(item.summary, 240)}`).join('\n') : '- Nessuno.'}
+EVENTI RECENTI DA CONTINUARE SENZA RIPETERLI:
+${recent.length ? recent.map(item => `- ${cleanText(item.occurredAt, 100) ? `${cleanText(item.occurredAt, 100)} — ` : ''}${cleanText(item.title, 140)} [${asArray(item.actors).map(name => cleanText(name, 100)).join(', ')}]: ${cleanText(item.summary, 900)}${item.consequence ? ` Conseguenza ancora valida: ${cleanText(item.consequence, 600)}` : ''}`).join('\n') : '- Nessuno.'}
 
 REGOLE OBBLIGATORIE:
 - Genera esattamente UN EVENTO: il primo fatto importante prodotto dalla causa in coda. Non generare eventi successivi nella stessa risposta.
@@ -375,19 +438,7 @@ REGOLE OBBLIGATORIE:
     }
 
     function fallbackActors(world, context = {}) {
-        const existing = activeActors(world);
-        if (existing.length >= 3) return existing;
-        const place = cleanText(context.story?.setting || context.location || world?.name || 'il territorio', 100);
-        return [
-            ...existing,
-            { name: `Autorità di ${place}`, kind: 'faction', goal: 'mantenere il controllo', strategy: 'mobilitare funzionari e alleati', resources: 'istituzioni e informazioni', influence: 65, base: place },
-            { name: `Opposizione di ${place}`, kind: 'faction', goal: 'cambiare gli equilibri', strategy: 'organizzare sostenitori e fare pressione', resources: 'contatti e consenso', influence: 58, base: place },
-            { name: `Comunità di ${place}`, kind: 'faction', goal: 'proteggere sicurezza e mezzi di sussistenza', strategy: 'negoziare e reagire collettivamente', resources: 'reti locali', influence: 45, base: place }
-        ].filter((item, index, list) => list.findIndex(other => keyOf(other.name) === keyOf(item.name)) === index);
-    }
-
-    function isGenericActorName(value) {
-        return /^(?:(?:il|la|lo|i|gli|le) )?(autorita|opposizione|comunita|custode|voce dell opposizione|guida locale|mediatore indipendente)(\b| di )/.test(keyOf(value));
+        return activeActors(world, context);
     }
 
     function eventCentralityScore(event, context = {}) {
@@ -395,12 +446,13 @@ REGOLE OBBLIGATORIE:
         const actors = asArray(event.actors).map(item => cleanText(item, 100)).filter(Boolean);
         const summary = cleanText(event.summary, 600);
         const consequence = cleanText(event.consequence, 400);
-        const known = new Set(activeActors(context.world || {}).map(item => keyOf(item.name)));
+        const known = new Set(activeActors(context.world || {}, context).map(item => keyOf(item.name)));
         let score = 0;
         if (summary.length >= 60 && summary.split(/[.!?]+/).filter(Boolean).length >= 2) score += 2;
         if (actors.length >= 2) score += 2;
         if (actors.length && actors.every(name => !isGenericActorName(name))) score += 2;
         if (actors.some(isGenericActorName)) score -= 4;
+        if (containsPlaceholder(`${event?.title || ''} ${summary} ${event?.cause || ''}`)) score -= 10;
         if (actors.some(name => known.has(keyOf(name)))) score += 1;
         if (consequence.length >= 15 && !/nessuna|da affrontare|dovra reagire$/i.test(consequence)) score += 2;
         if (cleanText(event.cause, 30)) score += 1;
@@ -455,8 +507,13 @@ REGOLE OBBLIGATORIE:
         const strategicGroups = strategicChoiceGroups(normalizedChoices);
         const count = desiredEventCount(days, strategicGroups.length);
         const actors = fallbackActors(context.world || {}, context);
-        const relations = asArray(context.world?.relations).filter(item => item.status !== 'resolved');
-        const forces = asArray(context.world?.forces).filter(item => item.status !== 'resolved');
+        if (!actors.length) return { events: [], moves: [] };
+        const relations = asArray(context.world?.relations).filter(item =>
+            item.status !== 'resolved' && !isGenericActorName(item.from) && !isGenericActorName(item.to)
+        );
+        const forces = asArray(context.world?.forces).filter(item =>
+            item.status !== 'resolved' && !containsPlaceholder(`${item.name || ''} ${item.actor || ''}`)
+        );
         const choices = normalizedChoices.map(choice => cleanText(choice.summary, 240));
         const events = [];
         const moves = [];
@@ -616,9 +673,11 @@ REGOLE OBBLIGATORIE:
 
         if (context.includeWorld !== false) {
             const forces = asArray(world?.forces)
-                .filter(item => item && item.status !== 'resolved')
+                .filter(item => item && item.status !== 'resolved' &&
+                    !containsPlaceholder(`${item.name || ''} ${item.actor || ''}`) &&
+                    !/deterministic-fallback|timeline-recovery/i.test(item.source || ''))
                 .sort((left, right) => Number(right.urgency || 0) - Number(left.urgency || 0));
-            const actors = activeActors(world);
+            const actors = activeActors(world, context);
             const force = forces[0];
             const actor = actors.find(item => keyOf(item.name) === keyOf(force?.actor)) || actors[0];
             if (force || actor) {
@@ -641,6 +700,25 @@ REGOLE OBBLIGATORIE:
                     createdAtTurn: turn
                 }, seeds.length, { turn, batchId });
                 if (worldSeed) seeds.push(worldSeed);
+            } else {
+                const previousEvent = [...asArray(context.recentEvents)].reverse().find(isMeaningfulEvent);
+                if (previousEvent && !containsPlaceholder(`${previousEvent.title || ''} ${previousEvent.summary || ''}`)) {
+                    const worldSeed = normalizeEventSeed({
+                        id: `pending-continuity-${hashText(`${batchId}|${previousEvent.id || previousEvent.title}`)}`,
+                        kind: 'world_reply',
+                        title: `Conseguenza di ${previousEvent.title || 'quanto è accaduto'}`,
+                        cause: previousEvent.consequence || previousEvent.summary,
+                        actors: asArray(previousEvent.actors),
+                        priority: previousEvent.importance === 'critical' ? 90 : 70,
+                        notBeforeMinutes: previousEvent.importance === 'critical' ? 60 : 1440,
+                        interactionMode: normalizeInteractionMode(previousEvent.interactionMode, 'either'),
+                        sourceId: previousEvent.id,
+                        source: 'event-continuity',
+                        batchId,
+                        createdAtTurn: turn
+                    }, seeds.length, { turn, batchId });
+                    if (worldSeed) seeds.push(worldSeed);
+                }
             }
         }
         return normalizeEventQueue(seeds, { turn, batchId });
@@ -717,7 +795,12 @@ REGOLE OBBLIGATORIE:
         const actors = fallbackActors(context.world || {}, context);
         const named = seed?.actors?.map(name => actors.find(actor => keyOf(actor.name) === keyOf(name))).filter(Boolean) || [];
         const actor = named[0] || actors[0];
-        const target = named[1] || actors.find(item => keyOf(item.name) !== keyOf(actor?.name)) || actors[1] || actor;
+        if (!actor) return null;
+        const protagonistName = cleanText(context.protagonistName, 100);
+        const protagonist = protagonistName && keyOf(protagonistName) !== keyOf(actor.name)
+            ? { name: protagonistName, kind: 'protagonista' }
+            : null;
+        const target = named[1] || actors.find(item => keyOf(item.name) !== keyOf(actor.name)) || protagonist;
         const place = actorPlace(actor, context);
         const choice = seed?.choice;
         const strategic = choice?.isStrategic;
@@ -725,9 +808,9 @@ REGOLE OBBLIGATORIE:
         const event = worldLed ? {
             type: actor?.kind === 'faction' ? 'politica' : 'mondo',
             title: seed?.title || `La mossa di ${actor.name}`,
-            summary: `${actor.name}, perseguendo ${actorGoal(actor)}, ha usato ${actorResources(actor)} per ${actorStrategy(actor)}. La mossa è diventata visibile a ${target.name}, che ora deve ricalcolare la propria posizione.`,
-            consequence: `${actor.name} conquista temporaneamente l'iniziativa e ${target.name} deve decidere se reagire, negoziare o ostacolarlo.`,
-            actors: [actor.name, target.name]
+            summary: `${actor.name}, perseguendo ${actorGoal(actor)}, ha usato ${actorResources(actor)} per ${actorStrategy(actor)}. La mossa è diventata visibile${target ? ` a ${target.name}, che ora deve ricalcolare la propria posizione` : ' nel contesto già registrato'}.`,
+            consequence: `${actor.name} conquista temporaneamente l'iniziativa${target ? ` e ${target.name} deve decidere se reagire, negoziare o ostacolarlo` : ''}.`,
+            actors: [actor.name, target?.name].filter(Boolean)
         } : {
             type: strategic ? 'decisione' : 'missione',
             title: seed?.title || (strategic ? `${choice.topic}: il piano entra in azione` : 'La scelta produce un primo effetto'),
@@ -735,7 +818,7 @@ REGOLE OBBLIGATORIE:
             consequence: strategic
                 ? `L'azione su «${choice.topic || seed?.topic || 'la questione'}» produce un primo esito verificabile, mentre la risposta di ${actor.name} resta da sviluppare.`
                 : `La scelta del protagonista cambia le opzioni di ${actor.name} e prepara una risposta del mondo.`,
-            actors: [actor.name, target.name],
+            actors: [actor.name, target?.name].filter(Boolean),
             strategicTopic: choice?.topic,
             strategicActionIds: strategic ? [choice.id] : []
         };
@@ -895,7 +978,7 @@ REGOLE OBBLIGATORIE:
         const strategicChoices = normalizeTimelineChoices(choices).filter(item => item.isStrategic);
         const parsed = asArray(incomingOutcomes);
         const availableEvents = asArray(events).filter(isMeaningfulEvent);
-        const actors = activeActors(world);
+        const actors = activeActors(world, context);
         const batchId = cleanText(
             context.batchId || `timeline-${Math.max(0, Number(context.turn) || 0)}-${context.occurredAt || context.passage?.endDate || 'periodo'}`,
             180
@@ -977,7 +1060,7 @@ REGOLE OBBLIGATORIE:
     }
 
     function buildConversationStarters(events, world, context = {}) {
-        const actors = activeActors(world);
+        const actors = activeActors(world, context);
         const actorByName = name => actors.find(item => keyOf(item.name) === keyOf(name));
         const protagonistKey = keyOf(context.protagonistName || 'protagonista');
         const event = asArray(events).find(item =>
@@ -1025,6 +1108,9 @@ REGOLE OBBLIGATORIE:
         MAX_EVENT_DELAY_MINUTES,
         cleanText,
         keyOf,
+        isGenericActorName,
+        containsPlaceholder,
+        isPlaceholderSeed,
         parseDurationMinutes,
         normalizeInteractionMode,
         inferInteractionMode,

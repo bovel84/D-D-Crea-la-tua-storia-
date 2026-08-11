@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const MEMORY_SCHEMA_VERSION = 8;
+    const MEMORY_SCHEMA_VERSION = 9;
     const DEFAULT_SHORT_TERM_MESSAGES = 10;
     const DEFAULT_RETRIEVAL_LIMIT = 5;
     const DEFAULT_COMPRESSION_THRESHOLD = 6000;
@@ -15,7 +15,7 @@
         'npcs', 'locations', 'factions', 'quests', 'events', 'playerDecisions',
         'narrativeGoals', 'revealedSecrets', 'acquiredItems', 'acquiredAbilities',
         'properties', 'family', 'employees', 'chats', 'agreements', 'pendingTimelineChoices', 'pendingTimelineEvents',
-        'pendingStrategicActions', 'strategicActionHistory'
+        'pendingStrategicActions', 'strategicActionHistory', 'continuityLog'
     ];
 
     const STOP_WORDS = new Set([
@@ -98,6 +98,7 @@
             pendingTimelineEvents: [],
             pendingStrategicActions: [],
             strategicActionHistory: [],
+            continuityLog: [],
             lastTimelineEventId: '',
             world: {},
             storySummary: '',
@@ -263,9 +264,12 @@
     }
 
     function entryTitle(type, entry) {
-        if (type === 'eventi') return entry.summary || entry.name || `Evento turno ${entry.turn || '?'}`;
+        if (type === 'eventi') return entry.title || entry.summary || entry.name || `Evento turno ${entry.turn || '?'}`;
         if (type === 'decisioni') return entry.summary || entry.description || 'Decisione del giocatore';
         if (type === 'segreti') return entry.name || entry.summary || entry.secret || 'Segreto svelato';
+        if (type === 'conversazioni') return entry.title || entry.eventTitle || 'Conversazione';
+        if (type === 'accordi') return entry.title || entry.terms || 'Accordo';
+        if (type === 'continuità') return entry.title || entry.summary || entry.action || 'Sviluppo recente';
         return entry.name || entry.title || entry.summary || entry.role || 'Elemento di memoria';
     }
 
@@ -287,7 +291,10 @@
             ['decisioni', state.playerDecisions],
             ['obiettivi', state.narrativeGoals],
             ['segreti', state.revealedSecrets],
-            ['quest', state.quests]
+            ['quest', state.quests],
+            ['conversazioni', state.chats],
+            ['accordi', state.agreements],
+            ['continuità', state.continuityLog]
         ];
 
         return groups.flatMap(([type, entries]) => entries.map((entry, index) => ({
@@ -298,7 +305,11 @@
             turn: Number(entry.turn ?? entry.lastSeen ?? entry.discovered ?? entry.createdAtTurn ?? 0) || 0,
             importance: entry.importance || (entry.status === 'active' ? 'high' : 'normal'),
             raw: entry
-        })));
+        }))).filter(item =>
+            !isPlaceholderEntity(item.title) &&
+            !asArray(item.raw?.actors).some(isPlaceholderEntity) &&
+            !/deterministic-fallback|timeline-recovery/i.test(item.raw?.source || '')
+        );
     }
 
     function scoreEntry(query, queryTokens, entry, currentTurn) {
@@ -349,6 +360,164 @@
         }).join('\n');
     }
 
+    function cleanText(value, maxLength = 900) {
+        return String(value == null ? '' : value)
+            .replace(/[\u0000-\u001f\u007f]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, maxLength);
+    }
+
+    function isPlaceholderEntity(value) {
+        const key = normalizeText(value);
+        return /^(?:(?:il|la|lo|i|gli|le) )?(?:autorita|opposizione|comunita|custode|voce dell opposizione|guida locale|mediatore indipendente)(?:\b| di )/.test(key) ||
+            /^(?:equilibrio in cambiamento|prossimo sviluppo del mondo)$/.test(key) ||
+            /(?:storico|historical)\s*\/\s*(?:business|economia)/.test(key);
+    }
+
+    function containsPlaceholderNarrative(value) {
+        return /\b(?:Equilibrio in cambiamento|Prossimo sviluppo del mondo|Definire il prossimo passo)\b/i.test(String(value || '')) ||
+            /(?:Storico|Historical)\s*\/\s*(?:Business|Economia)/i.test(String(value || ''));
+    }
+
+    function extractYears(value) {
+        const matches = String(value || '').match(/\b(?:1[0-9]{3}|20[0-9]{2}|21[0-9]{2})\b/g) || [];
+        return [...new Set(matches.map(Number).filter(year => year >= 1000 && year <= 2199))];
+    }
+
+    function inferCanonicalYear(memory, story = {}) {
+        const state = migrateMemory(memory);
+        const evidence = new Map();
+        const add = (value, weight, source) => {
+            extractYears(value).forEach(year => {
+                const current = evidence.get(year) || { year, score: 0, sources: [] };
+                current.score += weight;
+                current.sources.push(source);
+                evidence.set(year, current);
+            });
+        };
+        const explicitStartYear = Number(story?.startTime?.year);
+        if (Number.isFinite(explicitStartYear)) add(explicitStartYear, 20, 'story.startTime');
+        add(story?.setting, 6, 'story.setting');
+        add(story?.desc, 4, 'story.desc');
+        add(story?.prologue, 4, 'story.prologue');
+        add(state.world?.historicalContext?.date, state.world?.provisional ? 2 : 8, 'world.historicalContext.date');
+        add(state.world?.historicalContext?.baseline, state.world?.provisional ? 1 : 3, 'world.historicalContext.baseline');
+        asArray(state.events)
+            .filter(item => item && item.source !== 'time-engine' && !containsPlaceholderNarrative(`${item.title || ''} ${item.summary || ''}`))
+            .filter(item => !asArray(item.actors).some(isPlaceholderEntity))
+            .slice(-12)
+            .forEach((event, index, list) => add(event.occurredAt || event.date, 5 + Math.round((index + 1) / Math.max(1, list.length)), `event:${event.id || event.title || index}`));
+        asArray(state.chats).filter(item => item && item.status !== 'closed').slice(-6)
+            .forEach((thread, index) => add(thread.occurredAt, 2, `chat:${thread.id || index}`));
+        const ranked = [...evidence.values()].sort((left, right) => right.score - left.score || right.year - left.year);
+        const winner = ranked[0];
+        const runnerUp = ranked[1];
+        if (!winner || winner.score < 5) return null;
+        if (runnerUp && winner.score - runnerUp.score < 2 && explicitStartYear !== winner.year) return null;
+        return winner;
+    }
+
+    function uniqueNames(values, limit = 20) {
+        const seen = new Set();
+        return asArray(values).map(value => cleanText(value, 120)).filter(value => {
+            const key = normalizeText(value);
+            if (!key || seen.has(key) || isPlaceholderEntity(value)) return false;
+            seen.add(key);
+            return true;
+        }).slice(0, limit);
+    }
+
+    function recordContinuity(memory, entry, limit = 48) {
+        const state = memory && typeof memory === 'object' ? memory : createDefaultMemory();
+        state.continuityLog = asArray(state.continuityLog);
+        const input = entry && typeof entry === 'object' ? entry : { summary: entry };
+        const item = {
+            type: cleanText(input.type || 'turno', 40),
+            title: cleanText(input.title || input.action, 180),
+            summary: cleanText(input.summary || input.result || input.response, 1400),
+            action: cleanText(input.action, 700),
+            actors: uniqueNames(input.actors, 10),
+            date: cleanText(input.date || input.occurredAt, 120),
+            location: cleanText(input.location, 120),
+            turn: Math.max(0, Number(input.turn ?? state.turnCount) || 0),
+            source: cleanText(input.source || 'game', 60)
+        };
+        if (!item.title && !item.summary && !item.action) return state;
+        if (containsPlaceholderNarrative(`${item.title} ${item.summary} ${item.action}`) || item.actors.some(isPlaceholderEntity)) return state;
+        const fingerprint = normalizeText(`${item.type}|${item.title}|${item.summary}|${item.action}`).slice(0, 600);
+        const previous = state.continuityLog[state.continuityLog.length - 1];
+        const previousFingerprint = normalizeText(`${previous?.type || ''}|${previous?.title || ''}|${previous?.summary || ''}|${previous?.action || ''}`).slice(0, 600);
+        if (fingerprint && fingerprint !== previousFingerprint) state.continuityLog.push(item);
+        state.continuityLog = state.continuityLog.slice(-Math.max(8, Number(limit) || 48));
+        return state;
+    }
+
+    function chatLine(thread) {
+        const title = cleanText(thread?.title || thread?.eventTitle || 'Conversazione', 140);
+        const participants = uniqueNames(thread?.participants, 10);
+        const messages = asArray(thread?.messages).slice(-6).map(message =>
+            `${cleanText(message?.speaker || 'Interlocutore', 100)}: ${cleanText(message?.text, 500)}`
+        ).filter(line => !/:\s*$/.test(line));
+        const resolution = cleanText(thread?.resolution?.summary || thread?.resolution?.status, 300);
+        return `- ${title}${participants.length ? ` (${participants.join(', ')})` : ''}${resolution ? ` — stato: ${resolution}` : ''}` +
+            (messages.length ? `\n  ${messages.join('\n  ')}` : '');
+    }
+
+    function eventLine(event) {
+        const title = cleanText(event?.title || event?.summary || 'Evento', 160);
+        const when = cleanText(event?.occurredAt || event?.date, 120);
+        const actors = uniqueNames(event?.actors, 10);
+        const summary = cleanText(event?.summary || event?.description, 900);
+        const consequence = cleanText(event?.consequence, 600);
+        return `- ${when ? `${when} — ` : ''}${title}${actors.length ? ` [${actors.join(', ')}]` : ''}: ${summary}` +
+            (consequence ? ` Conseguenza persistente: ${consequence}` : '');
+    }
+
+    function buildContinuityContext(memory, options = {}) {
+        const state = migrateMemory(memory);
+        const story = options.story || {};
+        const maxTokens = Math.max(500, Number(options.maxTokens) || 2200);
+        const namedActors = uniqueNames([
+            ...asArray(state.npcs).filter(item => !/dead|morto/i.test(item?.status || '')).map(item => item?.name),
+            ...asArray(state.factions).filter(item => !/resolved|dead|inactive/i.test(item?.status || '')).map(item => item?.name),
+            ...asArray(state.events).slice(-12).flatMap(item => asArray(item?.actors)),
+            ...asArray(state.chats).filter(item => item?.status !== 'closed').flatMap(item => asArray(item?.participants))
+        ], 30);
+        const recentEvents = asArray(state.events)
+            .filter(item => item && item.source !== 'time-engine' && cleanText(item.summary, 20))
+            .filter(item => !isPlaceholderEntity(item.title) && !asArray(item.actors).some(isPlaceholderEntity))
+            .slice(-12);
+        const activeQuests = [...asArray(state.quests), ...asArray(state.narrativeGoals)]
+            .filter(item => item && !/completed|resolved|failed|closed|conclus|fallit/i.test(item.status || ''))
+            .filter(item => !isPlaceholderEntity(item.name || item.title))
+            .slice(-10);
+        const activeChats = asArray(state.chats).filter(item => item && item.status !== 'closed').slice(-6);
+        const decisions = asArray(state.playerDecisions).slice(-10);
+        const agreements = asArray(state.agreements)
+            .filter(item => item && !/expired|terminated|closed|broken|fulfilled/i.test(item.status || ''))
+            .slice(-8);
+        const log = asArray(state.continuityLog).slice(-12);
+        const sections = [
+            'CANONE PERSISTENTE DELLA CAMPAGNA — questi fatti hanno precedenza su etichette generiche o deduzioni nuove:',
+            `Campagna: ${cleanText(story.title, 160) || cleanText(state.world?.name, 160) || 'titolo non registrato'}.`,
+            `Premessa: ${cleanText(story.desc, 900) || cleanText(state.world?.premise, 900) || 'non registrata'}.`,
+            `Momento corrente: ${cleanText(options.currentDate, 140) || 'data non specificata'}; luogo: ${cleanText(options.location, 140) || 'non specificato'}; protagonista: ${cleanText(options.protagonistName, 120) || 'protagonista'}.`,
+            namedActors.length ? `Nomi canonici disponibili: ${namedActors.join(', ')}.` : 'Nessun nome canonico affidabile ancora registrato.',
+            recentEvents.length ? `\nULTIMI EVENTI VERI, IN ORDINE CRONOLOGICO:\n${recentEvents.map(eventLine).join('\n')}` : '',
+            activeChats.length ? `\nCONVERSAZIONI ANCORA ATTIVE:\n${activeChats.map(chatLine).join('\n')}` : '',
+            decisions.length ? `\nDECISIONI RECENTI DEL GIOCATORE:\n${decisions.map(item => `- ${cleanText(item?.summary || item?.description || item?.action, 600)}`).filter(line => line !== '- ').join('\n')}` : '',
+            activeQuests.length ? `\nTRAME E OBIETTIVI APERTI:\n${activeQuests.map(item => `- ${cleanText(item?.name || item?.title, 160)}: ${cleanText(item?.description || item?.objective || item?.summary, 600)}`).join('\n')}` : '',
+            agreements.length ? `\nACCORDI ATTIVI:\n${agreements.map(item => `- ${cleanText(item?.title, 160)} tra ${uniqueNames(item?.parties, 10).join(', ')}: ${cleanText(item?.terms, 600)} [${cleanText(item?.status, 50)}]`).join('\n')}` : '',
+            log.length ? `\nSVILUPPI CONSOLIDATI PIÙ RECENTI:\n${log.map(item => `- ${cleanText(item?.date, 100) ? `${cleanText(item.date, 100)} — ` : ''}${cleanText(item?.title || item?.action, 180)}: ${cleanText(item?.summary, 700)}`).join('\n')}` : '',
+            state.sceneSummary && !containsPlaceholderNarrative(state.sceneSummary) ? `\nSTATO DELLA SCENA CONSOLIDATO:\n${cleanText(state.sceneSummary, 2200)}` : '',
+            state.storySummary && !containsPlaceholderNarrative(state.storySummary) ? `\nRIASSUNTO DI LUNGO PERIODO:\n${cleanText(state.storySummary, 2600)}` : '',
+            '\nREGOLA DI CONTINUITÀ: non sostituire mai questi nomi e fatti con categorie come Autorità, Opposizione, Comunità, “Storico / Business” o “Equilibrio in cambiamento”. Se manca un dato, non inventarlo: continua dal fatto concreto più recente o segnala che serve una nuova informazione.'
+        ].filter(Boolean);
+        const prompt = truncateToTokens(sections.join('\n'), maxTokens);
+        return { prompt, namedActors, recentEvents, activeChats, decisions, activeQuests, agreements };
+    }
+
     class AdvancedMemoryManager {
         constructor(options) {
             this.options = {
@@ -389,13 +558,21 @@
             const shortTermMessages = Math.max(1, Number(options.shortTermMessages) || this.options.shortTermMessages);
             const retrievalLimit = Math.max(1, Number(options.retrievalLimit) || this.options.retrievalLimit);
             const mediumTermTokens = Math.max(100, Number(options.mediumTermTokens) || this.options.mediumTermTokens);
+            const continuityTokens = Math.max(500, Number(options.continuityTokens) || Math.max(1200, mediumTermTokens));
             const shortTerm = asArray(history).slice(-shortTermMessages);
             const retrieved = this.retrieve(query, state, retrievalLimit);
+            const continuity = buildContinuityContext(state, {
+                ...(options.continuity || {}),
+                maxTokens: continuityTokens
+            });
             return {
                 shortTerm,
                 mediumTerm: truncateToTokens(state.mediumTerm.summary || state.sceneSummary || '', mediumTermTokens),
                 retrieved,
+                continuity,
                 prompt: [
+                    continuity.prompt,
+                    '',
                     'MEMORIA A MEDIO TERMINE (scena/capitolo):',
                     truncateToTokens(state.mediumTerm.summary || state.sceneSummary || 'Nessun riassunto consolidato.', mediumTermTokens),
                     '',
@@ -420,6 +597,10 @@
         compressHistory,
         retrieveRelevant,
         flattenLongTerm,
-        formatRetrieved
+        formatRetrieved,
+        isPlaceholderEntity,
+        recordContinuity,
+        buildContinuityContext,
+        inferCanonicalYear
     };
 });
