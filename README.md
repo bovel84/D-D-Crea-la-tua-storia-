@@ -48,7 +48,7 @@ Il Master LLM produce la narrazione, ma i dati importanti sono mantenuti da modu
 - PNG, fazioni, luoghi e conseguenze persistenti.
 - Consigliere strategico IA che divide l’analisi per argomenti, propone alternative concrete e permette di selezionare più azioni anche nello stesso tema, senza rivelare informazioni nascoste. Le azioni selezionate vengono trasformate in sviluppi causali persistenti e non partono al semplice tocco.
 - **Vai al prossimo evento importante** fa trascorrere il tempo realmente necessario — da pochi minuti a più anni — e genera un solo evento per chiamata. Risposte alle azioni, contromosse del mondo e sviluppi successivi rimangono in coda fino al clic su **Evento successivo**.
-- Ogni evento indica se richiede un dialogo, un’azione diretta o lascia entrambe le possibilità. Nelle chat risponde un solo interlocutore per chiamata; gli altri attendono il proprio turno.
+- I metadati tecnici degli eventi restano nascosti al giocatore: la schermata mostra il fatto narrativo e segnala soltanto l’eventuale chat attiva o l’azione disponibile. Nelle chat risponde un solo interlocutore per chiamata; gli altri attendono il proprio turno.
 - Audit prima/dopo per mantenere coerenti i sistemi gestionali.
 
 ### Personaggio e vita quotidiana
