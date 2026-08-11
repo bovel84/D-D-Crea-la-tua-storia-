@@ -30,7 +30,7 @@ function test(name, fn) { tests.push({ name, fn }); }
 test('migra la memoria legacy senza perdere i campi esistenti', () => {
     const legacy = { npcs: [{ name: 'Elara' }], events: [{ summary: 'Incontro' }], customField: 42 };
     const migrated = memoryApi.migrateMemory(legacy);
-    assert.equal(migrated.memorySchemaVersion, 5);
+    assert.equal(migrated.memorySchemaVersion, 6);
     assert.equal(migrated.npcs[0].name, 'Elara');
     assert.equal(migrated.customField, 42);
     assert.deepEqual(migrated.factions, []);
@@ -38,6 +38,8 @@ test('migra la memoria legacy senza perdere i campi esistenti', () => {
     assert.deepEqual(migrated.chats, []);
     assert.deepEqual(migrated.agreements, []);
     assert.deepEqual(migrated.pendingTimelineChoices, []);
+    assert.deepEqual(migrated.pendingStrategicActions, []);
+    assert.deepEqual(migrated.strategicActionHistory, []);
     assert.deepEqual(migrated.world, {});
 });
 
@@ -165,9 +167,17 @@ test('il simulatore dedicato impone un arco causale invece della sola routine', 
             startDate: '12 luglio 1520',
             endDate: '11 agosto 1520'
         },
-        choices: []
+        choices: [{
+            id: 'strategic-credito', source: 'strategic-advisor', topic: 'Crisi del credito',
+            actionTitle: 'Convocare i banchieri', command: 'Convoco i banchieri e negozio garanzie verificabili.',
+            objective: 'Riaprire il credito', risk: 'medio'
+        }]
     });
     assert.match(prompt, /esattamente 4 EVENTO/);
+    assert.match(prompt, /ARGOMENTO — Crisi del credito/);
+    assert.match(prompt, /ID strategic-credito/);
+    assert.match(prompt, /OGNI azione strategica emetti esattamente un ESITO_STRATEGICO/);
+    assert.match(prompt, /contromosse autonome/i);
     assert.match(prompt, /una parte agisce, un'altra reagisce/i);
     assert.match(prompt, /non trasformarla in EVENTO/i);
     assert.match(prompt, /azione osservabile e risultato/i);
@@ -191,6 +201,58 @@ test('un mese produce sempre eventi vivi distribuiti con attori e conseguenze', 
     assert.ok(arc.events.every(event => event.consequence && /giorno \d+ di 30/i.test(event.occurredAt)));
     assert.match(arc.events[1].summary, new RegExp(arc.events[0].actors[0], 'i'));
     assert.equal(arc.events.some(event => /^Vita durante/i.test(event.title)), false);
+});
+
+test('risolve ogni azione strategica e conserva anche le reazioni del mondo', () => {
+    const world = worldBootstrapApi.migrateWorld({
+        actors: [
+            { name: 'Jacopo Gherardi', goal: 'proteggere il credito', strategy: 'limitare i prestiti', resources: 'capitale', influence: 75, status: 'active' },
+            { name: 'Bernardo Segni', goal: 'proteggere la Signoria', strategy: 'incrociare dispacci', resources: 'archivi', influence: 60, status: 'active' }
+        ],
+        factions: []
+    });
+    const choices = [
+        {
+            id: 'strategic-credit', source: 'strategic-advisor', topic: 'Credito cittadino',
+            actionTitle: 'Convocare i banchieri', command: 'Convoco i banchieri per negoziare garanzie.', objective: 'Riaprire il credito'
+        },
+        {
+            id: 'strategic-gates', source: 'strategic-advisor', topic: 'Sicurezza delle porte',
+            actionTitle: 'Rinforzare le guardie', command: 'Ridistribuisco le guardie alle porte.', objective: 'Ridurre le infiltrazioni'
+        }
+    ];
+    const response = '[ESITO_STRATEGICO: strategic-credit|parziale|Jacopo concede una linea limitata|Il tesoro ottiene respiro per sette giorni|Jacopo chiede un pegno aggiuntivo|Jacopo Gherardi]';
+    const parsed = timelineSimulatorApi.parseStrategicOutcomes(response, choices, {
+        turn: 6, occurredAt: '19 luglio 1520', batchId: 'batch-6'
+    });
+    assert.equal(parsed.length, 1);
+    assert.equal(parsed[0].status, 'parziale');
+    const events = [{
+        title: 'Le porte vengono rinforzate',
+        summary: 'Le guardie occupano i varchi principali. Bernardo controlla i nuovi turni.',
+        consequence: 'Le infiltrazioni rallentano ma altri quartieri restano scoperti.',
+        actors: ['Bernardo Segni'], status: 'developing', source: 'timeline-ai'
+    }];
+    const outcomes = timelineSimulatorApi.ensureStrategicOutcomes(parsed, choices, events, world, {
+        turn: 6, occurredAt: '19 luglio 1520', batchId: 'batch-6'
+    });
+    assert.equal(outcomes.length, 2);
+    assert.equal(outcomes[0].source, 'timeline-ai');
+    assert.equal(outcomes[1].source, 'timeline-fallback');
+    assert.match(outcomes[0].worldResponse, /Jacopo chiede/);
+    assert.match(outcomes[1].worldResponse, /Bernardo/);
+    const history = timelineSimulatorApi.mergeStrategicOutcomeHistory([], outcomes);
+    assert.equal(history.length, 2);
+    assert.match(timelineSimulatorApi.buildStrategicOutcomeChronicle(history), /Credito cittadino/);
+    assert.match(timelineSimulatorApi.buildStrategicOutcomeChronicle(history), /Reazione del mondo/);
+    const fallbackArc = timelineSimulatorApi.createFallbackArc({
+        story: { title: 'Firenze contesa', setting: 'Firenze' }, world,
+        passage: { days: 7, description: '1 settimana' }, choices, location: 'Firenze'
+    });
+    assert.equal(fallbackArc.events.length, 4);
+    assert.deepEqual(fallbackArc.events[0].strategicActionIds, ['strategic-credit']);
+    assert.deepEqual(fallbackArc.events[1].strategicActionIds, ['strategic-gates']);
+    assert.match(fallbackArc.events[3].summary, /ha riconosciuto la mossa|ha messo in atto/i);
 });
 
 test('completa i tag IA mancanti senza eliminare gli eventi validi', () => {
@@ -627,6 +689,48 @@ test('interpreta il piano JSON dell’IA in questioni e pulsanti azione eseguibi
     const selected = strategicAdvisorApi.getAction(parsed, 0, 0);
     assert.match(selected.action.command, /Convoco la Gilda dei Portuali/);
     assert.doesNotMatch(selected.action.command, /<b>|MECCANICA|soldi=999/);
+});
+
+test('seleziona e deseleziona più azioni strategiche in tutti gli argomenti', () => {
+    const context = {
+        story: { title: 'Firenze contesa' },
+        character: {
+            name: 'Lorenzo', gold: 100, health: { cur: 100, max: 100 },
+            stamina: { cur: 80, max: 100 }, hunger: { cur: 70, max: 100 }
+        },
+        memory: { turnCount: 5, events: [], world: {} }, management: { businesses: [] }, kingdom: { active: false }
+    };
+    const analysis = strategicAdvisorApi.normalizeAnalysis({
+        headline: 'Due fronti aperti', situation: 'Credito e sicurezza richiedono decisioni.',
+        issues: [
+            {
+                title: 'Credito cittadino', category: 'economia', urgency: 'alta',
+                actions: [
+                    { title: 'Negoziare', command: 'Convoco i banchieri e negozio nuove garanzie verificabili.' },
+                    { title: 'Ridurre le spese', command: 'Sospendo le spese non urgenti e pubblico un bilancio provvisorio.' }
+                ]
+            },
+            {
+                title: 'Sicurezza delle porte', category: 'sicurezza', urgency: 'media',
+                actions: [{ title: 'Rinforzare le guardie', command: 'Ridistribuisco le guardie sulle porte più esposte.' }]
+            }
+        ]
+    }, context);
+    const first = strategicAdvisorApi.createQueuedAction(analysis, 0, 0, { turn: 5, date: '12 luglio 1520' });
+    const second = strategicAdvisorApi.createQueuedAction(analysis, 0, 1, { turn: 5, date: '12 luglio 1520' });
+    const third = strategicAdvisorApi.createQueuedAction(analysis, 1, 0, { turn: 5, date: '12 luglio 1520' });
+    let queue = strategicAdvisorApi.toggleQueuedAction([], first).queue;
+    queue = strategicAdvisorApi.toggleQueuedAction(queue, second).queue;
+    queue = strategicAdvisorApi.toggleQueuedAction(queue, third).queue;
+    assert.equal(queue.length, 3);
+    assert.equal(strategicAdvisorApi.groupQueuedActions(queue).length, 2);
+    const timelineChoices = strategicAdvisorApi.toTimelineChoices(queue);
+    assert.equal(timelineChoices.length, 3);
+    assert.ok(timelineChoices.every(item => item.source === 'strategic-advisor' && item.topic && item.command));
+    const removed = strategicAdvisorApi.toggleQueuedAction(queue, second);
+    assert.equal(removed.selected, false);
+    assert.equal(removed.queue.length, 2);
+    assert.equal(removed.queue.some(item => item.id === second.id), false);
 });
 
 test('completa con un piano locale specifico se il JSON dell’IA è assente o incompleto', () => {
@@ -2021,19 +2125,28 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /timelineChatEngine\.parseChatTags/);
 });
 
-test('integra analisi strategica IA, questioni espandibili e pulsante Azione', () => {
+test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /src="js\/strategic-advisor\.js"/);
     assert.match(html, /id="btn-strategic-actions"/);
     assert.match(html, /id="modal-strategic-actions"/);
     assert.match(html, /id="btn-strategic-analyze"/);
-    assert.match(html, /class="strategic-action-execute"/);
-    assert.match(html, />▶ Azione</);
+    assert.match(html, /strategic-action-execute/);
+    assert.match(html, /Seleziona azione/);
+    assert.match(html, /id="strategic-action-badge"/);
+    assert.match(html, /id="timeline-strategic-results"/);
     assert.match(html, /function requestStrategicAI/);
     assert.match(html, /function buildStrategicAdvisorContext/);
+    assert.match(html, /function toggleStrategicAction/);
+    assert.match(html, /function removeStrategicAction/);
+    assert.match(html, /function openTimelineWithStrategicActions/);
     assert.match(html, /strategicAdvisor\.buildPrompt/);
     assert.match(html, /strategicAdvisor\.ensureAnalysis/);
-    assert.match(html, /sendAction\(\{ skipBasicNeeds: true, source: 'strategic-advisor' \}\)/);
+    assert.match(html, /strategicAdvisor\.toTimelineChoices/);
+    assert.match(html, /timelineSimulator\.parseStrategicOutcomes/);
+    assert.match(html, /timelineSimulator\.ensureStrategicOutcomes/);
+    assert.match(html, /pendingStrategicActions = \[\]/);
+    assert.doesNotMatch(html, /sendAction\(\{ skipBasicNeeds: true, source: 'strategic-advisor' \}\)/);
     assert.match(html, /informazioni note al protagonista/i);
 });
 

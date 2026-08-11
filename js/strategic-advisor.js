@@ -8,6 +8,7 @@
     const SCHEMA_VERSION = 1;
     const MAX_ISSUES = 5;
     const MAX_ACTIONS_PER_ISSUE = 3;
+    const MAX_QUEUED_ACTIONS = MAX_ISSUES * MAX_ACTIONS_PER_ISSUE;
 
     function asArray(value) {
         return Array.isArray(value) ? value : [];
@@ -421,7 +422,7 @@ Ordine delle priorità:
 4. regno, attività economiche e risorse, quando esistono davvero;
 5. opportunità coerenti con ruolo, inventario, denaro, tempo e luogo.
 
-Produci da 3 a 5 questioni strategiche distinte. Per ogni questione prepara da 2 a 3 risposte realmente differenti e immediatamente utilizzabili. Evita consigli generici come «esplora», «aspetta» o «parla con qualcuno»: indica nomi, obiettivo, destinatari e metodo. Non inventare autorità, denaro, oggetti, alleanze o conoscenze. Una risposta può tentare qualcosa, ma non deve presupporre il successo. Il campo command deve essere una dichiarazione completa in prima persona, pronta per essere inviata al Master come azione del giocatore.
+Produci da 3 a 5 argomenti strategici distinti nel campo issues: ogni argomento deve analizzare un solo problema, fronte o opportunità riconoscibile. Per ciascun argomento prepara da 2 a 3 alternative realmente differenti e selezionabili anche insieme. Evita consigli generici come «esplora», «aspetta» o «parla con qualcuno»: indica nomi, obiettivo, destinatari e metodo. Non inventare autorità, denaro, oggetti, alleanze o conoscenze. Una risposta può tentare qualcosa, ma non deve presupporre il successo. Il campo command deve essere una dichiarazione completa in prima persona, pronta a entrare nel piano del giocatore e a essere risolta dal simulatore quando il tempo avanza.
 
 Rispondi esclusivamente con un singolo oggetto JSON valido, senza Markdown né testo esterno, usando questo schema:
 {
@@ -749,10 +750,136 @@ ${JSON.stringify(snapshot, null, 2)}`;
         return actionItem ? { issue: issueItem, action: actionItem } : null;
     }
 
+    function normalizeQueuedAction(source) {
+        const input = source && typeof source === 'object' ? source : {};
+        const command = sanitizeCommand(input.command || input.summary || input.description);
+        const actionTitle = cleanText(input.actionTitle || input.title, 120);
+        const issueTitle = cleanText(input.issueTitle || input.topic || input.category || 'Strategia', 140);
+        if (!command || !actionTitle) return null;
+        const stableId = cleanText(input.id, 150).replace(/[^a-zA-Z0-9_-]/g, '') ||
+            `strategic-${hashText(`${issueTitle}|${actionTitle}|${command}`)}`;
+        return {
+            id: stableId,
+            source: 'strategic-advisor',
+            status: 'queued',
+            analysisSignature: cleanText(input.analysisSignature, 160),
+            issueId: cleanText(input.issueId, 140),
+            issueTitle,
+            category: cleanText(input.category || 'strategia', 60).toLowerCase(),
+            urgency: normalizeLevel(input.urgency),
+            actors: uniqueText(input.actors, 8, 100),
+            actionId: cleanText(input.actionId, 150),
+            actionTitle,
+            command,
+            objective: cleanText(input.objective, 260),
+            expectedOutcome: cleanText(input.expectedOutcome, 360),
+            cost: cleanText(input.cost, 160),
+            duration: cleanText(input.duration, 120),
+            risk: normalizeRisk(input.risk),
+            tradeoff: cleanText(input.tradeoff, 300),
+            prerequisites: uniqueText(input.prerequisites, 5, 180),
+            queuedAtTurn: Math.max(0, Math.trunc(number(input.queuedAtTurn))),
+            queuedAtDate: cleanText(input.queuedAtDate, 120)
+        };
+    }
+
+    function createQueuedAction(analysis, issueIndex, actionIndex, context = {}) {
+        const selected = getAction(analysis, issueIndex, actionIndex);
+        if (!selected) return null;
+        const { issue: issueItem, action: actionItem } = selected;
+        return normalizeQueuedAction({
+            id: `strategic-${hashText(`${issueItem.id}|${actionItem.id}|${actionItem.command}`)}`,
+            analysisSignature: analysis?.signature,
+            issueId: issueItem.id,
+            issueTitle: issueItem.title,
+            category: issueItem.category,
+            urgency: issueItem.urgency,
+            actors: issueItem.actors,
+            actionId: actionItem.id,
+            actionTitle: actionItem.title,
+            command: actionItem.command,
+            objective: actionItem.objective,
+            expectedOutcome: actionItem.expectedOutcome,
+            cost: actionItem.cost,
+            duration: actionItem.duration,
+            risk: actionItem.risk,
+            tradeoff: actionItem.tradeoff,
+            prerequisites: actionItem.prerequisites,
+            queuedAtTurn: context.turn,
+            queuedAtDate: context.date
+        });
+    }
+
+    function normalizeQueue(queue) {
+        const seen = new Set();
+        return asArray(queue).map(normalizeQueuedAction).filter(item => {
+            if (!item || seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+        }).slice(0, MAX_QUEUED_ACTIONS);
+    }
+
+    function toggleQueuedAction(queue, queuedAction) {
+        const current = normalizeQueue(queue);
+        const item = normalizeQueuedAction(queuedAction);
+        if (!item) return { queue: current, selected: false, changed: false };
+        const existingIndex = current.findIndex(entry => entry.id === item.id);
+        if (existingIndex >= 0) {
+            return {
+                queue: current.filter((_, index) => index !== existingIndex),
+                selected: false,
+                changed: true
+            };
+        }
+        if (current.length >= MAX_QUEUED_ACTIONS) {
+            return { queue: current, selected: false, changed: false, full: true };
+        }
+        return { queue: [...current, item], selected: true, changed: true };
+    }
+
+    function groupQueuedActions(queue) {
+        const groups = [];
+        normalizeQueue(queue).forEach(item => {
+            let group = groups.find(entry => keyOf(entry.issueTitle) === keyOf(item.issueTitle));
+            if (!group) {
+                group = {
+                    issueId: item.issueId,
+                    issueTitle: item.issueTitle,
+                    category: item.category,
+                    urgency: item.urgency,
+                    actions: []
+                };
+                groups.push(group);
+            }
+            group.actions.push(item);
+        });
+        return groups;
+    }
+
+    function toTimelineChoices(queue) {
+        return normalizeQueue(queue).map(item => ({
+            id: item.id,
+            source: item.source,
+            topic: item.issueTitle,
+            issueId: item.issueId,
+            actionTitle: item.actionTitle,
+            command: item.command,
+            objective: item.objective,
+            expectedOutcome: item.expectedOutcome,
+            cost: item.cost,
+            duration: item.duration,
+            risk: item.risk,
+            tradeoff: item.tradeoff,
+            actors: item.actors,
+            summary: `[${item.issueTitle}] ${item.actionTitle}: ${item.command}`
+        }));
+    }
+
     return {
         SCHEMA_VERSION,
         MAX_ISSUES,
         MAX_ACTIONS_PER_ISSUE,
+        MAX_QUEUED_ACTIONS,
         cleanText,
         keyOf,
         buildPublicContext,
@@ -763,6 +890,12 @@ ${JSON.stringify(snapshot, null, 2)}`;
         buildFallback,
         ensureAnalysis,
         isFresh,
-        getAction
+        getAction,
+        normalizeQueuedAction,
+        createQueuedAction,
+        normalizeQueue,
+        toggleQueuedAction,
+        groupQueuedActions,
+        toTimelineChoices
     };
 });

@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 2;
+    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 3;
 
     function asArray(value) { return Array.isArray(value) ? value : []; }
 
@@ -27,12 +27,58 @@
             .trim();
     }
 
-    function desiredEventCount(daysValue) {
+    function normalizeTimelineChoice(source, index = 0) {
+        const input = source && typeof source === 'object' ? source : { summary: source };
+        const summary = cleanText(input.summary || input.description || input.command, 700);
+        if (!summary) return null;
+        const sourceName = cleanText(input.source || 'player-action', 60);
+        const isStrategic = keyOf(sourceName) === 'strategic-advisor' || Boolean(input.topic && input.actionTitle);
+        const rawId = cleanText(input.id, 150).replace(/[^a-zA-Z0-9_-]/g, '');
+        return {
+            id: rawId || `${isStrategic ? 'strategic' : 'choice'}-${index + 1}`,
+            source: sourceName,
+            isStrategic,
+            topic: cleanText(input.topic || input.issueTitle, 140),
+            actionTitle: cleanText(input.actionTitle || input.title, 140),
+            command: cleanText(input.command || input.description || summary, 620),
+            objective: cleanText(input.objective, 300),
+            expectedOutcome: cleanText(input.expectedOutcome, 360),
+            cost: cleanText(input.cost, 180),
+            duration: cleanText(input.duration, 140),
+            risk: cleanText(input.risk, 60),
+            tradeoff: cleanText(input.tradeoff, 320),
+            actors: asArray(input.actors).map(item => cleanText(item, 100)).filter(Boolean).slice(0, 8),
+            summary
+        };
+    }
+
+    function normalizeTimelineChoices(choices) {
+        const seen = new Set();
+        return asArray(choices).map(normalizeTimelineChoice).filter(item => {
+            if (!item || seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+        }).slice(-20);
+    }
+
+    function strategicChoiceGroups(choices) {
+        const groups = [];
+        normalizeTimelineChoices(choices).filter(item => item.isStrategic).forEach(item => {
+            const topic = item.topic || 'Strategia generale';
+            let group = groups.find(entry => keyOf(entry.topic) === keyOf(topic));
+            if (!group) {
+                group = { topic, actions: [] };
+                groups.push(group);
+            }
+            group.actions.push(item);
+        });
+        return groups;
+    }
+
+    function desiredEventCount(daysValue, strategicTopicCount = 0) {
         const days = Math.max(1, Number(daysValue) || 1);
-        if (days <= 1) return 2;
-        if (days <= 7) return 3;
-        if (days <= 31) return 4;
-        return 6;
+        const base = days <= 1 ? 2 : days <= 7 ? 3 : days <= 31 ? 4 : 6;
+        return Math.max(base, Math.min(10, Math.max(0, Number(strategicTopicCount) || 0) + 2));
     }
 
     function isMeaningfulEvent(event) {
@@ -69,14 +115,20 @@
         const passage = context.passage || {};
         const world = context.world || {};
         const days = Math.max(1, Number(passage.days) || Math.round(Number(passage.elapsed || 1440) / 1440) || 1);
-        const count = desiredEventCount(days);
+        const normalizedChoices = normalizeTimelineChoices(context.choices);
+        const strategicGroups = strategicChoiceGroups(normalizedChoices);
+        const count = desiredEventCount(days, strategicGroups.length);
         const actors = activeActors(world).slice(0, 8);
         const relations = asArray(world.relations).filter(item => item.status !== 'resolved').slice(0, 8);
         const forces = asArray(world.forces).filter(item => item.status !== 'resolved').slice(0, 6);
-        const choices = asArray(context.choices)
-            .map(choice => cleanText(typeof choice === 'string' ? choice : choice?.summary || choice?.description, 260))
-            .filter(Boolean)
-            .slice(-5);
+        const choices = normalizedChoices.filter(item => !item.isStrategic).slice(-5);
+        const strategicPlan = strategicGroups.length
+            ? strategicGroups.map(group => `ARGOMENTO — ${group.topic}\n${group.actions.map(item =>
+                `- ID ${item.id}; AZIONE ${item.actionTitle || item.command}; COMANDO ${item.command}; ` +
+                `OBIETTIVO ${item.objective || 'da verificare'}; DURATA ${item.duration || 'da stimare'}; ` +
+                `COSTO ${item.cost || 'da stimare'}; RISCHIO ${item.risk || 'medio'}; CONTROPARTITA ${item.tradeoff || 'da verificare'}.`
+            ).join('\n')}`).join('\n')
+            : '- Nessuna azione strategica selezionata.';
         const recent = asArray(context.recentEvents).filter(isMeaningfulEvent).slice(-6);
         const agreements = asArray(context.agreements).filter(item => !/rejected|broken|fulfilled/.test(keyOf(item.status))).slice(-8);
         const history = world.historicalContext || {};
@@ -86,7 +138,11 @@ PERIODO: ${cleanText(passage.description || `${days} giorni`, 120)}; da ${cleanT
 VITA ORDINARIA GIÀ GESTITA DAL MOTORE: ${cleanText(passage.summary || 'il protagonista dorme, mangia, lavora e cura la quotidianità', 320)}. Non trasformarla in EVENTO.
 STORIA: ${cleanText(context.story?.title, 120)} — ${cleanText(context.story?.setting || world.setting, 180)}.
 CONFLITTO CENTRALE: ${cleanText(world.centralConflict || world.premise || context.story?.desc, 500)}.
-SCELTE DA FAR PESARE: ${choices.length ? choices.join(' / ') : 'nessuna nuova scelta: avanzano le trame e gli obiettivi autonomi'}.
+SCELTE LIBERE DA FAR PESARE: ${choices.length ? choices.map(item => item.summary).join(' / ') : 'nessuna nuova scelta libera'}.
+
+PIANO STRATEGICO SELEZIONATO DAL GIOCATORE:
+${strategicPlan}
+Le azioni del piano sono intenzioni simultanee, non successi automatici. Valuta tutte le azioni, anche quando appartengono allo stesso argomento: compatibilità, precedenze, tempo, costi, risorse condivise, opposizione e possibili conflitti fra loro.
 
 BASE STORICO-POLITICA:
 - Data/epoca: ${cleanText(history.date || passage.startDate || 'data della campagna', 160)}.
@@ -113,6 +169,9 @@ ${recent.length ? recent.map(item => `- ${cleanText(item.title, 100)}: ${cleanTe
 
 REGOLE OBBLIGATORIE:
 - Genera esattamente ${count} EVENTO distinti, distribuiti dall'inizio alla fine del periodo.
+- Se esiste un piano strategico, dedica almeno un EVENTO a ogni ARGOMENTO selezionato. Puoi riunire più azioni dello stesso argomento nello stesso evento, ma nessuna azione può essere ignorata.
+- Per OGNI azione strategica emetti esattamente un ESITO_STRATEGICO con lo stesso ID. L'esito può essere completata, parziale, fallita o in_corso: non garantire mai il successo soltanto perché il giocatore ha cliccato l'azione.
+- Dopo gli effetti delle azioni del giocatore, mostra contromosse autonome coerenti con obiettivi, risorse e informazioni degli attori del mondo. Almeno un EVENTO deve essere una reazione o iniziativa del mondo non controllata dal protagonista.
 - Scegli UNA trama centrale tra conflitto storico, forza aperta o scelta del giocatore. Tutti gli eventi devono essere capitoli dello stesso arco: una parte agisce, un'altra reagisce, segue una decisione istituzionale o uno scontro e nasce un nuovo problema concreto.
 - Almeno due attori autonomi devono compiere mosse; non limitarti a “si diffondono voci”, “la vita continua” o “qualcuno sta pensando”.
 - Usa soltanto nomi propri, cariche e istituzioni presenti nel contesto. Vietati attori generici come “l'Autorità”, “l'Opposizione”, “il Mediatore” o “la Comunità” se non sono nomi registrati.
@@ -123,6 +182,7 @@ REGOLE OBBLIGATORIE:
 - Restituisci soltanto i tag seguenti, senza introduzioni, markdown o routine.
 
 [EVENTO: tipo|titolo|due o tre frasi su ciò che è realmente accaduto|luogo|attori separati da virgola|conseguenza persistente concreta|normal/high/critical|active/developing/resolved|data o momento nel periodo|causa precisa|ancoraggio storico|spostamento politico|posta in gioco|obiettivo conversazione|available/required/none]
+[ESITO_STRATEGICO: ID esatto|completata/parziale/fallita/in_corso|risultato osservabile del tentativo|conseguenza persistente|reazione concreta del mondo|attori separati da virgola]
 [MONDO: attore|mossa concreta compiuta|stato della mossa|visible/hidden]
 [CHAT: titolo esatto evento|parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]`;
     }
@@ -211,7 +271,7 @@ REGOLE OBBLIGATORIE:
         const world = context.world || {};
         const history = world.historicalContext || {};
         const force = asArray(world.forces).find(item => item.status !== 'resolved');
-        const choices = asArray(context.choices).map(choice => cleanText(typeof choice === 'string' ? choice : choice?.summary || choice?.description, 240)).filter(Boolean);
+        const choices = normalizeTimelineChoices(context.choices).map(choice => cleanText(choice.summary, 240));
         const cause = cleanText(event?.cause || event?.choice || (index > 0 ? previousEvent?.title : '') || choices[0] || force?.cause || force?.objective || world.centralConflict, 320);
         const historicalAnchor = cleanText(event?.historicalAnchor || [history.date, history.baseline].filter(Boolean).join(' — ') || context.passage?.startDate || world.setting, 320);
         const politicalShift = cleanText(event?.politicalShift || event?.consequence, 320);
@@ -236,11 +296,13 @@ REGOLE OBBLIGATORIE:
     function createFallbackArc(context = {}) {
         const passage = context.passage || {};
         const days = Math.max(1, Number(passage.days) || Math.round(Number(passage.elapsed || 1440) / 1440) || 1);
-        const count = desiredEventCount(days);
+        const normalizedChoices = normalizeTimelineChoices(context.choices);
+        const strategicGroups = strategicChoiceGroups(normalizedChoices);
+        const count = desiredEventCount(days, strategicGroups.length);
         const actors = fallbackActors(context.world || {}, context);
         const relations = asArray(context.world?.relations).filter(item => item.status !== 'resolved');
         const forces = asArray(context.world?.forces).filter(item => item.status !== 'resolved');
-        const choices = asArray(context.choices).map(choice => cleanText(typeof choice === 'string' ? choice : choice?.summary || choice?.description, 240)).filter(Boolean);
+        const choices = normalizedChoices.map(choice => cleanText(choice.summary, 240));
         const events = [];
         const moves = [];
 
@@ -254,8 +316,23 @@ REGOLE OBBLIGATORIE:
             ) || relations[index % Math.max(1, relations.length)];
             const force = forces[index % Math.max(1, forces.length)];
             const choice = choices[index % Math.max(1, choices.length)];
+            const strategicGroup = strategicGroups[index];
+            const worldIndex = index - strategicGroups.length;
             let event;
-            if (index === 0) {
+            if (strategicGroup) {
+                const actionNames = strategicGroup.actions.map(item => item.actionTitle || item.command).join(' e ');
+                const commands = strategicGroup.actions.map(item => item.command).join(' / ');
+                event = {
+                    type: 'decisione',
+                    title: `${strategicGroup.topic}: il piano entra in azione`,
+                    summary: `Il protagonista ha avviato «${cleanText(actionNames, 280)}» per affrontare ${phrase(strategicGroup.topic, 'la questione strategica', 160)}. ${actor.name}, perseguendo ${actorGoal(actor)}, ha reagito usando ${actorResources(actor)} e ha impedito che il risultato fosse automatico.`,
+                    consequence: `Le iniziative su «${strategicGroup.topic}» sono ora in corso; costi, compatibilità e risposta di ${actor.name} determineranno l'esito definitivo.`,
+                    actors: [actor.name, target.name], location: place, importance: 'high', status: 'developing',
+                    choice: commands,
+                    strategicTopic: strategicGroup.topic,
+                    strategicActionIds: strategicGroup.actions.map(item => item.id)
+                };
+            } else if (worldIndex === 0) {
                 event = {
                     type: actor.kind === 'faction' ? 'politica' : 'mondo',
                     title: `La mossa di ${actor.name}`,
@@ -263,7 +340,7 @@ REGOLE OBBLIGATORIE:
                     consequence: `${target.name} deve ora reagire e l'iniziativa appartiene temporaneamente a ${actor.name}.`,
                     actors: [actor.name, target.name], location: place, importance: 'high', status: 'developing'
                 };
-            } else if (index === 1) {
+            } else if (worldIndex === 1) {
                 const previous = actors[0];
                 event = {
                     type: 'decisione',
@@ -272,7 +349,7 @@ REGOLE OBBLIGATORIE:
                     consequence: `Le due strategie ora si ostacolano direttamente e una nuova decisione sarà inevitabile.`,
                     actors: [actor.name, previous.name], location: actorPlace(actor, context), importance: 'high', status: 'developing'
                 };
-            } else if (relation && index === 2) {
+            } else if (relation && worldIndex === 2) {
                 const tense = Number(relation.tension || 0) >= 55;
                 event = {
                     type: tense ? 'conflitto' : 'relazione',
@@ -281,7 +358,7 @@ REGOLE OBBLIGATORIE:
                     consequence: tense ? `La tensione tra le due parti aumenta e rende più probabile uno scontro aperto.` : `Si apre un canale di trattativa che entrambe le parti potranno usare o tradire.`,
                     actors: [relation.from, relation.to], location: place, importance: 'high', status: 'active'
                 };
-            } else if (force && index === 3) {
+            } else if (force && worldIndex === 3) {
                 event = {
                     type: 'pericolo',
                     title: `${force.name} avanza`,
@@ -316,7 +393,7 @@ REGOLE OBBLIGATORIE:
                 };
             }
             event.occurredAt = momentFor(index, count, passage);
-            event.choice = choice || choices[0] || '';
+            event.choice = event.choice || choice || choices[0] || '';
             event.source = 'timeline-fallback';
             const enrichedEvent = enrichEvent(event, context, index, events[index - 1]);
             events.push(enrichedEvent);
@@ -330,7 +407,10 @@ REGOLE OBBLIGATORIE:
 
     function ensureEventArc(incomingEvents, context = {}) {
         const passage = context.passage || {};
-        const wanted = desiredEventCount(passage.days || Math.round(Number(passage.elapsed || 1440) / 1440));
+        const wanted = desiredEventCount(
+            passage.days || Math.round(Number(passage.elapsed || 1440) / 1440),
+            strategicChoiceGroups(context.choices).length
+        );
         const meaningful = asArray(incomingEvents).filter(isMeaningfulEvent);
         const accepted = meaningful
             .filter(event => eventCentralityScore(event, context) >= 6)
@@ -356,6 +436,154 @@ REGOLE OBBLIGATORIE:
             qualityRejected: meaningful.length - (accepted.length - fallbackAdded),
             usedFallback: fallbackAdded > 0
         };
+    }
+
+    function normalizeOutcomeStatus(value) {
+        const status = keyOf(value);
+        if (/complet|success|riuscit|resolved/.test(status)) return 'completata';
+        if (/fallit|failed|respint|impossibil/.test(status)) return 'fallita';
+        if (/parzial|partial|limitata/.test(status)) return 'parziale';
+        return 'in_corso';
+    }
+
+    function parseOutcomeActors(value) {
+        const seen = new Set();
+        return cleanText(value, 500).split(/[,;]/).map(item => cleanText(item, 100)).filter(item => {
+            const key = keyOf(item);
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }).slice(0, 8);
+    }
+
+    function parseStrategicOutcomes(response, choices, context = {}) {
+        const strategicChoices = normalizeTimelineChoices(choices).filter(item => item.isStrategic);
+        const byId = new Map(strategicChoices.map(item => [item.id, item]));
+        const outcomes = [];
+        const regex = /\[ESITO_STRATEGICO:\s*([^\]]+)\]/gi;
+        let match;
+        while ((match = regex.exec(String(response || '')))) {
+            const [rawId, rawStatus, rawResult, rawConsequence, rawWorldResponse, rawActors] = match[1].split('|');
+            const id = cleanText(rawId, 150).replace(/[^a-zA-Z0-9_-]/g, '');
+            const choice = byId.get(id);
+            if (!choice || outcomes.some(item => item.id === id)) continue;
+            outcomes.push({
+                id,
+                source: 'timeline-ai',
+                topic: choice.topic || 'Strategia generale',
+                actionTitle: choice.actionTitle || choice.command,
+                command: choice.command,
+                objective: choice.objective,
+                status: normalizeOutcomeStatus(rawStatus),
+                result: cleanText(rawResult, 620),
+                consequence: cleanText(rawConsequence, 520),
+                worldResponse: cleanText(rawWorldResponse, 520),
+                actors: parseOutcomeActors(rawActors),
+                resolvedAtTurn: Math.max(0, Number(context.turn) || 0),
+                occurredAt: cleanText(context.occurredAt || context.passage?.endDate, 120),
+                batchId: cleanText(context.batchId, 180)
+            });
+        }
+        return outcomes;
+    }
+
+    function eventChoiceScore(event, choice) {
+        const corpus = keyOf([
+            event?.title, event?.summary, event?.cause, event?.choice,
+            event?.consequence, asArray(event?.actors).join(' ')
+        ].filter(Boolean).join(' '));
+        if (!corpus) return 0;
+        const tokens = keyOf(`${choice.topic} ${choice.actionTitle} ${choice.command}`)
+            .split(' ').filter(token => token.length >= 4);
+        let score = tokens.reduce((total, token) => total + (corpus.includes(token) ? 1 : 0), 0);
+        if (asArray(event?.strategicActionIds).includes(choice.id)) score += 20;
+        if (keyOf(event?.strategicTopic) === keyOf(choice.topic)) score += 8;
+        return score;
+    }
+
+    function ensureStrategicOutcomes(incomingOutcomes, choices, events, world, context = {}) {
+        const strategicChoices = normalizeTimelineChoices(choices).filter(item => item.isStrategic);
+        const parsed = asArray(incomingOutcomes);
+        const availableEvents = asArray(events).filter(isMeaningfulEvent);
+        const actors = activeActors(world);
+        const batchId = cleanText(
+            context.batchId || `timeline-${Math.max(0, Number(context.turn) || 0)}-${context.occurredAt || context.passage?.endDate || 'periodo'}`,
+            180
+        );
+        return strategicChoices.map((choice, index) => {
+            const provided = parsed.find(item => item?.id === choice.id);
+            const rankedEvents = availableEvents
+                .map(event => ({ event, score: eventChoiceScore(event, choice) }))
+                .sort((left, right) => right.score - left.score);
+            const relatedEvent = rankedEvents[0]?.event || null;
+            const relatedActors = asArray(provided?.actors).length
+                ? provided.actors
+                : asArray(relatedEvent?.actors).filter(name => !/^(protagonista|giocatore|player)$/i.test(keyOf(name)));
+            const reactingActor = actors.find(actor => relatedActors.some(name => keyOf(name) === keyOf(actor.name))) ||
+                actors[index % Math.max(1, actors.length)];
+            const status = provided?.status || (relatedEvent?.status === 'resolved' ? 'completata' : 'in_corso');
+            const result = provided?.result || cleanText(
+                relatedEvent?.summary || `L'azione «${choice.actionTitle || choice.command}» è stata avviata, ma il periodo non basta ancora a garantirne il risultato finale.`,
+                620
+            );
+            const consequence = provided?.consequence || cleanText(
+                relatedEvent?.consequence || `L'iniziativa resta aperta e impegna tempo, risorse e credibilità sul tema «${choice.topic || 'strategia generale'}».`,
+                520
+            );
+            const worldResponse = provided?.worldResponse || cleanText(
+                reactingActor
+                    ? `${reactingActor.name} reagisce perseguendo ${actorGoal(reactingActor)} tramite ${actorStrategy(reactingActor)}.`
+                    : 'Gli attori coinvolti ricalcolano interessi e contromosse senza attendere il protagonista.',
+                520
+            );
+            return {
+                id: choice.id,
+                source: provided ? 'timeline-ai' : 'timeline-fallback',
+                topic: choice.topic || 'Strategia generale',
+                actionTitle: choice.actionTitle || choice.command,
+                command: choice.command,
+                objective: choice.objective,
+                status: normalizeOutcomeStatus(status),
+                result,
+                consequence,
+                worldResponse,
+                actors: relatedActors.length ? relatedActors.slice(0, 8) : (reactingActor ? [reactingActor.name] : []),
+                resolvedAtTurn: Math.max(0, Number(context.turn) || 0),
+                occurredAt: cleanText(context.occurredAt || context.passage?.endDate, 120),
+                batchId
+            };
+        });
+    }
+
+    function mergeStrategicOutcomeHistory(history, outcomes, limit = 100) {
+        const merged = [...asArray(history)];
+        asArray(outcomes).forEach(outcome => {
+            const key = `${outcome?.batchId || ''}|${outcome?.id || ''}`;
+            const index = merged.findIndex(item => `${item?.batchId || ''}|${item?.id || ''}` === key);
+            if (index >= 0) merged[index] = outcome;
+            else merged.push(outcome);
+        });
+        return merged.slice(-Math.max(1, Number(limit) || 100));
+    }
+
+    function buildStrategicOutcomeChronicle(outcomes) {
+        const groups = [];
+        asArray(outcomes).forEach(outcome => {
+            const topic = cleanText(outcome?.topic || 'Strategia generale', 140);
+            let group = groups.find(item => keyOf(item.topic) === keyOf(topic));
+            if (!group) {
+                group = { topic, outcomes: [] };
+                groups.push(group);
+            }
+            group.outcomes.push(outcome);
+        });
+        if (!groups.length) return '';
+        return `\n\nEsito del piano strategico:\n${groups.map(group =>
+            `${group.topic}:\n${group.outcomes.map(outcome =>
+                `• ${cleanText(outcome.actionTitle, 140)} — ${cleanText(outcome.status, 40)}. ${cleanText(outcome.result, 420)} ` +
+                `Conseguenza: ${cleanText(outcome.consequence, 320)} Reazione del mondo: ${cleanText(outcome.worldResponse, 320)}`
+            ).join('\n')}`
+        ).join('\n\n')}`;
     }
 
     function buildConversationStarters(events, world, context = {}) {
@@ -403,6 +631,9 @@ REGOLE OBBLIGATORIE:
         TIMELINE_SIMULATOR_SCHEMA_VERSION,
         cleanText,
         keyOf,
+        normalizeTimelineChoice,
+        normalizeTimelineChoices,
+        strategicChoiceGroups,
         desiredEventCount,
         isMeaningfulEvent,
         eventCentralityScore,
@@ -410,6 +641,10 @@ REGOLE OBBLIGATORIE:
         buildPrompt,
         createFallbackArc,
         ensureEventArc,
+        parseStrategicOutcomes,
+        ensureStrategicOutcomes,
+        mergeStrategicOutcomeHistory,
+        buildStrategicOutcomeChronicle,
         buildConversationStarters,
         buildChronicle
     };

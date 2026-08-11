@@ -833,6 +833,7 @@
         }
         .strategic-lens strong { display: block; margin-bottom: 5px; font-family: 'Cinzel', serif; font-size: 0.78em; }
         .strategic-lens ul { margin: 0; padding-left: 17px; color: var(--ink-light); font-size: 0.86em; }
+        .strategic-topics-title { margin: 3px 0 9px; font-family: 'Cinzel', serif; }
         .strategic-issue-list { display: grid; gap: 10px; }
         .strategic-issue {
             overflow: hidden;
@@ -878,6 +879,11 @@
             border-radius: 12px;
             background: rgba(244,240,250,0.78);
         }
+        .strategic-action-card.selected {
+            border-color: #2e8b57;
+            background: rgba(225,247,235,0.88);
+            box-shadow: inset 0 0 0 1px rgba(46,139,87,0.22);
+        }
         .strategic-action-card h4 { margin: 0 0 5px; font-family: 'Cinzel', serif; }
         .strategic-action-card p { margin: 0 0 8px; color: var(--ink-light); line-height: 1.4; }
         .strategic-action-facts { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
@@ -907,6 +913,58 @@
             cursor: pointer;
         }
         .strategic-action-execute:disabled { opacity: 0.5; pointer-events: none; }
+        .strategic-action-execute.selected {
+            color: #123c27;
+            background: linear-gradient(135deg, #bce8ce, #8bd3aa);
+            box-shadow: inset 0 0 0 2px rgba(46,139,87,0.28);
+        }
+        .strategic-selection-summary {
+            position: sticky;
+            bottom: -1px;
+            z-index: 3;
+            display: none;
+            margin-top: 13px;
+            padding: 12px;
+            border: 1px solid rgba(201,146,31,0.55);
+            border-radius: 14px;
+            background: rgba(255,250,235,0.97);
+            box-shadow: 0 -5px 18px rgba(44,24,16,0.14);
+        }
+        .strategic-selection-summary.visible { display: block; }
+        .strategic-selection-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .strategic-selection-head strong { font-family: 'Cinzel', serif; }
+        .strategic-selection-groups { display: grid; gap: 6px; margin-bottom: 9px; }
+        .strategic-selection-group {
+            padding: 7px 9px;
+            border-radius: 9px;
+            background: rgba(255,255,255,0.78);
+            font-size: 0.82em;
+        }
+        .strategic-selection-group strong { display: block; color: var(--purple); }
+        .strategic-selection-remove {
+            margin-left: 5px;
+            border: 0;
+            color: var(--blood);
+            background: transparent;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .strategic-selection-advance {
+            width: 100%;
+            min-height: 46px;
+            border: 0;
+            border-radius: 11px;
+            color: white;
+            background: linear-gradient(135deg, #7c3aed, #c9921f);
+            font: 700 0.88em 'Cinzel', serif;
+            cursor: pointer;
+        }
 
         @media (max-width: 600px) {
             #modal-strategic-actions { align-items: flex-end; padding: 0; }
@@ -946,6 +1004,10 @@
             background: rgba(255,255,255,0.7);
             border: 1px solid rgba(92,64,48,0.2);
             font-size: 0.82em;
+        }
+        .timeline-choice.strategic {
+            border-color: rgba(201,146,31,0.5);
+            background: rgba(255,247,221,0.9);
         }
         .timeline-advance-box {
             display: grid;
@@ -994,6 +1056,29 @@
             line-height: 1.35;
         }
         .timeline-routine-summary.visible { display: block; }
+        .timeline-strategic-results {
+            display: none;
+            margin: 0 0 13px;
+            padding: 12px;
+            border: 1px solid rgba(107,46,155,0.24);
+            border-radius: 13px;
+            background: rgba(246,241,252,0.74);
+        }
+        .timeline-strategic-results.visible { display: block; }
+        .timeline-strategic-results > h4 { margin: 0 0 9px; font-family: 'Cinzel', serif; }
+        .timeline-strategic-group { display: grid; gap: 7px; margin-top: 9px; }
+        .timeline-strategic-group > strong { color: var(--purple); font-family: 'Cinzel', serif; }
+        .timeline-strategic-result {
+            padding: 9px 10px;
+            border-left: 4px solid #7c3aed;
+            border-radius: 9px;
+            background: rgba(255,255,255,0.84);
+        }
+        .timeline-strategic-result.completata { border-left-color: #2e8b57; }
+        .timeline-strategic-result.fallita { border-left-color: var(--blood); }
+        .timeline-strategic-result.parziale { border-left-color: #e67e22; }
+        .timeline-strategic-result h5 { margin: 0 0 4px; }
+        .timeline-strategic-result p { margin: 4px 0; color: var(--ink-light); line-height: 1.35; }
         .timeline-list { display: grid; gap: 10px; }
         .timeline-empty { padding: 28px 15px; text-align: center; color: var(--ink-light); }
         .timeline-event-card {
@@ -2839,7 +2924,10 @@
                     <button class="action-btn kingdom-manage" id="btn-kingdom-manage" title="Apri la gestione del regno" hidden>👑 Gestisci regno</button>
                 </div>
                 <div class="world-controls">
-                    <button class="world-control-btn strategic" id="btn-strategic-actions" title="Analisi strategica della situazione e azioni eseguibili">✨ Analisi strategica e azioni</button>
+                    <button class="world-control-btn strategic" id="btn-strategic-actions" title="Analisi strategica per argomenti e azioni selezionabili">
+                        ✨ Analisi strategica e azioni
+                        <span class="world-control-badge" id="strategic-action-badge">0</span>
+                    </button>
                     <button class="world-control-btn" id="btn-advance-world" title="Avanza il tempo e simula le conseguenze">⏩ Vai avanti</button>
                     <button class="world-control-btn chat" id="btn-world-chats" title="Conversazioni generate dagli eventi">
                         💬 Chat
@@ -3010,7 +3098,7 @@
             </div>
             <div class="modal-body">
                 <div class="strategic-intro">
-                    L’IA legge la situazione attuale, gli eventi, gli obiettivi, i personaggi, le fazioni e le risorse. Poi ordina i problemi centrali e prepara risposte concrete: sei sempre tu a scegliere quale eseguire.
+                    L’IA divide la situazione per argomenti e prepara alternative concrete. Puoi selezionare più azioni, anche nello stesso argomento: verranno analizzate insieme soltanto quando userai <strong>Vai avanti</strong>.
                 </div>
                 <div class="strategic-toolbar">
                     <button class="strategic-analyze-btn" id="btn-strategic-analyze">✨ Analizza la situazione</button>
@@ -3056,6 +3144,7 @@
                     <div>Costruisco un arco di azioni, reazioni, conseguenze e conversazioni.</div>
                 </div>
                 <div class="timeline-routine-summary" id="timeline-routine-summary"></div>
+                <div class="timeline-strategic-results" id="timeline-strategic-results"></div>
                 <div class="timeline-list" id="timeline-events-list"></div>
             </div>
         </div>
@@ -4581,6 +4670,10 @@
             migrated.strategicAnalysis = migrated.strategicAnalysis && typeof migrated.strategicAnalysis === 'object'
                 ? migrated.strategicAnalysis
                 : null;
+            migrated.pendingStrategicActions = strategicAdvisor.normalizeQueue(migrated.pendingStrategicActions);
+            migrated.strategicActionHistory = Array.isArray(migrated.strategicActionHistory)
+                ? migrated.strategicActionHistory.slice(-100)
+                : [];
             return migrated;
         }
 
@@ -5240,6 +5333,7 @@
         }
 
         function updateActionBar() {
+            updateStrategicSelectionBadge();
             if (!G.character) return;
             ['btn-business-manage', 'btn-kingdom-manage', 'btn-strategic-actions', 'btn-strategic-analyze', 'btn-advance-world', 'btn-world-chats', 'btn-new-world-chat', 'btn-confirm-convocation'].forEach(id => {
                 const button = $(id);
@@ -9419,7 +9513,7 @@
                         ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
                     ],
                     discoveredModels: config.discoveredModels,
-                    maxTokens: 2800
+                    maxTokens: 4800
                 });
                 if (!String(result.content || '').trim()) throw new Error('Risposta vuota dal simulatore');
                 return result.content;
@@ -9449,7 +9543,7 @@
                     'Content-Type': 'application/json; charset=utf-8',
                     'Authorization': `Bearer ${apiKey}`
                 },
-                body: JSON.stringify({ model, messages, temperature: 0.82, max_tokens: 2800 })
+                body: JSON.stringify({ model, messages, temperature: 0.68, max_tokens: 4800 })
             });
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
@@ -10230,10 +10324,68 @@
                 : `<small>${escapeTimelineHtml(emptyText)}</small>`;
         }
 
+        function getPendingStrategicActions() {
+            if (!G.worldMemory) return [];
+            G.worldMemory.pendingStrategicActions = strategicAdvisor.normalizeQueue(
+                G.worldMemory.pendingStrategicActions
+            );
+            return G.worldMemory.pendingStrategicActions;
+        }
+
+        function updateStrategicSelectionBadge() {
+            const count = getPendingStrategicActions().length;
+            const badge = $('strategic-action-badge');
+            if (badge) {
+                badge.textContent = count > 99 ? '99+' : String(count);
+                badge.classList.toggle('visible', count > 0);
+            }
+            const button = $('btn-strategic-actions');
+            if (button) {
+                button.title = count
+                    ? `${count} azioni strategiche selezionate: saranno risolte con Vai avanti`
+                    : 'Analisi strategica per argomenti e azioni selezionabili';
+            }
+            const advanceButton = $('btn-advance-world');
+            if (advanceButton) {
+                advanceButton.title = count
+                    ? `Analizza ${count} azioni selezionate e sviluppa conseguenze e contromosse del mondo`
+                    : 'Avanza il tempo e simula le conseguenze';
+            }
+        }
+
+        function strategicSelectionMarkup(queue) {
+            const groups = strategicAdvisor.groupQueuedActions(queue);
+            if (!groups.length) return '<section class="strategic-selection-summary" id="strategic-selection-summary"></section>';
+            return `
+                <section class="strategic-selection-summary visible" id="strategic-selection-summary" aria-live="polite">
+                    <div class="strategic-selection-head">
+                        <strong>📌 Piano selezionato</strong>
+                        <span>${queue.length} ${queue.length === 1 ? 'azione' : 'azioni'}</span>
+                    </div>
+                    <div class="strategic-selection-groups">
+                        ${groups.map(group => `
+                            <div class="strategic-selection-group">
+                                <strong>${escapeTimelineHtml(group.issueTitle)}</strong>
+                                ${group.actions.map(action => `
+                                    <span>${escapeTimelineHtml(action.actionTitle)}<button class="strategic-selection-remove" data-remove-strategic-id="${escapeTimelineHtml(action.id)}" title="Rimuovi ${escapeTimelineHtml(action.actionTitle)}" aria-label="Rimuovi ${escapeTimelineHtml(action.actionTitle)}">✕</button></span>
+                                `).join(' · ')}
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button class="strategic-selection-advance" id="btn-strategic-to-timeline">⏩ Vai avanti con ${queue.length} ${queue.length === 1 ? 'azione' : 'azioni'}</button>
+                </section>
+            `;
+        }
+
         function renderStrategicAnalysis(analysis) {
             const content = $('strategic-content');
             const source = $('strategic-source');
             if (!content || !analysis || !Array.isArray(analysis.issues)) return;
+            const openedIssueIds = new Set(
+                [...content.querySelectorAll('.strategic-issue[open]')].map(item => item.dataset.issueId).filter(Boolean)
+            );
+            const queuedActions = getPendingStrategicActions();
+            const queuedIds = new Set(queuedActions.map(item => item.id));
             const sourceLabels = {
                 ai: 'Analisi IA',
                 'ai+local': 'IA verificata',
@@ -10262,9 +10414,10 @@
                         ${strategicList(analysis.opportunities, 'Nessuna opportunità separata identificata.')}
                     </section>
                 </div>
+                <h3 class="strategic-topics-title">Argomenti strategici</h3>
                 <div class="strategic-issue-list">
                     ${analysis.issues.map((issue, issueIndex) => `
-                        <details class="strategic-issue urgency-${escapeTimelineHtml(issue.urgency || 'media')}" ${issueIndex === 0 ? 'open' : ''}>
+                        <details class="strategic-issue urgency-${escapeTimelineHtml(issue.urgency || 'media')}" data-issue-id="${escapeTimelineHtml(issue.id)}" ${openedIssueIds.has(issue.id) || (!openedIssueIds.size && issueIndex === 0) ? 'open' : ''}>
                             <summary>
                                 <span>
                                     <span class="strategic-issue-title">${escapeTimelineHtml(issue.title)}</span>
@@ -10278,37 +10431,48 @@
                             <div class="strategic-issue-body">
                                 <p class="strategic-assessment">${escapeTimelineHtml(issue.assessment || '')}</p>
                                 ${issue.stakes ? `<p class="strategic-stakes"><strong>Posta in gioco:</strong> ${escapeTimelineHtml(issue.stakes)}</p>` : ''}
-                                <h4 class="strategic-options-title">Risposte possibili</h4>
+                                <h4 class="strategic-options-title">Alternative selezionabili</h4>
                                 <div class="strategic-action-list">
-                                    ${(issue.actions || []).map((item, actionIndex) => `
-                                        <article class="strategic-action-card">
-                                            <h4>${escapeTimelineHtml(item.title)}</h4>
-                                            <p>${escapeTimelineHtml(item.description || item.objective || '')}</p>
-                                            <div class="strategic-action-facts">
-                                                <span>⏱️ ${escapeTimelineHtml(item.duration || 'Da valutare')}</span>
-                                                <span>💰 ${escapeTimelineHtml(item.cost || 'Da definire')}</span>
-                                                <span>⚠️ Rischio ${escapeTimelineHtml(item.risk || 'medio')}</span>
-                                            </div>
-                                            ${item.expectedOutcome ? `<div class="strategic-action-detail"><strong>Risultato cercato:</strong> ${escapeTimelineHtml(item.expectedOutcome)}</div>` : ''}
-                                            ${item.tradeoff ? `<div class="strategic-action-detail"><strong>Contropartita:</strong> ${escapeTimelineHtml(item.tradeoff)}</div>` : ''}
-                                            ${(item.prerequisites || []).length ? `<div class="strategic-action-detail"><strong>Requisiti:</strong> ${item.prerequisites.map(escapeTimelineHtml).join(' · ')}</div>` : ''}
-                                            <div class="strategic-action-command">“${escapeTimelineHtml(item.command)}”</div>
-                                            <button class="strategic-action-execute" data-issue-index="${issueIndex}" data-action-index="${actionIndex}">▶ Azione</button>
-                                        </article>
-                                    `).join('')}
+                                    ${(issue.actions || []).map((item, actionIndex) => {
+                                        const queuedAction = strategicAdvisor.createQueuedAction(analysis, issueIndex, actionIndex);
+                                        const selected = Boolean(queuedAction && queuedIds.has(queuedAction.id));
+                                        return `
+                                            <article class="strategic-action-card ${selected ? 'selected' : ''}">
+                                                <h4>${escapeTimelineHtml(item.title)}</h4>
+                                                <p>${escapeTimelineHtml(item.description || item.objective || '')}</p>
+                                                <div class="strategic-action-facts">
+                                                    <span>⏱️ ${escapeTimelineHtml(item.duration || 'Da valutare')}</span>
+                                                    <span>💰 ${escapeTimelineHtml(item.cost || 'Da definire')}</span>
+                                                    <span>⚠️ Rischio ${escapeTimelineHtml(item.risk || 'medio')}</span>
+                                                </div>
+                                                ${item.expectedOutcome ? `<div class="strategic-action-detail"><strong>Risultato cercato:</strong> ${escapeTimelineHtml(item.expectedOutcome)}</div>` : ''}
+                                                ${item.tradeoff ? `<div class="strategic-action-detail"><strong>Contropartita:</strong> ${escapeTimelineHtml(item.tradeoff)}</div>` : ''}
+                                                ${(item.prerequisites || []).length ? `<div class="strategic-action-detail"><strong>Requisiti:</strong> ${item.prerequisites.map(escapeTimelineHtml).join(' · ')}</div>` : ''}
+                                                <div class="strategic-action-command">“${escapeTimelineHtml(item.command)}”</div>
+                                                <button class="strategic-action-execute ${selected ? 'selected' : ''}" data-issue-index="${issueIndex}" data-action-index="${actionIndex}" aria-pressed="${selected}">${selected ? '✓ Selezionata' : '＋ Seleziona azione'}</button>
+                                            </article>
+                                        `;
+                                    }).join('')}
                                 </div>
                             </div>
                         </details>
                     `).join('')}
                 </div>
+                ${strategicSelectionMarkup(queuedActions)}
             `;
             content.querySelectorAll('.strategic-action-execute').forEach(button => {
-                button.onclick = () => executeStrategicAction(
+                button.onclick = () => toggleStrategicAction(
                     Number(button.dataset.issueIndex),
                     Number(button.dataset.actionIndex)
                 );
             });
+            content.querySelectorAll('.strategic-selection-remove').forEach(button => {
+                button.onclick = () => removeStrategicAction(button.dataset.removeStrategicId);
+            });
+            const advanceButton = $('btn-strategic-to-timeline');
+            if (advanceButton) advanceButton.onclick = openTimelineWithStrategicActions;
             $('btn-strategic-analyze').textContent = '↻ Rielabora l’analisi';
+            updateStrategicSelectionBadge();
         }
 
         function setStrategicLoading(active) {
@@ -10382,25 +10546,60 @@
             generateStrategicAnalysis(true);
         }
 
-        function executeStrategicAction(issueIndex, actionIndex) {
+        function toggleStrategicAction(issueIndex, actionIndex) {
             if (G.isProcessing || G.isStrategicProcessing) return;
-            const selected = strategicAdvisor.getAction(G.strategicAnalysis, issueIndex, actionIndex);
-            if (!selected?.action?.command) {
+            const queuedAction = strategicAdvisor.createQueuedAction(
+                G.strategicAnalysis,
+                issueIndex,
+                actionIndex,
+                { turn: G.worldMemory?.turnCount || 0, date: getFullTimeString() }
+            );
+            if (!queuedAction) {
                 notify('Azione strategica non disponibile.', 'error');
                 return;
             }
+            const result = strategicAdvisor.toggleQueuedAction(getPendingStrategicActions(), queuedAction);
+            if (result.full) {
+                notify(`Puoi selezionare fino a ${strategicAdvisor.MAX_QUEUED_ACTIONS} azioni strategiche.`, 'error');
+                return;
+            }
+            G.worldMemory.pendingStrategicActions = result.queue;
+            renderStrategicAnalysis(G.strategicAnalysis);
+            autoSave();
+            notify(
+                result.selected
+                    ? `Azione aggiunta al piano: ${queuedAction.actionTitle}`
+                    : `Azione rimossa dal piano: ${queuedAction.actionTitle}`,
+                result.selected ? 'success' : 'info'
+            );
+        }
+
+        function removeStrategicAction(actionId) {
+            const queue = getPendingStrategicActions();
+            const target = queue.find(item => item.id === actionId);
+            if (!target) return;
+            G.worldMemory.pendingStrategicActions = queue.filter(item => item.id !== actionId);
+            renderStrategicAnalysis(G.strategicAnalysis);
+            autoSave();
+            notify(`Azione rimossa dal piano: ${target.actionTitle}`, 'info');
+        }
+
+        function openTimelineWithStrategicActions() {
+            if (!getPendingStrategicActions().length) {
+                notify('Seleziona almeno un’azione strategica.', 'error');
+                return;
+            }
             closeModal('modal-strategic-actions');
-            $('action-input').value = selected.action.command;
-            notify(`Azione scelta: ${selected.action.title}`, 'success');
-            window.setTimeout(() => sendAction({ skipBasicNeeds: true, source: 'strategic-advisor' }), 0);
+            openTimeline();
         }
 
         function getRecentTimelineChoices() {
             const decisions = G.worldMemory?.playerDecisions || [];
             const cursor = Math.max(0, Math.min(decisions.length, Number(G.worldMemory?.lastTimelineDecisionIndex) || 0));
             const pending = G.worldMemory?.pendingTimelineChoices || [];
+            const strategic = strategicAdvisor.toTimelineChoices(G.worldMemory?.pendingStrategicActions || []);
             const seen = new Set();
-            return [...decisions.slice(cursor), ...pending]
+            const recentChoices = [...decisions.slice(cursor), ...pending]
                 .filter(item => !/^VAI AVANTI DI\b/i.test(String(item?.summary || item?.description || '')))
                 .filter(item => {
                     const key = timelineChatEngine.keyOf(item?.summary || item?.description || '');
@@ -10409,6 +10608,7 @@
                     return true;
                 })
                 .slice(-5);
+            return [...recentChoices, ...strategic];
         }
 
         function queueTimelineChoice(text, source = 'player-action') {
@@ -10562,12 +10762,64 @@
             return world;
         }
 
+        function renderStrategicTimelineResults() {
+            const container = $('timeline-strategic-results');
+            if (!container) return;
+            const history = Array.isArray(G.worldMemory?.strategicActionHistory)
+                ? G.worldMemory.strategicActionHistory
+                : [];
+            const latest = history[history.length - 1];
+            if (!latest) {
+                container.classList.remove('visible');
+                container.innerHTML = '';
+                return;
+            }
+            const batch = history.filter(item => item.batchId === latest.batchId);
+            const groups = [];
+            batch.forEach(outcome => {
+                const topic = outcome.topic || 'Strategia generale';
+                let group = groups.find(item => timelineChatEngine.keyOf(item.topic) === timelineChatEngine.keyOf(topic));
+                if (!group) {
+                    group = { topic, outcomes: [] };
+                    groups.push(group);
+                }
+                group.outcomes.push(outcome);
+            });
+            container.innerHTML = `
+                <h4>🧭 Esito dell’ultimo piano strategico</h4>
+                ${groups.map(group => `
+                    <section class="timeline-strategic-group">
+                        <strong>${escapeTimelineHtml(group.topic)}</strong>
+                        ${group.outcomes.map(outcome => `
+                            <article class="timeline-strategic-result ${escapeTimelineHtml(outcome.status || 'in_corso')}">
+                                <h5>${escapeTimelineHtml(outcome.actionTitle || 'Azione strategica')} · ${escapeTimelineHtml((outcome.status || 'in corso').replace('_', ' '))}</h5>
+                                <p>${escapeTimelineHtml(outcome.result || '')}</p>
+                                ${outcome.consequence ? `<p><strong>Conseguenza:</strong> ${escapeTimelineHtml(outcome.consequence)}</p>` : ''}
+                                ${outcome.worldResponse ? `<p><strong>Reazione del mondo:</strong> ${escapeTimelineHtml(outcome.worldResponse)}</p>` : ''}
+                            </article>
+                        `).join('')}
+                    </section>
+                `).join('')}
+            `;
+            container.classList.add('visible');
+        }
+
         function renderTimeline() {
             if (!G.worldMemory) return;
             $('timeline-current-date').textContent = getFullTimeString();
             const choices = getRecentTimelineChoices();
+            const strategicCount = choices.filter(choice => choice.source === 'strategic-advisor').length;
+            const simulateButton = $('btn-simulate-timeline');
+            if (simulateButton) {
+                simulateButton.textContent = strategicCount
+                    ? `✨ Analizza ${strategicCount} ${strategicCount === 1 ? 'azione' : 'azioni'} e simula il mondo`
+                    : '✨ Simula eventi futuri';
+            }
             $('timeline-recent-choices').innerHTML = choices.length
-                ? choices.map(choice => `<span class="timeline-choice">⚡ ${escapeTimelineHtml(choice.summary || choice.description || '')}</span>`).join('')
+                ? choices.map(choice => choice.source === 'strategic-advisor'
+                    ? `<span class="timeline-choice strategic">✨ <strong>${escapeTimelineHtml(choice.topic || 'Strategia')}</strong>: ${escapeTimelineHtml(choice.actionTitle || choice.command || '')}</span>`
+                    : `<span class="timeline-choice">⚡ ${escapeTimelineHtml(choice.summary || choice.description || '')}</span>`
+                ).join('')
                 : '<span class="timeline-choice">Nessuna nuova scelta in attesa: evolveranno le trame aperte.</span>';
             const allEvents = G.worldMemory.events || [];
             const latestRoutine = [...allEvents].reverse().find(event => event.source === 'time-engine');
@@ -10578,6 +10830,7 @@
                     ? `🛏️ <strong>Vita quotidiana garantita:</strong> ${escapeTimelineHtml(latestRoutine.consequence || latestRoutine.summary || '')}`
                     : '';
             }
+            renderStrategicTimelineResults();
             const events = allEvents.filter(timelineSimulator.isMeaningfulEvent).slice(-40).reverse();
             $('timeline-events-list').innerHTML = events.length ? events.map((event, index) => `
                 <article class="timeline-event-card ${escapeTimelineHtml(event.importance || 'normal')}" data-event-index="${index}">
@@ -10647,6 +10900,7 @@
                     G.pendingTimePassage.choice = choices.map(choice => choice.summary || choice.description).filter(Boolean).join(' / ');
                     G.pendingTimePassage.choices = choices;
                     G.pendingTimePassage.source = 'timeline';
+                    G.pendingTimePassage.strategicBatchId = `timeline-${previousTurn}-${G.pendingTimePassage.endDate || getFullTimeString()}`;
                 }
 
                 const passage = G.pendingTimePassage || retryPassage || {
@@ -10712,6 +10966,31 @@
                 const generated = eventResult.added.filter(timelineSimulator.isMeaningfulEvent);
                 if (!generated.length) throw new Error('La simulazione non ha prodotto eventi distinti');
 
+                const strategicBatchId = passage.strategicBatchId ||
+                    `timeline-${previousTurn}-${passage.endDate || getFullTimeString()}`;
+                const parsedStrategicOutcomes = timelineSimulator.parseStrategicOutcomes(response, choices, {
+                    turn: G.worldMemory.turnCount || 0,
+                    occurredAt: passage.endDate || getFullTimeString(),
+                    passage,
+                    batchId: strategicBatchId
+                });
+                const strategicOutcomes = timelineSimulator.ensureStrategicOutcomes(
+                    parsedStrategicOutcomes,
+                    choices,
+                    generated,
+                    world,
+                    {
+                        turn: G.worldMemory.turnCount || 0,
+                        occurredAt: passage.endDate || getFullTimeString(),
+                        passage,
+                        batchId: strategicBatchId
+                    }
+                );
+                G.worldMemory.strategicActionHistory = timelineSimulator.mergeStrategicOutcomeHistory(
+                    G.worldMemory.strategicActionHistory,
+                    strategicOutcomes
+                );
+
                 const ensuredChats = timelineChatEngine.ensureEventThreads(
                     G.worldMemory.chats,
                     generated,
@@ -10768,7 +11047,8 @@
                     turn: G.worldMemory.turnCount || 0
                 });
 
-                const chronicle = timelineSimulator.buildChronicle(generated, passage);
+                const chronicle = timelineSimulator.buildChronicle(generated, passage) +
+                    timelineSimulator.buildStrategicOutcomeChronicle(strategicOutcomes);
                 addStoryEntry(chronicle, 'narrator');
                 lifeEngine.commitTurn(action, response || chronicle, G.character, G.worldMemory);
                 const firstEvent = generated[0];
@@ -10789,12 +11069,14 @@
                 G.worldMemory.lastTimelineAdvanceTurn = Math.max(previousTurn, G.worldMemory.turnCount || 0);
                 G.worldMemory.lastTimelineDecisionIndex = (G.worldMemory.playerDecisions || []).length;
                 G.worldMemory.pendingTimelineChoices = [];
+                G.worldMemory.pendingStrategicActions = [];
                 G.pendingTimePassage = null;
                 updateCharacterUI();
                 updateTimeDisplay();
                 updateMemoryUI();
                 updateInfoPanels();
                 updateWorldChatBadge();
+                updateStrategicSelectionBadge();
                 autoSave();
                 renderTimeline();
                 closeModal('modal-timeline');
