@@ -2457,6 +2457,15 @@ test('collega tempo ed energia al motore deterministico', () => {
     assert.equal(html.includes('const regenAmount = 3'), false, 'l’energia non deve rigenerarsi durante ogni azione');
 });
 
+test('mostra l’anno e recupera il canone senza bloccare i browser con asset precedenti in cache', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /id="time-date">Lunedì 1 Marzo 1400 \(Primavera\)/);
+    assert.match(html, /time-date'\)\.textContent = `\$\{G\.time\.dayName\} \$\{G\.time\.day\} \$\{MONTHS\[G\.time\.month - 1\]\.name\} \$\{G\.time\.year\}/);
+    assert.match(html, /typeof CronacheMemory\.inferCanonicalYear === 'function'/);
+    assert.doesNotMatch(html, /memoryManager\.inferCanonicalYear/);
+    assert.match(html, /src="js\/memory-manager\.js\?v=20260811-continuity-2"/);
+});
+
 test('la barra mobile mostra soltanto la gestione di attività e regno', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const actionBar = html.match(/<div class="action-bar" id="action-bar"[\s\S]*?<div class="input-row">/)?.[0] || '';
@@ -2483,8 +2492,8 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
 
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/timeline-chat\.js"/);
-    assert.match(html, /src="js\/timeline-simulator\.js"/);
+    assert.match(html, /src="js\/timeline-chat\.js\?v=20260811-continuity-2"/);
+    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260811-continuity-2"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);
@@ -2536,7 +2545,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
 
 test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/strategic-advisor\.js"/);
+    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260811-continuity-2"/);
     assert.match(html, /id="btn-strategic-actions"/);
     assert.match(html, /id="modal-strategic-actions"/);
     assert.match(html, /id="btn-strategic-analyze"/);
@@ -2561,7 +2570,7 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
 
 test('integra la creazione iniziale del mondo con narrazione, timeline e chat', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260811-continuity-2"/);
     assert.match(html, /worldBootstrapEngine\.buildBootstrapPrompt/);
     assert.match(html, /worldBootstrapEngine\.ingestResponse/);
     assert.match(html, /worldBootstrapEngine\.projectToMemory/);
