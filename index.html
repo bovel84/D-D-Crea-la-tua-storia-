@@ -4665,6 +4665,7 @@
                 () => memoryManager.migrate(memory || {}),
                 () => CronacheMemory.createDefaultMemory()
             );
+            worldBootstrapEngine.pruneProvisionalMemory(migrated);
             const worldContext = {
                 story: G.currentStory,
                 setting: G.currentStory?.setting,
@@ -4748,6 +4749,7 @@
                     retrievalLimit: 5,
                     compressionThreshold: 6000,
                     mediumTermTokens: 500,
+                    continuityTokens: 1600,
                     chatHistoryLimit: 24
                 };
             }
@@ -4768,6 +4770,7 @@
                 retrievalLimit: largeContext ? 12 : mediumContext ? 8 : 6,
                 compressionThreshold: largeContext ? 48000 : mediumContext ? 24000 : 12000,
                 mediumTermTokens: largeContext ? 2500 : mediumContext ? 1400 : 900,
+                continuityTokens: largeContext ? 6000 : mediumContext ? 3600 : 2200,
                 chatHistoryLimit: largeContext ? 64 : mediumContext ? 40 : 24
             };
         }
@@ -4806,6 +4809,23 @@
             const base = (story?.startTime) ? { ...story.startTime } : (presets[genreKey] || presets.fantasy);
             base.dayName = base.dayName || computeDayName(base.year, base.month, base.day);
             return base;
+        }
+
+        function reconcileCampaignClock(memory = G.worldMemory) {
+            if (!G.time || !memory) return null;
+            const inferred = memoryManager.inferCanonicalYear(memory, G.currentStory || {});
+            if (!inferred || Number(G.time.year) === Number(inferred.year)) return null;
+            const previousYear = Number(G.time.year);
+            G.time.year = inferred.year;
+            G.time.dayName = computeDayName(G.time.year, G.time.month, G.time.day);
+            memory.clockCanon = {
+                year: inferred.year,
+                previousYear,
+                score: inferred.score,
+                sources: inferred.sources,
+                reconciledAtTurn: Number(memory.turnCount) || 0
+            };
+            return memory.clockCanon;
         }
 
         // Starter properties helpers (garantiscono beni iniziali coerenti)
@@ -9511,10 +9531,17 @@
 
         async function requestWorldChatAI(prompt) {
             const settings = G.settings;
+            const continuity = memoryManager.buildContinuityContext(G.worldMemory, {
+                story: G.currentStory,
+                currentDate: getFullTimeString(),
+                location: G.currentLocation,
+                protagonistName: G.character?.name,
+                maxTokens: getAIContextProfile().continuityTokens
+            });
             const messages = [
                 {
                     role: 'system',
-                    content: `Interpreta NPC, fazioni, gruppi e regni di una campagna narrativa storico-politica. In ogni chiamata parla un solo interlocutore, in prima persona, con carica, voce, obiettivi, leve, vincoli e conoscenze proprie. Non usare un narratore e non decidere mai le parole del protagonista. Rispondi soltanto con un tag CHAT e, soltanto se necessari, ESITO_CHAT o ACCORDO_CHAT. Un accordo diventa active solo dopo accettazione esplicita di tutte le parti necessarie.\nContesto persistente: ${G.worldMemory?.sceneSummary || G.currentStory?.desc || ''}`
+                    content: `Interpreta NPC, fazioni, gruppi e regni di una campagna narrativa storico-politica. In ogni chiamata parla un solo interlocutore, in prima persona, con carica, voce, obiettivi, leve, vincoli e conoscenze proprie. Non usare un narratore e non decidere mai le parole del protagonista. Rispondi soltanto con un tag CHAT e, soltanto se necessari, ESITO_CHAT o ACCORDO_CHAT. Un accordo diventa active solo dopo accettazione esplicita di tutte le parti necessarie.\n${continuity.prompt}`
                 },
                 { role: 'user', content: prompt }
             ];
@@ -9572,8 +9599,9 @@
             return content;
         }
 
-        async function requestTimelineAI(prompt) {
+        async function requestTimelineAI(prompt, options = {}) {
             const settings = G.settings;
+            const maxTokens = Math.max(1200, Math.min(9000, Number(options.maxTokens) || 4200));
             const messages = [
                 {
                     role: 'system',
@@ -9591,9 +9619,9 @@
                         ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
                     ],
                     discoveredModels: config.discoveredModels,
-                    maxTokens: 3600,
+                    maxTokens,
                     maxAttempts: 3,
-                    timeoutMs: 60000
+                    timeoutMs: Math.max(30000, Number(options.timeoutMs) || 70000)
                 });
                 if (!String(result.content || '').trim()) throw new Error('Risposta vuota dal simulatore');
                 return result.content;
@@ -9623,7 +9651,7 @@
                     'Content-Type': 'application/json; charset=utf-8',
                     'Authorization': `Bearer ${apiKey}`
                 },
-                body: JSON.stringify({ model, messages, temperature: 0.68, max_tokens: 3600 })
+                body: JSON.stringify({ model, messages, temperature: 0.68, max_tokens: maxTokens })
             });
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
@@ -9924,6 +9952,7 @@
             G.history = JSON.parse(JSON.stringify(s.history || []));
             G.time = JSON.parse(JSON.stringify(s.time || { day: 1, month: 1, year: 1400, hour: 8, minute: 0, dayName: 'Lunedì' }));
             G.worldMemory = migrateSavedWorldMemory(s.worldMemory);
+            const clockRepair = reconcileCampaignClock(G.worldMemory);
             G.currentLocation = s.currentLocation || 'Sconosciuto';
             applyStarterProperties(G.currentStory);
             G.isPlaying = true;
@@ -9931,7 +9960,9 @@
             
             closeAllModals();
             startGameUI();
-            notify('Partita caricata!', 'success');
+            notify(clockRepair
+                ? `Partita caricata. Cronologia riallineata dal ${clockRepair.previousYear} al ${clockRepair.year} usando il canone salvato.`
+                : 'Partita caricata!', 'success');
         }
 
         // ==================== GAME ====================
@@ -10806,13 +10837,22 @@
                 setting: G.currentStory?.setting,
                 currentDate: getFullTimeString()
             })) return world;
+            const contextProfile = getAIContextProfile();
+            const continuity = memoryManager.buildContinuityContext(G.worldMemory, {
+                story: G.currentStory,
+                currentDate: getFullTimeString(),
+                location: G.currentLocation,
+                protagonistName: G.character?.name,
+                maxTokens: contextProfile.continuityTokens
+            });
             const repairPrompt = worldBootstrapEngine.buildBootstrapPrompt({
                 story: G.currentStory,
                 turn: G.worldMemory.turnCount || 0,
                 currentDate: getFullTimeString(),
+                continuityPrompt: continuity.prompt,
                 repair: true
             }) + `\nIl mondo salvato usa ancora figure provvisorie o non possiede una base storico-politica precisa. Ricostruiscilo ora: conserva soltanto persone e istituzioni specifiche già coerenti con la storia e sostituisci ogni segnaposto generico. Restituisci esclusivamente i tag *_SETUP richiesti.`;
-            const response = await requestTimelineAI(repairPrompt);
+            const response = await requestTimelineAI(repairPrompt, { maxTokens: 7000, timeoutMs: 90000 });
             const repaired = worldBootstrapEngine.ingestResponse(response, world, {
                 story: G.currentStory,
                 setting: G.currentStory?.setting,
@@ -10994,6 +11034,20 @@
                     console.warn('Ricostruzione storico-politica non disponibile, continuo col mondo persistente:', error.message);
                 }
 
+                const aiContextProfile = getAIContextProfile();
+                const expandedTimelineContext = Number(aiContextProfile.contextSize) >= 65536;
+                const knownActors = [...(G.worldMemory.npcs || []), ...(G.worldMemory.factions || [])];
+                const recentEvents = (G.worldMemory.events || [])
+                    .filter(timelineSimulator.isMeaningfulEvent)
+                    .slice(expandedTimelineContext ? -20 : -10);
+                const continuity = memoryManager.buildContinuityContext(G.worldMemory, {
+                    story: G.currentStory,
+                    currentDate: getFullTimeString(),
+                    location: G.currentLocation,
+                    protagonistName: G.character?.name,
+                    maxTokens: aiContextProfile.continuityTokens
+                });
+
                 let pendingEvents = timelineSimulator.normalizeEventQueue(G.worldMemory.pendingTimelineEvents, {
                     turn: previousTurn,
                     batchId
@@ -11004,7 +11058,10 @@
                         turn: previousTurn,
                         batchId,
                         currentDate: getFullTimeString(),
-                        includeWorld: !pendingEvents.length
+                        includeWorld: !pendingEvents.length,
+                        knownActors,
+                        recentEvents,
+                        protagonistName: G.character?.name
                     });
                     pendingEvents = timelineSimulator.scheduleEventSeeds(pendingEvents, newSeeds, {
                         turn: previousTurn,
@@ -11016,7 +11073,10 @@
                         turn: previousTurn,
                         batchId,
                         currentDate: getFullTimeString(),
-                        includeWorld: true
+                        includeWorld: true,
+                        knownActors,
+                        recentEvents,
+                        protagonistName: G.character?.name
                     });
                 }
                 if (!pendingEvents.length) {
@@ -11034,11 +11094,6 @@
                 const seed = timelineSimulator.selectNextEventSeed(pendingEvents);
                 if (!seed) throw new Error('Nessuno sviluppo disponibile nella coda causale');
 
-                const aiContextProfile = getAIContextProfile();
-                const expandedTimelineContext = Number(aiContextProfile.contextSize) >= 65536;
-                const recentEvents = (G.worldMemory.events || [])
-                    .filter(timelineSimulator.isMeaningfulEvent)
-                    .slice(expandedTimelineContext ? -16 : -8);
                 const prompt = timelineSimulator.buildPrompt({
                     story: G.currentStory,
                     world,
@@ -11046,6 +11101,9 @@
                     pendingEvents,
                     recentEvents,
                     agreements: G.worldMemory.agreements || [],
+                    knownActors,
+                    protagonistName: G.character?.name,
+                    continuityPrompt: continuity.prompt,
                     location: G.currentLocation,
                     currentDate: getFullTimeString(),
                     turn: previousTurn,
@@ -11074,6 +11132,20 @@
                     includeChronicleFallback: false
                 };
                 const parsedEvents = eventEngine.parse(response, previewEventContext);
+                const single = timelineSimulator.ensureSingleEvent(parsedEvents, {
+                    story: G.currentStory,
+                    world,
+                    seed,
+                    recentEvents,
+                    agreements: G.worldMemory.agreements || [],
+                    knownActors,
+                    protagonistName: G.character?.name,
+                    location: G.currentLocation,
+                    turn: previewEventContext.turn
+                });
+                if (!single.event) {
+                    throw new Error('Il Game Master non dispone ancora di attori e fatti concreti sufficienti: il tempo non è stato avanzato');
+                }
 
                 campaignVault.capture({
                     character: G.character,
@@ -11115,17 +11187,6 @@
                     occurredAt: endDate,
                     timePassage: passage
                 };
-                const single = timelineSimulator.ensureSingleEvent(parsedEvents, {
-                    story: G.currentStory,
-                    world,
-                    seed,
-                    passage,
-                    recentEvents,
-                    agreements: G.worldMemory.agreements || [],
-                    location: G.currentLocation,
-                    occurredAt: endDate,
-                    turn: eventContext.turn
-                });
                 const normalizedEvent = eventEngine.create({
                     ...single.event,
                     occurredAt: endDate,
@@ -11156,7 +11217,10 @@
                         turn: eventContext.turn,
                         occurredAt: endDate,
                         passage,
-                        batchId: seed.batchId || batchId
+                        batchId: seed.batchId || batchId,
+                        knownActors,
+                        recentEvents,
+                        protagonistName: G.character?.name
                     }
                 );
                 G.worldMemory.strategicActionHistory = timelineSimulator.mergeStrategicOutcomeHistory(
@@ -11180,7 +11244,9 @@
                     openingMessages = timelineSimulator.buildConversationStarters(generated, world, {
                         turn: eventContext.turn,
                         protagonistName: G.character?.name,
-                        occurredAt: endDate
+                        occurredAt: endDate,
+                        knownActors,
+                        recentEvents
                     });
                 }
                 const chatResult = timelineChatEngine.recordMessages(
@@ -11248,6 +11314,13 @@
                 const action = `VAI AVANTI FINO AL PROSSIMO EVENTO IMPORTANTE (${passage.description}): ${seed.cause}`;
                 addStoryEntry(chronicle, 'narrator');
                 lifeEngine.commitTurn(action, response || chronicle, G.character, G.worldMemory);
+                updateMediumTermMemory(action, chronicle, {
+                    type: 'timeline',
+                    title: generatedEvent.title,
+                    actors: generatedEvent.actors,
+                    date: endDate,
+                    source: generatedEvent.source
+                });
                 const directorPayload = `${response}\n[CRONISTA: ${generatedEvent.title}|${generatedEvent.summary}|${generatedEvent.importance}]`;
                 const directorCommit = gameDirector.commitTurn(action, directorPayload, G.worldMemory, {
                     character: G.character,
@@ -12029,6 +12102,13 @@
                     nextSpeaker,
                     eventSummary: event ? `${event.summary}. Conseguenza: ${event.consequence || 'nessuna'}` : '',
                     actorContext,
+                    continuityPrompt: memoryManager.buildContinuityContext(G.worldMemory, {
+                        story: G.currentStory,
+                        currentDate: getFullTimeString(),
+                        location: G.currentLocation,
+                        protagonistName: G.character?.name,
+                        maxTokens: getAIContextProfile().continuityTokens
+                    }).prompt,
                     historyLimit: getAIContextProfile().chatHistoryLimit
                 });
                 const response = await requestWorldChatAI(prompt);
@@ -12076,6 +12156,14 @@
                     story: G.currentStory,
                     turn: G.worldMemory.turnCount || 0
                 });
+                const latestReply = result.added[0];
+                updateMediumTermMemory(`Nella chat «${thread.title}»: ${text}`, latestReply ? `${latestReply.speaker}: ${latestReply.text}` : response, {
+                    type: 'chat',
+                    title: thread.title,
+                    actors: activeThread.participants,
+                    date: getFullTimeString(),
+                    source: usedLocalFallback ? 'chat-local-fallback' : 'world-chat'
+                });
                 renderTimeline();
                 autoSave();
                 if (usedLocalFallback) {
@@ -12108,6 +12196,14 @@
                     G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
                         story: G.currentStory,
                         turn: G.worldMemory.turnCount || 0
+                    });
+                    const latestReply = result.added[0];
+                    updateMediumTermMemory(`Nella chat «${thread.title}»: ${text}`, `${latestReply.speaker}: ${latestReply.text}`, {
+                        type: 'chat',
+                        title: thread.title,
+                        actors: activeThread.participants,
+                        date: getFullTimeString(),
+                        source: 'chat-local-fallback'
                     });
                     renderTimeline();
                     autoSave();
@@ -12261,7 +12357,15 @@ Quando esiste già un regno attivo, esegui INTERNAMENTE questo audit prima/dopo 
 - [TESORO_REGNO: regno|entra/esce|importo|motivo]
 - [EVENTO_REGNO: regno|tipo|descrizione|tesoro_delta|viveri_delta|popolazione_delta|stabilità_delta|legittimità_delta|prosperità_delta|consenso_delta|disordini_delta|salute_delta]
 Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, professione, istruzione, reddito, bisogni e desideri. Nessuno può ottenere un lavoro qualificato senza istruzione e qualifiche sufficienti, una classe ammessa e un posto vacante. Disoccupazione, salari bassi e bisogni essenziali insoddisfatti generano radicali; tenore di vita e mobilità sociale generano lealisti. Usa numeri conservativi e spiegabili: non modificare una statistica senza una causa nella scena o nella simulazione, non trasformare delte in valori assoluti e non sommare due volte lo stesso effetto. Ogni decisione del sovrano deve produrre vincitori, perdenti, costi e reazioni credibili. Informa sempre il motore dei cambiamenti numerici con i tag; non raccontare carestie, migrazioni, rivolte, investimenti, epidemie, raccolti, riforme o conquiste soltanto in prosa. Le categorie sociali devono agire e pesare sulle decisioni: nobiltà fondiaria, clero, contadini, artigiani/gilde, mercanti, lavoratori ed emarginati. Il tesoro reale NON è denaro personale e NON è la cassa di un negozio. Non duplicare mai la stessa variazione in sistemi diversi.`;
-            const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory, getAIContextProfile());
+            const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory, {
+                ...getAIContextProfile(),
+                continuity: {
+                    story: G.currentStory,
+                    currentDate: getFullTimeString(),
+                    location: G.currentLocation,
+                    protagonistName: G.character?.name
+                }
+            });
             const recentHistory = layeredMemory.shortTerm;
             const masterTurn = narrativeMaster.decide(action, {
                 memory: G.worldMemory,
@@ -12798,6 +12902,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 story: G.currentStory,
                 turn: G.worldMemory.turnCount || 0
             });
+            if (isStart) reconcileCampaignClock(G.worldMemory);
             if (worldBootstrap.changed) memoryChanged = true;
             if (isStart) {
                 const world = G.worldMemory.world;
@@ -13765,23 +13870,49 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             wm.lastSummaryTurn = wm.turnCount;
         }
 
-        function updateMediumTermMemory(action, response) {
+        function updateMediumTermMemory(action, response, metadata = {}) {
             const wm = G.worldMemory;
             const cleanResponse = String(response || '')
                 .replace(/\[ANALISI\][\s\S]*?\[\/ANALISI\]/gi, '')
                 .replace(/\[[A-ZÀ-Ü_]+\s*:[^\]]+\]/g, ' ')
                 .replace(/\s+/g, ' ')
                 .trim();
-            const recentEvents = (wm.events || []).slice(-6).map(event => eventEngine.format(event)).filter(Boolean);
-            const activeQuests = (wm.quests || []).filter(quest => quest.status === 'active').slice(-4);
+            memoryManager.recordContinuity(wm, {
+                type: metadata.type || 'turno',
+                title: metadata.title || action,
+                action,
+                summary: cleanResponse,
+                actors: metadata.actors,
+                date: metadata.date || getFullTimeString(),
+                location: metadata.location || G.currentLocation,
+                turn: wm.turnCount,
+                source: metadata.source || 'narratore'
+            });
+            const recentEvents = (wm.events || []).filter(timelineSimulator.isMeaningfulEvent)
+                .filter(event => !timelineSimulator.containsPlaceholder(`${event.title || ''} ${(event.actors || []).join(' ')} ${event.summary || ''}`))
+                .slice(-8).map(event => eventEngine.format(event)).filter(Boolean);
+            const activeQuests = [...(wm.quests || []), ...(wm.narrativeGoals || [])]
+                .filter(quest => !/completed|resolved|failed|closed|conclus|fallit/i.test(quest.status || ''))
+                .filter(quest => !CronacheMemory.isPlaceholderEntity(quest.name || quest.title))
+                .slice(-6);
+            const activeChats = (wm.chats || []).filter(thread => thread.status !== 'closed').slice(-4);
+            const recentContinuity = (wm.continuityLog || []).slice(-10);
             const sections = [
                 `Scena corrente: ${G.currentLocation || 'Sconosciuto'}, ${getFullTimeString()}.`,
-                action ? `Ultima azione del giocatore: ${action}.` : '',
-                cleanResponse ? `Esito recente: ${cleanResponse}` : '',
-                recentEvents.length ? `Eventi rilevanti: ${recentEvents.join('; ')}.` : '',
-                activeQuests.length ? `Trame aperte: ${activeQuests.map(quest => `${quest.name}${quest.progress ? ` (${quest.progress})` : ''}`).join('; ')}.` : ''
+                recentContinuity.length ? `Sviluppi consolidati:\n${recentContinuity.map(item =>
+                    `- ${item.date ? `${item.date} — ` : ''}${item.title || item.action}: ${item.summary}`
+                ).join('\n')}` : '',
+                recentEvents.length ? `Eventi rilevanti:\n${recentEvents.map(event => `- ${event}`).join('\n')}` : '',
+                activeChats.length ? `Conversazioni attive:\n${activeChats.map(thread => {
+                    const last = (thread.messages || []).slice(-2).map(message => `${message.speaker}: ${message.text}`).join(' / ');
+                    return `- ${thread.title || thread.eventTitle}: ${last || thread.agenda || 'aperta'}`;
+                }).join('\n')}` : '',
+                activeQuests.length ? `Trame aperte: ${activeQuests.map(quest => `${quest.name || quest.title}${quest.progress ? ` (${quest.progress})` : ''}`).join('; ')}.` : ''
             ].filter(Boolean);
-            const summary = CronacheMemory.truncateToTokens(sections.join('\n'), 500);
+            const summary = CronacheMemory.truncateToTokens(
+                sections.join('\n'),
+                Math.max(700, getAIContextProfile().mediumTermTokens)
+            );
             wm.sceneSummary = summary;
             wm.mediumTerm = {
                 ...(wm.mediumTerm || {}),

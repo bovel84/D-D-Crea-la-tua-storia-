@@ -578,6 +578,7 @@ ORDINE DEL GIORNO: ${item.agenda || 'affrontare le conseguenze dell’evento'}
 STATO DELLA TRATTATIVA: ${item.resolution.status}; ${item.resolution.summary || 'nessun esito ancora'}
 ACCORDI ESISTENTI: ${activeAgreements}
 CONTESTO: ${cleanText(context.eventSummary, 2000) || 'Usa i fatti registrati nell’evento.'}
+CANONE DELLA CAMPAGNA: ${cleanText(context.continuityPrompt, 12000) || 'Continua esclusivamente dai fatti e dai nomi già registrati.'}
 CONTESTO DELLE PARTI: ${cleanText(context.actorContext, 6000) || 'Mantieni identità, obiettivi e risorse già stabiliti.'}
 CONVERSAZIONE RECENTE:
 ${history}

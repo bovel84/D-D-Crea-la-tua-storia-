@@ -27,10 +27,42 @@ const packageMetadata = require('../package.json');
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
 
+function makeConcreteWorld() {
+    return worldBootstrapApi.migrateWorld({
+        name: 'Astaria', setting: 'Khepra', initialized: true,
+        centralConflict: 'Il Consiglio e la Legione competono per la successione',
+        stakes: 'La pace di Daran',
+        historicalContext: {
+            date: 'Anno 417', region: 'Daran', politicalSystem: 'Consiglio oligarchico e Legione',
+            baseline: 'La morte del sovrano ha aperto la successione', activeTensions: 'Capitale e frontiera sono divise'
+        },
+        locations: [
+            { name: 'Khepra', description: 'Capitale', source: 'test' },
+            { name: 'Porto Rosso', description: 'Porto', source: 'test' },
+            { name: 'Frontiera', description: 'Confine', source: 'test' }
+        ],
+        actors: [
+            { name: 'Elara Vey', goal: 'evitare la guerra', strategy: 'convocare il consiglio', resources: 'rete diplomatica', influence: 70, location: 'Palazzo', status: 'active', source: 'test' },
+            { name: 'Varos Kain', goal: 'ottenere pieni poteri', strategy: 'mobilitare la legione', resources: 'soldati', influence: 90, location: 'Frontiera', status: 'active', source: 'test' },
+            { name: 'Mira Sol', goal: 'proteggere le rotte', strategy: 'finanziare alleati', resources: 'flotta', influence: 65, location: 'Porto Rosso', status: 'active', source: 'test' },
+            { name: 'Taren', goal: 'vendere informazioni', strategy: 'osservare le parti', resources: 'informatori', influence: 45, location: 'Khepra', status: 'active', source: 'test' }
+        ],
+        factions: [
+            { name: 'Consiglio di Daran', goal: 'mantenere la pace', strategy: 'voti e decreti', resources: 'istituzioni', influence: 76, status: 'active', source: 'test' },
+            { name: 'Legione di Frontiera', goal: 'espandere il potere', strategy: 'pressione militare', resources: 'fortezze', influence: 82, status: 'active', source: 'test' }
+        ],
+        relations: [
+            { from: 'Consiglio di Daran', to: 'Legione di Frontiera', type: 'rivalità', trust: 25, tension: 70 },
+            { from: 'Elara Vey', to: 'Mira Sol', type: 'cooperazione', trust: 60, tension: 25 }
+        ],
+        forces: [{ name: 'Crisi di successione', actor: 'Consiglio di Daran', objective: 'eleggere un sovrano', progress: 20, urgency: 80, status: 'active', source: 'test' }]
+    });
+}
+
 test('migra la memoria legacy senza perdere i campi esistenti', () => {
     const legacy = { npcs: [{ name: 'Elara' }], events: [{ summary: 'Incontro' }], customField: 42 };
     const migrated = memoryApi.migrateMemory(legacy);
-    assert.equal(migrated.memorySchemaVersion, 8);
+    assert.equal(migrated.memorySchemaVersion, 9);
     assert.equal(migrated.npcs[0].name, 'Elara');
     assert.equal(migrated.customField, 42);
     assert.deepEqual(migrated.factions, []);
@@ -41,6 +73,7 @@ test('migra la memoria legacy senza perdere i campi esistenti', () => {
     assert.deepEqual(migrated.pendingTimelineEvents, []);
     assert.deepEqual(migrated.pendingStrategicActions, []);
     assert.deepEqual(migrated.strategicActionHistory, []);
+    assert.deepEqual(migrated.continuityLog, []);
     assert.equal(migrated.lastTimelineEventId, '');
     assert.deepEqual(migrated.world, {});
 });
@@ -78,17 +111,17 @@ test('costruisce all’avvio un mondo persistente con luoghi, attori, fazioni e 
     assert.equal(memory.narrativeGoals[0].name, 'Crisi di successione');
 });
 
-test('garantisce un mondo minimo giocabile se il modello omette i tag iniziali', () => {
+test('non trasforma i segnaposto di recupero in fatti canonici se il modello omette i tag iniziali', () => {
     const result = worldBootstrapApi.ingestResponse('La storia comincia.', {}, {
         story: { title: 'Il porto', setting: 'Trieste, 1984', desc: 'Una rete di doppi agenti.' },
         turn: 0,
         ensureMinimum: true
     });
     assert.equal(result.usedFallback, true);
-    assert.equal(result.world.initialized, true);
-    assert.ok(result.world.actors.length >= 4);
-    assert.ok(result.world.factions.length >= 2);
-    assert.ok(result.world.locations.length >= 3);
+    assert.equal(result.world.initialized, false);
+    assert.equal(result.world.actors.length, 0);
+    assert.equal(result.world.factions.length, 0);
+    assert.equal(result.world.forces.length, 0);
     assert.equal(worldBootstrapApi.needsHistoricalRepair(result.world), true);
 });
 
@@ -122,9 +155,7 @@ test('sostituisce i segnaposto provvisori con un mondo storico-politico specific
 });
 
 test('seleziona attori influenti e registra le loro mosse e interazioni', () => {
-    let world = worldBootstrapApi.ensureMinimumWorld({}, {
-        story: { title: 'Astaria', setting: 'Khepra' }, turn: 0
-    });
+    let world = makeConcreteWorld();
     world.actors[0].name = 'Elara';
     world.actors[0].location = 'Palazzo';
     world.actors[0].influence = 40;
@@ -145,7 +176,7 @@ test('i prompt collegano il mondo iniziale a timeline e conversazioni', () => {
     assert.match(startPrompt, /6 PERSONAGGIO_SETUP/);
     assert.match(startPrompt, /CONTESTO_STORICO_SETUP/);
     assert.match(startPrompt, /Vietati segnaposto/);
-    const world = worldBootstrapApi.ensureMinimumWorld({}, { story: { title: 'Astaria', setting: 'Khepra' } });
+    const world = makeConcreteWorld();
     const timelinePrompt = worldBootstrapApi.buildTimelinePrompt(world, { duration: 'un mese', turn: 4 });
     assert.match(timelinePrompt, /SIMULAZIONE CAUSALE/);
     assert.match(timelinePrompt, /EVENTO datati/);
@@ -206,9 +237,7 @@ test('il simulatore usa più attori quando il modello dispone di contesto esteso
 });
 
 test('ogni chiamata della timeline completa al massimo un evento vivo', () => {
-    const world = worldBootstrapApi.ensureMinimumWorld({}, {
-        story: { title: 'Astaria', setting: 'Khepra' }, turn: 10
-    });
+    const world = makeConcreteWorld();
     const seeds = timelineSimulatorApi.createEventSeeds([{
         id: 'choice-porta', source: 'player-action', summary: 'Ordino di rinforzare la porta orientale.'
     }], world, { turn: 10, batchId: 'batch-single', includeWorld: false });
@@ -341,9 +370,7 @@ test('risolve ogni azione strategica e conserva anche le reazioni del mondo', ()
 });
 
 test('completa i tag IA mancanti senza eliminare gli eventi validi', () => {
-    const world = worldBootstrapApi.ensureMinimumWorld({}, {
-        story: { title: 'Astaria', setting: 'Khepra' }, turn: 10
-    });
+    const world = makeConcreteWorld();
     const existing = eventApi.normalizeEvent({
         type: 'politica', title: 'Il consiglio vota',
         summary: 'Il consiglio approva una tassa. I mercanti lasciano la sala in protesta.',
@@ -396,9 +423,7 @@ test('rifiuta eventi politici generici e mantiene soltanto attori specifici dell
 });
 
 test('la timeline apre una sola battuta di chat per evento', () => {
-    const world = worldBootstrapApi.ensureMinimumWorld({}, {
-        story: { title: 'Astaria', setting: 'Khepra' }, turn: 10
-    });
+    const world = makeConcreteWorld();
     const arc = timelineSimulatorApi.createFallbackArc({
         story: { title: 'Astaria', setting: 'Khepra' }, world,
         passage: { days: 7, description: '1 settimana' }, turn: 17
@@ -413,9 +438,7 @@ test('la timeline apre una sola battuta di chat per evento', () => {
 });
 
 test('gli eventi modificano davvero attori, relazioni e forze del mondo', () => {
-    let world = worldBootstrapApi.ensureMinimumWorld({}, {
-        story: { title: 'Astaria', setting: 'Khepra' }, turn: 0
-    });
+    let world = makeConcreteWorld();
     const relation = world.relations[0];
     const force = world.forces[0];
     force.actor = relation.from;
@@ -490,6 +513,73 @@ test('la memoria migrata è persistibile con JSON', () => {
     const restored = memoryApi.migrateMemory(JSON.parse(JSON.stringify(original)));
     assert.equal(restored.factions[0].name, 'Custodi');
     assert.equal(restored.mediumTerm.summary, 'Scena corrente');
+});
+
+test('il canone persistente conserva eventi e chat reali ma ignora il falso contesto dello screenshot', () => {
+    const memory = memoryApi.migrateMemory({
+        turnCount: 9,
+        sceneSummary: 'Opposizione di Storico / Business osserva Equilibrio in cambiamento.',
+        npcs: [
+            { name: 'Lorenzo de’ Medici', role: 'signore di Firenze' },
+            { name: 'Opposizione di Storico / Business', source: 'deterministic-fallback' }
+        ],
+        events: [
+            {
+                id: 'evento-pazzi', title: 'Movimenti sospetti dei Pazzi',
+                summary: 'Una spia di Lorenzo segue un messaggero diretto alla casa dei Pazzi.',
+                consequence: 'Lorenzo possiede un primo indizio del legame con Roma.',
+                actors: ['Lorenzo de’ Medici', 'Francesco de’ Pazzi'], occurredAt: '3 aprile 1472', source: 'timeline-ai'
+            },
+            {
+                id: 'evento-falso', title: 'Definire il prossimo passo',
+                summary: 'Il protagonista cerca Opposizione di Storico / Business.',
+                actors: ['Opposizione di Storico / Business'], occurredAt: '3 aprile 2023', source: 'timeline-fallback'
+            }
+        ],
+        chats: [{
+            id: 'chat-pazzi', title: 'La convocazione di San Lorenzo', status: 'active',
+            participants: ['Lorenzo de’ Medici', 'Lucia', 'Andrea'],
+            messages: [{ speaker: 'Lucia', text: 'Io ho trovato il biglietto in sacrestia.' }]
+        }]
+    });
+    const continuity = memoryApi.buildContinuityContext(memory, {
+        story: { title: 'Congiura dei Pazzi', desc: 'Firenze è attraversata da una congiura.' },
+        currentDate: '3 aprile 1472', location: 'Palazzo Medici', protagonistName: 'Andrea', maxTokens: 3000
+    });
+    assert.match(continuity.prompt, /Movimenti sospetti dei Pazzi/);
+    assert.match(continuity.prompt, /La convocazione di San Lorenzo/);
+    assert.match(continuity.prompt, /Lorenzo de’ Medici/);
+    const factualContext = continuity.prompt.split('REGOLA DI CONTINUITÀ')[0];
+    assert.doesNotMatch(factualContext, /Storico \/ Business|Equilibrio in cambiamento|Definire il prossimo passo/);
+});
+
+test('la continuità registra più turni senza sovrascrivere lo sviluppo precedente', () => {
+    const memory = memoryApi.createDefaultMemory();
+    memoryApi.recordContinuity(memory, { title: 'Primo indizio', summary: 'Lucia consegna il biglietto.', turn: 1 });
+    memoryApi.recordContinuity(memory, { title: 'Secondo indizio', summary: 'Lorenzo riconosce il sigillo.', turn: 2 });
+    const context = memoryApi.buildContinuityContext(memory, { maxTokens: 1200 });
+    assert.equal(memory.continuityLog.length, 2);
+    assert.match(context.prompt, /Primo indizio/);
+    assert.match(context.prompt, /Secondo indizio/);
+});
+
+test('ricava l’anno canonico dagli eventi reali ignorando l’evento generico del fallback', () => {
+    const memory = memoryApi.migrateMemory({
+        world: { provisional: true, historicalContext: { date: '2023' } },
+        events: [
+            {
+                id: 'pazzi-1', title: 'Il messaggero dei Pazzi', summary: 'Lorenzo segue il messaggero.',
+                actors: ['Lorenzo de’ Medici', 'Francesco de’ Pazzi'], occurredAt: '2 aprile 1472', source: 'timeline-ai'
+            },
+            {
+                id: 'fallback-1', title: 'Definire il prossimo passo', summary: 'Equilibrio in cambiamento.',
+                actors: ['Opposizione di Storico / Business'], occurredAt: '3 aprile 2023', source: 'timeline-fallback'
+            }
+        ]
+    });
+    const inferred = memoryApi.inferCanonicalYear(memory, { setting: 'Storico / Business' });
+    assert.equal(inferred.year, 1472);
+    assert.ok(inferred.sources.some(source => source.startsWith('event:')));
 });
 
 test('interpreta eventi LLM strutturati con causa, attori e conseguenza', () => {
@@ -946,6 +1036,74 @@ test('completa con un piano locale specifico se il JSON dell’IA è assente o i
     assert.match(plan.issues[0].title, /Ultimatum della Legione/);
     assert.ok(plan.issues.every(item => item.actions.length >= 2));
     assert.ok(plan.issues.flatMap(item => item.actions).every(item => item.command.length > 20));
+});
+
+test('analisi e coda eliminano le vecchie azioni costruite su Opposizione di Storico Business', () => {
+    const context = {
+        story: { title: 'Congiura dei Pazzi', setting: 'Storico / Business', desc: 'Firenze è minacciata da una congiura.' },
+        character: {
+            name: 'Andrea', gold: 20, health: { cur: 100, max: 100 },
+            stamina: { cur: 80, max: 100 }, hunger: { cur: 80, max: 100 }
+        },
+        memory: {
+            turnCount: 8,
+            events: [{
+                title: 'Movimenti sospetti dei Pazzi',
+                summary: 'Lorenzo de’ Medici scopre un messaggero legato a Francesco de’ Pazzi.',
+                consequence: 'La rete dei Pazzi sa di essere osservata.',
+                actors: ['Lorenzo de’ Medici', 'Francesco de’ Pazzi'], importance: 'high', status: 'active', turn: 8
+            }],
+            narrativeGoals: [{ name: 'Equilibrio in cambiamento', actor: 'Opposizione di Storico / Business', status: 'active' }],
+            world: {
+                actors: [{ name: 'Custode di Storico / Business', source: 'deterministic-fallback', status: 'active' }],
+                factions: [{ name: 'Opposizione di Storico / Business', source: 'deterministic-fallback', status: 'active' }],
+                relations: [],
+                forces: [{ name: 'Equilibrio in cambiamento', actor: 'Opposizione di Storico / Business', source: 'deterministic-fallback' }]
+            }
+        },
+        management: { businesses: [] }, kingdom: { active: false }
+    };
+    const publicState = strategicAdvisorApi.buildPublicContext(context);
+    assert.ok(publicState.knownActors.some(actor => actor.name === 'Lorenzo de’ Medici'));
+    assert.ok(publicState.knownActors.every(actor => !/Opposizione|Custode/.test(actor.name)));
+    assert.equal(publicState.visiblePressures.length, 0);
+    const plan = strategicAdvisorApi.buildFallback(context);
+    const allPlanText = JSON.stringify(plan);
+    assert.match(allPlanText, /Movimenti sospetti dei Pazzi/);
+    assert.doesNotMatch(allPlanText, /Opposizione di Storico|Equilibrio in cambiamento/);
+
+    const obsoleteAction = {
+        id: 'strategic-obsolete', source: 'strategic-advisor', issueTitle: 'Equilibrio in cambiamento',
+        actionTitle: 'Definire il prossimo passo',
+        command: 'Cerco Opposizione di Storico / Business e chiarisco il prossimo passo concreto.'
+    };
+    assert.deepEqual(strategicAdvisorApi.normalizeQueue([obsoleteAction]), []);
+    assert.deepEqual(timelineSimulatorApi.normalizeEventQueue([{
+        id: 'pending-obsolete', kind: 'strategic_action', title: obsoleteAction.actionTitle,
+        cause: obsoleteAction.command, choice: obsoleteAction
+    }]), []);
+});
+
+test('il fallback della timeline usa soltanto persone ricordate e non inventa fazioni astratte', () => {
+    const seed = timelineSimulatorApi.normalizeEventSeed({
+        id: 'follow-pazzi', kind: 'world_reply', title: 'La risposta dei Pazzi',
+        cause: 'Francesco de’ Pazzi reagisce alla sorveglianza di Lorenzo',
+        actors: ['Francesco de’ Pazzi'], interactionMode: 'either'
+    });
+    const result = timelineSimulatorApi.ensureSingleEvent([], {
+        world: { actors: [], factions: [], relations: [], forces: [], historicalContext: {} },
+        seed,
+        knownActors: [
+            { name: 'Lorenzo de’ Medici', goals: 'proteggere Firenze', resources: 'informatori' },
+            { name: 'Francesco de’ Pazzi', goals: 'nascondere la congiura', resources: 'guardie private' }
+        ],
+        recentEvents: [{ actors: ['Lorenzo de’ Medici', 'Francesco de’ Pazzi'] }],
+        protagonistName: 'Andrea', location: 'Firenze', occurredAt: '3 aprile 1472'
+    });
+    assert.equal(result.usedFallback, true);
+    assert.ok(result.event);
+    assert.ok(result.event.actors.includes('Francesco de’ Pazzi'));
+    assert.doesNotMatch(JSON.stringify(result.event), /Autorità di|Opposizione di|Comunità di|Storico \/ Business/);
 });
 
 test('rigenera l’analisi strategica quando cambia lo stato del gioco', () => {

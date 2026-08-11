@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const SCHEMA_VERSION = 1;
+    const SCHEMA_VERSION = 2;
     const MAX_ISSUES = 5;
     const MAX_ACTIONS_PER_ISSUE = 3;
     const MAX_QUEUED_ACTIONS = MAX_ISSUES * MAX_ACTIONS_PER_ISSUE;
@@ -59,6 +59,21 @@
         return (hash >>> 0).toString(36);
     }
 
+    function isPlaceholderName(value) {
+        const key = keyOf(value);
+        return /^(?:il-|la-|lo-|i-|gli-|le-)?(?:autorita|opposizione|comunita|custode|voce-dell-opposizione|guida-locale|mediatore-indipendente)(?:-|$)/.test(key) ||
+            /^(?:equilibrio-in-cambiamento|prossimo-sviluppo-del-mondo)$/.test(key) ||
+            /(?:storico|historical)-(?:business|economia)/.test(key);
+    }
+
+    function containsPlaceholder(value) {
+        const text = cleanText(value, 1200);
+        return /\b(?:Autorità|Opposizione|Comunità) di\b/i.test(text) ||
+            /\b(?:Custode|Guida locale|Mediatore indipendente|Voce dell['’ ]Opposizione)\b/i.test(text) ||
+            /\b(?:Equilibrio in cambiamento|Prossimo sviluppo del mondo)\b/i.test(text) ||
+            /(?:Storico|Historical)\s*\/\s*(?:Business|Economia)/i.test(text);
+    }
+
     function uniqueText(values, limit = 8, max = 220) {
         const seen = new Set();
         return asArray(values).map(value => cleanText(value, max)).filter(value => {
@@ -98,7 +113,7 @@
         const command = sanitizeCommand(
             input.command || input.playerAction || input.executableAction || input.action
         );
-        if (!title || command.length < 8) return null;
+        if (!title || command.length < 8 || containsPlaceholder(`${title} ${command}`)) return null;
         return {
             id: cleanText(input.id, 120) || `action-${issueId}-${index}-${hashText(`${title}|${command}`)}`,
             title,
@@ -117,7 +132,7 @@
     function normalizeIssue(source, index) {
         const input = source && typeof source === 'object' ? source : {};
         const title = cleanText(input.title || input.name || input.topic, 140);
-        if (!title) return null;
+        if (!title || isPlaceholderName(title)) return null;
         const issueId = cleanText(input.id, 120) || `issue-${index}-${hashText(title)}`;
         const actions = asArray(input.actions || input.options || input.responses)
             .map((action, actionIndex) => normalizeAction(action, actionIndex, issueId))
@@ -142,7 +157,7 @@
     function compactQuest(quest) {
         const input = quest && typeof quest === 'object' ? quest : {};
         const title = cleanText(input.name || input.title || input.summary, 120);
-        if (!title) return null;
+        if (!title || isPlaceholderName(title)) return null;
         return {
             title,
             objective: cleanText(input.objective || input.description || input.summary, 320),
@@ -176,7 +191,7 @@
     function compactActor(actor) {
         const input = actor && typeof actor === 'object' ? actor : {};
         const name = cleanText(input.name, 120);
-        if (!name || String(input.status || '').toLowerCase() === 'dead') return null;
+        if (!name || isPlaceholderName(name) || /deterministic-fallback|timeline-recovery/i.test(input.source || '') || String(input.status || '').toLowerCase() === 'dead') return null;
         return {
             name,
             role: cleanText(input.role || input.type, 100),
@@ -193,7 +208,7 @@
         const input = relation && typeof relation === 'object' ? relation : {};
         const from = cleanText(input.from, 100);
         const to = cleanText(input.to, 100);
-        if (!from || !to) return null;
+        if (!from || !to || isPlaceholderName(from) || isPlaceholderName(to)) return null;
         return {
             from,
             to,
@@ -207,7 +222,7 @@
     function compactForce(force) {
         const input = force && typeof force === 'object' ? force : {};
         const name = cleanText(input.name, 120);
-        if (!name || keyOf(input.status).match(/resolved|conclus|inactive/)) return null;
+        if (!name || isPlaceholderName(name) || /deterministic-fallback|timeline-recovery/i.test(input.source || '') || keyOf(input.status).match(/resolved|conclus|inactive/)) return null;
         return {
             name,
             actor: cleanText(input.actor, 100),
@@ -313,8 +328,14 @@
         const health = character.health || {};
         const stamina = character.stamina || {};
         const hunger = character.hunger || {};
-        const actors = [...asArray(world.actors), ...asArray(memory.npcs)]
+        const rememberedNames = [
+            ...asArray(memory.events).slice(-12).flatMap(item => asArray(item?.actors)),
+            ...asArray(memory.chats).filter(item => item?.status !== 'closed').flatMap(item => asArray(item?.participants))
+        ].map(name => ({ name, role: 'parte già registrata', influence: 25, source: 'event-memory' }));
+        const protagonistKey = keyOf(character.name || 'Protagonista');
+        const actors = [...asArray(world.actors), ...asArray(memory.npcs), ...rememberedNames]
             .map(compactActor).filter(Boolean)
+            .filter(item => keyOf(item.name) !== protagonistKey)
             .filter((item, index, all) => all.findIndex(other => keyOf(other.name) === keyOf(item.name)) === index)
             .sort((left, right) => right.influence - left.influence)
             .slice(0, 10);
@@ -384,6 +405,9 @@
             knownSituation: {
                 sceneSummary: cleanText(memory.sceneSummary, 520),
                 storySummary: cleanText(memory.storySummary, 700),
+                continuity: asArray(memory.continuityLog).slice(-8).map(item =>
+                    cleanText(`${item.title || item.action || ''}: ${item.summary || ''}`, 420)
+                ).filter(Boolean),
                 recentDecisions: asArray(memory.playerDecisions).slice(-6).map(item =>
                     cleanText(item.summary || item.description || item.action, 240)
                 ).filter(Boolean),
@@ -580,15 +604,17 @@ ${JSON.stringify(snapshot, null, 2)}`;
 
         const objective = snapshot.activeObjectives[0];
         if (objective && !issues.some(item => keyOf(item.title).includes(keyOf(objective.title)))) {
-            const contact = objective.giver || snapshot.knownActors[0]?.name || 'un contatto informato';
+            const contact = objective.giver || snapshot.knownActors[0]?.name || '';
             issues.push(issue(
                 `Obiettivo: ${objective.title}`, 'missione', objective.urgency,
                 objective.objective || `L’obiettivo «${objective.title}» è ancora aperto e richiede un prossimo passo verificabile.`,
-                'L’inerzia può far avanzare rivali, scadenze o conseguenze collegate.', [contact], [
+                'L’inerzia può far avanzare rivali, scadenze o conseguenze collegate.', contact ? [contact] : [], [
                     action({
                         title: 'Definire il prossimo passo',
                         description: 'Chiarire vincoli, scadenza e criterio di successo con chi ha informazioni dirette.',
-                        command: `Cerco ${contact} e chiarisco il prossimo passo concreto per «${objective.title}»: informazioni mancanti, scadenza, risorse necessarie e criterio con cui considerarlo completato.`,
+                        command: contact
+                            ? `Cerco ${contact} e chiarisco il prossimo passo concreto per «${objective.title}»: informazioni mancanti, scadenza, risorse necessarie e criterio con cui considerarlo completato.`
+                            : `Riesamino i fatti già registrati su «${objective.title}», individuo l'ultima conseguenza concreta e preparo il primo passo che posso compiere con le risorse realmente disponibili.`,
                         objective: 'Trasformare l’obiettivo in un compito verificabile', expectedOutcome: 'Ottenere un piano immediato e responsabilità chiare',
                         cost: 'Tempo di coordinamento', duration: 'Breve', risk: 'basso', tradeoff: 'Il contatto potrebbe chiedere condizioni aggiuntive'
                     }),
@@ -755,7 +781,7 @@ ${JSON.stringify(snapshot, null, 2)}`;
         const command = sanitizeCommand(input.command || input.summary || input.description);
         const actionTitle = cleanText(input.actionTitle || input.title, 120);
         const issueTitle = cleanText(input.issueTitle || input.topic || input.category || 'Strategia', 140);
-        if (!command || !actionTitle) return null;
+        if (!command || !actionTitle || isPlaceholderName(issueTitle) || containsPlaceholder(`${issueTitle} ${actionTitle} ${command}`)) return null;
         const stableId = cleanText(input.id, 150).replace(/[^a-zA-Z0-9_-]/g, '') ||
             `strategic-${hashText(`${issueTitle}|${actionTitle}|${command}`)}`;
         return {
@@ -883,6 +909,7 @@ ${JSON.stringify(snapshot, null, 2)}`;
         cleanText,
         keyOf,
         buildPublicContext,
+        isPlaceholderName,
         stateSignature,
         buildPrompt,
         normalizeAnalysis,

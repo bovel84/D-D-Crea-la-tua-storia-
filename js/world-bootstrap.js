@@ -226,6 +226,22 @@
         };
     }
 
+    function isProvisionalSource(value) {
+        return /deterministic-fallback|timeline-recovery/.test(keyOf(value));
+    }
+
+    function isGenericForceName(value) {
+        const key = keyOf(value);
+        return /^(equilibrio in cambiamento|prossimo sviluppo del mondo)$/.test(key) ||
+            /(?:storico|historical)\s*\/\s*(?:business|economia)/.test(key);
+    }
+
+    function isConcreteEntity(item, kind = 'actor') {
+        if (!item || isProvisionalSource(item.source)) return false;
+        if (kind === 'force') return !isGenericForceName(item.name);
+        return !isGenericActorName(item.name);
+    }
+
     function mergeByName(current, incoming, normalize, limit, context) {
         const result = asArray(current).map(item => normalize(item, context)).filter(Boolean);
         asArray(incoming).forEach(raw => {
@@ -258,12 +274,15 @@
                 setting: input.setting || defaults.setting
             }),
             locations: mergeByName([], input.locations, normalizeLocation, LIMITS.locations, context),
-            actors: mergeByName([], input.actors, normalizeActor, LIMITS.actors, context),
-            factions: mergeByName([], input.factions, normalizeFaction, LIMITS.factions, context),
+            actors: mergeByName([], input.actors, normalizeActor, LIMITS.actors, context)
+                .filter(item => isConcreteEntity(item, 'actor')),
+            factions: mergeByName([], input.factions, normalizeFaction, LIMITS.factions, context)
+                .filter(item => isConcreteEntity(item, 'faction')),
             relations: mergeByName([], input.relations, normalizeRelation, LIMITS.relations, context),
             forces: mergeByName([], input.forces, normalizeForce, LIMITS.forces, context)
+                .filter(item => isConcreteEntity(item, 'force'))
         };
-        world.initialized = Boolean(input.initialized) || isWorldReady(world);
+        world.initialized = isWorldReady(world);
         world.status = world.initialized ? (world.provisional ? 'provisional' : 'ready')
             : (world.locations.length || world.actors.length || world.factions.length ? 'partial' : 'pending');
         world.createdAtTurn = Math.max(0, Number(input.createdAtTurn ?? context.turn) || 0);
@@ -333,38 +352,21 @@
     function ensureMinimumWorld(worldValue, context = {}) {
         const world = migrateWorld(worldValue, context);
         if (isWorldReady(world)) return world;
-        const names = fallbackNames(context);
         world.provisional = true;
         world.centralConflict = world.centralConflict || cleanText(context.story?.desc || 'Forze contrapposte cercano di cambiare l’equilibrio del mondo.', 420);
         world.stakes = world.stakes || 'Il destino della comunità e la libertà d’azione del protagonista.';
-        const fallbackLocations = names.locations.map((name, index) => ({
-            name, type: index ? 'area' : 'ambientazione', region: names.place,
-            description: index === 0 ? `Cuore dell’ambientazione ${names.place}.` : `Zona di ${names.place} con opportunità e pericoli propri.`,
-            controller: index === 2 ? names.factions[1] : names.factions[0], source: 'deterministic-fallback'
-        }));
-        const fallbackFactions = [
-            { name: names.factions[0], type: 'autorità', leader: names.actors[0], description: 'Difende l’ordine esistente.', goal: 'Conservare controllo e stabilità.', strategy: 'Leggi, alleanze e pressione.', resources: 'istituzioni e informatori', influence: 65, relationship: 'neutrale', source: 'deterministic-fallback' },
-            { name: names.factions[1], type: 'opposizione', leader: names.actors[1], description: 'Contesta l’equilibrio attuale.', goal: 'Cambiare i rapporti di potere.', strategy: 'Consenso, segreti e azioni indirette.', resources: 'sostenitori e contatti', influence: 55, relationship: 'incerta', source: 'deterministic-fallback' }
-        ];
-        const fallbackActors = [
-            { name: names.actors[0], role: 'autorità', faction: names.factions[0], personality: 'prudente e determinato', goal: 'Proteggere l’ordine', strategy: 'osservare e intervenire', resources: 'informazioni e autorità', influence: 65, relationship: 'neutrale', location: names.locations[0], source: 'deterministic-fallback' },
-            { name: names.actors[1], role: 'rivale', faction: names.factions[1], personality: 'ambiziosa e impaziente', goal: 'Spezzare l’equilibrio', strategy: 'reclutare alleati', resources: 'contatti e segreti', influence: 58, relationship: 'diffidente', location: names.locations[2], source: 'deterministic-fallback' },
-            { name: names.actors[2], role: 'contatto', faction: '', personality: 'curiosa e pragmatica', goal: 'Capire chi prevarrà', strategy: 'scambiare informazioni', resources: 'conoscenza locale', influence: 40, relationship: 'amichevole', location: names.locations[0], source: 'deterministic-fallback' },
-            { name: names.actors[3], role: 'intermediario', faction: '', personality: 'calmo e opportunista', goal: 'Trarre vantaggio dal cambiamento', strategy: 'mediare e commerciare', resources: 'denaro e relazioni', influence: 45, relationship: 'neutrale', location: names.locations[1], source: 'deterministic-fallback' }
-        ];
-        world.locations = mergeByName(world.locations, fallbackLocations, normalizeLocation, LIMITS.locations, context);
-        world.factions = mergeByName(world.factions, fallbackFactions, normalizeFaction, LIMITS.factions, context);
-        world.actors = mergeByName(world.actors, fallbackActors, normalizeActor, LIMITS.actors, context);
-        world.relations = mergeByName(world.relations, [
-            { from: names.factions[0], to: names.factions[1], type: 'rivalità', trust: 10, tension: 75, description: 'Le due forze competono per il controllo.', source: 'deterministic-fallback' },
-            { from: names.actors[2], to: names.actors[0], type: 'contatto', trust: 55, tension: 20, description: 'Si scambiano informazioni con cautela.', source: 'deterministic-fallback' }
-        ], normalizeRelation, LIMITS.relations, context);
-        world.forces = mergeByName(world.forces, [{
-            name: 'Equilibrio in cambiamento', actor: names.factions[1], objective: world.centralConflict,
-            progress: 10, urgency: 55, status: 'active', source: 'deterministic-fallback'
-        }], normalizeForce, LIMITS.forces, context);
+        const currentLocation = cleanText(context.location, 120);
+        if (currentLocation && !/sconosciut|unknown/i.test(currentLocation)) {
+            world.locations = mergeByName(world.locations, [{
+                name: currentLocation,
+                type: 'luogo corrente',
+                region: cleanText(context.setting || context.story?.setting, 120),
+                description: 'Luogo già confermato dalla campagna.',
+                source: 'memory-recovery'
+            }], normalizeLocation, LIMITS.locations, context);
+        }
         world.initialized = isWorldReady(world);
-        world.status = world.initialized ? 'provisional' : 'partial';
+        world.status = world.initialized ? 'ready' : (world.locations.length || world.actors.length || world.factions.length ? 'partial' : 'pending');
         world.updatedAtTurn = Math.max(world.updatedAtTurn, Number(context.turn) || 0);
         return world;
     }
@@ -437,7 +439,7 @@
                 discovered: Number(context.turn) || 0, source: location.source
             });
         });
-        world.actors.forEach(actor => {
+        world.actors.filter(actor => isConcreteEntity(actor, 'actor')).forEach(actor => {
             state.npcs = upsertMemory(state.npcs, actor.name, {
                 id: actor.id, name: actor.name, description: actor.description || actor.role,
                 relationship: actor.relationship, personality: actor.personality, goals: actor.goal,
@@ -457,7 +459,7 @@
                 metAt: Number(context.turn) || 0, lastSeen: Number(context.turn) || 0
             });
         });
-        world.factions.forEach(faction => {
+        world.factions.filter(faction => isConcreteEntity(faction, 'faction')).forEach(faction => {
             state.factions = upsertMemory(state.factions, faction.name, {
                 id: faction.id, name: faction.name, description: faction.description,
                 relationship: faction.relationship, goal: faction.goal, strategy: faction.strategy,
@@ -469,27 +471,40 @@
                 source: faction.source
             });
         });
-        world.forces.forEach(force => {
+        world.forces.filter(force => isConcreteEntity(force, 'force')).forEach(force => {
             state.narrativeGoals = upsertMemory(state.narrativeGoals, force.name, {
                 id: force.id, name: force.name, description: force.objective, status: force.status,
                 progress: `${Math.round(force.progress)}%`, urgency: force.urgency,
-                actor: force.actor, worldSeed: true, createdAtTurn: Number(context.turn) || 0
+                actor: force.actor, worldSeed: true, source: force.source, createdAtTurn: Number(context.turn) || 0
             });
         });
+        return state;
+    }
+
+    function pruneProvisionalMemory(memory) {
+        const state = memory && typeof memory === 'object' ? memory : {};
+        state.npcs = asArray(state.npcs).filter(item => isConcreteEntity(item, 'actor'));
+        state.factions = asArray(state.factions).filter(item => isConcreteEntity(item, 'faction'));
+        state.narrativeGoals = asArray(state.narrativeGoals).filter(item =>
+            !isProvisionalSource(item?.source) && !isGenericForceName(item?.name || item?.title)
+        );
         return state;
     }
 
     function syncFromMemory(worldValue, memory, context = {}) {
         const world = migrateWorld(worldValue, context);
         world.locations = mergeByName(world.locations, asArray(memory?.locations).map(item => ({ ...item, source: item.source || 'memory' })), normalizeLocation, LIMITS.locations, context);
-        world.actors = mergeByName(world.actors, asArray(memory?.npcs).map(item => ({
+        world.actors = mergeByName(world.actors, asArray(memory?.npcs).filter(item => isConcreteEntity(item, 'actor')).map(item => ({
             ...item, goal: item.goals || item.goal, influence: item.influence || Math.min(100, Math.max(10, Number(item.level || 1) * 10)),
             source: item.source || 'memory'
         })), normalizeActor, LIMITS.actors, context);
-        world.factions = mergeByName(world.factions, asArray(memory?.factions), normalizeFaction, LIMITS.factions, context);
-        world.forces = mergeByName(world.forces, asArray(memory?.narrativeGoals).map(item => ({
+        world.factions = mergeByName(world.factions, asArray(memory?.factions).filter(item => isConcreteEntity(item, 'faction')), normalizeFaction, LIMITS.factions, context);
+        world.forces = mergeByName(world.forces, asArray(memory?.narrativeGoals).filter(item =>
+            !isProvisionalSource(item?.source) && !isGenericForceName(item?.name || item?.title)
+        ).map(item => ({
             name: item.name || item.title, actor: item.actor, objective: item.description,
-            progress: parseFloat(item.progress) || 0, urgency: item.urgency || 50, status: item.status
+            progress: parseFloat(item.progress) || 0, urgency: item.urgency || 50, status: item.status,
+            source: item.source || 'memory'
         })), normalizeForce, LIMITS.forces, context);
         world.initialized = isWorldReady(world);
         world.status = world.initialized ? (world.provisional ? 'provisional' : 'ready')
@@ -549,9 +564,12 @@
     function buildBootstrapPrompt(context = {}) {
         const story = context.story || {};
         const currentDate = cleanText(context.currentDate || context.date, 120) || 'l’inizio della campagna';
+        const continuity = cleanText(context.continuityPrompt, 14000);
         return `🌍 **CREAZIONE STORICO-POLITICA OBBLIGATORIA DEL MONDO**
 Costruisci subito un mondo persistente coerente con «${cleanText(story.title, 120) || 'la storia'}», con ${cleanText(story.setting, 160) || 'l’ambientazione scelta'} e con la data ${currentDate}.
+${continuity ? `\nCANONE GIÀ REGISTRATO DA CONSERVARE:\n${continuity}\n` : ''}
 - Crea esattamente 1 MONDO_SETUP, 1 CONTESTO_STORICO_SETUP, almeno 4 LUOGO_SETUP, 6 PERSONAGGIO_SETUP, 3 FAZIONE_SETUP, 6 RELAZIONE_SETUP e 3 FORZA_SETUP.
+- Il canone persistente, gli eventi già registrati e i nomi già usati hanno precedenza su etichette generiche della scheda. Se la data dell'interfaccia contraddice ripetutamente il canone narrativo, segnala il conflitto nel CONTESTO_STORICO_SETUP e conserva l'epoca della storia: non fondere epoche diverse.
 - Se l'ambientazione è storica o contemporanea, usa persone, cariche, istituzioni, confini, crisi e rapporti di forza plausibili per luogo e data. Non spostare figure tra epoche e non presentare invenzioni come fatti storici certi. Se la campagna è alternativa, definisci il punto di divergenza.
 - Vietati segnaposto come «Autorità», «Opposizione», «Guida locale» e «Mediatore indipendente»: assegna nomi propri, cariche esatte e appartenenze riconoscibili.
 - Ogni personaggio deve avere obiettivo pubblico e privato, leva concreta, limiti, conoscenze parziali e un'agenda. Ogni fazione deve avere ideologia, legittimità, leve e vincoli.
@@ -571,7 +589,7 @@ La scena iniziale deve inoltre usare [LUOGO] e [POSIZIONE] per il luogo in cui s
 
     function buildRuntimePrompt(worldValue, context = {}) {
         const world = migrateWorld(worldValue, context);
-        if (!world.initialized) return `🌍 MONDO ANCORA INCOMPLETO
+        if (!world.initialized || world.provisional) return `🌍 MONDO ANCORA INCOMPLETO
 Completa in questo turno gli elementi mancanti usando i tag *_SETUP descritti all’avvio. Stato: ${world.locations.length} luoghi, ${world.actors.length} personaggi, ${world.factions.length} fazioni, ${world.relations.length} relazioni.`;
         const influences = selectInfluences(world, { ...context, limit: context.limit || 5 });
         const names = new Set(influences.map(item => keyOf(item.name)));
@@ -751,6 +769,9 @@ ${influences.length ? influences.map(compactActor).join('\n') : '- Usa le trame 
         buildTimelinePrompt,
         buildInteractionPrompt,
         isGenericActorName,
+        isGenericForceName,
+        isConcreteEntity,
+        pruneProvisionalMemory,
         needsHistoricalRepair,
         applyWorldMoves,
         applyTimelineEvents,
