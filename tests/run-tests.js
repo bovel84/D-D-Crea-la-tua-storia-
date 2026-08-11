@@ -123,6 +123,7 @@ test('il mondo non registra una seconda copia del protagonista come NPC', () => 
     }, { protagonistName: 'Andrea', turn: 0 });
     assert.deepEqual(memory.world.actors.map(actor => actor.name), ['Niccolò di Lapo Portigiani']);
     assert.deepEqual(memory.npcs.map(actor => actor.name), ['Niccolò di Lapo Portigiani']);
+    assert.match(memory.world.actors[0].personality, /\w+/);
 });
 
 test('non trasforma i segnaposto di recupero in fatti canonici se il modello omette i tag iniziali', () => {
@@ -874,6 +875,18 @@ test('le risposte di una chat multi-NPC vengono selezionate una alla volta', () 
     const selected = timelineChatApi.selectSingleReply(replies, 'Jacopo Gherardi');
     assert.equal(selected.length, 1);
     assert.equal(selected[0].speaker, 'Jacopo Gherardi');
+    const round = timelineChatApi.chooseSpeakerRound(thread, 'Elara, cosa proponi?', {
+        protagonistName: 'Lorenzo', maxSpeakers: 2
+    });
+    assert.deepEqual(round, ['Elara Vey', 'Jacopo Gherardi']);
+    const autonomousPrompt = timelineChatApi.buildChatPrompt(thread, 'Elara, cosa proponi?', {
+        protagonistName: 'Lorenzo', nextSpeaker: 'Jacopo Gherardi',
+        triggerSpeaker: 'Elara Vey', triggerMessage: 'Io propongo una tassa temporanea.', autonomous: true,
+        actorContext: 'Elara Vey: personalità risoluta. Jacopo Gherardi: personalità prudente e diffidente.'
+    });
+    assert.match(autonomousPrompt, /ULTIMA BATTUTA DI Elara Vey/);
+    assert.match(autonomousPrompt, /partecipante autonomo/);
+    assert.match(autonomousPrompt, /personalità deve essere udibile/i);
 });
 
 test('la chat unifica il protagonista, riconosce i nomi brevi e accetta una risposta Cloud in prosa', () => {
@@ -931,6 +944,14 @@ test('la chat conserva la cronologia ampia e garantisce un turno NPC di fallback
     assert.equal(fallback.source, 'local-fallback');
     assert.match(fallback.text, /^Io /);
     assert.match(fallback.text, /\?$/);
+    const autonomousFallback = timelineChatApi.buildFallbackReply(thread, fallback.text, {
+        protagonistName: 'Lorenzo', nextSpeaker: 'Niccolò Capponi',
+        triggerSpeaker: 'Jacopo Gherardi', autonomous: true,
+        actor: { personality: 'ambizioso, dominante e orgoglioso' }, turn: 11
+    });
+    assert.equal(autonomousFallback.speaker, 'Niccolò Capponi');
+    assert.equal(autonomousFallback.target, 'Jacopo Gherardi');
+    assert.equal(autonomousFallback.mood, 'assertivo');
 });
 
 test('una negoziazione registra esito e contratto persistente senza accettazioni automatiche', () => {
@@ -2600,7 +2621,8 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
 
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/timeline-chat\.js\?v=20260811-chat-4"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260811-chat-5"/);
+    assert.match(html, /src="js\/timeline-chat\.js\?v=20260811-chat-5"/);
     assert.match(html, /src="js\/timeline-simulator\.js\?v=20260811-causal-6"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
@@ -2639,8 +2661,10 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /Vita quotidiana garantita/);
     assert.match(html, /timelineChatEngine\.parseChatTags/);
     assert.match(html, /timelineChatEngine\.chooseNextSpeaker/);
+    assert.match(html, /timelineChatEngine\.chooseSpeakerRound/);
     assert.match(html, /timelineChatEngine\.selectSingleReply/);
     assert.match(html, /timelineChatEngine\.buildFallbackReply/);
+    assert.match(html, /function runWorldChatNpcTurn/);
     assert.match(html, /pendingChatSpeaker/);
     assert.match(html, /simulateTimelineEvents\(\{ fromEventScreen: true \}\)/);
     assert.match(html, /Prepara azione/);
@@ -2681,7 +2705,7 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
 
 test('integra la creazione iniziale del mondo con narrazione, timeline e chat', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260811-chat-4"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260811-chat-5"/);
     assert.match(html, /worldBootstrapEngine\.buildBootstrapPrompt/);
     assert.match(html, /worldBootstrapEngine\.ingestResponse/);
     assert.match(html, /worldBootstrapEngine\.projectToMemory/);

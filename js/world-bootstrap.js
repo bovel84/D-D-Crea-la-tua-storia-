@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const WORLD_SCHEMA_VERSION = 2;
+    const WORLD_SCHEMA_VERSION = 3;
     const LIMITS = { locations: 20, actors: 30, factions: 16, relations: 60, forces: 20 };
     const READY_MINIMUM = { locations: 3, actors: 4, factions: 2, relations: 2, forces: 1 };
 
@@ -56,6 +56,19 @@
     function numberBetween(value, min = 0, max = 100, fallback = 0) {
         const parsed = Number(String(value == null ? '' : value).replace(',', '.'));
         return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
+    }
+
+    function defaultPersonality(name, role = '') {
+        const profiles = [
+            'prudente, analitico e attento alle conseguenze',
+            'ambizioso, diretto e competitivo',
+            'leale, pragmatico e protettivo verso i propri alleati',
+            'diffidente, metodico e sensibile alle garanzie concrete',
+            'carismatico, persuasivo e incline al compromesso utile',
+            'orgoglioso, impulsivo e poco disposto a cedere autorità'
+        ];
+        const hash = parseInt(hashText(`${name}|${role}`).slice(0, 8), 36) || 0;
+        return profiles[hash % profiles.length];
     }
 
     function normalizeStatus(value) {
@@ -149,7 +162,7 @@
             role: cleanText(input.role, 120),
             faction: cleanText(input.faction, 120),
             description: cleanText(input.description, 420),
-            personality: cleanText(input.personality, 240),
+            personality: cleanText(input.personality || defaultPersonality(name, input.role), 240),
             goal: cleanText(input.goal || input.goals, 300),
             strategy: cleanText(input.strategy, 260),
             resources: cleanText(input.resources, 240),
@@ -183,6 +196,7 @@
             type: cleanText(input.type || 'gruppo', 80),
             leader: cleanText(input.leader, 120),
             description: cleanText(input.description, 420),
+            personality: cleanText(input.personality || defaultPersonality(name, input.type || 'fazione'), 240),
             goal: cleanText(input.goal || input.goals, 300),
             strategy: cleanText(input.strategy, 260),
             resources: cleanText(input.resources, 240),
