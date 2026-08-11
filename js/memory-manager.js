@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const MEMORY_SCHEMA_VERSION = 7;
+    const MEMORY_SCHEMA_VERSION = 8;
     const DEFAULT_SHORT_TERM_MESSAGES = 10;
     const DEFAULT_RETRIEVAL_LIMIT = 5;
     const DEFAULT_COMPRESSION_THRESHOLD = 6000;
@@ -98,6 +98,7 @@
             pendingTimelineEvents: [],
             pendingStrategicActions: [],
             strategicActionHistory: [],
+            lastTimelineEventId: '',
             world: {},
             storySummary: '',
             sceneSummary: '',
@@ -371,11 +372,11 @@
             return asArray(history).slice(-this.options.shortTermMessages);
         }
 
-        compress(history, memory) {
+        compress(history, memory, options = {}) {
             return compressHistory(history, memory, {
-                thresholdTokens: this.options.compressionThreshold,
-                keepMessages: this.options.shortTermMessages,
-                maxSummaryTokens: this.options.mediumTermTokens
+                thresholdTokens: options.compressionThreshold ?? this.options.compressionThreshold,
+                keepMessages: options.shortTermMessages ?? this.options.shortTermMessages,
+                maxSummaryTokens: options.mediumTermTokens ?? this.options.mediumTermTokens
             });
         }
 
@@ -383,19 +384,22 @@
             return retrieveRelevant(query, memory, limit ?? this.options.retrievalLimit);
         }
 
-        buildContext(query, history, memory) {
+        buildContext(query, history, memory, options = {}) {
             const state = migrateMemory(memory);
-            const shortTerm = this.getShortTerm(history);
-            const retrieved = this.retrieve(query, state, this.options.retrievalLimit);
+            const shortTermMessages = Math.max(1, Number(options.shortTermMessages) || this.options.shortTermMessages);
+            const retrievalLimit = Math.max(1, Number(options.retrievalLimit) || this.options.retrievalLimit);
+            const mediumTermTokens = Math.max(100, Number(options.mediumTermTokens) || this.options.mediumTermTokens);
+            const shortTerm = asArray(history).slice(-shortTermMessages);
+            const retrieved = this.retrieve(query, state, retrievalLimit);
             return {
                 shortTerm,
-                mediumTerm: truncateToTokens(state.mediumTerm.summary || state.sceneSummary || '', this.options.mediumTermTokens),
+                mediumTerm: truncateToTokens(state.mediumTerm.summary || state.sceneSummary || '', mediumTermTokens),
                 retrieved,
                 prompt: [
                     'MEMORIA A MEDIO TERMINE (scena/capitolo):',
-                    state.mediumTerm.summary || state.sceneSummary || 'Nessun riassunto consolidato.',
+                    truncateToTokens(state.mediumTerm.summary || state.sceneSummary || 'Nessun riassunto consolidato.', mediumTermTokens),
                     '',
-                    `RETRIEVAL A LUNGO TERMINE (top ${this.options.retrievalLimit}):`,
+                    `RETRIEVAL A LUNGO TERMINE (top ${retrievalLimit}):`,
                     formatRetrieved(retrieved)
                 ].join('\n')
             };

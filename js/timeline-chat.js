@@ -57,7 +57,7 @@
     }
 
     function ensureFirstPerson(value, source) {
-        const text = cleanText(value, 700);
+        const text = cleanText(value, 1400);
         if (!text || source === 'player' || speaksInFirstPerson(text)) return text;
         return `Io dichiaro: ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
     }
@@ -203,6 +203,10 @@
             .map(agreement => normalizeAgreement({ ...agreement, threadId: id }, context))
             .filter(Boolean)
             .slice(-20);
+        const rawAgenda = cleanText(input.agenda || input.subject || event?.conversationGoal || event?.consequence, 420);
+        const agenda = /^(available|required|none|open|dialogue|action|either)$/i.test(keyOf(rawAgenda))
+            ? cleanText(event?.conversationGoal || event?.consequence || input.purpose || 'Affrontare le conseguenze dell’evento', 420)
+            : rawAgenda;
         return {
             chatSchemaVersion: CHAT_SCHEMA_VERSION,
             id,
@@ -212,7 +216,7 @@
             participants,
             messages,
             purpose: cleanText(input.purpose || event?.type || 'dialogo', 80),
-            agenda: cleanText(input.agenda || input.subject || event?.conversationGoal || event?.consequence, 420),
+            agenda,
             origin: cleanText(input.origin || (event ? 'event' : 'player'), 40),
             resolution,
             agreements,
@@ -236,7 +240,8 @@
         const regex = /\[CHAT:\s*([^\]]+)\]/gi;
         let match;
         while ((match = regex.exec(String(response || ''))) !== null) {
-            const parts = match[1].split('|').map(part => cleanText(part, 700));
+            const limits = [140, 100, 40, 1400, 100, 60];
+            const parts = match[1].split('|').map((part, index) => cleanText(part, limits[index] || 700));
             if (parts.length < 4) continue;
             const event = findEvent(context.events, parts[0]);
             const message = normalizeMessage({
@@ -396,6 +401,45 @@
         return [selected || replies[0]];
     }
 
+    function buildFallbackReply(thread, playerMessage, context = {}) {
+        const item = normalizeThread(thread, context);
+        const speaker = cleanText(
+            context.nextSpeaker || chooseNextSpeaker(item, playerMessage, context) ||
+            item.participants.find(name => !/^(protagonista|giocatore|player)$/i.test(keyOf(name))),
+            100
+        );
+        if (!speaker) return null;
+        const statement = cleanText(playerMessage, 260) || 'la tua posizione';
+        const agenda = cleanText(item.agenda || item.purpose || 'questa questione', 240);
+        const purpose = keyOf(item.purpose);
+        let text;
+        let mood = 'prudente';
+        if (/contratt|negozia|diplomaz|trattat/.test(purpose)) {
+            text = `Io ho ascoltato la tua proposta: «${statement}». Prima di impegnarmi su ${agenda}, voglio una garanzia concreta e termini che tutelino anche i miei interessi. Quale concessione sei disposto a mettere per iscritto?`;
+        } else if (/strateg/.test(purpose)) {
+            text = `Io posso discutere il piano su ${agenda}, ma non darò il mio appoggio al buio. Indicami il compito che affidi a me, le risorse disponibili e il rischio che sei disposto ad assumerti.`;
+            mood = 'determinato';
+        } else if (/personal/.test(purpose)) {
+            text = `Io ti ho ascoltato quando hai detto «${statement}». Voglio capire se parli con sincerità: dimmi che cosa chiedi davvero a me e che cosa sei pronto a fare in cambio.`;
+            mood = 'attento';
+        } else {
+            text = `Io prendo sul serio ciò che hai detto: «${statement}». Su ${agenda} non posso limitarmi a un assenso generico; dimmi quale risultato concreto vuoi ottenere e quale responsabilità chiedi a me.`;
+        }
+        return normalizeMessage({
+            threadId: item.id,
+            eventId: item.eventId,
+            eventTitle: item.eventTitle,
+            speaker,
+            speakerType: 'npc',
+            text,
+            target: cleanText(context.protagonistName || 'Protagonista', 100),
+            mood,
+            turn: context.turn,
+            occurredAt: context.occurredAt || item.occurredAt,
+            source: 'local-fallback'
+        }, context);
+    }
+
     function parseOutcomeTags(response, context = {}) {
         const outcomes = [];
         const agreements = [];
@@ -512,7 +556,11 @@
 
     function buildChatPrompt(thread, playerMessage, context = {}) {
         const item = normalizeThread(thread, context);
-        const history = item.messages.slice(-12).map(message =>
+        const historyLimit = Math.max(12, Math.min(
+            MAX_MESSAGES_PER_THREAD,
+            Math.trunc(Number(context.historyLimit) || 24)
+        ));
+        const history = item.messages.slice(-historyLimit).map(message =>
             `${message.speaker} → ${message.target || 'tutti'}: ${message.text}`
         ).join('\n') || 'La conversazione non è ancora iniziata.';
         const participants = item.participants.filter(Boolean).join(', ') || 'le parti coinvolte nell’evento';
@@ -529,17 +577,18 @@ SCOPO: ${item.purpose || 'dialogo'}
 ORDINE DEL GIORNO: ${item.agenda || 'affrontare le conseguenze dell’evento'}
 STATO DELLA TRATTATIVA: ${item.resolution.status}; ${item.resolution.summary || 'nessun esito ancora'}
 ACCORDI ESISTENTI: ${activeAgreements}
-CONTESTO: ${cleanText(context.eventSummary, 500) || 'Usa i fatti registrati nell’evento.'}
-CONTESTO DELLE PARTI: ${cleanText(context.actorContext, 900) || 'Mantieni identità, obiettivi e risorse già stabiliti.'}
+CONTESTO: ${cleanText(context.eventSummary, 2000) || 'Usa i fatti registrati nell’evento.'}
+CONTESTO DELLE PARTI: ${cleanText(context.actorContext, 6000) || 'Mantieni identità, obiettivi e risorse già stabiliti.'}
 CONVERSAZIONE RECENTE:
 ${history}
 
-IL PROTAGONISTA DICE: ${cleanText(playerMessage, 700)}
+IL PROTAGONISTA DICE: ${cleanText(playerMessage, 1400)}
 PROSSIMO E UNICO PARLANTE: ${nextSpeaker}
 
 Rispondi senza narrazione esterna e produci ESATTAMENTE UNA CHAT, pronunciata soltanto da ${nextSpeaker}:
 [CHAT: ${item.eventTitle}|${nextSpeaker}|npc/fazione/regno/gruppo|messaggio_in_prima_persona|destinatario|emozione]
 ${nextSpeaker} parla in prima persona e conserva carica, obiettivi pubblici e privati, carattere, alleanze, leve, vincoli e conoscenze parziali. Può contraddire quanto detto prima, mentire, chiedere garanzie, rifiutare o fare una controproposta. Non far parlare nessun altro in questa chiamata, non parlare mai al posto del protagonista e non rendere tutti automaticamente disponibili o concordi.
+La battuta deve essere completa, reattiva e dialogica: 2-5 frasi, circa 50-180 parole, senza interrompere l'ultima frase. Deve rispondere a ciò che il giocatore ha appena detto e concludere con una posizione, una domanda, una richiesta o una controproposta che permetta di continuare l'interazione.
 
 Se e soltanto se questo scambio cambia davvero la situazione, aggiungi:
 [ESITO_CHAT: ${item.id}|open/proposal/agreement/refused/failed/closed|esito concreto|conseguenza sul mondo|azione successiva]
@@ -577,6 +626,7 @@ Usa active soltanto se tutte le parti necessarie hanno accettato esplicitamente 
         inviteParticipants,
         chooseNextSpeaker,
         selectSingleReply,
+        buildFallbackReply,
         normalizeAgreement,
         normalizeOutcome,
         canActivateAgreement,

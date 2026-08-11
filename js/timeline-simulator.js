@@ -261,11 +261,16 @@
             turn: context.turn,
             batchId: context.batchId
         });
-        const actors = activeActors(world).slice(0, 8);
-        const relations = asArray(world.relations).filter(item => item.status !== 'resolved').slice(0, 6);
-        const forces = asArray(world.forces).filter(item => item.status !== 'resolved').slice(0, 5);
-        const recent = asArray(context.recentEvents).filter(isMeaningfulEvent).slice(-6);
-        const agreements = asArray(context.agreements).filter(item => !/rejected|broken|fulfilled/.test(keyOf(item.status))).slice(-6);
+        const actorLimit = Math.max(1, Math.min(20, Number(context.actorLimit) || 8));
+        const relationLimit = Math.max(1, Math.min(20, Number(context.relationLimit) || 6));
+        const forceLimit = Math.max(1, Math.min(16, Number(context.forceLimit) || 5));
+        const recentEventLimit = Math.max(1, Math.min(20, Number(context.recentEventLimit) || 6));
+        const agreementLimit = Math.max(1, Math.min(16, Number(context.agreementLimit) || 6));
+        const actors = activeActors(world).slice(0, actorLimit);
+        const relations = asArray(world.relations).filter(item => item.status !== 'resolved').slice(0, relationLimit);
+        const forces = asArray(world.forces).filter(item => item.status !== 'resolved').slice(0, forceLimit);
+        const recent = asArray(context.recentEvents).filter(isMeaningfulEvent).slice(-recentEventLimit);
+        const agreements = asArray(context.agreements).filter(item => !/rejected|broken|fulfilled/.test(keyOf(item.status))).slice(-agreementLimit);
         const history = world.historicalContext || {};
         const choice = seed?.choice || null;
         const manualLimit = Number(context.maxAdvanceMinutes) > 0
@@ -321,7 +326,8 @@ ${recent.length ? recent.map(item => `- ${cleanText(item.title, 100)}: ${cleanTe
 REGOLE OBBLIGATORIE:
 - Genera esattamente UN EVENTO: il primo fatto importante prodotto dalla causa in coda. Non generare eventi successivi nella stessa risposta.
 - ${strategicInstruction}
-- Il fatto deve contenere 2-3 frasi, azione osservabile, strumento usato, risultato verificabile e conseguenza persistente. Un'intenzione non è un risultato.
+- Il fatto deve contenere 3-5 frasi complete, azione osservabile, strumento usato, risultato verificabile e conseguenza persistente. Un'intenzione non è un risultato.
+- La conseguenza deve contenere 1-2 frasi complete. Chiudi ogni frase e ogni campo prima del separatore |; non interrompere mai un testo a metà.
 - Usa soltanto nomi propri, cariche e istituzioni presenti nel contesto. Vietati segnaposto come Autorità, Opposizione, Mediatore o Comunità.
 - interaction è dialogue se il giocatore deve rispondere parlando, action se deve agire nella scena, either se può scegliere, none se il fatto si risolve senza intervento.
 - Se serve un dialogo, puoi emettere al massimo UNA CHAT di apertura pronunciata da un solo interlocutore. Mai parole inventate per il protagonista.
@@ -329,7 +335,7 @@ REGOLE OBBLIGATORIE:
 - Per l'attore che agisce emetti al massimo un MONDO. Restituisci soltanto i tag seguenti.
 
 [ATTESA_EVENTO: minuti_interi|motivo del tempo necessario]
-[EVENTO: tipo|titolo|due o tre frasi su ciò che è realmente accaduto|luogo|attori separati da virgola|conseguenza persistente concreta|normal/high/critical|active/developing/resolved|momento relativo|causa precisa|ancoraggio storico|spostamento politico|posta in gioco|obiettivo conversazione|available/required/none|dialogue/action/either/none]
+[EVENTO: tipo|titolo|tre-cinque frasi complete su ciò che è realmente accaduto|luogo|attori separati da virgola|una-due frasi complete sulla conseguenza persistente|normal/high/critical|active/developing/resolved|momento relativo|causa precisa|ancoraggio storico|spostamento politico|posta in gioco|obiettivo conversazione|available/required/none|dialogue/action/either/none]
 [ESITO_STRATEGICO: ID esatto|completata/parziale/fallita/in_corso|risultato osservabile del tentativo|conseguenza persistente|reazione concreta del mondo ancora da sviluppare|attori separati da virgola]
 [MONDO: attore|mossa concreta compiuta|stato della mossa|visible/hidden]
 [CHAT: titolo esatto evento|un solo parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]
@@ -1005,9 +1011,9 @@ REGOLE OBBLIGATORIE:
         const meaningful = asArray(events).filter(isMeaningfulEvent);
         if (!meaningful.length) return '';
         const lines = meaningful.map(event =>
-            `• ${cleanText(event.occurredAt || 'Durante il periodo', 100)} — ${cleanText(event.summary, 420)}`
+            `• ${cleanText(event.occurredAt || 'Durante il periodo', 100)} — ${cleanText(event.summary, 1400)}`
         );
-        const finalConsequence = cleanText(meaningful[meaningful.length - 1].consequence, 320);
+        const finalConsequence = cleanText(meaningful[meaningful.length - 1].consequence, 900);
         return `Durante ${cleanText(passage.description || 'il periodo', 120)}, il protagonista ha continuato a dormire, mangiare e vivere normalmente. Nel frattempo il mondo non è rimasto fermo:\n\n${lines.join('\n\n')}` +
             (finalConsequence ? `\n\nSituazione attuale: ${finalConsequence}` : '');
     }

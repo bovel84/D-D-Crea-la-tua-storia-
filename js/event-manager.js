@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const EVENT_SCHEMA_VERSION = 5;
+    const EVENT_SCHEMA_VERSION = 6;
     const MAX_EVENTS = 100;
     const EVENT_TYPES = [
         'conflitto', 'scoperta', 'relazione', 'decisione', 'missione', 'economia',
@@ -62,6 +62,14 @@
         return asArray(actors).length >= 2 && /politica|relazione|economia|decisione|conflitto|missione/.test(type)
             ? 'available'
             : 'none';
+    }
+
+    function isConversationModeToken(value) {
+        return /^(available|required|none|open|aperta|possibile|obbligatoria|nessuna)$/.test(normalizeKey(value));
+    }
+
+    function isInteractionModeToken(value) {
+        return /^(dialogue|dialogo|action|azione|either|entrambi|none|nessuna)$/.test(normalizeKey(value));
     }
 
     function normalizeInteractionMode(value, conversationMode) {
@@ -152,7 +160,7 @@
 
     function normalizeEvent(source, context = {}) {
         const input = source && typeof source === 'object' ? source : { summary: source };
-        const summary = cleanText(input.summary || input.description || input.fact, 280);
+        const summary = cleanText(input.summary || input.description || input.fact, 1600);
         if (!summary) return null;
         const turnValue = Number(input.turn ?? context.turn ?? 0);
         const type = classifyEvent(input.type || summary);
@@ -161,15 +169,22 @@
         const actors = parseActors(input.actors).length
             ? parseActors(input.actors)
             : inferActors(`${title} ${summary}`, context.knownActors);
-        const consequence = cleanText(input.consequence, 260);
-        const cause = cleanText(input.cause || input.causedBy, 320);
-        const historicalAnchor = cleanText(input.historicalAnchor || input.historicalContext, 280);
-        const politicalShift = cleanText(input.politicalShift || input.powerShift, 300);
-        const stakes = cleanText(input.stakes, 260);
-        const conversationGoal = cleanText(input.conversationGoal || input.agenda, 260);
+        const consequence = cleanText(input.consequence, 1000);
+        const cause = cleanText(input.cause || input.causedBy, 800);
+        const historicalAnchor = cleanText(input.historicalAnchor || input.historicalContext, 800);
+        const politicalShift = cleanText(input.politicalShift || input.powerShift, 900);
+        const stakes = cleanText(input.stakes, 700);
+        const rawConversationGoal = input.conversationGoal || input.agenda;
+        const shiftedConversationMode = isConversationModeToken(rawConversationGoal) ? rawConversationGoal : input.conversationMode;
+        const shiftedInteractionMode = isConversationModeToken(rawConversationGoal) && isInteractionModeToken(input.conversationMode)
+            ? input.conversationMode
+            : input.interactionMode;
+        const conversationGoal = isConversationModeToken(rawConversationGoal)
+            ? ''
+            : cleanText(rawConversationGoal, 700);
         const importance = normalizeImportance(input.importance, `${title} ${summary} ${consequence}`);
         const status = normalizeStatus(input.status);
-        const conversationMode = normalizeConversationMode(input.conversationMode, type, actors, conversationGoal);
+        const conversationMode = normalizeConversationMode(shiftedConversationMode, type, actors, conversationGoal);
         const event = {
             ...input,
             eventSchemaVersion: EVENT_SCHEMA_VERSION,
@@ -185,9 +200,9 @@
             stakes,
             conversationGoal,
             conversationMode,
-            interactionMode: normalizeInteractionMode(input.interactionMode, conversationMode),
+            interactionMode: normalizeInteractionMode(shiftedInteractionMode, conversationMode),
             occurredAt: cleanText(input.occurredAt || input.date || input.moment || context.occurredAt || context.timePassage?.endDate, 100),
-            choice: cleanText(input.choice || context.choice, 240),
+            choice: cleanText(input.choice || context.choice, 600),
             importance,
             status,
             turn: Number.isFinite(turnValue) ? Math.max(0, Math.trunc(turnValue)) : 0,
@@ -199,7 +214,9 @@
     }
 
     function parseEventBody(body, context = {}) {
-        const parts = String(body == null ? '' : body).split('|').map(part => cleanText(part, 320));
+        const limits = [80, 140, 1600, 140, 500, 1000, 40, 40, 140, 800, 800, 900, 700, 700, 40, 40];
+        const parts = String(body == null ? '' : body).split('|')
+            .map((part, index) => cleanText(part, limits[index] || 700));
         if (!parts[0]) return null;
         if (parts.length === 1) {
             return normalizeEvent({ summary: parts[0], source: 'llm-legacy' }, context);
@@ -210,6 +227,20 @@
         if (parts.length === 2) {
             return normalizeEvent({ type: parts[0], summary: parts[1] }, context);
         }
+        const optionalStart = 12;
+        let interactionIndex = -1;
+        let conversationIndex = -1;
+        for (let index = parts.length - 1; index >= optionalStart; index--) {
+            if (interactionIndex < 0 && isInteractionModeToken(parts[index])) {
+                interactionIndex = index;
+                continue;
+            }
+            if (conversationIndex < 0 && isConversationModeToken(parts[index])) {
+                conversationIndex = index;
+                break;
+            }
+        }
+        const conversationGoal = conversationIndex === 13 ? '' : parts[13];
         return normalizeEvent({
             type: parts[0],
             title: parts[1],
@@ -224,9 +255,9 @@
             historicalAnchor: parts[10],
             politicalShift: parts[11],
             stakes: parts[12],
-            conversationGoal: parts[13],
-            conversationMode: parts[14],
-            interactionMode: parts[15]
+            conversationGoal,
+            conversationMode: conversationIndex >= 0 ? parts[conversationIndex] : parts[14],
+            interactionMode: interactionIndex >= 0 ? parts[interactionIndex] : parts[15]
         }, context);
     }
 
@@ -268,8 +299,8 @@
     }
 
     function richerText(current, incoming) {
-        const left = cleanText(current, 320);
-        const right = cleanText(incoming, 320);
+        const left = cleanText(current, 1600);
+        const right = cleanText(incoming, 1600);
         return right.length > left.length ? right : left;
     }
 
@@ -361,6 +392,7 @@
 - Usa active quando una minaccia, un impegno o una conseguenza resta aperta; developing quando sta evolvendo; resolved quando il fatto è concluso.
 - Registra l'ESITO realmente narrato, non l'intenzione del giocatore, un'ipotesi, una scelta non ancora compiuta o informazioni hidden del Simulatore.
 - Il titolo deve distinguere l'evento; il fatto deve dire chi ha fatto cosa; la conseguenza deve indicare cosa i turni futuri dovranno rispettare. Causa, ancoraggio storico e spostamento politico spiegano perché il fatto è centrale. Evita categorie anonime come «l'Autorità» o «l'Opposizione» quando esistono nomi e istituzioni precise. Se non c'è conseguenza persistente scrivi «nessuna».
+  - Scrivi il fatto in 3-5 frasi complete e la conseguenza in 1-2 frasi complete. Chiudi ogni frase e ogni campo prima del separatore |: nessun testo può terminare a metà.
   - L'unico evento deve avere una data o un momento concreto coerente con il periodo. Deve essere una conseguenza delle scelte recenti quando esiste un legame causale: ${recentChoices.length ? recentChoices.join(' / ') : 'nessuna scelta recente registrata'}.
   - Usa interaction dialogue se richiede una risposta parlata, action se richiede un'azione del protagonista, either se ammette entrambe, none se non richiede intervento.
   - Per le risposte o reazioni future emetti soltanto [CODA_EVENTO: id_o_vuoto|player_action/world_reply/action_reply/dialogue_reply/world_initiative|causa_già_vera|attori|priorità_0_100|minuti_minimi|dialogue/action/either/none|id_sorgente]. Non narrarne ancora l'esito.
