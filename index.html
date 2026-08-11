@@ -3662,7 +3662,7 @@
         </div>
     </div>
 
-    <script src="js/memory-manager.js?v=20260811-continuity-2"></script>
+    <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
     <script src="js/world-bootstrap.js?v=20260811-continuity-2"></script>
     <script src="js/event-manager.js"></script>
     <script src="js/timeline-chat.js?v=20260811-continuity-2"></script>
@@ -9537,7 +9537,7 @@
 
         async function requestWorldChatAI(prompt) {
             const settings = G.settings;
-            const continuity = memoryManager.buildContinuityContext(G.worldMemory, {
+            const continuity = CronacheMemory.buildContinuityContext(G.worldMemory, {
                 story: G.currentStory,
                 currentDate: getFullTimeString(),
                 location: G.currentLocation,
@@ -10844,7 +10844,7 @@
                 currentDate: getFullTimeString()
             })) return world;
             const contextProfile = getAIContextProfile();
-            const continuity = memoryManager.buildContinuityContext(G.worldMemory, {
+            const continuity = CronacheMemory.buildContinuityContext(G.worldMemory, {
                 story: G.currentStory,
                 currentDate: getFullTimeString(),
                 location: G.currentLocation,
@@ -11046,7 +11046,7 @@
                 const recentEvents = (G.worldMemory.events || [])
                     .filter(timelineSimulator.isMeaningfulEvent)
                     .slice(expandedTimelineContext ? -20 : -10);
-                const continuity = memoryManager.buildContinuityContext(G.worldMemory, {
+                const continuity = CronacheMemory.buildContinuityContext(G.worldMemory, {
                     story: G.currentStory,
                     currentDate: getFullTimeString(),
                     location: G.currentLocation,
@@ -12108,7 +12108,7 @@
                     nextSpeaker,
                     eventSummary: event ? `${event.summary}. Conseguenza: ${event.consequence || 'nessuna'}` : '',
                     actorContext,
-                    continuityPrompt: memoryManager.buildContinuityContext(G.worldMemory, {
+                    continuityPrompt: CronacheMemory.buildContinuityContext(G.worldMemory, {
                         story: G.currentStory,
                         currentDate: getFullTimeString(),
                         location: G.currentLocation,
@@ -13883,7 +13883,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[[A-ZÀ-Ü_]+\s*:[^\]]+\]/g, ' ')
                 .replace(/\s+/g, ' ')
                 .trim();
-            memoryManager.recordContinuity(wm, {
+            CronacheMemory.recordContinuity(wm, {
                 type: metadata.type || 'turno',
                 title: metadata.title || action,
                 action,

@@ -553,6 +553,18 @@
             return retrieveRelevant(query, memory, limit ?? this.options.retrievalLimit);
         }
 
+        buildContinuityContext(memory, options = {}) {
+            return buildContinuityContext(memory, options);
+        }
+
+        recordContinuity(memory, entry = {}) {
+            return recordContinuity(memory, entry);
+        }
+
+        inferCanonicalYear(memory, story = {}) {
+            return inferCanonicalYear(memory, story);
+        }
+
         buildContext(query, history, memory, options = {}) {
             const state = migrateMemory(memory);
             const shortTermMessages = Math.max(1, Number(options.shortTermMessages) || this.options.shortTermMessages);
