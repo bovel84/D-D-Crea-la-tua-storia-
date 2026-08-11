@@ -3666,7 +3666,7 @@
     <script src="js/world-bootstrap.js?v=20260811-chat-4"></script>
     <script src="js/event-manager.js"></script>
     <script src="js/timeline-chat.js?v=20260811-chat-4"></script>
-    <script src="js/timeline-simulator.js?v=20260811-continuity-2"></script>
+    <script src="js/timeline-simulator.js?v=20260811-causal-6"></script>
     <script src="js/strategic-advisor.js?v=20260811-strategy-3"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
@@ -12453,15 +12453,21 @@ Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, pr
             // Build world memory summary
             const worldMemorySummary = buildWorldMemorySummary();
             const recentTimelineChoices = getRecentTimelineChoices();
-            const eventTagDirective = eventEngine.buildPrompt({
-                turn: G.worldMemory.turnCount || 0,
-                location: G.currentLocation,
-                recentEvents: G.worldMemory.events || [],
-                activeQuests: (G.worldMemory.quests || []).filter(quest => quest.status === 'active'),
-                knownActors: G.worldMemory.npcs || [],
-                timePassage: G.pendingTimePassage || null,
-                recentChoices: recentTimelineChoices
-            });
+            const deferActionEventToTimeline = !isStart && !G.pendingTimePassage && recentTimelineChoices.length > 0;
+            const eventTagDirective = deferActionEventToTimeline
+                ? `EVENTO DIFFERITO ALLA TIMELINE:
+- Rispondi narrativamente all'azione corrente, ma NON emettere EVENTO, CRONISTA o CODA_EVENTO in questo turno.
+- La conseguenza importante sarà generata una sola volta da «Vai avanti», rispettando prima tutte le risposte causali già in attesa.
+- Puoi aggiornare soltanto fatti immediati realmente avvenuti; non anticipare la reazione futura del mondo.`
+                : eventEngine.buildPrompt({
+                    turn: G.worldMemory.turnCount || 0,
+                    location: G.currentLocation,
+                    recentEvents: G.worldMemory.events || [],
+                    activeQuests: (G.worldMemory.quests || []).filter(quest => quest.status === 'active'),
+                    knownActors: G.worldMemory.npcs || [],
+                    timePassage: G.pendingTimePassage || null,
+                    recentChoices: recentTimelineChoices
+                });
             const timelineChatDirective = timelineChatEngine.buildSimulationPrompt({
                 recentChoices: recentTimelineChoices
             });
@@ -13420,6 +13426,8 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
 
             // Estrae eventi strutturati. Se il provider omette EVENTO ma rispetta
             // CRONISTA, il ledger recupera comunque il fatto principale del turno.
+            const deferActionEvents = !isStart && !G.pendingTimePassage &&
+                (G.worldMemory.pendingTimelineChoices || []).length > 0;
             const parsedEvents = eventEngine.parse(response, {
                 turn: G.worldMemory.turnCount,
                 location: G.currentLocation,
@@ -13429,17 +13437,19 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 choice: G.pendingTimePassage?.choice || '',
                 includeChronicleFallback: true
             });
-            const eventResult = eventEngine.record(G.worldMemory.events, parsedEvents, {
-                turn: G.worldMemory.turnCount,
-                location: G.currentLocation,
-                knownActors: G.worldMemory.npcs || [],
-                occurredAt: getFullTimeString(),
-                timePassage: G.pendingTimePassage || null,
-                choice: G.pendingTimePassage?.choice || ''
-            });
+            const eventResult = deferActionEvents
+                ? { events: G.worldMemory.events || [], added: [], changed: false }
+                : eventEngine.record(G.worldMemory.events, parsedEvents, {
+                    turn: G.worldMemory.turnCount,
+                    location: G.currentLocation,
+                    knownActors: G.worldMemory.npcs || [],
+                    occurredAt: getFullTimeString(),
+                    timePassage: G.pendingTimePassage || null,
+                    choice: G.pendingTimePassage?.choice || ''
+                });
             G.worldMemory.events = eventResult.events;
             if (eventResult.changed) memoryChanged = true;
-            const responseQueueSeeds = timelineSimulator.parsePendingEventSeeds(response, {
+            const responseQueueSeeds = deferActionEvents ? [] : timelineSimulator.parsePendingEventSeeds(response, {
                 turn: G.worldMemory.turnCount || 0,
                 batchId: `story-${G.worldMemory.turnCount || 0}`,
                 parentSeed: {
