@@ -155,7 +155,29 @@
         return factions.slice(0, 14).sort((left, right) => right.hostility - left.hostility || right.power - left.power);
     }
 
-    function locationSources(world, memory, context, factions) {
+    function buildObjectives(memory = {}) {
+        const sources = [
+            ...(Array.isArray(memory.quests) ? memory.quests : []),
+            ...(Array.isArray(memory.narrativeGoals) ? memory.narrativeGoals : [])
+        ];
+        const seen = new Set();
+        return sources.map((source, index) => {
+            const title = cleanText(source?.name || source?.title || source?.objective, 140);
+            const status = keyOf(source?.status || 'active');
+            const key = keyOf(title);
+            if (!key || seen.has(key) || /complet|fallit|closed|resolved/.test(status)) return null;
+            seen.add(key);
+            return {
+                id: cleanText(source?.id, 140) || `map-objective-${hashNumber(`${title}|${index}`).toString(36)}`,
+                title,
+                location: cleanText(source?.location || source?.place || source?.targetLocation || source?.region, 120),
+                urgency: cleanText(source?.urgency || source?.priority || 'attivo', 40),
+                summary: cleanText(source?.description || source?.progress || source?.objective, 260)
+            };
+        }).filter(Boolean).slice(0, 12);
+    }
+
+    function locationSources(world, memory, context, factions, objectives) {
         const kingdom = memory?.kingdom || {};
         const sources = [
             ...(Array.isArray(world?.locations) ? world.locations : []),
@@ -197,13 +219,23 @@
                 kind: 'faction-base'
             });
         });
+        objectives.forEach(objective => {
+            if (!objective.location) return;
+            sources.push({
+                name: objective.location,
+                type: 'obiettivo strategico',
+                description: objective.summary || `Luogo collegato all'obiettivo: ${objective.title}.`,
+                objective: objective.title,
+                kind: 'objective'
+            });
+        });
         return sources;
     }
 
-    function mergeLocations(world, memory, context, factions = []) {
+    function mergeLocations(world, memory, context, factions = [], objectives = []) {
         const merged = [];
         const byName = new Map();
-        const sources = locationSources(world, memory, context, factions);
+        const sources = locationSources(world, memory, context, factions, objectives);
         const current = cleanText(context.currentLocation || context.location, 120);
         if (current && !/sconosciut|unknown/i.test(current)) sources.push({ name: current, type: 'posizione attuale', description: 'Posizione confermata del protagonista.' });
         sources.forEach((source, index) => {
@@ -219,6 +251,7 @@
                 controller: cleanText(source?.controller, 120),
                 resource: cleanText(source?.resource, 160),
                 danger: cleanText(source?.danger, 180),
+                objective: cleanText(source?.objective, 180),
                 connections: asList(source?.connections),
                 kind: cleanText(source?.kind || 'location', 40),
                 owned: Boolean(source?.owned),
@@ -304,7 +337,8 @@
         const theme = inferTheme(context);
         const seed = cleanText(world?.name || context.story?.title || context.setting || 'mondo', 120);
         const factions = buildFactions(world, memory);
-        const baseLocations = mergeLocations(world, memory, context, factions);
+        const objectives = buildObjectives(memory);
+        const baseLocations = mergeLocations(world, memory, context, factions, objectives);
         const locations = assignCoordinates(baseLocations, seed).map(location => {
             const controllerKey = keyOf(location.controller);
             const locationKey = keyOf(`${location.name} ${location.region}`);
@@ -314,11 +348,16 @@
                 return (controllerKey && factionKey && (controllerKey.includes(factionKey) || factionKey.includes(controllerKey)))
                     || (baseKey && (locationKey.includes(baseKey) || baseKey.includes(keyOf(location.name))));
             });
+            const objectiveIds = objectives.filter(objective => {
+                const objectiveLocation = keyOf(objective.location);
+                return objectiveLocation && (locationKey.includes(objectiveLocation) || objectiveLocation.includes(keyOf(location.name)));
+            }).map(objective => objective.id);
             return {
                 ...location,
                 icon: locationIcon(location, theme.id),
                 factionIds: presentFactions.map(faction => faction.id),
                 hostileFactionIds: presentFactions.filter(faction => faction.stance === 'hostile').map(faction => faction.id),
+                objectiveIds,
                 dominantFactionId: presentFactions.sort((left, right) => right.hostility - left.hostility || right.power - left.power)[0]?.id || ''
             };
         });
@@ -333,6 +372,7 @@
             locations,
             edges: buildEdges(locations),
             factions,
+            objectives,
             currentLocationId: current?.id || '',
             currentLocationName: current?.name || cleanText(context.currentLocation || context.location, 120) || 'Sconosciuto'
         };
@@ -375,7 +415,8 @@
             const isSite = /property|business|resource/.test(location.kind);
             const factionZone = faction ? `<circle class="world-map-faction-zone ${faction.stance}" r="${isSite ? 29 : 40}" style="--map-faction-color:${faction.color}"/><text class="world-map-faction-flag" x="${isSite ? 17 : 22}" y="${isSite ? -19 : -25}" style="--map-faction-color:${faction.color}">⚑</text>` : '';
             const owned = location.owned ? '<path class="world-map-owned" d="M-18 15 l7 7 14-18"/>' : '';
-            return `<g class="world-map-node kind-${escapeHtml(location.kind)}${isSite ? ' site' : ''}${location.current ? ' current' : ''}${location.hostileFactionIds?.length ? ' hostile' : ''}" data-map-location-id="${escapeHtml(location.id)}" transform="translate(${location.x} ${location.y})" role="button" tabindex="0" aria-label="${escapeHtml(location.name)}${location.current ? ', posizione attuale' : ''}"><title>${escapeHtml(location.name)}${location.description ? ` — ${escapeHtml(location.description)}` : ''}${faction ? ` — ${escapeHtml(faction.name)}` : ''}</title>${factionZone}${location.current ? '<circle class="world-map-player-pulse" r="34"/><circle class="world-map-player-ring" r="25"/>' : `<circle class="world-map-node-ring" r="${isSite ? 17 : 22}"/>`}<text class="world-map-node-icon" text-anchor="middle" dominant-baseline="central">${escapeHtml(location.icon)}</text>${owned}<text class="world-map-node-label" text-anchor="middle" y="${isSite ? 31 : 37}">${label}</text>${location.danger ? '<path class="world-map-danger" d="M 17 -25 l 9 16 h -18 z"/>' : ''}</g>`;
+            const objective = location.objectiveIds?.length ? '<text class="world-map-objective-badge" x="-22" y="-20">◆</text>' : '';
+            return `<g class="world-map-node kind-${escapeHtml(location.kind)}${isSite ? ' site' : ''}${location.current ? ' current' : ''}${location.hostileFactionIds?.length ? ' hostile' : ''}" data-map-location-id="${escapeHtml(location.id)}" data-map-kind="${escapeHtml(location.kind)}" data-map-owned="${location.owned ? 'true' : 'false'}" data-map-hostile="${location.hostileFactionIds?.length ? 'true' : 'false'}" data-map-objective="${location.objectiveIds?.length ? 'true' : 'false'}" transform="translate(${location.x} ${location.y})" role="button" tabindex="0" aria-label="${escapeHtml(location.name)}${location.current ? ', posizione attuale' : ''}"><title>${escapeHtml(location.name)}${location.description ? ` — ${escapeHtml(location.description)}` : ''}${faction ? ` — ${escapeHtml(faction.name)}` : ''}</title>${factionZone}${location.current ? '<circle class="world-map-player-pulse" r="34"/><circle class="world-map-player-ring" r="25"/>' : `<circle class="world-map-node-ring" r="${isSite ? 17 : 22}"/>`}<text class="world-map-node-icon" text-anchor="middle" dominant-baseline="central">${escapeHtml(location.icon)}</text>${owned}${objective}<text class="world-map-node-label" text-anchor="middle" y="${isSite ? 31 : 37}">${label}</text>${location.danger ? '<path class="world-map-danger" d="M 17 -25 l 9 16 h -18 z"/>' : ''}</g>`;
         }).join('');
         const p = model.theme;
         return `<svg class="world-map-svg theme-${escapeHtml(p.id)}" viewBox="0 0 ${model.width} ${model.height}" xmlns="http://www.w3.org/2000/svg" aria-label="Mappa di ${escapeHtml(model.name)}"><defs><linearGradient id="map-paper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p.background}"/><stop offset=".52" stop-color="${p.land}"/><stop offset="1" stop-color="${p.background}"/></linearGradient><filter id="map-shadow"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity=".35"/></filter></defs><rect width="100%" height="100%" rx="22" fill="url(#map-paper)"/><rect class="world-map-frame" x="18" y="18" width="${model.width - 36}" height="${model.height - 36}" rx="16"/>${terrainMarkup(model)}<g class="world-map-routes">${routes}</g><g class="world-map-nodes">${nodes}</g><g class="world-map-compass" transform="translate(885 82)"><circle r="39"/><path d="M0-31 L8-7 L0 0 L-8-7 Z M0 31 L8 7 L0 0 L-8 7 Z"/><text text-anchor="middle" y="-45">N</text></g><text class="world-map-signature" x="46" y="574">${escapeHtml(p.icon)} ${escapeHtml(model.name)}</text></svg>`;
@@ -391,6 +432,7 @@
         locationIcon,
         findCurrentLocation,
         buildFactions,
+        buildObjectives,
         buildMapModel,
         svgMarkup
     };

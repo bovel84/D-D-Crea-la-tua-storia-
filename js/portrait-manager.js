@@ -5,10 +5,26 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const PORTRAIT_SCHEMA_VERSION = 3;
+    const PORTRAIT_SCHEMA_VERSION = 4;
     const ATLAS_COLUMNS = 3;
     const ATLAS_ROWS = 2;
     const CHRONICLE_GENRES = new Set(['fantasy', 'historical', 'pirate', 'rural']);
+    const VISUAL_GENDERS = Object.freeze({
+        'chronicle-vanguard': 'female', 'chronicle-scholar': 'male', 'chronicle-merchant': 'female',
+        'chronicle-corsair': 'male', 'chronicle-healer': 'female', 'chronicle-artisan': 'male',
+        'modern-investigator': 'male', 'modern-analyst': 'female', 'modern-executive': 'female',
+        'modern-specialist': 'male', 'modern-medic': 'male', 'modern-handler': 'female',
+        'ancient-heir': 'male', 'ancient-queen': 'female', 'ancient-general': 'male',
+        'ancient-priestess': 'female', 'ancient-noble': 'male', 'ancient-scholar': 'male',
+        'medieval-prince': 'male', 'medieval-princess': 'female', 'medieval-king': 'male',
+        'medieval-queen': 'female', 'medieval-knight': 'male', 'medieval-diplomat': 'male',
+        'medieval-innkeeper': 'male', 'medieval-blacksmith': 'male', 'medieval-peasant': 'male',
+        'medieval-healer': 'female', 'medieval-monk': 'male', 'medieval-ranger': 'male',
+        'renaissance-prince': 'male', 'renaissance-princess': 'female', 'renaissance-merchant': 'male',
+        'renaissance-diplomat': 'male', 'renaissance-scholar': 'male', 'renaissance-captain': 'male',
+        'industrial-heir': 'male', 'industrial-princess': 'female', 'industrial-officer': 'male',
+        'industrialist': 'male', 'industrial-scientist': 'male', 'industrial-worker': 'male'
+    });
 
     function cleanText(value, maxLength = 320) {
         return String(value == null ? '' : value)
@@ -56,7 +72,7 @@
             tags: Object.freeze(tags.slice()),
             eras: Object.freeze((metadata.eras || [family === 'modern' ? 'modern' : 'medieval']).slice()),
             roles: Object.freeze((metadata.roles || ['generic']).slice()),
-            genders: Object.freeze((metadata.genders || [inferredGender]).slice()),
+            genders: Object.freeze((metadata.genders || [VISUAL_GENDERS[id] || inferredGender]).slice()),
             backgroundSize: `${ATLAS_COLUMNS * 100}% ${ATLAS_ROWS * 100}%`,
             backgroundPosition: `${column === 0 ? 0 : column === ATLAS_COLUMNS - 1 ? 100 : 50}% ${row === 0 ? 0 : 100}%`
         });
@@ -103,7 +119,7 @@
         portrait('medieval-blacksmith', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 1, 0, 'Fabbro', ['blacksmith', 'fabbro', 'smith'], { eras: ['medieval', 'fantasy'], roles: ['artisan'] }),
         portrait('medieval-peasant', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 2, 0, 'Contadino', ['peasant', 'contadino', 'farmer'], { eras: ['medieval', 'fantasy'], roles: ['commoner'] }),
         portrait('medieval-healer', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 0, 1, 'Guaritrice del villaggio', ['healer', 'guaritrice', 'herbalist', 'erborista'], { eras: ['medieval', 'fantasy'], roles: ['healer'] }),
-        portrait('medieval-monk', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 1, 1, 'Monaco', ['monk', 'monaco', 'cleric', 'chierico'], { eras: ['medieval', 'fantasy'], roles: ['religious', 'scholar'] }),
+        portrait('medieval-monk', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 1, 1, 'Monaco', ['monk', 'monaco', 'cleric', 'chierico', 'padre', 'frate', 'prete', 'sacerdote', 'vescovo', 'abate'], { eras: ['medieval', 'fantasy'], roles: ['religious', 'scholar'] }),
         portrait('medieval-ranger', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 2, 1, 'Ranger', ['ranger', 'ramingo', 'scout', 'esploratore'], { eras: ['medieval', 'fantasy'], roles: ['ranger'] }),
         portrait('renaissance-prince', 'chronicle', 'assets/portraits/renaissance-cast-v1.webp', 0, 0, 'Principe rinascimentale', ['prince', 'principe', 'heir', 'erede'], { eras: ['renaissance'], roles: ['royal-heir'] }),
         portrait('renaissance-princess', 'chronicle', 'assets/portraits/renaissance-cast-v1.webp', 1, 0, 'Principessa rinascimentale', ['princess', 'principessa', 'noblewoman', 'nobildonna'], { eras: ['renaissance'], roles: ['royal-heir', 'noble'] }),
@@ -141,10 +157,17 @@
         const embeddedYear = Number((setting.match(/\b([12]\d{3}|[1-9]\d{2})\b/) || [])[1]);
         const year = Number.isFinite(explicitYear) ? explicitYear : embeddedYear;
         if (/pirat|corsar|sailor|marinaio/.test(`${genre} ${setting}`)) return 'pirate';
-        if (/antich|ancient|roma|roman|grec|ellen|egitt|faraon|mesopotam/.test(setting) || (Number.isFinite(year) && year < 600)) return 'ancient';
-        if (/rinasc|renaissance|quattrocent|cinquecent/.test(setting) || (Number.isFinite(year) && year >= 1400 && year < 1700)) return 'renaissance';
-        if (/vittorian|victorian|ottocent|industr|belle epoque|western|risorgiment/.test(setting) || (Number.isFinite(year) && year >= 1700 && year < 1920)) return 'industrial';
-        if (/contempor|modern|business|cyber|sport|crime|odiern/.test(`${genre} ${setting}`) || (Number.isFinite(year) && year >= 1920)) return 'modern';
+        if (Number.isFinite(year)) {
+            if (year < 600) return 'ancient';
+            if (year >= 1400 && year < 1700) return 'renaissance';
+            if (year >= 1700 && year < 1920) return 'industrial';
+            if (year >= 1920) return 'modern';
+            return 'medieval';
+        }
+        if (/antich|ancient|roma|roman|grec|ellen|egitt|faraon|mesopotam/.test(setting)) return 'ancient';
+        if (/rinasc|renaissance|quattrocent|cinquecent/.test(setting)) return 'renaissance';
+        if (/vittorian|victorian|ottocent|industr|belle epoque|western|risorgiment/.test(setting)) return 'industrial';
+        if (/contempor|modern|business|cyber|sport|crime|odiern/.test(`${genre} ${setting}`)) return 'modern';
         if (/fantasy|medioevo|medieval|feud|castello|regno|cavaliere/.test(`${genre} ${setting}`)) return 'medieval';
         return genre === 'historical' ? 'medieval' : resolveFamily(context) === 'modern' ? 'modern' : 'medieval';
     }
@@ -154,7 +177,7 @@
         if (/\b(prince|principe|princess|principessa|royal heir|erede al trono|erede reale|delfino)\b/.test(corpus)) return 'royal-heir';
         if (/\b(king|queen|re|regina|sovrano|sovrana|monarca|imperatore|imperatrice|emperor|empress)\b/.test(corpus)) return 'sovereign';
         if (/\b(pirate|pirata|corsair|corsaro|buccaneer|bucaniere|sailor|marinaio)\b/.test(corpus)) return 'pirate';
-        if (/\b(priest|priestess|sacerdote|sacerdotessa|monk|monaco|cleric|chierico|oracle|oracolo)\b/.test(corpus)) return 'religious';
+        if (/\b(priest|priestess|sacerdote|sacerdotessa|prete|padre|frate|monk|monaco|cleric|chierico|vescovo|abate|monsignor|oracle|oracolo)\b/.test(corpus)) return 'religious';
         if (/\b(healer|guaritore|guaritrice|medic|medico|doctor|dottore|herbalist|erborista)\b/.test(corpus)) return 'healer';
         if (/\b(knight|cavaliere|general|generale|soldier|soldato|guard|guardia|officer|ufficiale|captain|capitano|warrior|guerriero)\b/.test(corpus)) return 'warrior';
         if (/\b(ranger|ramingo|scout|esploratore|hunter|cacciatore)\b/.test(corpus)) return 'ranger';
@@ -169,9 +192,13 @@
     }
 
     function resolveGender(entity, context = {}) {
+        const input = entity && typeof entity === 'object' ? entity : {};
+        const declared = keyOf(input.gender || input.sex || input.pronouns || context.gender || context.sex || context.pronouns);
+        if (/^(female|femmina|donna|she her|lei)$/.test(declared)) return 'female';
+        if (/^(male|maschio|uomo|he him|lui)$/.test(declared)) return 'male';
         const corpus = entityCorpus(entity, context);
-        if (/\b(princess|principessa|queen|regina|empress|imperatrice|priestess|sacerdotessa|woman|donna|female|femmina|guaritrice|nobildonna|duchessa|contessa|baronessa|ereditiera)\b/.test(corpus)) return 'female';
-        if (/\b(prince|principe|king|re|emperor|imperatore|man|uomo|male|maschio|knight|cavaliere|monk|monaco|blacksmith|fabbro)\b/.test(corpus)) return 'male';
+        if (/\b(princess|principessa|queen|regina|empress|imperatrice|priestess|sacerdotessa|woman|donna|female|femmina|madre|suora|sorella|badessa|signora|lady|guaritrice|nobildonna|duchessa|contessa|baronessa|ereditiera|dottoressa)\b/.test(corpus)) return 'female';
+        if (/\b(prince|principe|king|re|emperor|imperatore|man|uomo|male|maschio|padre|frate|prete|monsignor|vescovo|abate|don|signore|sir|lord|conte|duca|barone|dottore|knight|cavaliere|monk|monaco|blacksmith|fabbro)\b/.test(corpus)) return 'male';
         return 'any';
     }
 
@@ -205,23 +232,45 @@
         return item.tags.reduce((score, tag) => score + (corpus.includes(keyOf(tag)) ? 1 : 0), 0);
     }
 
+    function listCompatiblePortraits(entity, context = {}) {
+        const input = entity && typeof entity === 'object' ? entity : { name: entity };
+        const role = resolveRole(input, context);
+        const gender = resolveGender(input, context);
+        let candidates = listPortraits(context);
+        const roleMatches = candidates.filter(item => item.roles.includes(role));
+        if (roleMatches.length) candidates = roleMatches;
+        else if (role !== 'generic') {
+            const family = resolveFamily(context);
+            const familyRoleMatches = PORTRAITS.filter(item => item.family === family && item.roles.includes(role));
+            if (familyRoleMatches.length) candidates = familyRoleMatches;
+        }
+        else if (role === 'royal-heir') {
+            const courtMatches = candidates.filter(item => item.roles.includes('sovereign') || item.roles.includes('noble'));
+            if (courtMatches.length) candidates = courtMatches;
+        } else if (role === 'sovereign') {
+            const courtMatches = candidates.filter(item => item.roles.includes('royal-heir') || item.roles.includes('noble'));
+            if (courtMatches.length) candidates = courtMatches;
+        }
+        if (role !== 'pirate') {
+            const nonPirates = candidates.filter(item => !item.roles.includes('pirate'));
+            if (nonPirates.length) candidates = nonPirates;
+        }
+        if (gender !== 'any') {
+            const genderMatches = candidates.filter(item => item.genders.includes('any') || item.genders.includes(gender));
+            if (genderMatches.length) candidates = genderMatches;
+        }
+        return candidates;
+    }
+
     function choosePortrait(entity, context = {}) {
         const input = entity && typeof entity === 'object' ? entity : { name: entity };
         const explicit = getPortrait(input.portraitId || context.portraitId);
         const era = resolveEra(context);
         const role = resolveRole(input, context);
         const gender = resolveGender(input, context);
-        const genderMatches = item => gender === 'any' || item.genders.includes('any') || item.genders.includes(gender);
-        if (explicit && explicit.eras.includes(era) && (role === 'generic' || explicit.roles.includes(role)) && genderMatches(explicit)) return explicit;
-        let candidates = listPortraits(context);
+        let candidates = listCompatiblePortraits(input, context);
+        if (explicit && candidates.some(item => item.id === explicit.id)) return explicit;
         if (!candidates.length) return PORTRAITS[0] || null;
-        const exactRole = candidates.filter(item => item.roles.includes(role));
-        if (exactRole.length) candidates = exactRole;
-        else if (role === 'royal-heir') candidates = candidates.filter(item => item.roles.includes('sovereign') || item.roles.includes('noble'));
-        else if (role === 'sovereign') candidates = candidates.filter(item => item.roles.includes('royal-heir') || item.roles.includes('noble'));
-        if (!candidates.length) candidates = listPortraits(context).filter(item => item.roles[0] !== 'pirate');
-        const genderCandidates = candidates.filter(genderMatches);
-        if (genderCandidates.length) candidates = genderCandidates;
         const corpus = entityCorpus(input, context);
         const scored = candidates.map(item => ({ item, score: roleScore(item, corpus) }));
         const bestScore = Math.max(...scored.map(entry => entry.score));
@@ -263,6 +312,7 @@
         resolveGender,
         getPortrait,
         listPortraits,
+        listCompatiblePortraits,
         choosePortrait,
         assignPortrait,
         imageSrc,

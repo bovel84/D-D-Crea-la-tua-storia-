@@ -819,6 +819,8 @@
 
         /* ==================== ANALISI STRATEGICA IA ==================== */
         .strategic-modal { max-width: 780px !important; }
+        .strategic-modal .modal-body { display: flex; min-height: 0; flex-direction: column; overflow: hidden; }
+        #strategic-content { min-height: 0; overflow-y: auto; padding-right: 2px; }
         .strategic-intro {
             padding: 13px 15px;
             border: 1px solid rgba(107,46,155,0.24);
@@ -857,15 +859,18 @@
         }
         .strategic-loading {
             display: none;
-            padding: 34px 16px;
-            text-align: center;
-            border-radius: 15px;
-            background: rgba(255,255,255,0.65);
+            align-items: center;
+            gap: 9px;
+            padding: 9px 11px;
+            margin-bottom: 10px;
+            border-radius: 11px;
+            color: var(--ink-light);
+            background: rgba(107,46,155,0.08);
         }
-        .strategic-loading.active { display: block; }
-        .strategic-loading-icon { font-size: 2.5em; animation: timelinePulse 1.1s ease-in-out infinite; }
-        .strategic-loading strong, .strategic-loading small { display: block; }
-        .strategic-loading small { margin-top: 5px; color: var(--ink-light); }
+        .strategic-loading.active { display: flex; }
+        .strategic-loading-icon { font-size: 1.25em; animation: timelinePulse 1.1s ease-in-out infinite; }
+        .strategic-loading strong { font-size: .86em; }
+        .strategic-loading small { margin-left: auto; color: var(--ink-light); }
         .strategic-empty {
             padding: 32px 16px;
             text-align: center;
@@ -885,20 +890,21 @@
         .strategic-briefing h3 { margin: 0 0 7px; font-family: 'Cinzel', serif; }
         .strategic-briefing p { margin: 0; line-height: 1.45; }
         .strategic-briefing small { display: block; margin-top: 9px; opacity: 0.78; }
-        .strategic-lenses {
+        .strategic-signal-strip {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 8px;
-            margin-bottom: 14px;
+            gap: 7px;
+            margin-bottom: 13px;
         }
-        .strategic-lens {
-            padding: 10px;
-            border: 1px solid rgba(92,64,48,0.16);
-            border-radius: 12px;
-            background: rgba(255,255,255,0.62);
+        .strategic-signal {
+            min-width: 0;
+            padding: 9px 10px;
+            border: 1px solid rgba(92,64,48,0.14);
+            border-radius: 11px;
+            background: rgba(255,255,255,0.68);
         }
-        .strategic-lens strong { display: block; margin-bottom: 5px; font-family: 'Cinzel', serif; font-size: 0.78em; }
-        .strategic-lens ul { margin: 0; padding-left: 17px; color: var(--ink-light); font-size: 0.86em; }
+        .strategic-signal strong { display: block; font-size: .7em; text-transform: uppercase; letter-spacing: .04em; }
+        .strategic-signal span { display: block; overflow: hidden; margin-top: 3px; color: var(--ink-light); font-size: .82em; text-overflow: ellipsis; white-space: nowrap; }
         .strategic-topics-title { margin: 3px 0 9px; font-family: 'Cinzel', serif; }
         .strategic-issue-list { display: grid; gap: 10px; }
         .strategic-issue {
@@ -984,6 +990,23 @@
             background: linear-gradient(135deg, #bce8ce, #8bd3aa);
             box-shadow: inset 0 0 0 2px rgba(46,139,87,0.28);
         }
+        .strategic-free-action {
+            flex: 0 0 auto;
+            z-index: 4;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            margin-top: 9px;
+            padding: 10px;
+            border: 1px solid rgba(201,146,31,.5);
+            border-radius: 14px;
+            background: rgba(255,250,238,.97);
+            box-shadow: 0 -5px 18px rgba(44,24,16,.13);
+        }
+        .strategic-free-action > div { grid-column: 1 / -1; }
+        .strategic-free-action small { display: block; color: var(--ink-light); }
+        .strategic-free-action textarea { min-height: 48px; max-height: 110px; resize: vertical; border: 1px solid rgba(92,64,48,.22); border-radius: 11px; padding: 10px; font: inherit; }
+        .strategic-free-action button { min-width: 48px; border: 0; border-radius: 11px; color: #fff; background: linear-gradient(135deg, #6d28d9, #c9921f); font-weight: 800; cursor: pointer; }
         .strategic-selection-summary {
             position: sticky;
             bottom: -1px;
@@ -1042,8 +1065,9 @@
             }
             #modal-strategic-actions .modal-header { padding: 13px 16px; }
             #modal-strategic-actions .modal-body { padding: 13px 10px calc(18px + env(safe-area-inset-bottom)); }
-            .strategic-lenses { grid-template-columns: 1fr; }
-            .strategic-lens { padding: 8px 10px; }
+            .strategic-signal-strip { grid-template-columns: 1fr; gap: 5px; }
+            .strategic-signal { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; padding: 7px 9px; }
+            .strategic-signal span { margin: 0; }
             .strategic-issue > summary { padding: 12px; }
             .strategic-issue-body { padding: 0 10px 10px; }
             .strategic-action-card { padding: 10px; }
@@ -2869,7 +2893,7 @@
             100% { filter: brightness(1); }
         }
     </style>
-    <link rel="stylesheet" href="css/experience-v7.css?v=20260814-cinematic-intro-1">
+    <link rel="stylesheet" href="css/experience-v7.css?v=20260814-strategy-map-1">
 </head>
 <body>
     <!-- HOME SCREEN -->
@@ -3191,11 +3215,15 @@
                     </div>
                     <div class="world-map-position" title="Posizione attuale del protagonista">📍 <span id="world-map-current-location">Sconosciuto</span></div>
                 </div>
+                <div class="world-map-intel" id="world-map-intel" aria-label="Quadro strategico della mappa"></div>
                 <div class="world-map-tools" aria-label="Controlli della mappa">
                     <button class="world-map-tool" id="btn-map-center" type="button">◎ Sei qui</button>
+                    <button class="world-map-tool active" type="button" data-map-filter="all">Tutto</button>
+                    <button class="world-map-tool" type="button" data-map-filter="objectives">◆ Obiettivi</button>
+                    <button class="world-map-tool" type="button" data-map-filter="owned">✓ Possedimenti</button>
+                    <button class="world-map-tool" id="btn-map-factions" type="button" data-map-filter="hostile">⚑ Minacce</button>
                     <button class="world-map-tool" id="btn-map-zoom-out" type="button" aria-label="Riduci mappa">−</button>
                     <button class="world-map-tool" id="btn-map-zoom-in" type="button" aria-label="Ingrandisci mappa">＋</button>
-                    <button class="world-map-tool" id="btn-map-factions" type="button">⚑ Fazioni</button>
                     <button class="world-map-tool" id="btn-map-refresh" type="button">↻ Aggiorna</button>
                     <button class="world-map-tool" id="btn-map-dice" type="button">🎲 Dadi</button>
                 </div>
@@ -3221,7 +3249,7 @@
             </div>
             <div class="modal-body">
                 <div class="strategic-intro">
-                    L’IA divide la situazione per argomenti e prepara alternative concrete. Puoi selezionare più azioni, anche nello stesso argomento: verranno analizzate insieme soltanto quando userai <strong>Vai avanti</strong>.
+                    Apri un argomento, scegli una risposta oppure scrivi un’azione libera. Il mondo reagirà quando userai <strong>Vai avanti</strong>.
                 </div>
                 <div class="strategic-toolbar">
                     <button class="strategic-analyze-btn" id="btn-strategic-analyze">✨ Analizza la situazione</button>
@@ -3229,12 +3257,20 @@
                 </div>
                 <div class="strategic-loading" id="strategic-loading" role="status" aria-live="polite">
                     <div class="strategic-loading-icon">🧭</div>
-                    <strong>L’IA sta preparando il piano…</strong>
-                    <small>Valuto urgenze, rischi, opportunità, attori e conseguenze.</small>
+                    <strong>Aggiorno i consigli…</strong>
+                    <small>Il piano locale è già utilizzabile.</small>
                 </div>
                 <div id="strategic-content">
                     <div class="strategic-empty">Apri l’analisi per ricevere una lista di azioni collegate alla situazione reale della campagna.</div>
                 </div>
+                <section class="strategic-free-action">
+                    <div>
+                        <strong>✍️ Azione libera</strong>
+                        <small>Scrivi una tua iniziativa: entrerà nel piano al passaggio del turno.</small>
+                    </div>
+                    <textarea id="strategic-free-action-input" rows="2" maxlength="520" placeholder="Inserisci la tua azione..."></textarea>
+                    <button type="button" id="btn-add-free-strategic" title="Aggiungi al piano" aria-label="Aggiungi azione libera">➤</button>
+                </section>
             </div>
         </div>
     </div>
@@ -3755,15 +3791,15 @@
 
     <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
     <script src="js/world-bootstrap.js?v=20260814-portraits-1"></script>
-    <script src="js/world-map.js?v=20260814-map-factions-2"></script>
+    <script src="js/world-map.js?v=20260814-map-factions-3"></script>
     <script src="js/event-manager.js"></script>
     <script src="js/timeline-chat.js?v=20260814-dialogue-6"></script>
     <script src="js/timeline-simulator.js?v=20260814-causal-7"></script>
-    <script src="js/strategic-advisor.js?v=20260814-strategy-4"></script>
+    <script src="js/strategic-advisor.js?v=20260814-strategy-5"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
-    <script src="js/portrait-manager.js?v=20260814-portraits-3"></script>
+    <script src="js/portrait-manager.js?v=20260814-portraits-4"></script>
     <script src="js/time-energy.js"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
@@ -3771,7 +3807,7 @@
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
-    <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-1"></script>
+    <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-2"></script>
     <script src="js/ollama-cloud.js?v=20260814-llm-efficiency-1"></script>
     <script src="js/experience-v7.js?v=20260814-mobile-dock-2"></script>
     <script>
@@ -3816,6 +3852,7 @@
             timelineEventIndex: 0,
             strategicAnalysis: null,
             isStrategicProcessing: false,
+            strategicAIRequestedTurn: null,
             activeChatId: null,
             pendingChatThreadId: null,
             pendingChatSpeaker: '',
@@ -3834,6 +3871,7 @@
         let activeWorldMapModel = null;
         let selectedWorldMapLocationId = '';
         let worldMapZoom = 1;
+        let worldMapFilter = 'all';
         const eventEngine = new CronacheEvents.EventManager({ maxEvents: 100 });
         const timelineChatEngine = CronacheTimelineChat;
         const timelineSimulator = CronacheTimelineSimulator;
@@ -5568,13 +5606,13 @@
             if (!G.character) return;
             ['btn-business-manage', 'btn-kingdom-manage', 'btn-strategic-analyze', 'btn-reopen-last-event', 'btn-new-world-chat', 'btn-confirm-convocation'].forEach(id => {
                 const button = $(id);
-                if (button) button.disabled = G.isProcessing || G.isStrategicProcessing;
+                if (button) button.disabled = G.isProcessing || (id === 'btn-strategic-analyze' && G.isStrategicProcessing);
             });
             ['btn-strategic-actions', 'btn-advance-world', 'btn-world-chats'].forEach(id => {
                 const button = $(id);
                 if (!button) return;
                 button.disabled = false;
-                button.setAttribute('aria-busy', String(Boolean(G.isProcessing || G.isStrategicProcessing)));
+                button.setAttribute('aria-busy', String(Boolean(G.isProcessing)));
             });
         }
 
@@ -6796,6 +6834,7 @@
             });
             const actors = getWorldMapActors(location.name);
             const factions = (location.factionIds || []).map(id => activeWorldMapModel.factions.find(item => item.id === id)).filter(Boolean);
+            const objectives = (location.objectiveIds || []).map(id => activeWorldMapModel.objectives.find(item => item.id === id)).filter(Boolean);
             const detail = $('world-map-detail');
             detail.innerHTML = `
                 <header>
@@ -6813,6 +6852,7 @@
                     ${location.resource ? `<div><strong>Risorsa:</strong> ${escapeTimelineHtml(location.resource)}</div>` : ''}
                     ${location.danger ? `<div><strong>Pericolo:</strong> ${escapeTimelineHtml(location.danger)}</div>` : ''}
                     ${location.owned ? '<div><strong>Possesso:</strong> bene del protagonista</div>' : ''}
+                    ${objectives.length ? `<div><strong>Obiettivi attivi:</strong> ${objectives.map(item => `◆ ${escapeTimelineHtml(item.title)}`).join(' · ')}</div>` : ''}
                     ${factions.length ? `<div><strong>Presenza politica:</strong> ${factions.map(faction => `<span class="world-map-inline-faction ${faction.stance}">${escapeTimelineHtml(faction.name)}</span>`).join(' ')}</div>` : ''}
                     ${location.connections.length ? `<div><strong>Collegamenti:</strong> ${location.connections.map(item => escapeTimelineHtml(item)).join(' · ')}</div>` : ''}
                     ${actors.length ? `<div><strong>Presenti:</strong> ${actors.map(actor => escapeTimelineHtml(actor.name)).join(' · ')}</div>` : ''}
@@ -6830,7 +6870,7 @@
                 return;
             }
             root.innerHTML = `<header><strong>⚑ Forze in campo</strong><small>${factions.filter(item => item.stance === 'hostile').length} avversarie</small></header><div class="world-map-faction-list">${factions.map(faction => `
-                <article class="world-map-faction-card ${faction.stance}" style="--map-faction-color:${faction.color}">
+                <article class="world-map-faction-card ${faction.stance}" style="--map-faction-color:${faction.color}" data-map-faction-location="${escapeTimelineHtml(faction.location)}" role="button" tabindex="0">
                     <div><i></i><strong>${escapeTimelineHtml(faction.name)}</strong><span>${faction.stance === 'hostile' ? 'Avversaria' : faction.stance === 'allied' ? 'Alleata' : 'Incerta'}</span></div>
                     <small>${escapeTimelineHtml([faction.type, faction.leader, faction.location].filter(Boolean).join(' · '))}</small>
                     <div class="world-map-faction-meters"><span>Minaccia <b>${Math.round(faction.hostility)}%</b></span><span>Forza <b>${Math.round(faction.power)}%</b></span><span>Militare <b>${Math.round(faction.militaryStrength)}%</b></span></div>
@@ -6838,6 +6878,42 @@
                     ${faction.nextMove ? `<p><strong>Prossima mossa:</strong> ${escapeTimelineHtml(faction.nextMove)}</p>` : ''}
                     ${faction.grievance ? `<p><strong>Rivendicazione:</strong> ${escapeTimelineHtml(faction.grievance)}</p>` : ''}
                 </article>`).join('')}</div>`;
+            root.querySelectorAll('[data-map-faction-location]').forEach(card => {
+                const select = () => centerWorldMapOnLocationName(card.dataset.mapFactionLocation);
+                card.onclick = select;
+                card.onkeydown = event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        select();
+                    }
+                };
+            });
+        }
+
+        function renderWorldMapIntel() {
+            const root = $('world-map-intel');
+            if (!root || !activeWorldMapModel) return;
+            const locations = activeWorldMapModel.locations || [];
+            const hostile = activeWorldMapModel.factions.filter(item => item.stance === 'hostile').length;
+            root.innerHTML = `
+                <span><b>${locations.length}</b> luoghi</span>
+                <span><b>${activeWorldMapModel.objectives?.length || 0}</b> obiettivi</span>
+                <span><b>${locations.filter(item => item.owned).length}</b> possedimenti</span>
+                <span class="danger"><b>${hostile}</b> minacce</span>`;
+        }
+
+        function applyWorldMapFilter(filter = 'all') {
+            worldMapFilter = ['all', 'objectives', 'owned', 'hostile'].includes(filter) ? filter : 'all';
+            document.querySelectorAll('[data-map-filter]').forEach(button => {
+                button.classList.toggle('active', button.dataset.mapFilter === worldMapFilter);
+            });
+            $('world-map-canvas')?.querySelectorAll('[data-map-location-id]').forEach(node => {
+                const visible = worldMapFilter === 'all'
+                    || (worldMapFilter === 'objectives' && node.dataset.mapObjective === 'true')
+                    || (worldMapFilter === 'owned' && node.dataset.mapOwned === 'true')
+                    || (worldMapFilter === 'hostile' && node.dataset.mapHostile === 'true');
+                node.classList.toggle('map-filtered', !visible);
+            });
         }
 
         function applyWorldMapZoom() {
@@ -6858,6 +6934,22 @@
             renderWorldMapDetail(location.id);
         }
 
+        function centerWorldMapOnLocationName(locationName) {
+            if (!activeWorldMapModel || !locationName) return;
+            const target = worldMapEngine.keyOf(locationName);
+            const location = activeWorldMapModel.locations.find(item => worldMapEngine.keyOf(item.name) === target)
+                || activeWorldMapModel.locations.find(item => worldMapEngine.keyOf(item.name).includes(target) || target.includes(worldMapEngine.keyOf(item.name)));
+            const viewport = $('world-map-viewport');
+            if (!location || !viewport) return;
+            applyWorldMapFilter('all');
+            viewport.scrollTo({
+                left: Math.max(0, location.x * worldMapZoom - viewport.clientWidth / 2 + 7),
+                top: Math.max(0, location.y * worldMapZoom - viewport.clientHeight / 2 + 7),
+                behavior: 'smooth'
+            });
+            renderWorldMapDetail(location.id);
+        }
+
         function renderWorldMap() {
             activeWorldMapModel = worldMapEngine.buildMapModel({
                 world: G.worldMemory?.world || {},
@@ -6868,6 +6960,7 @@
             const hostileFactions = activeWorldMapModel.factions.filter(item => item.stance === 'hostile').length;
             $('world-map-subtitle').textContent = `${activeWorldMapModel.theme.icon} ${activeWorldMapModel.theme.label} · ${getFullTimeString()} · ${activeWorldMapModel.locations.length} luoghi · ${activeWorldMapModel.factions.length} fazioni${hostileFactions ? ` (${hostileFactions} ostili)` : ''}`;
             $('world-map-current-location').textContent = activeWorldMapModel.currentLocationName || G.currentLocation || 'Sconosciuto';
+            renderWorldMapIntel();
             renderWorldMapFactions();
             if (!activeWorldMapModel.locations.length) {
                 canvas.innerHTML = '<div class="world-map-empty"><div><strong>La mappa è ancora vuota.</strong><br>Esplora il mondo: i luoghi scoperti compariranno qui.</div></div>';
@@ -6876,6 +6969,7 @@
             }
             canvas.innerHTML = worldMapEngine.svgMarkup(activeWorldMapModel);
             applyWorldMapZoom();
+            applyWorldMapFilter(worldMapFilter);
             canvas.querySelectorAll('[data-map-location-id]').forEach(node => {
                 const select = () => renderWorldMapDetail(node.dataset.mapLocationId);
                 node.onclick = select;
@@ -9964,7 +10058,7 @@
         }
 
         async function requestTimelineAI(prompt, options = {}) {
-            const maxTokens = Math.max(1200, Math.min(9000, Number(options.maxTokens) || 4200));
+            const maxTokens = Math.max(900, Math.min(4200, Number(options.maxTokens) || 2200));
             const messages = [
                 {
                     role: 'system',
@@ -9973,13 +10067,13 @@
                 { role: 'user', content: prompt }
             ];
             return requestConfiguredAI(messages, {
-                task: 'timeline', maxTokens, maxAttempts: 2,
-                timeoutMs: Math.max(30000, Number(options.timeoutMs) || 70000)
+                task: 'timeline', maxTokens, maxAttempts: 1,
+                timeoutMs: Math.max(20000, Number(options.timeoutMs) || 40000)
             });
         }
 
         async function requestStrategicAI(prompt, options = {}) {
-            const maxTokens = Math.max(2400, Math.min(7000, Number(options.maxTokens) || 5200));
+            const maxTokens = Math.max(900, Math.min(2600, Number(options.maxTokens) || 1800));
             const messages = [
                 {
                     role: 'system',
@@ -9988,8 +10082,8 @@
                 { role: 'user', content: prompt }
             ];
             return requestConfiguredAI(messages, {
-                task: 'strategic', maxTokens, maxAttempts: 2, timeoutMs: 70000,
-                cacheTtlMs: Math.max(0, Number(options.cacheTtlMs) || 0)
+                task: 'strategic', maxTokens, maxAttempts: 1, timeoutMs: 35000,
+                cacheTtlMs: Math.max(0, Number(options.cacheTtlMs) || 300000)
             });
         }
 
@@ -10885,24 +10979,15 @@
                     <p>${escapeTimelineHtml(analysis.situation || '')}</p>
                     <small>${escapeTimelineHtml(analysis.horizon || getFullTimeString())} · Turno ${Number(analysis.createdAtTurn) || 0}</small>
                 </section>
-                <div class="strategic-lenses">
-                    <section class="strategic-lens">
-                        <strong>🎯 Priorità</strong>
-                        ${strategicList(analysis.priorities, 'Derivano dalle questioni elencate sotto.')}
-                    </section>
-                    <section class="strategic-lens">
-                        <strong>⚠️ Rischi</strong>
-                        ${strategicList(analysis.risks, 'Nessun rischio aggiuntivo identificato.')}
-                    </section>
-                    <section class="strategic-lens">
-                        <strong>💡 Opportunità</strong>
-                        ${strategicList(analysis.opportunities, 'Nessuna opportunità separata identificata.')}
-                    </section>
+                <div class="strategic-signal-strip">
+                    <section class="strategic-signal"><strong>🎯 Priorità</strong><span>${escapeTimelineHtml(analysis.priorities?.[0] || 'Scegli il prossimo obiettivo')}</span></section>
+                    <section class="strategic-signal"><strong>⚠️ Rischio</strong><span>${escapeTimelineHtml(analysis.risks?.[0] || 'Nessun allarme immediato')}</span></section>
+                    <section class="strategic-signal"><strong>💡 Occasione</strong><span>${escapeTimelineHtml(analysis.opportunities?.[0] || 'Esplora le alternative')}</span></section>
                 </div>
                 <h3 class="strategic-topics-title">Argomenti strategici</h3>
                 <div class="strategic-issue-list">
                     ${analysis.issues.map((issue, issueIndex) => `
-                        <details class="strategic-issue urgency-${escapeTimelineHtml(issue.urgency || 'media')}" data-issue-id="${escapeTimelineHtml(issue.id)}" ${openedIssueIds.has(issue.id) || (!openedIssueIds.size && issueIndex === 0) ? 'open' : ''}>
+                        <details class="strategic-issue urgency-${escapeTimelineHtml(issue.urgency || 'media')}" data-issue-id="${escapeTimelineHtml(issue.id)}" ${openedIssueIds.has(issue.id) ? 'open' : ''}>
                             <summary>
                                 <span>
                                     <span class="strategic-issue-title">${escapeTimelineHtml(issue.title)}</span>
@@ -10943,14 +11028,6 @@
                         </details>
                     `).join('')}
                 </div>
-                <section class="strategic-free-action">
-                    <div>
-                        <strong>✍️ Azione libera</strong>
-                        <small>Scrivi un’iniziativa tua: entrerà nel piano e sarà risolta quando avanzerai il turno.</small>
-                    </div>
-                    <textarea id="strategic-free-action-input" rows="3" maxlength="520" placeholder="Es. Convoco Elric e gli anziani alla locanda per proporre una ronda notturna..."></textarea>
-                    <button type="button" id="btn-add-free-strategic">＋ Aggiungi al piano</button>
-                </section>
                 ${strategicSelectionMarkup(queuedActions)}
             `;
             content.querySelectorAll('.strategic-action-execute').forEach(button => {
@@ -10975,8 +11052,6 @@
             const content = $('strategic-content');
             const source = $('strategic-source');
             if (loading) loading.classList.toggle('active', active);
-            if (content) content.hidden = active;
-            if (source && active) source.hidden = true;
             const button = $('btn-strategic-analyze');
             if (button) {
                 button.disabled = active;
@@ -10994,21 +11069,17 @@
                 return;
             }
 
+            const fallback = strategicAdvisor.buildFallback(context);
+            G.strategicAnalysis = fallback;
+            G.worldMemory.strategicAnalysis = fallback;
+            renderStrategicAnalysis(fallback);
             G.isStrategicProcessing = true;
-            G.isProcessing = true;
-            $('btn-send').disabled = true;
-            updateActionBar();
+            G.strategicAIRequestedTurn = Number(G.worldMemory?.turnCount || 0);
             setStrategicLoading(true);
             try {
                 const prompt = strategicAdvisor.buildPrompt(context);
-                let response = await requestStrategicAI(prompt);
-                let analysis = strategicAdvisor.parseResponse(response, context);
-                if (!analysis) {
-                    const repairPrompt = strategicAdvisor.buildRepairPrompt(response, context);
-                    response = await requestStrategicAI(repairPrompt, { maxTokens: 4200 });
-                    analysis = strategicAdvisor.parseResponse(response, context);
-                }
-                analysis = analysis || strategicAdvisor.buildFallback(context);
+                const response = await requestStrategicAI(prompt);
+                const analysis = strategicAdvisor.ensureAnalysis(response, context);
                 G.strategicAnalysis = analysis;
                 G.worldMemory.strategicAnalysis = analysis;
                 renderStrategicAnalysis(analysis);
@@ -11024,10 +11095,7 @@
                 notify(`Analisi locale pronta. IA non disponibile: ${error.message}`, 'info');
             } finally {
                 G.isStrategicProcessing = false;
-                G.isProcessing = false;
-                $('btn-send').disabled = false;
                 setStrategicLoading(false);
-                updateActionBar();
             }
         }
 
@@ -11042,13 +11110,19 @@
             if (strategicAdvisor.isFresh(cached, context)) {
                 G.strategicAnalysis = cached;
                 renderStrategicAnalysis(cached);
+                const turn = Number(G.worldMemory?.turnCount || 0);
+                if (cached.source === 'local' && G.strategicAIRequestedTurn !== turn) generateStrategicAnalysis(true);
                 return;
             }
+            const fallback = strategicAdvisor.buildFallback(context);
+            G.strategicAnalysis = fallback;
+            G.worldMemory.strategicAnalysis = fallback;
+            renderStrategicAnalysis(fallback);
             generateStrategicAnalysis(true);
         }
 
         function toggleStrategicAction(issueIndex, actionIndex) {
-            if (G.isProcessing || G.isStrategicProcessing) return;
+            if (G.isProcessing) return;
             const queuedAction = strategicAdvisor.createQueuedAction(
                 G.strategicAnalysis,
                 issueIndex,
@@ -11076,7 +11150,7 @@
         }
 
         function addFreeStrategicAction() {
-            if (G.isProcessing || G.isStrategicProcessing) return;
+            if (G.isProcessing) return;
             const input = $('strategic-free-action-input');
             const queuedAction = strategicAdvisor.createFreeQueuedAction(input?.value, {
                 turn: G.worldMemory?.turnCount || 0,
@@ -11481,24 +11555,16 @@
             updateActionBar();
 
             let aiError = null;
-            let worldRepairError = null;
             let response = '';
             let timeAdvanced = false;
             try {
-                let world = prepareTimelineWorld();
-                try {
-                    world = await repairTimelineWorldIfNeeded(world);
-                } catch (error) {
-                    worldRepairError = error;
-                    console.warn('Ricostruzione storico-politica non disponibile, continuo col mondo persistente:', error.message);
-                }
+                const world = prepareTimelineWorld();
 
                 const aiContextProfile = getAIContextProfile();
-                const expandedTimelineContext = Number(aiContextProfile.contextSize) >= 65536;
-                const knownActors = [...(G.worldMemory.npcs || []), ...(G.worldMemory.factions || [])];
+                const knownActors = [...(G.worldMemory.npcs || []), ...(G.worldMemory.factions || [])].slice(-8);
                 const recentEvents = (G.worldMemory.events || [])
                     .filter(timelineSimulator.isMeaningfulEvent)
-                    .slice(expandedTimelineContext ? -20 : -10);
+                    .slice(-8);
                 const continuity = CronacheMemory.buildContinuityContext(G.worldMemory, {
                     story: G.currentStory,
                     currentDate: getFullTimeString(),
@@ -11568,11 +11634,11 @@
                     turn: previousTurn,
                     batchId: seed.batchId || batchId,
                     maxAdvanceMinutes,
-                    actorLimit: expandedTimelineContext ? 16 : 8,
-                    relationLimit: expandedTimelineContext ? 16 : 6,
-                    forceLimit: expandedTimelineContext ? 12 : 5,
-                    recentEventLimit: expandedTimelineContext ? 16 : 6,
-                    agreementLimit: expandedTimelineContext ? 12 : 6
+                    actorLimit: 8,
+                    relationLimit: 8,
+                    forceLimit: 6,
+                    recentEventLimit: 8,
+                    agreementLimit: 6
                 });
                 try {
                     response = await requestTimelineAI(prompt);
@@ -11820,7 +11886,6 @@
                 closeModal('modal-timeline');
                 showEventScreens(generated, 0);
                 if (aiError) notify('Evento generato con il simulatore causale locale; gli sviluppi restano in coda.', 'info');
-                else if (worldRepairError) notify('Evento generato; la ricostruzione storica completa verrà ritentata più avanti.', 'info');
             } catch (error) {
                 console.error('Errore generazione prossimo evento:', error);
                 notify(`Evento non completato: ${error.message}${timeAdvanced ? '. Puoi ripristinare il checkpoint precedente.' : '. Puoi riprovare.'}`, 'error');
@@ -14459,15 +14524,22 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
         function renderCreationPortraits(story, genreKey, genreCfg) {
             const root = $('portrait-grid');
             if (!root) return;
-            const options = portraitEngine.listPortraits(portraitContext({ story, genre: genreKey }));
             const archetype = genreCfg.archetypes?.[G.selectedArchetype] || {};
+            const portraitSubject = {
+                name: $('new-game-name')?.value.trim() || 'Protagonista',
+                role: archetype.name,
+                archetype: G.selectedArchetype,
+                origin: G.selectedOrigin
+            };
+            const options = portraitEngine.listCompatiblePortraits(
+                portraitSubject,
+                portraitContext({ story, genre: genreKey })
+            );
             if (!options.some(item => item.id === G.selectedPortrait)) {
-                G.selectedPortrait = portraitEngine.choosePortrait({
-                    name: $('new-game-name')?.value.trim() || 'Protagonista',
-                    role: archetype.name,
-                    archetype: G.selectedArchetype,
-                    origin: G.selectedOrigin
-                }, portraitContext({ story, genre: genreKey }))?.id || options[0]?.id || null;
+                G.selectedPortrait = portraitEngine.choosePortrait(
+                    portraitSubject,
+                    portraitContext({ story, genre: genreKey })
+                )?.id || options[0]?.id || null;
             }
             root.innerHTML = options.map(item => `
                 <button type="button" class="portrait-choice ${G.selectedPortrait === item.id ? 'selected' : ''}" data-portrait-id="${escapeCreationText(item.id)}" aria-pressed="${G.selectedPortrait === item.id}">
@@ -14606,7 +14678,9 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if ($('btn-reopen-last-event')) $('btn-reopen-last-event').onclick = reopenLastTimelineEvent;
             if ($('btn-world-chats')) $('btn-world-chats').onclick = () => openWorldChats();
             if ($('btn-map-center')) $('btn-map-center').onclick = centerWorldMapOnPlayer;
-            if ($('btn-map-factions')) $('btn-map-factions').onclick = () => $('world-map-factions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.querySelectorAll('[data-map-filter]').forEach(button => {
+                button.onclick = () => applyWorldMapFilter(button.dataset.mapFilter);
+            });
             if ($('btn-map-refresh')) $('btn-map-refresh').onclick = () => { renderWorldMap(); centerWorldMapOnPlayer(); };
             if ($('btn-map-zoom-in')) $('btn-map-zoom-in').onclick = () => { worldMapZoom = Math.min(1.5, worldMapZoom + 0.15); applyWorldMapZoom(); };
             if ($('btn-map-zoom-out')) $('btn-map-zoom-out').onclick = () => { worldMapZoom = Math.max(0.7, worldMapZoom - 0.15); applyWorldMapZoom(); };

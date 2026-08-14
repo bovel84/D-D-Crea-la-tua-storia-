@@ -579,6 +579,7 @@
     grid-template-columns: minmax(0, 1.65fr) minmax(245px, .65fr);
     grid-template-areas:
         "status status"
+        "intel intel"
         "tools tools"
         "map detail";
     gap: 10px;
@@ -622,6 +623,23 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+.world-map-intel {
+    grid-area: intel;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+}
+.world-map-intel span {
+    padding: 7px 9px;
+    border: 1px solid rgba(105, 69, 24, .22);
+    border-radius: 10px;
+    color: #70553c;
+    background: rgba(255, 250, 230, .68);
+    font-size: .7rem;
+    text-align: center;
+}
+.world-map-intel b { display: block; color: #3e291b; font: 700 .95rem 'Cinzel', serif; }
+.world-map-intel .danger b { color: #941f28; }
 .world-map-tools {
     grid-area: tools;
     display: flex;
@@ -643,6 +661,7 @@
     cursor: pointer;
 }
 .world-map-tool:active { transform: translateY(1px); filter: brightness(.96); }
+.world-map-tool.active { color: #fff8da; border-color: #9b272b; background: linear-gradient(180deg, #a73138, #71191f); }
 .world-map-viewport {
     grid-area: map;
     min-height: 470px;
@@ -686,6 +705,7 @@
 .theme-maritime .world-map-route { stroke: #fff0b5; }
 .world-map-route.explicit { stroke-width: 6; stroke-dasharray: none; opacity: .76; }
 .world-map-node { color: #39271b; cursor: pointer; outline: none; }
+.world-map-node.map-filtered { opacity: .12; pointer-events: none; }
 .world-map-node-ring {
     fill: #f4e5b1;
     stroke: #64441f;
@@ -720,6 +740,7 @@
 .world-map-node.current .world-map-node-icon { fill: #fff8d8; }
 .world-map-node.current .world-map-node-label { fill: #6c171d; font-size: 17px; }
 .world-map-danger { fill: #9b1d25; stroke: #f3d684; stroke-width: 2; }
+.world-map-objective-badge { fill: #6f268f; paint-order: stroke; stroke: #ffe78f; stroke-width: 4px; font: 700 18px Georgia, serif; }
 .world-map-compass circle { fill: rgba(255, 244, 204, .55); stroke: currentColor; stroke-width: 2; }
 .world-map-compass path { fill: #7f2529; stroke: currentColor; stroke-width: 1; }
 .world-map-compass text { fill: currentColor; font: 700 16px 'Cinzel', serif; }
@@ -779,7 +800,8 @@
 .world-map-factions > header { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 9px; font: 700 .78rem 'Cinzel', serif; }
 .world-map-factions > header small { color: #9b272b; }
 .world-map-faction-list { display: grid; gap: 8px; }
-.world-map-faction-card { display: grid; gap: 6px; padding: 9px; border-left: 5px solid var(--map-faction-color); border-radius: 10px; background: rgba(255,255,255,.58); }
+.world-map-faction-card { display: grid; gap: 6px; padding: 9px; border-left: 5px solid var(--map-faction-color); border-radius: 10px; background: rgba(255,255,255,.58); cursor: pointer; }
+.world-map-faction-card:hover, .world-map-faction-card:focus-visible { outline: 2px solid var(--map-faction-color); outline-offset: 1px; }
 .world-map-faction-card.hostile { background: rgba(155,39,43,.08); }
 .world-map-faction-card > div:first-child { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 6px; align-items: center; }
 .world-map-faction-card i { width: 10px; height: 10px; border-radius: 50%; background: var(--map-faction-color); }
@@ -807,12 +829,13 @@
     .world-map-body {
         height: calc(100dvh - 70px);
         grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "status" "tools" "map" "detail";
-        grid-template-rows: auto auto minmax(330px, 58dvh) auto;
+        grid-template-areas: "status" "intel" "tools" "map" "detail";
+        grid-template-rows: auto auto auto minmax(330px, 58dvh) auto;
         overflow-y: auto;
         padding: 9px;
     }
     .world-map-status { align-items: stretch; padding: 9px 10px; }
+    .world-map-intel { grid-template-columns: repeat(4, minmax(68px, 1fr)); overflow-x: auto; }
     .world-map-position { max-width: 48%; align-self: center; }
     .world-map-viewport { min-height: 330px; height: 58dvh; }
     .world-map-side { max-height: none; overflow: visible; }
