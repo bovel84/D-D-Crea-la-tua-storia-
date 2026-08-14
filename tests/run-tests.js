@@ -2737,6 +2737,18 @@ test('sostituisce il compositore mobile con la barra nera Analisi Chat Timeline'
     assert.match(html, /linear-gradient\(180deg, #24120c 0%, #120b08 100%\)/);
 });
 
+test('nasconde controlli, ragionamenti e messaggi tecnici dalla cronaca', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /function stripHiddenWorkBlocks/);
+    assert.match(html, /function isInternalStoryEntry/);
+    assert.match(html, /if \(type === 'analysis'\) return true/);
+    assert.match(html, /story-entry\.analysis \{\s*display: none !important/);
+    assert.doesNotMatch(html, /addStoryEntry\(analysisContent, 'analysis'\)/);
+    assert.doesNotMatch(html, /content = message\.reasoning/);
+    assert.match(html, /il modello ha restituito soltanto note di lavoro, che sono state nascoste/);
+    assert.match(html, /if \(clean\) addStoryEntry\(clean, 'narrator'\)/);
+});
+
 test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migrazione incompleta', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /function preserveStartupRecoveryCopy/);
@@ -2854,7 +2866,7 @@ test('integra la creazione iniziale del mondo con narrazione, timeline e chat', 
     assert.match(html, /worldBootstrapEngine\.applyTimelineEvents/);
     assert.match(html, /worldBootstrapEngine\.needsHistoricalRepair/);
     assert.match(html, /function repairTimelineWorldIfNeeded/);
-    assert.match(html, /Mondo creato:/);
+    assert.doesNotMatch(html, /addStoryEntry\(\s*`🌍 Mondo creato:/);
     assert.match(html, /isStart \? 3600/);
 });
 
