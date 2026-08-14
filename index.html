@@ -2869,7 +2869,7 @@
             100% { filter: brightness(1); }
         }
     </style>
-    <link rel="stylesheet" href="css/experience-v7.css?v=20260814-map-factions-2">
+    <link rel="stylesheet" href="css/experience-v7.css?v=20260814-cinematic-intro-1">
 </head>
 <body>
     <!-- HOME SCREEN -->
@@ -2895,6 +2895,23 @@
 
     <!-- GAME SCREEN -->
     <div class="screen" id="game-screen">
+        <section class="story-intro-overlay" id="story-intro-overlay" hidden aria-live="polite" aria-label="Apertura della storia">
+            <div class="story-intro-constellation" aria-hidden="true"></div>
+            <div class="story-intro-card">
+                <p class="story-intro-kicker" id="story-intro-kicker">✦ Apertura del capitolo</p>
+                <div class="story-intro-portrait" id="story-intro-portrait">⚔️</div>
+                <p class="story-intro-date" id="story-intro-date">Il tempo prende forma</p>
+                <h1 id="story-intro-title">Cronache del Destino</h1>
+                <p class="story-intro-setting" id="story-intro-setting">Il mondo si sta preparando.</p>
+                <p class="story-intro-hook" id="story-intro-hook"></p>
+                <div class="story-intro-progress" aria-label="Preparazione del primo capitolo">
+                    <div class="story-intro-step active" data-intro-stage="0"><i>✦</i><span>Accendo la scena</span></div>
+                    <div class="story-intro-step" data-intro-stage="1"><i>◈</i><span>Richiamo luoghi e protagonisti</span></div>
+                    <div class="story-intro-step" data-intro-stage="2"><i>⚑</i><span>Metto in moto il mondo</span></div>
+                </div>
+                <p class="story-intro-status loading-dots" id="story-intro-status">Il narratore apre il primo capitolo</p>
+            </div>
+        </section>
         <div class="game-topbar">
             <div class="portrait-topbar" aria-label="Comandi rapidi del protagonista">
                 <button class="portrait-orbit orbit-story" id="btn-top-story" title="Mappa del mondo" aria-label="Apri la mappa del mondo">🗺</button>
@@ -5747,6 +5764,65 @@
         // ==================== HOME ====================
         function updateHome() {
             $('btn-continue').disabled = !G.isPlaying;
+        }
+
+        let storyIntroTimers = [];
+
+        function clearStoryIntroTimers() {
+            storyIntroTimers.forEach(timer => clearTimeout(timer));
+            storyIntroTimers = [];
+        }
+
+        function setStoryIntroStage(index, status) {
+            $$('.story-intro-step').forEach((step, stepIndex) => {
+                step.classList.toggle('active', stepIndex === index);
+                step.classList.toggle('done', stepIndex < index);
+            });
+            if (status && $('story-intro-status')) $('story-intro-status').textContent = status;
+        }
+
+        function showStoryIntro() {
+            const overlay = $('story-intro-overlay');
+            if (!overlay || !G.currentStory || !G.character) return;
+            clearStoryIntroTimers();
+            const story = G.currentStory;
+            const character = G.character;
+            const cfg = getGenreConfig(story);
+            const archetype = cfg.archetypes?.[character.archetype]?.name || character.archetype || 'Protagonista';
+            const portrait = portraitEngine.getPortrait(character.portraitId);
+            const hook = stripNarrativeProtocol(story.prologue || story.desc || '')
+                .replace(/\s+/g, ' ').trim().slice(0, 260);
+            $('story-intro-kicker').textContent = `✦ Capitolo I · ${archetype}`;
+            $('story-intro-date').textContent = getFullTimeString();
+            $('story-intro-title').textContent = story.title || 'Cronache del Destino';
+            $('story-intro-setting').textContent = story.setting || 'Un mondo ancora da scoprire';
+            $('story-intro-hook').textContent = hook || `Il destino di ${character.name} sta per prendere forma.`;
+            const portraitHost = $('story-intro-portrait');
+            if (portrait) {
+                portraitHost.innerHTML = `<img class="portrait-image" src="${portraitEngine.imageSrc(portrait)}" alt="Ritratto di ${escapeTimelineHtml(character.name)}">`;
+            } else {
+                portraitHost.textContent = cfg.archetypes?.[character.archetype]?.icon || '⚔️';
+            }
+            overlay.hidden = false;
+            overlay.classList.remove('is-leaving');
+            setStoryIntroStage(0, 'Il narratore apre il primo capitolo');
+            storyIntroTimers.push(setTimeout(() => setStoryIntroStage(1, 'Luoghi, legami e memorie trovano posto'), 550));
+            storyIntroTimers.push(setTimeout(() => setStoryIntroStage(2, 'Il mondo compie la sua prima mossa'), 1350));
+            storyIntroTimers.push(setTimeout(() => {
+                if (!overlay.hidden) $('story-intro-status').textContent = 'Il primo capitolo sta prendendo vita';
+            }, 2600));
+        }
+
+        function finishStoryIntro(failed = false) {
+            const overlay = $('story-intro-overlay');
+            if (!overlay || overlay.hidden) return;
+            clearStoryIntroTimers();
+            setStoryIntroStage(3, failed ? 'Il mondo è pronto: apro la cronaca disponibile' : 'Il primo capitolo è pronto');
+            overlay.classList.add('is-leaving');
+            storyIntroTimers.push(setTimeout(() => {
+                overlay.hidden = true;
+                overlay.classList.remove('is-leaving');
+            }, 560));
         }
 
         // ==================== CHARACTER ====================
@@ -10233,10 +10309,11 @@
                 updateInfoPanels();
             }
 
-            if (!hasNarrative && G.currentStory?.prologue) {
-                const prologueAlreadyShown = G.storyLog.some(entry => entry?.text === G.currentStory.prologue);
-                if (!prologueAlreadyShown) addStoryEntry(G.currentStory.prologue, 'narrator');
-                generateAI('L\'avventura inizia...', true);
+            if (!hasNarrative) {
+                // Evita una cronaca vuota o un lungo prompt statico: mentre il primo
+                // turno viene generato, il giocatore vede il mondo prendere forma.
+                showStoryIntro();
+                window.setTimeout(() => generateAI('L\'avventura inizia...', true), 60);
             }
 
             updateHome();
@@ -10244,6 +10321,12 @@
 
         function exitGame() {
             if (confirm('Uscire? I progressi non salvati saranno persi.')) {
+                clearStoryIntroTimers();
+                const storyIntro = $('story-intro-overlay');
+                if (storyIntro) {
+                    storyIntro.hidden = true;
+                    storyIntro.classList.remove('is-leaving');
+                }
                 showScreen('home-screen');
             }
         }
@@ -12690,6 +12773,7 @@
             $('btn-send').disabled = true;
             updateActionBar();
 
+            let startGenerationFailed = false;
             try {
                 const response = await callAI(action, isStart);
 
@@ -12738,12 +12822,20 @@
                 return response;
 
             } catch (err) {
+                startGenerationFailed = isStart;
+                // Se il provider non è disponibile all'avvio, resta comunque una vera
+                // apertura da leggere invece di lasciare il giocatore davanti a una pagina vuota.
+                const hasOpening = G.storyLog.some(entry => entry?.type === 'narrator');
+                if (isStart && !hasOpening && G.currentStory?.prologue) {
+                    addStoryEntry(G.currentStory.prologue, 'narrator');
+                }
                 notify(`Narratore non disponibile: ${err.message}`, 'error');
             } finally {
                 G.isProcessing = false;
                 $('btn-send').disabled = false;
                 updateActionBar();
                 updateVaultControls();
+                if (isStart) finishStoryIntro(startGenerationFailed);
             }
         }
 

@@ -2837,6 +2837,22 @@ test('sostituisce il compositore mobile con la barra nera Analisi Chat Timeline'
     assert.match(html, /linear-gradient\(180deg, #24120c 0%, #120b08 100%\)/);
 });
 
+test('apre il primo capitolo con un caricamento cinematografico invece della cronaca vuota', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
+    assert.match(html, /id="story-intro-overlay"/);
+    assert.match(html, /id="story-intro-portrait"/);
+    assert.match(html, /function showStoryIntro\(\)/);
+    assert.match(html, /function finishStoryIntro\(failed = false\)/);
+    assert.match(html, /showStoryIntro\(\);\s*window\.setTimeout\(\(\) => generateAI\('L\\'avventura inizia\.\.\.', true\), 60\)/);
+    assert.match(html, /if \(isStart\) finishStoryIntro\(startGenerationFailed\);/);
+    assert.match(html, /if \(isStart && !hasOpening && G\.currentStory\?\.prologue\)/);
+    assert.match(html, /portraitEngine\.imageSrc\(portrait\)/);
+    assert.match(css, /\.story-intro-overlay \{[\s\S]*?position: fixed;/);
+    assert.match(css, /\.story-intro-progress/);
+    assert.match(css, /prefers-reduced-motion: reduce/);
+});
+
 test('nasconde controlli, ragionamenti e messaggi tecnici dalla cronaca', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const aiSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-efficiency.js'), 'utf8');

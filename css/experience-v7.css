@@ -396,6 +396,172 @@
     }
 }
 
+/* Apertura cinematografica: nasconde la cronaca vuota mentre il primo capitolo viene preparato. */
+.story-intro-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 520;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    padding: max(24px, env(safe-area-inset-top)) 22px max(24px, env(safe-area-inset-bottom));
+    color: #fff7d4;
+    background:
+        radial-gradient(circle at 50% 18%, rgba(178, 118, 222, .28), transparent 33%),
+        radial-gradient(circle at 50% 83%, rgba(200, 148, 42, .2), transparent 35%),
+        linear-gradient(145deg, #070404 0%, #25110c 49%, #090605 100%);
+    isolation: isolate;
+    opacity: 1;
+    transition: opacity .48s ease, visibility .48s ease;
+}
+.story-intro-overlay[hidden] { display: none; }
+.story-intro-overlay.is-leaving { opacity: 0; visibility: hidden; pointer-events: none; }
+.story-intro-overlay::before,
+.story-intro-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 18px;
+    z-index: -1;
+    border: 1px solid rgba(239, 198, 86, .32);
+    border-radius: 30px;
+    box-shadow: inset 0 0 55px rgba(0, 0, 0, .5), 0 0 85px rgba(0, 0, 0, .6);
+}
+.story-intro-overlay::after {
+    inset: 30px;
+    border-style: dashed;
+    border-color: rgba(255, 239, 183, .16);
+}
+.story-intro-constellation {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    opacity: .72;
+    background-image:
+        radial-gradient(circle at 16% 22%, #fff1ae 0 1px, transparent 2px),
+        radial-gradient(circle at 79% 16%, #ffd96d 0 1.5px, transparent 2.5px),
+        radial-gradient(circle at 87% 73%, #fff4c3 0 1px, transparent 2px),
+        radial-gradient(circle at 11% 78%, #d9a84a 0 1px, transparent 2px),
+        radial-gradient(circle at 57% 9%, #fff1ae 0 1px, transparent 2px);
+    animation: introStars 4.8s ease-in-out infinite alternate;
+}
+.story-intro-card {
+    width: min(100%, 540px);
+    display: grid;
+    justify-items: center;
+    padding: 30px 26px 28px;
+    text-align: center;
+    animation: introCardIn .7s cubic-bezier(.2,.8,.2,1) both;
+}
+.story-intro-kicker,
+.story-intro-date {
+    margin: 0;
+    color: #efd378;
+    font: 700 clamp(.68rem, 2.6vw, .82rem) 'Cinzel', serif;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+.story-intro-kicker { margin-bottom: 14px; }
+.story-intro-portrait {
+    width: 120px;
+    height: 120px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    margin: 0 0 15px;
+    border: 4px solid #efcb62;
+    border-radius: 50%;
+    color: #fff3c6;
+    background: #241529;
+    box-shadow: 0 0 0 8px rgba(215, 166, 56, .13), 0 14px 34px rgba(0, 0, 0, .58);
+    font-size: 3rem;
+    animation: introPortraitGlow 2.2s ease-in-out infinite;
+}
+.story-intro-portrait .portrait-image { width: 100%; height: 100%; object-fit: cover; }
+.story-intro-card h1 {
+    max-width: 480px;
+    margin: 8px 0 8px;
+    color: #fff4c8;
+    font: 700 clamp(1.7rem, 7vw, 2.7rem) 'Cinzel', serif;
+    line-height: 1.12;
+    text-shadow: 0 3px 16px rgba(0, 0, 0, .8);
+}
+.story-intro-setting {
+    max-width: 430px;
+    margin: 0;
+    color: #ead9ab;
+    font: 600 clamp(.9rem, 3.5vw, 1.05rem) 'Cinzel', serif;
+}
+.story-intro-hook {
+    max-width: 440px;
+    min-height: 2.7em;
+    margin: 17px 0 18px;
+    color: #f8efd2;
+    font: italic clamp(1rem, 4.2vw, 1.2rem) 'Crimson Text', Georgia, serif;
+    line-height: 1.35;
+}
+.story-intro-progress {
+    width: min(100%, 350px);
+    display: grid;
+    gap: 8px;
+    margin-top: 2px;
+    text-align: left;
+}
+.story-intro-step {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 9px;
+    align-items: center;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: rgba(247, 232, 192, .46);
+    font: 600 .73rem 'Cinzel', serif;
+    letter-spacing: .015em;
+    transition: color .3s ease, border-color .3s ease, background .3s ease, transform .3s ease;
+}
+.story-intro-step i { font-style: normal; font-size: 1.05rem; text-align: center; }
+.story-intro-step.active {
+    color: #fff5d0;
+    border-color: rgba(241, 198, 84, .55);
+    background: linear-gradient(90deg, rgba(188, 129, 34, .2), rgba(97, 45, 112, .16));
+    transform: translateX(4px);
+}
+.story-intro-step.done { color: #d9bd6a; }
+.story-intro-step.done i { color: #79c981; }
+.story-intro-status {
+    min-height: 1.4em;
+    margin: 20px 0 0;
+    color: #d9c58f;
+    font: .94rem 'Crimson Text', Georgia, serif;
+}
+@keyframes introCardIn {
+    from { opacity: 0; transform: translateY(18px) scale(.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes introPortraitGlow {
+    0%, 100% { box-shadow: 0 0 0 8px rgba(215, 166, 56, .13), 0 14px 34px rgba(0, 0, 0, .58); }
+    50% { box-shadow: 0 0 0 13px rgba(215, 166, 56, .2), 0 16px 42px rgba(0, 0, 0, .64); }
+}
+@keyframes introStars {
+    from { transform: scale(1); opacity: .46; }
+    to { transform: scale(1.06); opacity: .9; }
+}
+@media (max-width: 460px) {
+    .story-intro-overlay { padding-inline: 15px; }
+    .story-intro-overlay::before { inset: 11px; }
+    .story-intro-overlay::after { inset: 20px; }
+    .story-intro-card { padding: 24px 18px; }
+    .story-intro-portrait { width: 104px; height: 104px; }
+    .story-intro-hook { margin-block: 14px; }
+    .story-intro-step { padding: 7px 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .story-intro-constellation,
+    .story-intro-card,
+    .story-intro-portrait { animation: none; }
+    .story-intro-overlay { transition-duration: .15s; }
+}
+
 /* World map v1: mappa procedurale collegata ai luoghi reali della campagna */
 .world-map-modal {
     width: min(1040px, calc(100vw - 24px));
