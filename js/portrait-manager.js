@@ -43,6 +43,7 @@
             id,
             family,
             atlas,
+            image: `assets/portraits/${id}.webp`,
             column,
             row,
             label,
@@ -150,6 +151,11 @@
         return `--portrait-image:url('${item.atlas}');--portrait-size:${item.backgroundSize};--portrait-position:${item.backgroundPosition};`;
     }
 
+    function imageSrc(portraitOrId) {
+        const item = typeof portraitOrId === 'string' ? getPortrait(portraitOrId) : portraitOrId;
+        return item?.image || '';
+    }
+
     return {
         PORTRAIT_SCHEMA_VERSION,
         ATLAS_COLUMNS,
@@ -162,6 +168,7 @@
         listPortraits,
         choosePortrait,
         assignPortrait,
+        imageSrc,
         spriteStyle
     };
 });

@@ -860,7 +860,10 @@ ${cleanText(previousResponse, 2400)}`;
     }
 
     function isFresh(analysis, context = {}) {
-        return Boolean(analysis && analysis.signature && analysis.signature === stateSignature(context));
+        if (!analysis) return false;
+        const currentTurn = buildPublicContext(context).currentMoment.turn;
+        const createdAtTurn = Number(analysis.createdAtTurn);
+        return Number.isFinite(createdAtTurn) && createdAtTurn === currentTurn;
     }
 
     function getAction(analysis, issueIndex, actionIndex) {
@@ -924,6 +927,28 @@ ${cleanText(previousResponse, 2400)}`;
             risk: actionItem.risk,
             tradeoff: actionItem.tradeoff,
             prerequisites: actionItem.prerequisites,
+            queuedAtTurn: context.turn,
+            queuedAtDate: context.date
+        });
+    }
+
+    function createFreeQueuedAction(value, context = {}) {
+        const command = sanitizeCommand(value);
+        if (command.length < 4) return null;
+        const shortTitle = cleanText(command.replace(/^(?:io\s+)?/i, '').split(/\s+/).slice(0, 8).join(' '), 100);
+        return normalizeQueuedAction({
+            id: `strategic-free-${hashText(`${command}|${Math.max(0, Math.trunc(number(context.turn)))}`)}`,
+            issueId: 'free-actions',
+            issueTitle: 'Azione libera',
+            category: 'iniziativa personale',
+            urgency: 'media',
+            actionId: `free-${hashText(command)}`,
+            actionTitle: shortTitle || 'Iniziativa personale',
+            command,
+            objective: cleanText(context.objective || 'Realizzare l’iniziativa descritta dal giocatore', 260),
+            duration: cleanText(context.duration || 'Da valutare nel prossimo evento', 120),
+            cost: cleanText(context.cost || 'Determinato dalle conseguenze', 160),
+            risk: context.risk || 'medio',
             queuedAtTurn: context.turn,
             queuedAtDate: context.date
         });
@@ -1014,6 +1039,7 @@ ${cleanText(previousResponse, 2400)}`;
         getAction,
         normalizeQueuedAction,
         createQueuedAction,
+        createFreeQueuedAction,
         normalizeQueue,
         toggleQueuedAction,
         groupQueuedActions,

@@ -2967,7 +2967,7 @@
                     <button class="action-btn business-manage" id="btn-business-manage" title="Apri la gestione di imprese e negozi" hidden>🏢 Gestisci attività</button>
                     <button class="action-btn kingdom-manage" id="btn-kingdom-manage" title="Apri la gestione del regno" hidden>👑 Gestisci regno</button>
                 </div>
-                <div class="world-controls">
+                <div class="world-controls command-proxies" aria-hidden="true">
                     <button class="world-control-btn strategic" id="btn-strategic-actions" title="Analisi strategica per argomenti e azioni selezionabili">
                         ✨ Analisi strategica e azioni
                         <span class="world-control-badge" id="strategic-action-badge">0</span>
@@ -3680,11 +3680,11 @@
     <script src="js/event-manager.js"></script>
     <script src="js/timeline-chat.js?v=20260814-dialogue-6"></script>
     <script src="js/timeline-simulator.js?v=20260814-causal-7"></script>
-    <script src="js/strategic-advisor.js?v=20260811-strategy-3"></script>
+    <script src="js/strategic-advisor.js?v=20260814-strategy-4"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
-    <script src="js/portrait-manager.js?v=20260814-portraits-1"></script>
+    <script src="js/portrait-manager.js?v=20260814-portraits-2"></script>
     <script src="js/time-energy.js"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
@@ -5802,22 +5802,19 @@
             const topbarPortrait = $('topbar-protagonist-portrait');
             const selectedPortrait = portraitEngine.getPortrait(c.portraitId);
             if (charPortrait && selectedPortrait) {
-                charPortrait.classList.add('portrait-sprite');
-                charPortrait.setAttribute('style', portraitEngine.spriteStyle(selectedPortrait));
-                charPortrait.setAttribute('role', 'img');
-                charPortrait.setAttribute('aria-label', `Ritratto di ${c.name}`);
-                charPortrait.textContent = '';
-            } else if (charPortrait) {
                 charPortrait.classList.remove('portrait-sprite');
+                charPortrait.classList.add('portrait-image-host');
+                charPortrait.removeAttribute('style');
+                charPortrait.innerHTML = `<img class="portrait-image" src="${portraitEngine.imageSrc(selectedPortrait)}" alt="Ritratto di ${escapeTimelineHtml(c.name)}">`;
+            } else if (charPortrait) {
+                charPortrait.classList.remove('portrait-sprite', 'portrait-image-host');
                 charPortrait.removeAttribute('style');
                 charPortrait.textContent = a.icon;
             }
             if (topbarPortrait && selectedPortrait) {
-                topbarPortrait.className = 'portrait-sprite';
-                topbarPortrait.setAttribute('style', portraitEngine.spriteStyle(selectedPortrait));
-                topbarPortrait.setAttribute('role', 'img');
-                topbarPortrait.setAttribute('aria-label', `Ritratto di ${c.name}`);
-                topbarPortrait.textContent = '';
+                topbarPortrait.className = 'portrait-image-host';
+                topbarPortrait.removeAttribute('style');
+                topbarPortrait.innerHTML = `<img class="portrait-image" src="${portraitEngine.imageSrc(selectedPortrait)}" alt="Ritratto di ${escapeTimelineHtml(c.name)}">`;
             } else if (topbarPortrait) {
                 topbarPortrait.className = 'portrait-fallback';
                 topbarPortrait.removeAttribute('style');
@@ -10151,17 +10148,24 @@
         }
 
         function addStoryEntry(text, type, log = true) {
+            const stripNarrativeProtocol = value => String(value || '')
+                .replace(/\[(?:MONDO|LUOGO|PERSONAGGIO|FAZIONE|RELAZIONE|FORZA|CONTESTO_STORICO)_SETUP\s*:[^\]]*(?:\]|$)/gi, '')
+                .replace(/(^|\n)\s*\[[A-ZÀ-Ü][A-ZÀ-Ü0-9_]{2,}\s*:[^\n]*(?=\n|$)/g, '$1')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+            const visibleText = type === 'narrator' ? stripNarrativeProtocol(text) : String(text || '');
+            if (!visibleText) return;
             const div = document.createElement('div');
             div.className = `story-entry ${type}`;
             
-            let formatted = text
+            let formatted = visibleText
                 .split(/\n\n+/)
                 .map(para => para.trim())
                 .filter(para => para.length > 0)
                 .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
                 .join('');
             
-            if (!formatted) formatted = `<p>${text.replace(/\n/g, '<br>')}</p>`;
+            if (!formatted) formatted = `<p>${visibleText.replace(/\n/g, '<br>')}</p>`;
             
             const typeLabels = {
                 narrator: 'Narratore',
@@ -10200,7 +10204,7 @@
                 div.scrollIntoView({ block: 'start' });
             }
 
-            if (log) G.storyLog.push({ text, type, time: Date.now() });
+            if (log) G.storyLog.push({ text: visibleText, type, time: Date.now() });
         }
 
         function flushStoryBatchScroll() {
@@ -10563,7 +10567,7 @@
             if (!portrait) return `<span class="portrait-fallback">${escapeTimelineHtml(String(name || '?').charAt(0).toUpperCase())}</span>`;
             const safeClass = String(className || '').replace(/[^a-z0-9 _-]/gi, ' ').trim();
             const label = typeof name === 'object' ? name.name : name;
-            return `<span class="portrait-sprite ${safeClass}" role="img" aria-label="Ritratto di ${escapeTimelineHtml(label || portrait.label)}" title="${escapeTimelineHtml(label || portrait.label)}" style="${portraitEngine.spriteStyle(portrait)}"></span>`;
+            return `<img class="portrait-image ${safeClass}" src="${portraitEngine.imageSrc(portrait)}" alt="Ritratto di ${escapeTimelineHtml(label || portrait.label)}" title="${escapeTimelineHtml(label || portrait.label)}" loading="lazy">`;
         }
 
         function portraitActorsMarkup(actors, className = '') {
@@ -10734,6 +10738,14 @@
                         </details>
                     `).join('')}
                 </div>
+                <section class="strategic-free-action">
+                    <div>
+                        <strong>✍️ Azione libera</strong>
+                        <small>Scrivi un’iniziativa tua: entrerà nel piano e sarà risolta quando avanzerai il turno.</small>
+                    </div>
+                    <textarea id="strategic-free-action-input" rows="3" maxlength="520" placeholder="Es. Convoco Elric e gli anziani alla locanda per proporre una ronda notturna..."></textarea>
+                    <button type="button" id="btn-add-free-strategic">＋ Aggiungi al piano</button>
+                </section>
                 ${strategicSelectionMarkup(queuedActions)}
             `;
             content.querySelectorAll('.strategic-action-execute').forEach(button => {
@@ -10745,6 +10757,8 @@
             content.querySelectorAll('.strategic-selection-remove').forEach(button => {
                 button.onclick = () => removeStrategicAction(button.dataset.removeStrategicId);
             });
+            const freeActionButton = $('btn-add-free-strategic');
+            if (freeActionButton) freeActionButton.onclick = addFreeStrategicAction;
             const advanceButton = $('btn-strategic-to-timeline');
             if (advanceButton) advanceButton.onclick = openTimelineWithStrategicActions;
             $('btn-strategic-analyze').textContent = '↻ Rielabora l’analisi';
@@ -10854,6 +10868,33 @@
                     : `Azione rimossa dal piano: ${queuedAction.actionTitle}`,
                 result.selected ? 'success' : 'info'
             );
+        }
+
+        function addFreeStrategicAction() {
+            if (G.isProcessing || G.isStrategicProcessing) return;
+            const input = $('strategic-free-action-input');
+            const queuedAction = strategicAdvisor.createFreeQueuedAction(input?.value, {
+                turn: G.worldMemory?.turnCount || 0,
+                date: getFullTimeString()
+            });
+            if (!queuedAction) {
+                notify('Descrivi un’azione libera concreta.', 'error');
+                input?.focus();
+                return;
+            }
+            const queue = getPendingStrategicActions();
+            if (queue.some(item => item.id === queuedAction.id)) {
+                notify('Questa azione libera è già nel piano.', 'info');
+                return;
+            }
+            if (queue.length >= strategicAdvisor.MAX_QUEUED_ACTIONS) {
+                notify(`Puoi pianificare fino a ${strategicAdvisor.MAX_QUEUED_ACTIONS} azioni.`, 'error');
+                return;
+            }
+            G.worldMemory.pendingStrategicActions = strategicAdvisor.normalizeQueue([...queue, queuedAction]);
+            renderStrategicAnalysis(G.strategicAnalysis);
+            autoSave();
+            notify(`Azione libera aggiunta al piano: ${queuedAction.actionTitle}`, 'success');
         }
 
         function removeStrategicAction(actionId) {
@@ -13770,7 +13811,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 .replace(/\[(?:ATTESA_EVENTO|CODA_EVENTO|ESITO_STRATEGICO):[^\]]*\]/gi, '')
                 .replace(/\[CHAT:[^\]]*\]/gi, '')
                 .replace(/\[(?:ESITO_CHAT|ACCORDO_CHAT):[^\]]*\]/gi, '')
-                .replace(/\[(?:MONDO|LUOGO|PERSONAGGIO|FAZIONE|RELAZIONE|FORZA|CONTESTO_STORICO)_SETUP:[^\]]*\]/gi, '')
+                .replace(/\[(?:MONDO|LUOGO|PERSONAGGIO|FAZIONE|RELAZIONE|FORZA|CONTESTO_STORICO)_SETUP\s*:[^\]]*(?:\]|$)/gi, '')
                 .replace(/\[POSIZIONE:[^\]]*\]/gi, '')
                 .replace(/\[SCELTA:[^\]]*\]/gi, '')
                 .replace(/\[(?:USA|CONSUMA|UTILIZZA|DROP|SCARTA):[^\]]*\]/gi, '')
@@ -14449,8 +14490,8 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             $('btn-memory').onclick = () => { updateMemoryUI(); openModal('modal-memory'); };
             $('btn-top-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
             $('btn-top-story').onclick = () => showQuickModal('Tempo e azioni', `<p class="top-menu-time">${$('time-text')?.textContent || ''}<br><small>${$('time-date')?.textContent || ''} · ${$('time-location')?.textContent || ''}</small></p><div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-dice').click()">🎲 Dadi</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-advance-world').click()">⏳ Avanza il tempo</button></div>`);
-            $('btn-top-world').onclick = () => showQuickModal('Mondo', `<div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-memory').click()">📜 Memoria</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-world-chats').click()">💬 Conversazioni</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-advance-world').click()">🗓 Timeline</button></div>`);
-            $('btn-top-life').onclick = () => showQuickModal('Vita del protagonista', `<div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-inventory').click()">🎒 Inventario</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('panel-finances').click()">💰 Finanze</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('panel-family').click()">👨‍👩‍👧 Famiglia</button></div>`);
+            $('btn-top-world').onclick = () => showQuickModal('Mondo e strategia', `<div class="btn-row top-popup-grid"><button class="btn special" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-strategic-actions').click()">✨ Analisi strategica</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-memory').click()">📜 Memoria</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-world-chats').click()">💬 Conversazioni</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-advance-world').click()">🗓 Timeline</button>${$('btn-reopen-last-event')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-reopen-last-event').click()">📖 Ultimo evento</button>`}</div>`);
+            $('btn-top-life').onclick = () => showQuickModal('Vita del protagonista', `<div class="btn-row top-popup-grid"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-inventory').click()">🎒 Inventario</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('panel-finances').click()">💰 Finanze</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('panel-family').click()">👨‍👩‍👧 Famiglia</button>${$('btn-business-manage')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-business-manage').click()">🏢 Attività</button>`}${$('btn-kingdom-manage')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-kingdom-manage').click()">👑 Regno</button>`}</div>`);
             $('btn-top-game').onclick = () => showQuickModal('Partita', `<div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-save-quick').click()">💾 Salvataggi</button><button class="btn danger" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-exit').click()">🚪 Esci</button></div>`);
 
             // ACTION BAR

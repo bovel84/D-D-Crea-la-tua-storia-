@@ -952,6 +952,12 @@ test('assegna ritratti persistenti e coerenti con epoca e ruolo', () => {
         portraitApi.choosePortrait({ name: 'Jacopo Gherardi' }, { story: { genre: 'historical' } }).id
     );
     assert.match(portraitApi.spriteStyle(healer.portraitId), /chronicle-cast-v1\.webp/);
+    assert.equal(portraitApi.imageSrc(healer.portraitId), 'assets/portraits/chronicle-healer.webp');
+    [...historical, ...modern].forEach(item => {
+        const file = fs.readFileSync(path.join(__dirname, '..', portraitApi.imageSrc(item)));
+        assert.equal(file.subarray(0, 4).toString('ascii'), 'RIFF');
+        assert.equal(file.subarray(8, 12).toString('ascii'), 'WEBP');
+    });
 });
 
 test('gli atlanti dei protagonisti sono immagini 3 per 2 pronte per il gioco', () => {
@@ -1299,7 +1305,7 @@ test('il fallback della timeline usa soltanto persone ricordate e non inventa fa
     assert.doesNotMatch(JSON.stringify(result.event), /Autorità di|Opposizione di|Comunità di|Storico \/ Business/);
 });
 
-test('rigenera l’analisi strategica quando cambia lo stato del gioco', () => {
+test('conserva l’analisi strategica durante il turno e la invalida al turno successivo', () => {
     const base = {
         story: { title: 'Astaria' },
         character: {
@@ -1310,7 +1316,19 @@ test('rigenera l’analisi strategica quando cambia lo stato del gioco', () => {
     };
     const plan = strategicAdvisorApi.buildFallback(base);
     assert.equal(strategicAdvisorApi.isFresh(plan, base), true);
+    assert.equal(strategicAdvisorApi.isFresh(plan, { ...base, character: { ...base.character, gold: 999 } }), true);
     assert.equal(strategicAdvisorApi.isFresh(plan, { ...base, memory: { ...base.memory, turnCount: 2 } }), false);
+});
+
+test('crea azioni strategiche libere persistenti fino al passaggio del turno', () => {
+    const action = strategicAdvisorApi.createFreeQueuedAction(
+        'Convoco Elric e gli anziani alla locanda per organizzare una ronda notturna.',
+        { turn: 3, date: '2 aprile 1472' }
+    );
+    assert.ok(action);
+    assert.equal(action.issueTitle, 'Azione libera');
+    assert.equal(action.queuedAtTurn, 3);
+    assert.match(action.command, /Convoco Elric/);
 });
 
 test('il Master sceglie il focus e produce un beat proattivo', () => {
@@ -2700,7 +2718,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
     assert.match(html, /src="js\/timeline-chat\.js\?v=20260814-dialogue-6"/);
     assert.match(html, /src="js\/timeline-simulator\.js\?v=20260814-causal-7"/);
-    assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-1"/);
+    assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-2"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);
@@ -2760,11 +2778,13 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
 
 test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260811-strategy-3"/);
+    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260814-strategy-4"/);
     assert.match(html, /id="btn-strategic-actions"/);
     assert.match(html, /id="modal-strategic-actions"/);
     assert.match(html, /id="btn-strategic-analyze"/);
     assert.match(html, /strategic-action-execute/);
+    assert.match(html, /id="strategic-free-action-input"/);
+    assert.match(html, /createFreeQueuedAction/);
     assert.match(html, /Seleziona azione/);
     assert.match(html, /id="strategic-action-badge"/);
     assert.match(html, /id="timeline-strategic-results"/);
@@ -2810,6 +2830,7 @@ test('integra la scelta del volto e i ritratti persistenti nell’interfaccia', 
     assert.match(html, /portraitEngine\.assignPortrait\(G\.character/);
     assert.match(html, /participant-portrait/);
     assert.match(html, /chat-avatar-portrait/);
+    assert.match(html, /portraitEngine\.imageSrc/);
     assert.match(css, /\.portrait-choice-grid/);
     assert.match(css, /\.portrait-sprite/);
     assert.match(css, /\.event-screen-cast/);
