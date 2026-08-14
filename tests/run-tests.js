@@ -979,6 +979,22 @@ test('vieta i costumi incompatibili e sceglie principi coerenti con sesso ed epo
     assert.equal(portraitApi.resolveEra({ story: { setting: 'Londra vittoriana, 1888', startYear: 1888 } }), 'industrial');
 });
 
+test('rispetta titoli, genere visivo e ruolo religioso nei ritratti', () => {
+    const context = { story: { genre: 'historical', setting: 'Umbria medievale, 1472', startYear: 1472 } };
+    const padre = portraitApi.choosePortrait({
+        name: 'Padre Anselmo', role: 'prete del villaggio', portraitId: 'medieval-healer'
+    }, context);
+    assert.equal(portraitApi.resolveGender({ name: 'Padre Anselmo' }), 'male');
+    assert.equal(portraitApi.resolveRole({ name: 'Padre Anselmo' }), 'religious');
+    assert.equal(padre.id, 'medieval-monk');
+    assert.ok(padre.genders.includes('male'));
+    const analysts = portraitApi.listCompatiblePortraits({ name: 'Sara', role: 'analista', gender: 'female' }, {
+        story: { genre: 'modern', setting: 'Roma contemporanea', startYear: 2025 }
+    });
+    assert.ok(analysts.length > 0);
+    assert.ok(analysts.every(item => item.eras.includes('modern') && item.genders.includes('female')));
+});
+
 test('gli atlanti dei protagonisti sono immagini 3 per 2 pronte per il gioco', () => {
     [
         'chronicle-cast-v1.webp', 'modern-cast-v1.webp', 'antiquity-cast-v1.webp',
@@ -1139,8 +1155,9 @@ test('il consigliere strategico usa soltanto informazioni note al protagonista',
     assert.equal(Object.hasOwn(publicState.knownActors[0], 'privateGoal'), false);
     assert.equal(Object.hasOwn(publicState.knownActors[0], 'knowledge'), false);
     const prompt = strategicAdvisorApi.buildPrompt(context);
-    assert.match(prompt, /ANALISI STRATEGICA DELLA CAMPAGNA/);
-    assert.match(prompt, /command deve essere una dichiarazione completa/);
+    assert.match(prompt, /PIANO AZIONI — JSON COMPATTO OBBLIGATORIO/);
+    assert.match(prompt, /ESATTAMENTE 4 questioni brevi/);
+    assert.match(prompt, /ESATTAMENTE 2 azioni alternative/);
     assert.doesNotMatch(prompt, /Consegnare Firenze ai Medici|Conosce i congiurati/);
 });
 
@@ -1396,9 +1413,11 @@ test('applica budget distinti ai diversi compiti LLM', () => {
     const timeline = aiEfficiencyApi.getTaskProfile('timeline');
     const narrative = aiEfficiencyApi.getTaskProfile('narrative');
     assert.ok(chat.maxInputTokens < narrative.maxInputTokens);
-    assert.ok(narrative.maxInputTokens < timeline.maxInputTokens);
+    assert.ok(timeline.maxInputTokens < narrative.maxInputTokens);
     assert.ok(chat.maxOutputTokens < timeline.maxOutputTokens);
-    assert.equal(aiEfficiencyApi.getTaskProfile('strategic').temperature, 0.25);
+    assert.equal(timeline.maxAttempts, 1);
+    assert.equal(aiEfficiencyApi.getTaskProfile('strategic').maxAttempts, 1);
+    assert.equal(aiEfficiencyApi.getTaskProfile('strategic').temperature, 0.22);
 });
 
 test('compatta il contesto senza perdere istruzioni e ultima azione', () => {
@@ -1581,7 +1600,7 @@ test('applica a Ollama il profilo di temperatura del compito', async () => {
 
 test('instrada tutte le chiamate del gioco attraverso il gestore LLM efficiente', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/ai-efficiency\.js\?v=20260814-llm-efficiency-1"/);
+    assert.match(html, /src="js\/ai-efficiency\.js\?v=20260814-llm-efficiency-2"/);
     assert.match(html, /const aiRequestManager = CronacheAI\.createRequestManager\(\)/);
     assert.match(html, /async function requestConfiguredAI/);
     assert.match(html, /CronacheAI\.compactMessages/);
@@ -2887,7 +2906,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
     assert.match(html, /src="js\/timeline-chat\.js\?v=20260814-dialogue-6"/);
     assert.match(html, /src="js\/timeline-simulator\.js\?v=20260814-causal-7"/);
-    assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-3"/);
+    assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-4"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);
@@ -2947,7 +2966,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
 
 test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260814-strategy-4"/);
+    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260814-strategy-5"/);
     assert.match(html, /id="btn-strategic-actions"/);
     assert.match(html, /id="modal-strategic-actions"/);
     assert.match(html, /id="btn-strategic-analyze"/);
@@ -2963,8 +2982,8 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
     assert.match(html, /function removeStrategicAction/);
     assert.match(html, /function openTimelineWithStrategicActions/);
     assert.match(html, /strategicAdvisor\.buildPrompt/);
-    assert.match(html, /strategicAdvisor\.parseResponse/);
-    assert.match(html, /strategicAdvisor\.buildRepairPrompt/);
+    assert.match(html, /strategicAdvisor\.ensureAnalysis/);
+    assert.doesNotMatch(html, /const repairPrompt = strategicAdvisor\.buildRepairPrompt/);
     assert.match(html, /strategicAdvisor\.toTimelineChoices/);
     assert.match(html, /timelineSimulator\.parseStrategicOutcomes/);
     assert.match(html, /timelineSimulator\.ensureStrategicOutcomes/);
@@ -3038,14 +3057,36 @@ test('adatta lo stile della mappa al mondo e produce nodi esplorabili', () => {
     assert.match(svg, /world-map-danger/);
 });
 
+test('porta obiettivi e filtri strategici direttamente sulla mappa', () => {
+    const model = worldMapApi.buildMapModel({
+        world: { name: 'Ravenhollow', locations: [{ name: 'Villaggio', type: 'borgo' }] },
+        memory: {
+            quests: [{ name: 'Fermare il rito', description: 'Raggiungere la cripta prima del tramonto', location: 'Cripta dei Sussurri', status: 'active' }],
+            properties: [{ name: 'Granaio vecchio', type: 'granaio', location: 'Villaggio' }],
+            factions: [{ name: 'Culto della Nebbia', location: 'Cripta dei Sussurri', relationship: 'ostile', power: 70 }]
+        }
+    }, { currentLocation: 'Villaggio', year: 1472 });
+    const target = model.locations.find(item => item.name === 'Cripta dei Sussurri');
+    assert.equal(model.objectives.length, 1);
+    assert.ok(target.objectiveIds.length);
+    assert.ok(target.hostileFactionIds.length);
+    const svg = worldMapApi.svgMarkup(model);
+    assert.match(svg, /data-map-objective="true"/);
+    assert.match(svg, /data-map-hostile="true"/);
+    assert.match(svg, /world-map-objective-badge/);
+});
+
 test('integra la mappa mobile con posizione, dettagli e controlli di gioco', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
-    assert.match(html, /src="js\/world-map\.js\?v=20260814-map-factions-2"/);
+    assert.match(html, /src="js\/world-map\.js\?v=20260814-map-factions-3"/);
     assert.match(html, /id="modal-world-map"/);
     assert.match(html, /id="world-map-current-location"/);
     assert.match(html, /id="btn-map-center"/);
     assert.match(html, /id="btn-map-dice"/);
+    assert.match(html, /id="world-map-intel"/);
+    assert.match(html, /data-map-filter="objectives"/);
+    assert.match(html, /function applyWorldMapFilter/);
     assert.match(html, /\$\('btn-top-story'\)\.onclick = openWorldMap/);
     assert.match(html, /worldMapEngine\.buildMapModel/);
     assert.match(html, /function centerWorldMapOnPlayer/);

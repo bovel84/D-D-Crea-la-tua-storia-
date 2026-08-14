@@ -8,8 +8,8 @@
     const TASK_PROFILES = Object.freeze({
         story: Object.freeze({ maxInputTokens: 9000, maxOutputTokens: 1800, timeoutMs: 55000, maxAttempts: 2, temperature: 0.72 }),
         chat: Object.freeze({ maxInputTokens: 8000, maxOutputTokens: 1400, timeoutMs: 45000, maxAttempts: 2, temperature: 0.68 }),
-        timeline: Object.freeze({ maxInputTokens: 18000, maxOutputTokens: 5200, timeoutMs: 75000, maxAttempts: 2, temperature: 0.58 }),
-        strategic: Object.freeze({ maxInputTokens: 15000, maxOutputTokens: 5200, timeoutMs: 70000, maxAttempts: 2, temperature: 0.25 }),
+        timeline: Object.freeze({ maxInputTokens: 9000, maxOutputTokens: 2200, timeoutMs: 40000, maxAttempts: 1, temperature: 0.52 }),
+        strategic: Object.freeze({ maxInputTokens: 6500, maxOutputTokens: 1800, timeoutMs: 35000, maxAttempts: 1, temperature: 0.22 }),
         start: Object.freeze({ maxInputTokens: 22000, maxOutputTokens: 3600, timeoutMs: 80000, maxAttempts: 2, temperature: 0.66 }),
         narrative: Object.freeze({ maxInputTokens: 16000, maxOutputTokens: 2200, timeoutMs: 60000, maxAttempts: 2, temperature: 0.62 }),
         summary: Object.freeze({ maxInputTokens: 7000, maxOutputTokens: 1000, timeoutMs: 40000, maxAttempts: 1, temperature: 0.2 })
