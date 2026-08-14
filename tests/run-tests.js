@@ -12,6 +12,7 @@ const timelineSimulatorApi = require('../js/timeline-simulator.js');
 const portraitApi = require('../js/portrait-manager.js');
 const strategicAdvisorApi = require('../js/strategic-advisor.js');
 const narrativeApi = require('../js/narrative-master.js');
+const aiEfficiencyApi = require('../js/ai-efficiency.js');
 const ollamaApi = require('../js/ollama-cloud.js');
 const ollamaProxyHandler = require('../api/ollama/[action].js');
 const experienceApi = require('../js/experience-v7.js');
@@ -1390,6 +1391,79 @@ test('il catalogo contiene solo modelli Ollama Cloud remoti', () => {
     assert.ok(ollamaApi.OLLAMA_MODELS.every(model => model.localCloudId.endsWith('-cloud')));
 });
 
+test('applica budget distinti ai diversi compiti LLM', () => {
+    const chat = aiEfficiencyApi.getTaskProfile('chat');
+    const timeline = aiEfficiencyApi.getTaskProfile('timeline');
+    const narrative = aiEfficiencyApi.getTaskProfile('narrative');
+    assert.ok(chat.maxInputTokens < narrative.maxInputTokens);
+    assert.ok(narrative.maxInputTokens < timeline.maxInputTokens);
+    assert.ok(chat.maxOutputTokens < timeline.maxOutputTokens);
+    assert.equal(aiEfficiencyApi.getTaskProfile('strategic').temperature, 0.25);
+});
+
+test('compatta il contesto senza perdere istruzioni e ultima azione', () => {
+    const messages = [
+        { role: 'system', content: `REGOLE ESSENZIALI\n${'istruzione lunga '.repeat(2200)}\nTAG FINALI` },
+        ...Array.from({ length: 18 }, (_, index) => ({
+            role: index % 2 ? 'assistant' : 'user',
+            content: `messaggio storico ${index} ${'dettaglio '.repeat(180)}`
+        })),
+        { role: 'user', content: `AZIONE CORRENTE: apro il granaio\n${'vincolo '.repeat(900)}\nFINE AZIONE` }
+    ];
+    const compacted = aiEfficiencyApi.compactMessages(messages, { maxInputTokens: 2200 });
+    assert.equal(compacted.trimmed, true);
+    assert.ok(compacted.estimatedInputTokens <= 2300);
+    assert.match(compacted.messages[0].content, /REGOLE ESSENZIALI/);
+    assert.match(compacted.messages[0].content, /TAG FINALI/);
+    assert.match(compacted.messages.at(-1).content, /AZIONE CORRENTE/);
+    assert.match(compacted.messages.at(-1).content, /FINE AZIONE/);
+});
+
+test('rimuove dal prompt narrativo i sistemi non pertinenti', () => {
+    const prompt = `BASE\n\n🏪 **GESTIONE ATTIVITÀ COMMERCIALI (ALLINEATA ALLA STORIA)**\nregole negozio\n\n👨‍👩‍👧 **FAMIGLIA**\nregole famiglia\n\n👷 **DIPENDENTI E PERSONALE**\nregole personale\n\n⭐ **ESPERIENZA E PROGRESSIONE**\nregole esperienza\n\nFINALE`;
+    const pruned = aiEfficiencyApi.pruneNarrativePrompt(prompt, {
+        business: false, family: false, employees: false
+    });
+    assert.doesNotMatch(pruned, /regole negozio|regole famiglia|regole personale/);
+    assert.match(pruned, /ESPERIENZA E PROGRESSIONE/);
+    assert.match(pruned, /FINALE/);
+});
+
+test('unisce richieste LLM identiche già in corso', async () => {
+    const manager = aiEfficiencyApi.createRequestManager();
+    let calls = 0;
+    const work = async () => {
+        calls++;
+        await new Promise(resolve => setTimeout(resolve, 10));
+        return 'risposta';
+    };
+    const [left, right] = await Promise.all([
+        manager.run('stessa-richiesta', work),
+        manager.run('stessa-richiesta', work)
+    ]);
+    assert.equal(left, 'risposta');
+    assert.equal(right, 'risposta');
+    assert.equal(calls, 1);
+    assert.equal(manager.snapshot().coalesced, 1);
+});
+
+test('ritenta soltanto gli errori LLM temporanei', async () => {
+    const manager = aiEfficiencyApi.createRequestManager();
+    let calls = 0;
+    const result = await manager.run('retry', async () => {
+        calls++;
+        if (calls === 1) {
+            const error = new Error('overloaded');
+            error.status = 503;
+            throw error;
+        }
+        return 'ok';
+    }, { maxAttempts: 2 });
+    assert.equal(result, 'ok');
+    assert.equal(calls, 2);
+    assert.equal(manager.snapshot().retries, 1);
+});
+
 test('usa il proxy Vercel nell’app e consente un proxy esplicito', () => {
     assert.equal(
         ollamaApi.resolveEndpoint().url,
@@ -1489,6 +1563,31 @@ test('accetta un ID modello Ollama inserito manualmente', async () => {
         apiKey: 'test-key', preferredModels: ['modello-privato:70b']
     });
     assert.equal(result.content, 'modello-privato:70b');
+});
+
+test('applica a Ollama il profilo di temperatura del compito', async () => {
+    let body;
+    const client = new ollamaApi.OllamaCloudClient({
+        fetch: async (_url, options) => {
+            body = JSON.parse(options.body);
+            return { ok: true, status: 200, json: async () => ({ message: { content: 'Analisi valida.' } }) };
+        }
+    });
+    await client.generate([{ role: 'user', content: 'Analizza' }], {
+        apiKey: 'test-key', preferredModels: ['gpt-oss:120b'], temperature: 0.25
+    });
+    assert.equal(body.options.temperature, 0.25);
+});
+
+test('instrada tutte le chiamate del gioco attraverso il gestore LLM efficiente', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /src="js\/ai-efficiency\.js\?v=20260814-llm-efficiency-1"/);
+    assert.match(html, /const aiRequestManager = CronacheAI\.createRequestManager\(\)/);
+    assert.match(html, /async function requestConfiguredAI/);
+    assert.match(html, /CronacheAI\.compactMessages/);
+    assert.match(html, /CronacheAI\.pruneNarrativePrompt/);
+    assert.match(html, /task: isStart \? 'start' : 'narrative'/);
+    assert.doesNotMatch(html, /API Response data:/);
 });
 
 test('il proxy risponde al preflight CORS della WebView', async () => {
@@ -2740,13 +2839,15 @@ test('sostituisce il compositore mobile con la barra nera Analisi Chat Timeline'
 
 test('nasconde controlli, ragionamenti e messaggi tecnici dalla cronaca', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const aiSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-efficiency.js'), 'utf8');
     assert.match(html, /function stripHiddenWorkBlocks/);
     assert.match(html, /function isInternalStoryEntry/);
     assert.match(html, /if \(type === 'analysis' \|\| type === 'mechanic'\) return true/);
     assert.match(html, /story-entry\.analysis \{\s*display: none !important/);
     assert.doesNotMatch(html, /addStoryEntry\(analysisContent, 'analysis'\)/);
     assert.doesNotMatch(html, /content = message\.reasoning/);
-    assert.match(html, /il modello ha restituito soltanto note di lavoro, che sono state nascoste/);
+    assert.match(aiSource, /if \(!content && message\.reasoning\)/);
+    assert.match(aiSource, /RISPOSTA FINALE\|FINAL ANSWER/);
     assert.match(html, /if \(clean\) addStoryEntry\(clean, 'narrator'\)/);
 });
 
@@ -2760,7 +2861,8 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
     assert.match(html, /recordStartupWarning\('inizializzazione dell’interfaccia'/);
     assert.match(html, /Avvio ripristinato: alcuni dati legacy sono stati messi in sicurezza e normalizzati/);
     assert.doesNotMatch(html, /unpkg\.com\/@openrouter\/sdk/);
-    assert.match(html, /nessuna dipendenza CDN deve bloccare l'avvio dell'app/);
+    assert.match(html, /function resolveConfiguredAIProvider/);
+    assert.match(html, /CronacheAI\.requestOpenAI/);
     assert.match(html, /document\.readyState === 'loading'/);
 });
 
@@ -3532,8 +3634,8 @@ test('integra pannello, ciclo turni e protocollo dei tag del regno', () => {
     assert.match(html, /Mercato del lavoro/);
     assert.match(html, /Audit del Master/);
     assert.match(html, /data-kingdom-section="kingdom-people"/);
-    assert.match(html, /emetti SEMPRE un POPOLO_REGNO, uno STATISTICHE_REGNO e una VALUTAZIONE_REGNO/);
-    assert.match(html, /Il tesoro reale NON è denaro personale/);
+    assert.match(html, /Non rigenerare valori invariati e non emettere schede vuote/);
+    assert.match(html, /Tesoro reale, denaro personale e cassa aziendale restano separati/);
     const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
     assert.match(css, /\.kingdom-command-center/);
     assert.match(css, /\.kingdom-nav/);

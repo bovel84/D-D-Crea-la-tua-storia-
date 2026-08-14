@@ -3754,7 +3754,8 @@
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
-    <script src="js/ollama-cloud.js"></script>
+    <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-1"></script>
+    <script src="js/ollama-cloud.js?v=20260814-llm-efficiency-1"></script>
     <script src="js/experience-v7.js?v=20260814-mobile-dock-2"></script>
     <script>
         // ==================== GAME STATE ====================
@@ -3828,6 +3829,7 @@
         const kingdomEngine = new CronacheKingdom.KingdomManager();
         const campaignVault = new CronacheVault.CampaignVault({ storage: localStorage, capacity: 3 });
         const ollamaClient = new CronacheOllama.OllamaCloudClient({ timeoutMs: 45000 });
+        const aiRequestManager = CronacheAI.createRequestManager();
         G.worldMemory.narrativeCompass = narrativeMaster.createDefaultCompass();
 
         const DAYS = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
@@ -4829,6 +4831,7 @@
             return {
                 endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT,
                 apiKey: source.apiKey || '',
+                nativeProxy: String(source.nativeProxy || '').trim(),
                 primaryModel,
                 fallbackOrder: fallbackOrder.length ? fallbackOrder : CronacheOllama.DEFAULT_FALLBACK_ORDER.filter(id => id !== primaryModel),
                 discoveredModels
@@ -4859,12 +4862,12 @@
             const mediumContext = contextSize >= 65536;
             return {
                 contextSize,
-                shortTermMessages: largeContext ? 40 : mediumContext ? 24 : 16,
-                retrievalLimit: largeContext ? 12 : mediumContext ? 8 : 6,
-                compressionThreshold: largeContext ? 48000 : mediumContext ? 24000 : 12000,
-                mediumTermTokens: largeContext ? 2500 : mediumContext ? 1400 : 900,
-                continuityTokens: largeContext ? 6000 : mediumContext ? 3600 : 2200,
-                chatHistoryLimit: largeContext ? 64 : mediumContext ? 40 : 24
+                shortTermMessages: largeContext ? 14 : mediumContext ? 12 : 10,
+                retrievalLimit: largeContext ? 8 : mediumContext ? 7 : 5,
+                compressionThreshold: largeContext ? 22000 : mediumContext ? 16000 : 10000,
+                mediumTermTokens: largeContext ? 1600 : mediumContext ? 1200 : 800,
+                continuityTokens: largeContext ? 3200 : mediumContext ? 2600 : 1800,
+                chatHistoryLimit: largeContext ? 28 : mediumContext ? 24 : 18
             };
         }
 
@@ -9778,8 +9781,91 @@
             ).join('\n');
         }
 
+        function resolveConfiguredAIProvider(settings = G.settings) {
+            if (settings.model === 'ollama-cloud') {
+                const config = normalizeOllamaCloudSettings(settings.ollama);
+                if (!config.apiKey) throw new Error('API key Ollama Cloud non configurata');
+                return {
+                    type: 'ollama-cloud', model: config.primaryModel || 'gpt-oss:120b', apiKey: config.apiKey,
+                    config
+                };
+            }
+            if (settings.model === 'openrouter' || settings.model === 'openrouter-free') {
+                if (!settings.openrouterKey) throw new Error('API key OpenRouter non configurata');
+                return {
+                    type: 'openai-compatible', provider: 'openrouter', apiKey: settings.openrouterKey,
+                    endpoint: settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions',
+                    model: settings.openrouterModel || (settings.model === 'openrouter-free' ? 'openrouter/free' : 'google/gemma-3-27b-it:free')
+                };
+            }
+            if (settings.model === 'deepseek') {
+                const apiKey = settings.kimeraKey || settings.openrouterKey;
+                if (!apiKey) throw new Error('Configura la Kimera (o OpenRouter) API key per usare DeepSeek.');
+                return {
+                    type: 'openai-compatible', provider: 'deepseek', apiKey,
+                    endpoint: settings.kimeraUrl || settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions',
+                    model: settings.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free'
+                };
+            }
+            if (!settings.groqKey) throw new Error('Configura una API key nelle Impostazioni');
+            return {
+                type: 'openai-compatible', provider: 'groq', apiKey: settings.groqKey,
+                endpoint: settings.groqUrl || 'https://api.groq.com/openai/v1/chat/completions',
+                model: settings.groqModel || 'llama-3.1-8b-instant'
+            };
+        }
+
+        async function requestConfiguredAI(messages, options = {}) {
+            const task = options.task || 'narrative';
+            const profile = CronacheAI.getTaskProfile(task, {
+                maxInputTokens: options.maxInputTokens,
+                maxOutputTokens: options.maxTokens,
+                timeoutMs: options.timeoutMs,
+                maxAttempts: options.maxAttempts,
+                temperature: options.temperature
+            });
+            const compacted = CronacheAI.compactMessages(messages, { maxInputTokens: profile.maxInputTokens });
+            if (compacted.trimmed) {
+                aiRequestManager.markTrimmed();
+                console.info(`Contesto ${task} ridotto da ~${compacted.originalInputTokens} a ~${compacted.estimatedInputTokens} token.`);
+            }
+            const provider = resolveConfiguredAIProvider();
+            const key = options.requestKey || CronacheAI.requestKey(task, provider.provider || provider.type, provider.model, compacted.messages);
+            return aiRequestManager.run(key, async () => {
+                if (provider.type === 'ollama-cloud') {
+                    const config = provider.config;
+                    const result = await ollamaClient.generate(compacted.messages, {
+                        apiKey: provider.apiKey,
+                        nativeProxy: config.nativeProxy,
+                        preferredModels: [provider.model, ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])],
+                        discoveredModels: config.discoveredModels,
+                        maxTokens: profile.maxOutputTokens,
+                        maxAttempts: profile.maxAttempts,
+                        timeoutMs: profile.timeoutMs,
+                        temperature: profile.temperature
+                    });
+                    if (result.attemptedModels.length > 1) {
+                        console.warn(`Fallback Ollama riuscito con ${result.model}; tentativi: ${result.attemptedModels.join(' → ')}`);
+                    }
+                    return result.content;
+                }
+                const result = await CronacheAI.requestOpenAI({
+                    endpoint: provider.endpoint,
+                    apiKey: provider.apiKey,
+                    model: provider.model,
+                    messages: compacted.messages,
+                    temperature: profile.temperature,
+                    maxTokens: profile.maxOutputTokens,
+                    timeoutMs: profile.timeoutMs
+                });
+                return result.content;
+            }, {
+                maxAttempts: provider.type === 'ollama-cloud' ? 1 : profile.maxAttempts,
+                cacheTtlMs: Math.max(0, Number(options.cacheTtlMs) || 0)
+            });
+        }
+
         async function requestStoryGeneration(prompt) {
-            const settings = G.settings;
             const messages = [
                 {
                     role: 'system',
@@ -9787,131 +9873,21 @@
                 },
                 { role: 'user', content: prompt }
             ];
-            if (settings.model === 'ollama-cloud') {
-                const config = normalizeOllamaCloudSettings(settings.ollama);
-                if (!config.apiKey) throw new Error('API key Ollama Cloud non configurata');
-                const result = await ollamaClient.generate(messages, {
-                    apiKey: config.apiKey,
-                    preferredModels: [
-                        config.primaryModel || 'gpt-oss:120b',
-                        ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
-                    ],
-                    discoveredModels: config.discoveredModels,
-                    maxTokens: 1800
-                });
-                return result.content;
-            }
-
-            let endpoint;
-            let model;
-            let apiKey;
-            if (settings.model === 'openrouter' || settings.model === 'openrouter-free') {
-                apiKey = settings.openrouterKey;
-                endpoint = settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = settings.openrouterModel || (settings.model === 'openrouter-free'
-                    ? 'openrouter/free' : 'google/gemma-3-27b-it:free');
-            } else if (settings.model === 'deepseek') {
-                apiKey = settings.kimeraKey || settings.openrouterKey;
-                endpoint = settings.kimeraUrl || settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = settings.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free';
-            } else {
-                apiKey = settings.groqKey;
-                endpoint = settings.groqUrl || 'https://api.groq.com/openai/v1/chat/completions';
-                model = settings.groqModel || 'llama-3.1-8b-instant';
-            }
-            if (!apiKey) throw new Error('API key non configurata');
-
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({ model, messages, temperature: 0.75, max_tokens: 1800 })
-            });
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.error?.message || `Errore API: ${response.status}`);
-            }
-            const data = await response.json();
-            const message = data.choices?.[0]?.message;
-            const content = message?.content || message?.reasoning || message?.text || '';
-            if (!content) throw new Error('Risposta vuota dal generatore');
-            return content;
+            return requestConfiguredAI(messages, { task: 'story', maxTokens: 1800 });
         }
 
         async function requestWorldChatAI(prompt) {
-            const settings = G.settings;
-            const continuity = CronacheMemory.buildContinuityContext(G.worldMemory, {
-                story: G.currentStory,
-                currentDate: getFullTimeString(),
-                location: G.currentLocation,
-                protagonistName: G.character?.name,
-                maxTokens: getAIContextProfile().continuityTokens
-            });
             const messages = [
                 {
                     role: 'system',
-                    content: `Interpreta NPC, fazioni, gruppi e regni di una campagna narrativa storico-politica. In ogni chiamata parla un solo interlocutore, in prima persona, con carica, voce, obiettivi, leve, vincoli e conoscenze proprie. In una chat di gruppo gli NPC reagiscono anche tra loro: la personalità del parlante deve essere riconoscibile nel lessico, nel tono e nel modo di dissentire. Non usare un narratore e non decidere mai le parole del protagonista. Rispondi soltanto con un tag CHAT e, soltanto se necessari, ESITO_CHAT o ACCORDO_CHAT. Un accordo diventa active solo dopo accettazione esplicita di tutte le parti necessarie.\n${continuity.prompt}`
+                    content: 'Interpreta NPC, fazioni, gruppi e regni. Parla come un solo interlocutore in prima persona, con voce, obiettivi, leve, vincoli e conoscenze proprie. Reagisci anche agli altri NPC senza usare un narratore e senza inventare parole del protagonista. Restituisci soltanto CHAT e, se necessari, ESITO_CHAT o ACCORDO_CHAT; un accordo è active solo dopo accettazione esplicita delle parti.'
                 },
                 { role: 'user', content: prompt }
             ];
-            if (settings.model === 'ollama-cloud') {
-                const config = normalizeOllamaCloudSettings(settings.ollama);
-                if (!config.apiKey) throw new Error('API key Ollama Cloud non configurata');
-                const result = await ollamaClient.generate(messages, {
-                    apiKey: config.apiKey,
-                    preferredModels: [
-                        config.primaryModel || 'gpt-oss:120b',
-                        ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
-                    ],
-                    discoveredModels: config.discoveredModels,
-                    maxTokens: 1800,
-                    maxAttempts: 2,
-                    timeoutMs: 50000
-                });
-                return result.content;
-            }
-
-            let endpoint;
-            let model;
-            let apiKey;
-            if (settings.model === 'openrouter' || settings.model === 'openrouter-free') {
-                apiKey = settings.openrouterKey;
-                endpoint = settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = settings.openrouterModel || (settings.model === 'openrouter-free'
-                    ? 'openrouter/free' : 'google/gemma-3-27b-it:free');
-            } else if (settings.model === 'deepseek') {
-                apiKey = settings.kimeraKey || settings.openrouterKey;
-                endpoint = settings.kimeraUrl || settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = settings.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free';
-            } else {
-                apiKey = settings.groqKey;
-                endpoint = settings.groqUrl || 'https://api.groq.com/openai/v1/chat/completions';
-                model = settings.groqModel || 'llama-3.1-8b-instant';
-            }
-            if (!apiKey) throw new Error('API key non configurata');
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({ model, messages, temperature: 0.72, max_tokens: 1800 })
-            });
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.error?.message || `Errore API: ${response.status}`);
-            }
-            const data = await response.json();
-            const message = data.choices?.[0]?.message;
-            const content = message?.content || message?.reasoning || message?.text || '';
-            if (!content) throw new Error('Risposta vuota dalla chat');
-            return content;
+            return requestConfiguredAI(messages, { task: 'chat', maxTokens: 1400, maxAttempts: 2, timeoutMs: 45000 });
         }
 
         async function requestTimelineAI(prompt, options = {}) {
-            const settings = G.settings;
             const maxTokens = Math.max(1200, Math.min(9000, Number(options.maxTokens) || 4200));
             const messages = [
                 {
@@ -9920,63 +9896,13 @@
                 },
                 { role: 'user', content: prompt }
             ];
-            if (settings.model === 'ollama-cloud') {
-                const config = normalizeOllamaCloudSettings(settings.ollama);
-                if (!config.apiKey) throw new Error('API key Ollama Cloud non configurata');
-                const result = await ollamaClient.generate(messages, {
-                    apiKey: config.apiKey,
-                    preferredModels: [
-                        config.primaryModel || 'gpt-oss:120b',
-                        ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
-                    ],
-                    discoveredModels: config.discoveredModels,
-                    maxTokens,
-                    maxAttempts: 3,
-                    timeoutMs: Math.max(30000, Number(options.timeoutMs) || 70000)
-                });
-                if (!String(result.content || '').trim()) throw new Error('Risposta vuota dal simulatore');
-                return result.content;
-            }
-
-            let endpoint;
-            let model;
-            let apiKey;
-            if (settings.model === 'openrouter' || settings.model === 'openrouter-free') {
-                apiKey = settings.openrouterKey;
-                endpoint = settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = settings.openrouterModel || (settings.model === 'openrouter-free'
-                    ? 'openrouter/free' : 'google/gemma-3-27b-it:free');
-            } else if (settings.model === 'deepseek') {
-                apiKey = settings.kimeraKey || settings.openrouterKey;
-                endpoint = settings.kimeraUrl || settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = settings.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free';
-            } else {
-                apiKey = settings.groqKey;
-                endpoint = settings.groqUrl || 'https://api.groq.com/openai/v1/chat/completions';
-                model = settings.groqModel || 'llama-3.1-8b-instant';
-            }
-            if (!apiKey) throw new Error('API key non configurata');
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({ model, messages, temperature: 0.68, max_tokens: maxTokens })
+            return requestConfiguredAI(messages, {
+                task: 'timeline', maxTokens, maxAttempts: 2,
+                timeoutMs: Math.max(30000, Number(options.timeoutMs) || 70000)
             });
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.error?.message || `Errore API: ${response.status}`);
-            }
-            const data = await response.json();
-            const message = data.choices?.[0]?.message;
-            const content = message?.content || message?.reasoning || message?.text || '';
-            if (!content) throw new Error('Risposta vuota dal simulatore');
-            return content;
         }
 
         async function requestStrategicAI(prompt, options = {}) {
-            const settings = G.settings;
             const maxTokens = Math.max(2400, Math.min(7000, Number(options.maxTokens) || 5200));
             const messages = [
                 {
@@ -9985,61 +9911,10 @@
                 },
                 { role: 'user', content: prompt }
             ];
-
-            if (settings.model === 'ollama-cloud') {
-                const config = normalizeOllamaCloudSettings(settings.ollama);
-                if (!config.apiKey) throw new Error('API key Ollama Cloud non configurata');
-                const result = await ollamaClient.generate(messages, {
-                    apiKey: config.apiKey,
-                    preferredModels: [
-                        config.primaryModel || 'gpt-oss:120b',
-                        ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
-                    ],
-                    discoveredModels: config.discoveredModels,
-                    maxTokens,
-                    maxAttempts: 2,
-                    timeoutMs: 70000
-                });
-                if (!String(result.content || '').trim()) throw new Error('Risposta vuota dal consigliere strategico');
-                return result.content;
-            }
-
-            let endpoint;
-            let model;
-            let apiKey;
-            if (settings.model === 'openrouter' || settings.model === 'openrouter-free') {
-                apiKey = settings.openrouterKey;
-                endpoint = settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = settings.openrouterModel || (settings.model === 'openrouter-free'
-                    ? 'openrouter/free' : 'google/gemma-3-27b-it:free');
-            } else if (settings.model === 'deepseek') {
-                apiKey = settings.kimeraKey || settings.openrouterKey;
-                endpoint = settings.kimeraUrl || settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = settings.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free';
-            } else {
-                apiKey = settings.groqKey;
-                endpoint = settings.groqUrl || 'https://api.groq.com/openai/v1/chat/completions';
-                model = settings.groqModel || 'llama-3.1-8b-instant';
-            }
-            if (!apiKey) throw new Error('Configura una API key nelle Impostazioni');
-
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: maxTokens })
+            return requestConfiguredAI(messages, {
+                task: 'strategic', maxTokens, maxAttempts: 2, timeoutMs: 70000,
+                cacheTtlMs: Math.max(0, Number(options.cacheTtlMs) || 0)
             });
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.error?.message || `Errore API: ${response.status}`);
-            }
-            const data = await response.json();
-            const message = data.choices?.[0]?.message;
-            const content = message?.content || message?.reasoning || message?.text || '';
-            if (!content) throw new Error('Risposta vuota dal consigliere strategico');
-            return content;
         }
 
         async function generateStoryFromEditor() {
@@ -12602,7 +12477,7 @@
                     currentDate: getFullTimeString(),
                     location: G.currentLocation,
                     protagonistName: G.character?.name,
-                    maxTokens: getAIContextProfile().continuityTokens
+                    maxTokens: Math.min(1800, getAIContextProfile().continuityTokens)
                 }).prompt,
                 historyLimit: getAIContextProfile().chatHistoryLimit
             });
@@ -12886,23 +12761,28 @@
             const pendingBusinesses = managementForPrompt.businesses.filter(business => !business.narrativeInitialized);
             const businessTagDirective = managementForPrompt.businesses.length ? `
 
-🏪 REGISTRAZIONE ANAGRAFICHE ATTIVITÀ
-Se nella scena compare, viene assunto, cambia o stipula un accordo un cliente, fornitore, dipendente o contraente dell'attività del giocatore, DEVI emettere il relativo tag in fondo alla risposta, dopo la scena. Non rimandare la registrazione al solo avvio dell'attività.
-- Cliente: [CLIENTE_NEGOZIO: attività|nome|segmento|lealtà_0_100|soddisfazione_opzionale|note]
-- Fornitore: [FORNITORE_NEGOZIO: attività|nome|categoria|affidabilità_0_100|turni_consegna|sconto_opzionale|stato_opzionale|note]
-- Dipendente: [DIPENDENTE_NEGOZIO: attività|nome|ruolo|stipendio|competenza_0_100|morale_0_100|stato_opzionale|descrizione]
-- Contratto: [CONTRATTO_NEGOZIO: attività|titolo|tipo|cliente/fornitore/dipendente/altro|nome_controparte|importo|frequenza|draft/active/paused/expired/terminated|fine_turno_opzionale|note]
-Usa il nome esatto dell'attività presente nella memoria. Per aggiornare un record esistente mantieni tutti i separatori e lascia vuoti solo i campi invariati; non creare nomi generici. Non aggiungere tag se la scena non cambia davvero l'anagrafica.` : '';
+🏪 ATTIVITÀ — REGISTRA SOLO OPERAZIONI REALMENTE NARRATE
+Usa sempre il nome esatto dell’attività e non inventare anagrafiche generiche. Denaro personale e cassa aziendale sono separati. Una vendita o consegna descritta deve avere il relativo tag; non riemettere dati invariati.
+- [VENDITA_NEGOZIO: attività|prodotto|quantità|prezzo]
+- [RIFORNIMENTO_NEGOZIO: attività|prodotto|quantità|costo]
+- [CATALOGO_NEGOZIO: attività|prodotto|categoria|prezzo|scorte|descrizione]
+- [CASSA_NEGOZIO: attività|entra/esce|importo|motivo] [EVENTO_NEGOZIO: attività|descrizione]
+- [CLIENTE_NEGOZIO: attività|nome|segmento|lealtà_0_100|soddisfazione|note]
+- [FORNITORE_NEGOZIO: attività|nome|categoria|affidabilità_0_100|turni_consegna|sconto|stato|note]
+- [DIPENDENTE_NEGOZIO: attività|nome|ruolo|stipendio|competenza_0_100|morale_0_100|stato|descrizione]
+- [CONTRATTO_NEGOZIO: attività|titolo|tipo|categoria_controparte|nome_controparte|importo|frequenza|stato|fine_turno|note]` : '';
             const pendingBusinessDirective = pendingBusinesses.length ? `
 
 🏪 INTEGRAZIONE ATTIVITÀ (NON DEVE BLOCCARE LA NARRAZIONE)
 Attività da alimentare dalla storia: ${pendingBusinesses.map(business => business.name).join(', ')}.
 Scrivi prima una scena completa e coinvolgente. Aggiungi soltanto tag completi e coerenti con ciò che hai davvero narrato: [ATTIVITA_NEGOZIO], [CATALOGO_NEGOZIO], [FORNITORE_NEGOZIO], [CLIENTE_NEGOZIO], [DIPENDENTE_NEGOZIO], [CONTRATTO_NEGOZIO] ed [EVENTO_NEGOZIO]. Il catalogo e le anagrafiche possono completarsi progressivamente nei turni successivi: non sacrificare mai la narrazione per riempire i tag e non usare nomi generici.` : '';
-            const kingdomTagDirective = `
+            const kingdomStateForPrompt = kingdomEngine.migrate(G.worldMemory.kingdom);
+            const kingdomRelevanceText = `${action || ''} ${story.title || ''} ${story.desc || ''} ${story.prologue || ''}`;
+            const kingdomRelevant = kingdomStateForPrompt.active || /regn|coron|sovran|princip|ducat|conte|govern|tesor|esercit|fazione|diplomaz/i.test(kingdomRelevanceText);
+            const kingdomTagDirective = kingdomRelevant ? `
 
-👑 TRASMISSIONE REGNO LLM → GIOCO
-Se il protagonista governa o acquisisce un regno, ducato, contea, città-stato o dominio sovrano, registra subito lo stato con tag completi in fondo alla scena. Il regno è un sistema vivo: popolo, classi sociali, territori, produzione, servizi, crisi, fazioni e potenze straniere devono agire anche quando non sono direttamente in scena.
-Quando esiste già un regno attivo, esegui INTERNAMENTE questo audit prima/dopo ogni risposta: (1) rileggi lo stato autoritativo, (2) elenca solo le conseguenze realmente causate dalla scena, (3) verifica che totali, POP, lavori, tesoro e viveri siano coerenti, (4) calcola i valori assoluti finali. Non mostrare l’audit in prosa. In fondo alla scena emetti SEMPRE un POPOLO_REGNO, uno STATISTICHE_REGNO e una VALUTAZIONE_REGNO aggiornati, anche se le variazioni sono nulle. Per gli altri sistemi emetti soltanto i tag dei cambiamenti realmente narrati, lasciando vuoti i campi invariati.
+👑 REGNO — TRASMETTI SOLO CAMBIAMENTI CAUSATI DALLA SCENA
+Lo stato registrato è autoritativo. Verifica internamente coerenza di tesoro, viveri, popolazione, territori, lavori e fazioni; non mostrare l’audit. Non rigenerare valori invariati e non emettere schede vuote: usa soltanto i tag necessari a registrare conseguenze realmente narrate. Se il protagonista acquisisce ora un dominio sovrano, inizializzalo con REGNO e i soli dati già stabiliti.
 - [REGNO: nome|titolo_governante|nome_governante|governo|capitale|tesoro|popolazione|stabilità_0_100|legittimità_0_100|prosperità_0_100|viveri]
 - [POPOLO_REGNO: regno|consenso_0_100|disordini_0_100|salute_0_100|alfabetizzazione_0_100|occupazione_0_100|povertà_0_100|sicurezza_alimentare_0_100|abitazioni_0_100|criminalità_0_100|tenore_vita_1_30|lealisti|radicali]
 - [CLASSE_REGNO: regno|nobles/clergy/merchants/artisans/peasants/workers/marginalized|popolazione|ricchezza_0_100|lealtà_0_100|influenza_0_100|bisogni|occupazione_0_100|istruzione_0_100|tenore_1_30|lealisti|radicali|forza_politica_0_100]
@@ -12921,7 +12801,10 @@ Quando esiste già un regno attivo, esegui INTERNAMENTE questo audit prima/dopo 
 - [VALUTAZIONE_REGNO: regno|diagnosi_sintetica|priorità_1|priorità_2|priorità_3|attendibilità_0_100]
 - [TESORO_REGNO: regno|entra/esce|importo|motivo]
 - [EVENTO_REGNO: regno|tipo|descrizione|tesoro_delta|viveri_delta|popolazione_delta|stabilità_delta|legittimità_delta|prosperità_delta|consenso_delta|disordini_delta|salute_delta]
-Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, professione, istruzione, reddito, bisogni e desideri. Nessuno può ottenere un lavoro qualificato senza istruzione e qualifiche sufficienti, una classe ammessa e un posto vacante. Disoccupazione, salari bassi e bisogni essenziali insoddisfatti generano radicali; tenore di vita e mobilità sociale generano lealisti. Le fazioni, soprattutto quelle avversarie, devono possedere una base geografica, capacità militare e informativa, tattiche, una rivendicazione concreta e una prossima mossa coerente: non trattarle come semplici percentuali immobili. Usa numeri conservativi e spiegabili: non modificare una statistica senza una causa nella scena o nella simulazione, non trasformare delte in valori assoluti e non sommare due volte lo stesso effetto. Ogni decisione del sovrano deve produrre vincitori, perdenti, costi e reazioni credibili. Informa sempre il motore dei cambiamenti numerici con i tag; non raccontare carestie, migrazioni, rivolte, investimenti, epidemie, raccolti, riforme o conquiste soltanto in prosa. Le categorie sociali devono agire e pesare sulle decisioni: nobiltà fondiaria, clero, contadini, artigiani/gilde, mercanti, lavoratori ed emarginati. Il tesoro reale NON è denaro personale e NON è la cassa di un negozio. Non duplicare mai la stessa variazione in sistemi diversi.`;
+POP e lavori rispettano classe, istruzione, qualifiche e posti disponibili. Le fazioni avversarie hanno base, forza militare, intelligence, tattiche, rivendicazione e prossima mossa. Usa numeri conservativi e valori finali nei tag di stato; EVENTO_REGNO contiene delte. Tesoro reale, denaro personale e cassa aziendale restano separati. Ogni decisione crea costi, benefici e reazioni concrete.` : `
+
+👑 ATTIVAZIONE REGNO
+Solo se il protagonista acquisisce davvero un dominio sovrano emetti [REGNO: nome|titolo|governante|governo|capitale|tesoro|popolazione|stabilità|legittimità|prosperità|viveri]. Altrimenti non generare dati di governo.`;
             const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory, {
                 ...getAIContextProfile(),
                 continuity: {
@@ -12958,7 +12841,8 @@ Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, pr
                 : "Nessun oggetto (Tasche vuote)";
 
             // Build world memory summary
-            const worldMemorySummary = buildWorldMemorySummary();
+            const worldMemorySummary = CronacheAI.compactText(buildWorldMemorySummary(), isStart ? 3200 : 2200);
+            const npcPromptContext = CronacheAI.compactText(buildNPCContext(), isStart ? 1600 : 1000);
             const recentTimelineChoices = getRecentTimelineChoices();
             const deferActionEventToTimeline = !isStart && !G.pendingTimePassage && recentTimelineChoices.length > 0;
             const eventTagDirective = deferActionEventToTimeline
@@ -13280,7 +13164,7 @@ ${worldTimelineDirective}
 
 🧠 MEMORIA MONDO:
 ${worldMemorySummary}
-${buildNPCContext()}
+${npcPromptContext}
 
 🗂️ MEMORIA MULTILIVELLO E RETRIEVAL:
 ${layeredMemory.prompt}
@@ -13343,104 +13227,23 @@ ISTRUZIONI TURNO:
 ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
             }
 
+            const relevanceText = `${action || ''} ${story.title || ''} ${story.setting || ''}`;
+            const optimizedSystemPrompt = CronacheAI.pruneNarrativePrompt(systemPrompt, {
+                business: false,
+                family: (G.worldMemory.family || []).length > 0 || /famigli|mogli|marit|figli|parent|fratell|sorell/i.test(relevanceText),
+                employees: (G.worldMemory.employees || []).length > 0 || /dipendent|assum|licenzi|personale|lavorator/i.test(relevanceText),
+                removeExamples: !isStart
+            });
             const requestMessages = [
-                { role: 'system', content: systemPrompt },
+                { role: 'system', content: optimizedSystemPrompt },
                 ...recentHistory,
                 { role: 'user', content: userMsg }
             ];
-
-            if (s.model === 'ollama-cloud') {
-                const config = normalizeOllamaCloudSettings(s.ollama);
-                const preferredModels = [
-                    config.primaryModel || 'gpt-oss:120b',
-                    ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
-                ];
-                const result = await ollamaClient.generate(requestMessages, {
-                    apiKey: config.apiKey || '',
-                    preferredModels,
-                    discoveredModels: config.discoveredModels,
-                    maxTokens: isStart ? 3600 : ({ short: 800, medium: 1500, long: 2200 }[s.length] || 1500)
-                });
-                if (result.attemptedModels.length > 1) {
-                    console.warn(`Fallback Ollama riuscito con ${result.model}; tentativi: ${result.attemptedModels.join(' → ')}`);
-                }
-                return result.content;
-            }
-
-            let endpoint, model, headers;
-
-            if (s.model === 'openrouter' && s.openrouterKey) {
-                endpoint = s.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = s.openrouterModel || 'google/gemma-3-27b-it:free';
-                headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.openrouterKey}` };
-            } else if (s.model === 'deepseek') {
-                const chimeraKey = s.kimeraKey || s.openrouterKey;
-                if (!chimeraKey) {
-                    throw new Error('Configura la Kimera (o OpenRouter) API key per usare DeepSeek.');
-                }
-                endpoint = s.kimeraUrl || s.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = s.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free';
-                headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${chimeraKey}` };
-            } else if (s.model === 'openrouter-free' && s.openrouterKey) {
-                // Chiamata diretta: nessuna dipendenza CDN deve bloccare l'avvio dell'app.
-                endpoint = s.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions';
-                model = s.openrouterModel || 'openrouter/free';
-                headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.openrouterKey}` };
-            } else if (s.groqKey) {
-                endpoint = s.groqUrl || 'https://api.groq.com/openai/v1/chat/completions';
-                model = s.groqModel || 'llama-3.1-8b-instant';
-                headers = { 'Content-Type': 'application/json; charset=utf-8', 'Authorization': `Bearer ${s.groqKey}` };
-            } else {
-                throw new Error('Configura le API keys nelle Impostazioni!');
-            }
-
-            const body = {
-                model,
-                messages: requestMessages,
-                temperature: 0.7, // Leggermente più basso per essere più rigoroso
-                max_tokens: isStart ? 3600 : 1500
-            };
-
-            const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
-            
-            // Debug: log della risposta completa
-            console.log('API Response status:', res.status, res.statusText);
-            
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                console.error('API Error data:', errData);
-                throw new Error(errData.error?.message || `Errore API: ${res.status}`);
-            }
-            const data = await res.json();
-            
-            // Debug: log della struttura della risposta
-            console.log('API Response data:', JSON.stringify(data).substring(0, 500));
-            
-            // Verifica che ci sia una risposta valida
-            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-                console.error('Invalid API response structure:', data);
-                throw new Error('Risposta API non valida. Riprova.');
-            }
-            
-            const message = data.choices[0].message;
-            let content = message.content || message.text || '';
-
-            // Il campo reasoning contiene note di lavoro del modello e non deve mai
-            // diventare narrazione. Recuperiamo soltanto un eventuale blocco finale
-            // esplicitamente separato dal ragionamento.
-            if (!content && message.reasoning) {
-                const reasoning = String(message.reasoning);
-                const closedAnalysis = reasoning.lastIndexOf('[/ANALISI]');
-                const finalMarker = reasoning.match(/(?:NARRAZIONE|RISPOSTA FINALE|FINAL ANSWER)\s*:\s*([\s\S]+)$/i);
-                content = finalMarker?.[1]?.trim() || (closedAnalysis >= 0 ? reasoning.slice(closedAnalysis + '[/ANALISI]'.length).trim() : '');
-            }
-            if (!content) throw new Error('il modello ha restituito soltanto note di lavoro, che sono state nascoste');
-            
-            console.log('AI Response received, length:', content.length);
-            if (content.length < 20) {
-                console.warn('AI Response very short:', content);
-            }
-            return content;
+            return requestConfiguredAI(requestMessages, {
+                task: isStart ? 'start' : 'narrative',
+                maxTokens: isStart ? 3600 : ({ short: 800, medium: 1500, long: 2200 }[s.length] || 1500),
+                maxAttempts: 2
+            });
         }
 
         function parseAIResponse(response, { isStart = false } = {}) {
