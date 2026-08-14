@@ -3579,6 +3579,10 @@
                     <label class="form-label">Professione / ruolo <small>Coerente con il periodo della storia</small></label>
                     <div class="creation-grid" id="archetype-grid"></div>
                 </div>
+                <div class="form-group" data-wizard-step="3">
+                    <label class="form-label">Volto del protagonista <small>Lo stesso ritratto ti accompagnerà in cronaca e nelle chat</small></label>
+                    <div class="portrait-choice-grid" id="portrait-grid"></div>
+                </div>
                 <div class="creation-loadout" id="creation-loadout" data-wizard-step="3"></div>
                 <button class="btn primary" id="btn-start-game" style="width: 100%;">⚔️ Inizia Avventura!</button>
             </div>
@@ -3663,14 +3667,15 @@
     </div>
 
     <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
-    <script src="js/world-bootstrap.js?v=20260811-chat-5"></script>
+    <script src="js/world-bootstrap.js?v=20260814-portraits-1"></script>
     <script src="js/event-manager.js"></script>
-    <script src="js/timeline-chat.js?v=20260811-chat-5"></script>
-    <script src="js/timeline-simulator.js?v=20260811-causal-6"></script>
+    <script src="js/timeline-chat.js?v=20260814-dialogue-6"></script>
+    <script src="js/timeline-simulator.js?v=20260814-causal-7"></script>
     <script src="js/strategic-advisor.js?v=20260811-strategy-3"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
+    <script src="js/portrait-manager.js?v=20260814-portraits-1"></script>
     <script src="js/time-energy.js"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
@@ -3710,6 +3715,7 @@
             selectedSave: null,
             selectedOrigin: null,
             selectedArchetype: null,
+            selectedPortrait: null,
             editingStory: null,
             isPlaying: false,
             isProcessing: false,
@@ -3738,6 +3744,7 @@
         const eventEngine = new CronacheEvents.EventManager({ maxEvents: 100 });
         const timelineChatEngine = CronacheTimelineChat;
         const timelineSimulator = CronacheTimelineSimulator;
+        const portraitEngine = CronachePortraits;
         const strategicAdvisor = CronacheStrategicAdvisor;
         const narrativeMaster = new CronacheNarrative.NarrativeMasterEngine();
         const gameDirector = new CronacheDirector.GameDirector();
@@ -4729,6 +4736,7 @@
             migrated.strategicActionHistory = Array.isArray(migrated.strategicActionHistory)
                 ? migrated.strategicActionHistory.slice(-100)
                 : [];
+            assignPortraitsToMemory(migrated, { story: G.currentStory, source: 'memory-migration' });
             return migrated;
         }
 
@@ -5708,8 +5716,17 @@
                     Object.keys(genreCfg.archetypes).find(k => genreCfg.archetypes[k] === archetypeData)),
                 equipment: { weapon: null, armor: null, accessory: null },
                 gold: 100,
-                life: lifeEngine.createDefault()
+                life: lifeEngine.createDefault(),
+                portraitId: portraitEngine.getPortrait(G.selectedPortrait)?.id || '',
+                portraitSchemaVersion: portraitEngine.PORTRAIT_SCHEMA_VERSION
             };
+            portraitEngine.assignPortrait(G.character, portraitContext({
+                story: G.currentStory,
+                genre: genreKey,
+                role: archetypeData?.name,
+                archetype: G.character.archetype,
+                origin: G.character.origin
+            }));
             Object.defineProperty(G.character, 'mana', {
                 get() { return this.secondary; },
                 set(value) { this.secondary = value; },
@@ -5766,7 +5783,25 @@
                 if (miniHunger.parentElement) miniHunger.parentElement.setAttribute('data-value', `${c.hunger.cur}/${c.hunger.max}`);
             }
 
-            $('char-portrait').textContent = a.icon;
+            portraitEngine.assignPortrait(c, portraitContext({
+                genre: c.genre,
+                role: a.name,
+                archetype: c.archetype,
+                origin: c.origin
+            }));
+            const charPortrait = $('char-portrait');
+            const selectedPortrait = portraitEngine.getPortrait(c.portraitId);
+            if (charPortrait && selectedPortrait) {
+                charPortrait.classList.add('portrait-sprite');
+                charPortrait.setAttribute('style', portraitEngine.spriteStyle(selectedPortrait));
+                charPortrait.setAttribute('role', 'img');
+                charPortrait.setAttribute('aria-label', `Ritratto di ${c.name}`);
+                charPortrait.textContent = '';
+            } else if (charPortrait) {
+                charPortrait.classList.remove('portrait-sprite');
+                charPortrait.removeAttribute('style');
+                charPortrait.textContent = a.icon;
+            }
             $('char-name').textContent = c.name;
             $('char-class').textContent = `${o.name} / ${a.name} Lv. ${c.level}`;
 
@@ -10447,6 +10482,79 @@
                 .replace(/'/g, '&#39;');
         }
 
+        function portraitContext(extra = {}) {
+            const story = extra.story || G.currentStory || {};
+            return {
+                story,
+                genre: extra.genre || story.genre || G.character?.genre,
+                setting: extra.setting || story.setting,
+                ...extra
+            };
+        }
+
+        function findPortraitEntity(name) {
+            if (!name) return null;
+            if (G.character && timelineChatEngine.isSamePersonName(name, G.character.name)) return G.character;
+            return [
+                ...(G.worldMemory?.world?.actors || []),
+                ...(G.worldMemory?.npcs || []),
+                ...(G.worldMemory?.world?.factions || []),
+                ...(G.worldMemory?.factions || [])
+            ].find(entity => timelineChatEngine.isSamePersonName(entity?.name, name)) || null;
+        }
+
+        function assignPortraitsToMemory(memory = G.worldMemory, context = {}) {
+            const groups = [memory?.world?.actors, memory?.npcs, memory?.world?.factions, memory?.factions]
+                .filter(Array.isArray);
+            const assignedByName = new Map();
+            groups.flat().forEach(entity => {
+                if (!entity?.name) return;
+                const key = timelineChatEngine.keyOf(entity.name);
+                const inheritedId = assignedByName.get(key);
+                if (inheritedId && !portraitEngine.getPortrait(entity.portraitId)) entity.portraitId = inheritedId;
+                portraitEngine.assignPortrait(entity, portraitContext({ ...context, role: entity.role || entity.type || entity.category }));
+                assignedByName.set(key, entity.portraitId);
+            });
+            if (G.character) {
+                portraitEngine.assignPortrait(G.character, portraitContext({
+                    ...context,
+                    role: G.character.archetype,
+                    archetype: G.character.archetype,
+                    origin: G.character.origin
+                }));
+            }
+            return memory;
+        }
+
+        function portraitForName(name, context = {}) {
+            const entity = typeof name === 'object' && name ? name : findPortraitEntity(name);
+            const fallback = entity || { name: String(name || 'Personaggio'), role: context.role };
+            const selected = portraitEngine.choosePortrait(fallback, portraitContext(context));
+            if (entity && selected) {
+                entity.portraitId = selected.id;
+                entity.portraitSchemaVersion = portraitEngine.PORTRAIT_SCHEMA_VERSION;
+            }
+            return selected;
+        }
+
+        function portraitSpriteMarkup(name, className = '', context = {}) {
+            const portrait = portraitForName(name, context);
+            if (!portrait) return `<span class="portrait-fallback">${escapeTimelineHtml(String(name || '?').charAt(0).toUpperCase())}</span>`;
+            const safeClass = String(className || '').replace(/[^a-z0-9 _-]/gi, ' ').trim();
+            const label = typeof name === 'object' ? name.name : name;
+            return `<span class="portrait-sprite ${safeClass}" role="img" aria-label="Ritratto di ${escapeTimelineHtml(label || portrait.label)}" title="${escapeTimelineHtml(label || portrait.label)}" style="${portraitEngine.spriteStyle(portrait)}"></span>`;
+        }
+
+        function portraitActorsMarkup(actors, className = '') {
+            const unique = [];
+            (Array.isArray(actors) ? actors : []).forEach(name => {
+                if (!name || unique.some(existing => timelineChatEngine.isSamePersonName(existing, name))) return;
+                unique.push(name);
+            });
+            if (!unique.length) return '';
+            return `<span class="portrait-stack ${escapeTimelineHtml(className)}">${unique.slice(0, 3).map(name => portraitSpriteMarkup(name, 'portrait-stack-item')).join('')}</span>`;
+        }
+
         function buildStrategicAdvisorContext() {
             const management = syncBusinessManagement();
             const kingdom = syncKingdomManagement();
@@ -10978,6 +11086,35 @@
             ) || null;
         }
 
+        function eventCausalLabel(event) {
+            return String(event?.causalLabel || timelineSimulator.causalLabelFor(event?.queueKind || event?.causalKind) || '').trim();
+        }
+
+        function eventParentTitle(event) {
+            const parentId = event?.causalParentEventId;
+            if (!parentId) return '';
+            return (G.worldMemory?.events || []).find(item => item.id === parentId)?.title || '';
+        }
+
+        function eventCausalContextMarkup(event) {
+            const cause = String(event?.cause || '').trim();
+            const parentTitle = eventParentTitle(event);
+            const waitMinutes = Math.max(0, Number(event?.waitMinutes) || 0);
+            const waitText = waitMinutes ? CronacheTimeEnergy.describePassage(waitMinutes) : '';
+            if (!cause && !parentTitle && !waitText) return '';
+            const origin = parentTitle
+                ? `Sviluppa direttamente «${escapeTimelineHtml(parentTitle)}».`
+                : cause
+                    ? `Nasce da: ${escapeTimelineHtml(cause)}`
+                    : '';
+            return `<section class="event-screen-section event-causal-context">
+                <h3>Perché accade ora</h3>
+                ${origin ? `<p>${origin}</p>` : ''}
+                ${parentTitle && cause ? `<p class="event-cause-detail">${escapeTimelineHtml(cause)}</p>` : ''}
+                ${waitText ? `<small>Tempo trascorso dall’innesco: ${escapeTimelineHtml(waitText)}.</small>` : ''}
+            </section>`;
+        }
+
         function renderTimeline() {
             if (!G.worldMemory) return;
             $('timeline-current-date').textContent = getFullTimeString();
@@ -11024,11 +11161,18 @@
             const events = allEvents.filter(timelineSimulator.isMeaningfulEvent).slice(-40).reverse();
             $('timeline-events-list').innerHTML = events.length ? events.map((event, index) => {
                 const activeChat = getActiveEventChat(event.id);
+                const causalLabel = eventCausalLabel(event);
                 return `
                     <article class="timeline-event-card ${escapeTimelineHtml(event.importance || 'normal')}" data-event-index="${index}">
-                        <div class="timeline-event-icon">${timelineChatEngine.iconForEvent(event.type)}</div>
+                        <div class="timeline-event-icon-rail">
+                            <div class="timeline-event-icon">${timelineChatEngine.iconForEvent(event.type)}</div>
+                            ${portraitActorsMarkup(event.actors, 'timeline-event-portraits')}
+                        </div>
                         <div>
-                            <div class="timeline-event-date">${escapeTimelineHtml(event.occurredAt || `Turno ${event.turn || 0}`)}</div>
+                            <div class="timeline-event-meta">
+                                <span class="timeline-event-date">${escapeTimelineHtml(event.occurredAt || `Turno ${event.turn || 0}`)}</span>
+                                ${causalLabel ? `<span class="event-causal-pill">${escapeTimelineHtml(causalLabel)}</span>` : ''}
+                            </div>
                             <h4>${escapeTimelineHtml(event.title || 'Evento')}</h4>
                             <p>${escapeTimelineHtml(event.summary || '')}</p>
                             ${activeChat ? '<div class="event-chat-active">💬 Chat attiva</div>' : ''}
@@ -11238,6 +11382,10 @@
                     occurredAt: endDate,
                     seedId: seed.id,
                     queueKind: seed.kind,
+                    waitMinutes: timing.minutes,
+                    timingReason: timing.reason,
+                    causalParentSeedId: single.event.causalParentSeedId || seed.parentSeedId || '',
+                    causalParentEventId: single.event.causalParentEventId || seed.parentEventId || '',
                     source: single.event?.source || 'timeline-ai'
                 }, eventContext);
                 if (!normalizedEvent) throw new Error('Il prossimo evento non è stato costruito');
@@ -11341,6 +11489,7 @@
                 let remainingEvents = timelineSimulator.advanceEventQueue(pendingEvents, seed.id, timing.minutes);
                 const explicitFollowUps = timelineSimulator.parsePendingEventSeeds(response, {
                     parentSeed: seed,
+                    parentEvent: generatedEvent,
                     turn: eventContext.turn,
                     batchId: seed.batchId || batchId
                 });
@@ -11716,14 +11865,25 @@
                 event.conversationMode === 'required' ? 'dialogue' : event.conversationMode !== 'none' ? 'either' : 'none'
             );
             const canAct = ['action', 'either'].includes(interactionMode);
+            const causalLabel = eventCausalLabel(event);
+            const consequence = String(event.consequence || '').trim();
             $('event-screen-body').innerHTML = `
                 <div class="event-screen-hero">
                     <div class="event-screen-icon">${timelineChatEngine.iconForEvent(event.type)}</div>
+                    ${portraitActorsMarkup(event.actors, 'event-screen-cast')}
                     <div class="event-screen-date">${escapeTimelineHtml(event.occurredAt || `Turno ${event.turn || 0}`)}</div>
                 </div>
                 <div class="event-screen-content">
+                    ${causalLabel ? `<div class="event-causal-pill event-causal-pill-large">${escapeTimelineHtml(causalLabel)}</div>` : ''}
                     <h2>${escapeTimelineHtml(event.title || 'Evento')}</h2>
-                    <div class="event-screen-fact">${eventNarrativeMarkup(event)}</div>
+                    <div class="event-screen-fact">
+                        <section class="event-screen-section">
+                            <h3>Cosa è successo</h3>
+                            <p>${escapeTimelineHtml(event.summary || 'L’evento è stato registrato, ma il resoconto non è disponibile.')}</p>
+                        </section>
+                        ${consequence ? `<section class="event-screen-section event-consequence"><h3>Cosa cambia</h3><p>${escapeTimelineHtml(consequence)}</p></section>` : ''}
+                        ${eventCausalContextMarkup(event)}
+                    </div>
                     ${activeChat ? '<div class="event-chat-active">💬 Conversazione attiva per questo evento</div>' : ''}
                     <div class="event-screen-actions">
                         ${activeChat ? '<button class="btn secondary" id="btn-event-chat">💬 Apri chat</button>' : ''}
@@ -11777,7 +11937,8 @@
                 kind: item.kind || (item.type || item.category ? 'faction' : 'npc'),
                 role: item.role || item.type || item.category || item.faction || 'personaggio',
                 detail: item.publicGoal || item.goal || item.goals || item.description || item.relationship || '',
-                influence: Number(item.influence ?? item.power ?? 0) || 0
+                influence: Number(item.influence ?? item.power ?? 0) || 0,
+                portraitId: item.portraitId || ''
             })).sort((left, right) => right.influence - left.influence || left.name.localeCompare(right.name));
         }
 
@@ -11788,6 +11949,7 @@
             $('chat-invite-candidates').innerHTML = candidates.length ? candidates.map((item, index) => `
                 <label class="chat-candidate">
                     <input type="checkbox" data-candidate-index="${index}" data-candidate-name="${escapeTimelineHtml(item.name)}">
+                    ${portraitSpriteMarkup(item, 'chat-candidate-portrait', { role: item.role })}
                     <span><strong>${escapeTimelineHtml(item.name)}</strong><small>${escapeTimelineHtml(item.role)}${item.detail ? ` · ${escapeTimelineHtml(String(item.detail).slice(0, 90))}` : ''}</small></span>
                 </label>
             `).join('') : '<div class="timeline-empty">Nessun altro soggetto disponibile.</div>';
@@ -11920,6 +12082,10 @@
             const pendingSpeaker = G.pendingChatThreadId === thread.id ? G.pendingChatSpeaker : '';
             const nextSpeaker = pendingSpeaker || timelineChatEngine.chooseNextSpeaker(thread, '', {
                 events: G.worldMemory.events,
+                actors: [
+                    ...(G.worldMemory?.world?.actors || []),
+                    ...(G.worldMemory?.world?.factions || [])
+                ],
                 protagonistName: G.character?.name,
                 turn: G.worldMemory.turnCount || 0
             });
@@ -11928,18 +12094,18 @@
                 <small>${escapeTimelineHtml(thread.purpose || 'dialogo')} · ${escapeTimelineHtml(thread.occurredAt || '')}</small>
                 ${thread.agenda ? `<div class="chat-resolution"><strong>Ordine del giorno:</strong> ${escapeTimelineHtml(thread.agenda)}</div>` : ''}
                 ${nextSpeaker ? `<div class="chat-resolution"><strong>Risposta successiva:</strong> ${escapeTimelineHtml(nextSpeaker)} · un interlocutore per chiamata</div>` : ''}
-                <div class="chat-participant-chips">${thread.participants.map(name => `<span>👤 ${escapeTimelineHtml(name)}</span>`).join('')}</div>
+                <div class="chat-participant-chips">${thread.participants.map(name => `<span>${portraitSpriteMarkup(name, 'participant-portrait')} ${escapeTimelineHtml(name)}</span>`).join('')}</div>
                 ${thread.resolution?.summary ? `<div class="chat-resolution"><span class="chat-resolution-badge">${escapeTimelineHtml(thread.resolution.status)}</span> ${escapeTimelineHtml(thread.resolution.summary)}${thread.resolution.consequence ? `<br><small>Conseguenza: ${escapeTimelineHtml(thread.resolution.consequence)}</small>` : ''}</div>` : ''}
                 ${(thread.agreements || []).length ? `<div class="chat-resolution"><strong>Accordi:</strong> ${thread.agreements.map(agreement => `${escapeTimelineHtml(agreement.title)} [${escapeTimelineHtml(agreement.status)}]`).join(' · ')}</div>` : ''}`;
             const renderedMessages = thread.messages.map(message => {
                 const isPlayer = message.source === 'player' || isProtagonistChatSpeaker(message);
                 return `<div class="chat-message ${isPlayer ? 'player' : ''}">
-                    <div class="chat-avatar">${escapeTimelineHtml((message.speaker || '?').charAt(0).toUpperCase())}</div>
-                    <div class="chat-bubble"><span class="chat-speaker">${escapeTimelineHtml(message.speaker)}${message.mood ? ` · ${escapeTimelineHtml(message.mood)}` : ''}</span>${escapeTimelineHtml(message.text)}</div>
+                    <div class="chat-avatar">${portraitSpriteMarkup(message.speaker, 'chat-avatar-portrait')}</div>
+                    <div class="chat-bubble"><span class="chat-speaker">${escapeTimelineHtml(message.speaker)}${message.mood ? ` · ${escapeTimelineHtml(message.mood)}` : ''}<small class="chat-act-badge">${escapeTimelineHtml(timelineChatEngine.dialogueActLabel(message.text))}</small></span>${escapeTimelineHtml(message.text)}</div>
                 </div>`;
             }).join('');
             const pendingMarkup = pendingSpeaker ? `<div class="chat-message pending" role="status" aria-live="polite">
-                <div class="chat-avatar">${escapeTimelineHtml(pendingSpeaker.charAt(0).toUpperCase())}</div>
+                <div class="chat-avatar">${portraitSpriteMarkup(pendingSpeaker, 'chat-avatar-portrait')}</div>
                 <div class="chat-bubble"><span class="chat-speaker">${escapeTimelineHtml(pendingSpeaker)}</span>Sta preparando una risposta…</div>
             </div>` : '';
             $('chat-messages').innerHTML = (renderedMessages || '<div class="timeline-empty">La discussione è aperta. Parla direttamente alle parti coinvolte.</div>') + pendingMarkup;
@@ -12106,12 +12272,18 @@
             );
             const prompt = timelineChatEngine.buildChatPrompt(activeThread, playerText, {
                 events: G.worldMemory.events,
+                actors: [
+                    ...(G.worldMemory?.world?.actors || []),
+                    ...(G.worldMemory?.world?.factions || [])
+                ],
                 turn: G.worldMemory.turnCount || 0,
                 protagonistName: G.character?.name,
                 nextSpeaker,
                 triggerMessage,
                 triggerSpeaker,
                 autonomous,
+                actor,
+                speakerProfile: actor || undefined,
                 eventSummary: event ? `${event.summary}. Conseguenza: ${event.consequence || 'nessuna'}` : '',
                 actorContext,
                 continuityPrompt: CronacheMemory.buildContinuityContext(G.worldMemory, {
@@ -12141,6 +12313,7 @@
                         threadId: activeThread.id,
                         eventId: activeThread.eventId,
                         eventTitle: activeThread.eventTitle,
+                        replyToId: activeThread.messages.slice(-1)[0]?.id,
                         event
                     })
                         .filter(message => !isProtagonistChatSpeaker(message))
@@ -12166,7 +12339,12 @@
                     nextSpeaker,
                     triggerSpeaker,
                     autonomous,
-                    actor
+                    actor,
+                    actors: [
+                        ...(G.worldMemory?.world?.actors || []),
+                        ...(G.worldMemory?.world?.factions || [])
+                    ],
+                    replyToId: activeThread.messages.slice(-1)[0]?.id
                 });
                 replies = fallbackReply ? [fallbackReply] : [];
                 usedLocalFallback = Boolean(fallbackReply);
@@ -12244,6 +12422,10 @@
             queueTimelineChoice(`Nella chat «${thread.title}»: ${text}`, 'world-chat');
             const speakerRound = timelineChatEngine.chooseSpeakerRound(activeThread, text, {
                 events: G.worldMemory.events,
+                actors: [
+                    ...(G.worldMemory?.world?.actors || []),
+                    ...(G.worldMemory?.world?.factions || [])
+                ],
                 protagonistName: G.character?.name,
                 turn: G.worldMemory.turnCount || 0,
                 maxSpeakers: 2
@@ -14114,6 +14296,27 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 ).join('') + '</div>' : '<p>Nessun oggetto iniziale previsto.</p>');
         }
 
+        function renderCreationPortraits(story, genreKey, genreCfg) {
+            const root = $('portrait-grid');
+            if (!root) return;
+            const options = portraitEngine.listPortraits(portraitContext({ story, genre: genreKey }));
+            const archetype = genreCfg.archetypes?.[G.selectedArchetype] || {};
+            if (!options.some(item => item.id === G.selectedPortrait)) {
+                G.selectedPortrait = portraitEngine.choosePortrait({
+                    name: $('new-game-name')?.value.trim() || 'Protagonista',
+                    role: archetype.name,
+                    archetype: G.selectedArchetype,
+                    origin: G.selectedOrigin
+                }, portraitContext({ story, genre: genreKey }))?.id || options[0]?.id || null;
+            }
+            root.innerHTML = options.map(item => `
+                <button type="button" class="portrait-choice ${G.selectedPortrait === item.id ? 'selected' : ''}" data-portrait-id="${escapeCreationText(item.id)}" aria-pressed="${G.selectedPortrait === item.id}">
+                    ${portraitSpriteMarkup({ name: item.label, portraitId: item.id }, 'portrait-choice-image', { story, genre: genreKey })}
+                    <span>${escapeCreationText(item.label)}</span>
+                </button>
+            `).join('');
+        }
+
         function renderCreationOptions() {
             const storyIdx = parseInt($('new-game-story').value) || 0;
             const story = G.stories[storyIdx] || G.stories[0] || {};
@@ -14144,6 +14347,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     <span class="creation-desc">${escapeCreationText(v.desc)}</span>
                 </button>
             `).join('');
+            renderCreationPortraits(story, genreKey, genreCfg);
             renderCreationLoadout(genreCfg);
         }
 
@@ -14311,7 +14515,12 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             $('btn-generate-story').onclick = generateStoryFromEditor;
 
             // NEW GAME
-            $('new-game-story').onchange = () => { G.selectedOrigin = null; G.selectedArchetype = null; renderCreationOptions(); };
+            $('new-game-story').onchange = () => {
+                G.selectedOrigin = null;
+                G.selectedArchetype = null;
+                G.selectedPortrait = null;
+                renderCreationOptions();
+            };
             $('origin-grid').onclick = e => {
                 const opt = e.target.closest('.creation-option');
                 if (opt) {
@@ -14331,8 +14540,20 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     G.selectedArchetype = opt.dataset.archetype;
                     opt.setAttribute('aria-pressed', 'true');
                     const storyIdx = parseInt($('new-game-story').value) || 0;
-                    renderCreationLoadout(getGenreConfig(G.stories[storyIdx] || G.stories[0] || {}));
+                    const story = G.stories[storyIdx] || G.stories[0] || {};
+                    const genreCfg = getGenreConfig(story);
+                    renderCreationPortraits(story, resolveGenreKey(story), genreCfg);
+                    renderCreationLoadout(genreCfg);
                 }
+            };
+            $('portrait-grid').onclick = e => {
+                const opt = e.target.closest('.portrait-choice');
+                if (!opt) return;
+                $$('#portrait-grid .portrait-choice').forEach(item => {
+                    item.classList.toggle('selected', item === opt);
+                    item.setAttribute('aria-pressed', String(item === opt));
+                });
+                G.selectedPortrait = opt.dataset.portraitId;
             };
             $('btn-start-game').onclick = startNewGame;
 

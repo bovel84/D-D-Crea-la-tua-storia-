@@ -8,6 +8,7 @@ const worldBootstrapApi = require('../js/world-bootstrap.js');
 const eventApi = require('../js/event-manager.js');
 const timelineChatApi = require('../js/timeline-chat.js');
 const timelineSimulatorApi = require('../js/timeline-simulator.js');
+const portraitApi = require('../js/portrait-manager.js');
 const strategicAdvisorApi = require('../js/strategic-advisor.js');
 const narrativeApi = require('../js/narrative-master.js');
 const ollamaApi = require('../js/ollama-cloud.js');
@@ -345,7 +346,28 @@ test('la risposta a una mossa autonoma del mondo resta in coda', () => {
     }, null, { parentSeed, turn: 5, batchId: 'world-batch' });
     assert.equal(followUps.length, 1);
     assert.equal(followUps[0].kind, 'world_reply');
+    assert.equal(followUps[0].parentEventId, 'event-world-first');
     assert.match(followUps[0].cause, /mercanti/i);
+});
+
+test('gli eventi conservano etichetta e allineamento con la propria causa', () => {
+    const seed = timelineSimulatorApi.normalizeEventSeed({
+        id: 'action-credit', kind: 'player_action', title: 'Negoziare il credito',
+        cause: 'Il protagonista convoca Jacopo Gherardi per riaprire il credito',
+        actors: ['Jacopo Gherardi']
+    });
+    const aligned = {
+        title: 'Jacopo riapre il tavolo',
+        summary: 'Jacopo Gherardi convoca i banchieri. Il credito può ripartire con nuove garanzie.',
+        cause: seed.cause, actors: ['Jacopo Gherardi'], consequence: 'La trattativa torna attiva.'
+    };
+    const unrelated = {
+        title: 'La flotta parte', summary: 'I marinai salpano dal porto. Una tempesta oscura l’orizzonte.',
+        cause: 'Il capitano ordina la partenza', actors: ['Capitano Riva'], consequence: 'Le navi lasciano la rada.'
+    };
+    assert.equal(timelineSimulatorApi.causalLabelFor(seed.kind), 'Risposta alla tua azione');
+    assert.ok(timelineSimulatorApi.causalAlignmentScore(aligned, seed) >= 2);
+    assert.ok(timelineSimulatorApi.causalAlignmentScore(unrelated, seed) < 2);
 });
 
 test('il tempo del prossimo evento può variare da minuti ad anni', () => {
@@ -364,6 +386,7 @@ test('il tempo del prossimo evento può variare da minuti ad anni', () => {
     assert.equal(queued.length, 1);
     assert.equal(queued[0].notBeforeMinutes, 2880);
     assert.equal(queued[0].interactionMode, 'dialogue');
+    assert.equal(queued[0].parentSeedId, 'dyn');
 });
 
 test('risolve ogni azione strategica e conserva anche le reazioni del mondo', () => {
@@ -887,6 +910,59 @@ test('le risposte di una chat multi-NPC vengono selezionate una alla volta', () 
     assert.match(autonomousPrompt, /ULTIMA BATTUTA DI Elara Vey/);
     assert.match(autonomousPrompt, /partecipante autonomo/);
     assert.match(autonomousPrompt, /personalità deve essere udibile/i);
+});
+
+test('i dialoghi riconoscono lo snodo precedente e il profilo del prossimo PNG', () => {
+    const thread = timelineChatApi.normalizeThread({
+        id: 'chat-snodo', eventTitle: 'Consiglio del porto', participants: ['Lorenzo', 'Elara Vey'],
+        messages: [{
+            id: 'msg-proposta', speaker: 'Lorenzo', speakerType: 'protagonista', source: 'player',
+            text: 'Propongo una tregua di trenta giorni in cambio del passaggio delle navi.', target: 'Elara Vey'
+        }]
+    }, { protagonistName: 'Lorenzo', turn: 4 });
+    assert.equal(timelineChatApi.classifyDialogueAct(thread.messages[0].text), 'proposal');
+    const state = timelineChatApi.buildDialogueState(thread, { protagonistName: 'Lorenzo' });
+    assert.equal(state.lastAct, 'proposal');
+    assert.equal(state.directTarget, 'Elara Vey');
+    const prompt = timelineChatApi.buildChatPrompt(thread, thread.messages[0].text, {
+        protagonistName: 'Lorenzo', nextSpeaker: 'Elara Vey',
+        speakerProfile: {
+            publicGoal: 'tenere aperto il porto', strategy: 'ottenere garanzie scritte',
+            resources: 'la flotta mercantile', personality: 'ferma e misurata'
+        }
+    });
+    assert.match(prompt, /PROFILO DEL PARLANTE \(Elara Vey\)/);
+    assert.match(prompt, /SNODO ATTUALE: proposta concreta/);
+    assert.match(prompt, /tenere aperto il porto/);
+});
+
+test('assegna ritratti persistenti e coerenti con epoca e ruolo', () => {
+    const historical = portraitApi.listPortraits({ story: { genre: 'historical', setting: 'Firenze 1478' } });
+    const modern = portraitApi.listPortraits({ story: { genre: 'modern', setting: 'Milano contemporanea' } });
+    assert.equal(historical.length, 6);
+    assert.equal(modern.length, 6);
+    assert.ok(historical.every(item => item.family === 'chronicle'));
+    assert.ok(modern.every(item => item.family === 'modern'));
+    const healer = { name: 'Mirella', role: 'guaritrice e alchimista' };
+    portraitApi.assignPortrait(healer, { story: { genre: 'fantasy' } });
+    assert.equal(healer.portraitId, 'chronicle-healer');
+    assert.equal(healer.portraitSchemaVersion, portraitApi.PORTRAIT_SCHEMA_VERSION);
+    assert.equal(
+        portraitApi.choosePortrait({ name: 'Jacopo Gherardi' }, { story: { genre: 'historical' } }).id,
+        portraitApi.choosePortrait({ name: 'Jacopo Gherardi' }, { story: { genre: 'historical' } }).id
+    );
+    assert.match(portraitApi.spriteStyle(healer.portraitId), /chronicle-cast-v1\.webp/);
+});
+
+test('gli atlanti dei protagonisti sono immagini 3 per 2 pronte per il gioco', () => {
+    ['chronicle-cast-v1.webp', 'modern-cast-v1.webp'].forEach(filename => {
+        const file = fs.readFileSync(path.join(__dirname, '..', 'assets', 'portraits', filename));
+        assert.equal(file.subarray(0, 4).toString('ascii'), 'RIFF');
+        assert.equal(file.subarray(8, 12).toString('ascii'), 'WEBP');
+        assert.equal(file.subarray(12, 16).toString('ascii'), 'VP8X');
+        assert.equal(file.readUIntLE(24, 3) + 1, 600);
+        assert.equal(file.readUIntLE(27, 3) + 1, 400);
+    });
 });
 
 test('la chat unifica il protagonista, riconosce i nomi brevi e accetta una risposta Cloud in prosa', () => {
@@ -2621,9 +2697,10 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
 
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260811-chat-5"/);
-    assert.match(html, /src="js\/timeline-chat\.js\?v=20260811-chat-5"/);
-    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260811-causal-6"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
+    assert.match(html, /src="js\/timeline-chat\.js\?v=20260814-dialogue-6"/);
+    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260814-causal-7"/);
+    assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-1"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);
@@ -2670,7 +2747,11 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /Prepara azione/);
     assert.match(html, /Conversazione attiva per questo evento/);
     assert.match(html, /G\.worldMemory\.lastTimelineEventId = generatedEvent\.id/);
-    assert.match(html, /eventNarrativeMarkup\(event\)/);
+    assert.match(html, /function eventCausalContextMarkup/);
+    assert.match(html, /Cosa è successo/);
+    assert.match(html, /Cosa cambia/);
+    assert.match(html, /Perché accade ora/);
+    assert.match(html, /portraitActorsMarkup\(event\.actors/);
     assert.doesNotMatch(html, /class="timeline-event-tags"/);
     assert.doesNotMatch(html, /class="event-screen-meta"/);
     assert.doesNotMatch(html, /Convoca le parti/);
@@ -2705,7 +2786,7 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
 
 test('integra la creazione iniziale del mondo con narrazione, timeline e chat', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260811-chat-5"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
     assert.match(html, /worldBootstrapEngine\.buildBootstrapPrompt/);
     assert.match(html, /worldBootstrapEngine\.ingestResponse/);
     assert.match(html, /worldBootstrapEngine\.projectToMemory/);
@@ -2717,6 +2798,21 @@ test('integra la creazione iniziale del mondo con narrazione, timeline e chat', 
     assert.match(html, /function repairTimelineWorldIfNeeded/);
     assert.match(html, /Mondo creato:/);
     assert.match(html, /isStart \? 3600/);
+});
+
+test('integra la scelta del volto e i ritratti persistenti nell’interfaccia', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
+    assert.match(html, /id="portrait-grid"/);
+    assert.match(html, /selectedPortrait/);
+    assert.match(html, /function renderCreationPortraits/);
+    assert.match(html, /function assignPortraitsToMemory/);
+    assert.match(html, /portraitEngine\.assignPortrait\(G\.character/);
+    assert.match(html, /participant-portrait/);
+    assert.match(html, /chat-avatar-portrait/);
+    assert.match(css, /\.portrait-choice-grid/);
+    assert.match(css, /\.portrait-sprite/);
+    assert.match(css, /\.event-screen-cast/);
 });
 
 test('espone coerentemente la versione applicativa 2.0', () => {

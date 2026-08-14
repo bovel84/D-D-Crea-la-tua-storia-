@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const CHAT_SCHEMA_VERSION = 4;
+    const CHAT_SCHEMA_VERSION = 5;
     const MAX_THREADS = 60;
     const MAX_MESSAGES_PER_THREAD = 80;
     const SPEAKER_TYPES = ['protagonista', 'npc', 'fazione', 'regno', 'gruppo'];
@@ -104,6 +104,26 @@
         const text = cleanText(value, 1400);
         if (!text || source === 'player' || speaksInFirstPerson(text)) return text;
         return `Io dichiaro: ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+    }
+
+    function classifyDialogueAct(value) {
+        const raw = cleanText(value, 1600);
+        const text = keyOf(raw);
+        if (/\b(accetto|accettiamo|approvo|approviamo|confermo|confermiamo|firmo|firmiamo|aderisco|aderiamo|va bene)\b/.test(text)) return 'acceptance';
+        if (/\b(rifiuto|rifiutiamo|respingo|respingiamo|non accetto|non approvo|impossibile)\b/.test(text)) return 'refusal';
+        if (/\b(minaccio|ultimatum|altrimenti|pagherai|attacch|punir|ritorsion|conseguenze)\b/.test(text)) return 'threat';
+        if (/\b(propongo|proponiamo|offro|offriamo|condizione|termini|garanzia|accordo|contratto|patto|prestito)\b/.test(text)) return 'proposal';
+        if (raw.includes('?') || /^(chi|cosa|come|quando|dove|perche|quale|quali|quanto|puoi|potete|vuoi|volete)\b/.test(text)) return 'question';
+        if (/\b(so|sappiamo|ho scoperto|abbiamo scoperto|confermo che|risulta|prova|documento|lettera|notizia)\b/.test(text)) return 'information';
+        return 'position';
+    }
+
+    function dialogueActLabel(value) {
+        return {
+            acceptance: 'accettazione', refusal: 'rifiuto', threat: 'pressione o minaccia',
+            proposal: 'proposta concreta', question: 'domanda aperta', information: 'nuova informazione',
+            position: 'presa di posizione'
+        }[classifyDialogueAct(value)] || 'presa di posizione';
     }
 
     function findEvent(events, reference) {
@@ -213,6 +233,8 @@
             text,
             target: cleanText(input.target, 100),
             mood: cleanText(input.mood || 'neutrale', 40),
+            act: cleanText(input.act || classifyDialogueAct(text), 30),
+            replyToId: cleanText(input.replyToId || context.replyToId, 160),
             turn,
             occurredAt: cleanText(input.occurredAt || event?.occurredAt || context.occurredAt, 100),
             source: messageSource
@@ -276,6 +298,64 @@
             occurredAt: cleanText(input.occurredAt || event?.occurredAt || context.occurredAt, 100),
             importance: cleanText(input.importance || event?.importance || 'normal', 20)
         };
+    }
+
+    function buildDialogueState(thread, context = {}) {
+        const item = normalizeThread(thread, context);
+        const lastMessage = item.messages[item.messages.length - 1] || null;
+        const lastAct = lastMessage?.act || classifyDialogueAct(lastMessage?.text || '');
+        const latestProposal = [...item.messages].reverse().find(message =>
+            (message.act || classifyDialogueAct(message.text)) === 'proposal'
+        ) || null;
+        const latestQuestion = [...item.messages].reverse().find(message =>
+            (message.act || classifyDialogueAct(message.text)) === 'question'
+        ) || null;
+        const directTarget = cleanText(lastMessage?.target, 100);
+        return {
+            lastMessage,
+            lastAct,
+            lastActLabel: dialogueActLabel(lastMessage?.text || ''),
+            lastSpeaker: cleanText(lastMessage?.speaker, 100),
+            directTarget,
+            latestProposal,
+            latestQuestion,
+            resolutionStatus: item.resolution.status,
+            openAgreementCount: item.agreements.filter(agreement =>
+                !['rejected', 'broken', 'fulfilled'].includes(agreement.status)
+            ).length
+        };
+    }
+
+    function actorProfileFor(name, context = {}) {
+        const actor = asArray(context.actors || context.worldActors).find(item =>
+            isSamePersonName(item?.name, name)
+        ) || (context.actor && (!context.actor.name || isSamePersonName(context.actor.name, name))
+            ? context.actor
+            : null) || {};
+        return {
+            name: cleanText(actor.name || name, 100),
+            role: cleanText(actor.role || actor.title || actor.type, 120),
+            publicGoal: cleanText(actor.publicGoal || actor.goal || actor.goals, 320),
+            privateGoal: cleanText(actor.privateGoal || actor.hiddenGoal, 320),
+            strategy: cleanText(actor.strategy || actor.plan, 320),
+            resources: cleanText(actor.resources || actor.leverage, 320),
+            personality: cleanText(actor.personality || actor.traits, 240),
+            constraints: cleanText(actor.constraints || actor.limits, 260),
+            influence: Math.max(0, Math.min(100, Number(actor.influence) || 0)),
+            status: cleanText(actor.status, 60)
+        };
+    }
+
+    function formatActorProfile(profile) {
+        const entries = [
+            ['ruolo', profile.role], ['obiettivo pubblico', profile.publicGoal],
+            ['obiettivo privato', profile.privateGoal], ['strategia', profile.strategy],
+            ['risorse e leve', profile.resources], ['personalità', profile.personality],
+            ['vincoli', profile.constraints]
+        ].filter(([, value]) => value);
+        return entries.length
+            ? entries.map(([label, value]) => `${label}: ${value}`).join('; ')
+            : 'nessun profilo aggiuntivo; usa soltanto i fatti già registrati';
     }
 
     function migrateChats(chats, context = {}) {
@@ -480,14 +560,30 @@
             return { name, score: matched.reduce((total, token) => total + token.length, 0) };
         }).filter(item => item.score > 0).sort((left, right) => right.score - left.score)[0];
         if (addressed) return addressed.name;
+        const state = buildDialogueState(item, context);
+        const directTarget = candidates.find(name =>
+            state.directTarget && isSamePersonName(name, state.directTarget)
+        );
+        if (directTarget && !isSamePersonName(directTarget, state.lastSpeaker)) return directTarget;
         const counts = new Map(candidates.map(name => [keyOf(name), 0]));
+        const lastSpokenAt = new Map(candidates.map(name => [keyOf(name), -1]));
         item.messages.forEach(message => {
             const candidate = candidates.find(name => isSamePersonName(name, message.speaker));
             const speakerKey = keyOf(candidate);
             if (candidate && counts.has(speakerKey)) counts.set(speakerKey, counts.get(speakerKey) + 1);
+            if (candidate) lastSpokenAt.set(speakerKey, item.messages.indexOf(message));
         });
-        const minimum = Math.min(...counts.values());
-        return candidates.find(name => counts.get(keyOf(name)) === minimum) || candidates[0];
+        return candidates.slice().sort((left, right) => {
+            const leftProfile = actorProfileFor(left, context);
+            const rightProfile = actorProfileFor(right, context);
+            const leftRepeated = isSamePersonName(left, state.lastSpeaker) ? 1 : 0;
+            const rightRepeated = isSamePersonName(right, state.lastSpeaker) ? 1 : 0;
+            return leftRepeated - rightRepeated ||
+                Number(counts.get(keyOf(left)) || 0) - Number(counts.get(keyOf(right)) || 0) ||
+                Number(lastSpokenAt.get(keyOf(left)) ?? -1) - Number(lastSpokenAt.get(keyOf(right)) ?? -1) ||
+                rightProfile.influence - leftProfile.influence ||
+                candidates.indexOf(left) - candidates.indexOf(right);
+        })[0] || candidates[0];
     }
 
     function chooseSpeakerRound(thread, playerMessage = '', context = {}) {
@@ -545,6 +641,10 @@
         const purpose = keyOf(item.purpose);
         const statementKey = keyOf(playerMessage);
         const personality = keyOf(context.actor?.personality || context.personality);
+        const actorProfile = actorProfileFor(speaker, context);
+        const publicGoal = actorProfile.publicGoal || actorProfile.strategy || 'proteggere i miei interessi';
+        const resources = actorProfile.resources || 'le risorse che controllo';
+        const dialogueAct = classifyDialogueAct(context.triggerMessage || playerMessage);
         const triggerSpeaker = cleanText(context.triggerSpeaker, 100);
         const target = triggerSpeaker && !isSamePersonName(triggerSpeaker, speaker)
             ? triggerSpeaker
@@ -562,9 +662,21 @@
                 text = `Io comprendo la posizione di ${triggerSpeaker}, ma su ${agenda} devo aggiungere la mia. Posso collaborare soltanto se il mio ruolo, le risorse disponibili e la responsabilità di ciascuno vengono chiariti prima della decisione.`;
                 mood = 'partecipe';
             }
-        } else if (/\b(accetto|accettiamo|va bene|firmiamo|confermo|confermiamo)\b/.test(statementKey)) {
+        } else if (dialogueAct === 'acceptance' || /\b(accetto|accettiamo|va bene|firmiamo|confermo|confermiamo)\b/.test(statementKey)) {
             text = `Io registro la tua disponibilità, ma prima di considerare chiuso l'accordo su ${agenda} voglio che importo, obblighi, garanzie e scadenza siano messi per iscritto. Confermi questi termini senza altre condizioni?`;
             mood = 'concreto';
+        } else if (dialogueAct === 'refusal') {
+            text = `Io prendo atto del tuo rifiuto su ${agenda}, ma il problema resta aperto. Per perseguire ${publicGoal}, quale condizione concreta dovrebbe cambiare perché tu riapra la trattativa?`;
+            mood = 'fermo';
+        } else if (dialogueAct === 'threat') {
+            text = `Io ho compreso la minaccia, ma non deciderò sotto pressione. Se vuoi evitare che io impieghi ${resources} per ${publicGoal}, quale garanzia verificabile offri adesso?`;
+            mood = 'teso';
+        } else if (dialogueAct === 'question') {
+            text = `Io rispondo per ciò che conosco: il mio obiettivo è ${publicGoal}, e posso contare su ${resources}. Quale parte di questa posizione vuoi trasformare in un impegno preciso?`;
+            mood = 'diretto';
+        } else if (dialogueAct === 'proposal') {
+            text = `Io valuto la proposta alla luce del mio obiettivo, ${publicGoal}. Posso prenderla in considerazione soltanto se chiarisci cosa ricevo, cosa devo impegnare e chi risponde del fallimento: quali termini metti per iscritto?`;
+            mood = 'negoziale';
         } else if (/contratt|negozia|diplomaz|trattat/.test(purpose)) {
             text = `Io sono disposto a discutere ${agenda}, ma voglio una garanzia concreta e termini che tutelino anche i miei interessi. Quale concessione sei disposto a mettere per iscritto?`;
         } else if (/strateg/.test(purpose)) {
@@ -588,7 +700,7 @@
             turn: context.turn,
             occurredAt: context.occurredAt || item.occurredAt,
             source: 'local-fallback'
-        }, context);
+        }, { ...context, replyToId: context.replyToId || buildDialogueState(item, context).lastMessage?.id });
     }
 
     function parseOutcomeTags(response, context = {}) {
@@ -723,6 +835,13 @@
         const triggerSpeaker = cleanText(context.triggerSpeaker, 100);
         const triggerMessage = cleanText(context.triggerMessage || playerMessage, 1400);
         const autonomousExchange = Boolean(context.autonomous && triggerSpeaker);
+        const dialogueState = buildDialogueState(item, context);
+        const speakerProfile = context.speakerProfile && typeof context.speakerProfile === 'object'
+            ? { ...actorProfileFor(nextSpeaker, context), ...context.speakerProfile }
+            : actorProfileFor(nextSpeaker, context);
+        const profileText = formatActorProfile(speakerProfile);
+        const lastAct = classifyDialogueAct(triggerMessage || dialogueState.lastMessage?.text || '');
+        const replyTarget = triggerSpeaker || dialogueState.lastSpeaker || context.protagonistName || 'protagonista';
         const triggerBlock = autonomousExchange
             ? `MESSAGGIO ORIGINALE DEL PROTAGONISTA: ${cleanText(playerMessage, 1400)}\nULTIMA BATTUTA DI ${triggerSpeaker}: ${triggerMessage}`
             : `IL PROTAGONISTA DICE: ${triggerMessage}`;
@@ -737,6 +856,8 @@ ACCORDI ESISTENTI: ${activeAgreements}
 CONTESTO: ${cleanText(context.eventSummary, 2000) || 'Usa i fatti registrati nell’evento.'}
 CANONE DELLA CAMPAGNA: ${cleanText(context.continuityPrompt, 12000) || 'Continua esclusivamente dai fatti e dai nomi già registrati.'}
 CONTESTO DELLE PARTI: ${cleanText(context.actorContext, 6000) || 'Mantieni identità, obiettivi e risorse già stabiliti.'}
+PROFILO DEL PARLANTE (${nextSpeaker}): ${cleanText(profileText, 1800)}
+SNODO ATTUALE: ${dialogueActLabel(triggerMessage)} di ${replyTarget}; atto=${lastAct}; destinatario esplicito=${dialogueState.directTarget || 'nessuno'}.
 CONVERSAZIONE RECENTE:
 ${history}
 
@@ -776,6 +897,9 @@ Usa active soltanto se tutte le parti necessarie hanno accettato esplicitamente 
         ensureFirstPerson,
         normalizeMessage,
         normalizeThread,
+        classifyDialogueAct,
+        dialogueActLabel,
+        buildDialogueState,
         migrateChats,
         parseChatTags,
         parseChatResponse,
