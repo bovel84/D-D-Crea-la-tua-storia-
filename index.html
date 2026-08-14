@@ -3807,7 +3807,7 @@
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
-    <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-2"></script>
+    <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-3"></script>
     <script src="js/ollama-cloud.js?v=20260814-llm-efficiency-1"></script>
     <script src="js/experience-v7.js?v=20260814-mobile-dock-2"></script>
     <script>
@@ -10007,7 +10007,11 @@
                     const result = await ollamaClient.generate(compacted.messages, {
                         apiKey: provider.apiKey,
                         nativeProxy: config.nativeProxy,
-                        preferredModels: [provider.model, ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])],
+                        preferredModels: CronacheAI.orderModelsForTask(
+                            task,
+                            provider.model,
+                            Array.isArray(config.fallbackOrder) ? config.fallbackOrder : []
+                        ),
                         discoveredModels: config.discoveredModels,
                         maxTokens: profile.maxOutputTokens,
                         maxAttempts: profile.maxAttempts,
@@ -10067,8 +10071,8 @@
                 { role: 'user', content: prompt }
             ];
             return requestConfiguredAI(messages, {
-                task: 'timeline', maxTokens, maxAttempts: 1,
-                timeoutMs: Math.max(20000, Number(options.timeoutMs) || 40000)
+                task: 'timeline', maxTokens, maxAttempts: 3,
+                timeoutMs: Math.max(20000, Number(options.timeoutMs) || 35000)
             });
         }
 
@@ -10082,7 +10086,7 @@
                 { role: 'user', content: prompt }
             ];
             return requestConfiguredAI(messages, {
-                task: 'strategic', maxTokens, maxAttempts: 1, timeoutMs: 35000,
+                task: 'strategic', maxTokens, maxAttempts: 3, timeoutMs: 30000,
                 cacheTtlMs: Math.max(0, Number(options.cacheTtlMs) || 300000)
             });
         }
