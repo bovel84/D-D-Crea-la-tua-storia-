@@ -412,8 +412,19 @@
 .orbit-world { background: linear-gradient(145deg,#b887dd,#54247b); color:#fff; }.orbit-life { background:linear-gradient(145deg,#ec7d76,#8f1715); color:#fff; }.orbit-game { background:linear-gradient(145deg,#f8d677,#9b651b); }
 .top-menu-time { margin:0; text-align:center; font:700 1.05rem 'Cinzel',serif; color:var(--ink); }.top-menu-time small { font:400 .75rem system-ui,sans-serif; }
 .portrait-topbar ~ .topbar-row { display:none !important; }
-.topbar-protagonist .portrait-sprite { background-image: var(--portrait-image); background-size: var(--portrait-size); background-position: var(--portrait-position); background-repeat:no-repeat; }
+.topbar-protagonist .portrait-image-host { overflow: hidden; background:#322033; }
 @media (min-width: 701px) { .portrait-topbar { min-height:100px; } }
+.portrait-image {
+    display: block;
+    flex: 0 0 auto;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 50%;
+    background: #322033;
+    box-shadow: 0 2px 8px rgba(28, 13, 9, .24);
+}
+.portrait-image-host { overflow: hidden; border-radius: 50%; background:#322033; }
+.portrait-image-host > .portrait-image { width:100%; height:100%; }
 .portrait-sprite {
     display: inline-block;
     flex: 0 0 auto;
@@ -460,7 +471,8 @@
     transform: translateY(-1px);
 }
 .portrait-choice-image { width: 68px; height: 68px; border: 2px solid rgba(255, 255, 255, .8); }
-.char-portrait.portrait-sprite {
+.char-portrait.portrait-sprite,
+.char-portrait.portrait-image-host {
     display: block;
     width: 116px;
     height: 116px;
@@ -474,6 +486,7 @@
     height: 30px;
     margin-left: -7px;
     border: 2px solid #fff;
+    object-fit: cover;
 }
 .timeline-event-icon-rail { display: grid; justify-items: center; gap: 5px; }
 .timeline-event-icon-rail .portrait-stack { padding-left: 4px; }
@@ -531,6 +544,40 @@
 }
 .chat-candidate { align-items: center; }
 .chat-candidate-portrait { width: 38px; height: 38px; border: 2px solid rgba(107, 46, 155, .18); }
+
+/* v11: la corona superiore è l'unica navigazione; in basso resta il compositore */
+.command-proxies { display: none !important; }
+.top-popup-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; }
+.top-popup-grid .btn { width:100%; min-height:48px; }
+.ux-v7-ready .input-area {
+    padding: 7px 9px calc(7px + var(--ux-safe-bottom));
+    background: linear-gradient(180deg, rgba(242,232,202,.94), rgba(218,202,164,.98));
+    border-top: 1px solid rgba(159,105,19,.42);
+    box-shadow: 0 -7px 20px rgba(44,24,16,.14);
+}
+.ux-v7-ready .input-row {
+    gap: 7px;
+    padding: 5px;
+    border: 1px solid rgba(92,64,48,.2);
+    border-radius: 22px;
+    background: rgba(255,255,255,.9);
+    box-shadow: 0 5px 16px rgba(44,24,16,.12);
+}
+.ux-v7-ready #action-input { border:0; background:transparent; box-shadow:none; }
+.ux-v7-ready #btn-send { width:48px; min-width:48px; padding:0; border-radius:17px; }
+.strategic-free-action {
+    display:grid;
+    gap:8px;
+    margin-top:14px;
+    padding:13px;
+    border:1px solid rgba(107,46,155,.25);
+    border-radius:14px;
+    background:linear-gradient(135deg,rgba(107,46,155,.08),rgba(201,162,39,.1));
+}
+.strategic-free-action strong,.strategic-free-action small { display:block; }
+.strategic-free-action small { margin-top:3px; color:var(--ink-light); }
+.strategic-free-action textarea { width:100%; resize:vertical; min-height:78px; padding:10px 11px; border:1px solid rgba(92,64,48,.25); border-radius:10px; font:1rem 'Crimson Text',serif; color:var(--ink); background:rgba(255,255,255,.88); }
+.strategic-free-action button { min-height:44px; border:0; border-radius:11px; color:#fff; background:linear-gradient(135deg,#6d28d9,#a21caf); font:700 .86rem 'Cinzel',serif; cursor:pointer; }
 .chat-candidate > span:last-child { flex: 1; min-width: 0; }
 .chat-act-badge {
     display: inline-block;
