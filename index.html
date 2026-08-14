@@ -3795,7 +3795,7 @@
     <script src="js/event-manager.js"></script>
     <script src="js/timeline-chat.js?v=20260814-dialogue-6"></script>
     <script src="js/timeline-simulator.js?v=20260814-causal-7"></script>
-    <script src="js/strategic-advisor.js?v=20260814-strategy-5"></script>
+    <script src="js/strategic-advisor.js?v=20260814-strategy-6"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
@@ -3808,7 +3808,7 @@
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
     <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-4"></script>
-    <script src="js/ollama-cloud.js?v=20260814-ollama-content-2"></script>
+    <script src="js/ollama-cloud.js?v=20260814-ollama-content-3"></script>
     <script src="js/experience-v7.js?v=20260814-mobile-dock-2"></script>
     <script>
         // ==================== GAME STATE ====================
@@ -10014,7 +10014,8 @@
                         maxTokens: profile.maxOutputTokens,
                         maxAttempts: profile.maxAttempts,
                         timeoutMs: profile.timeoutMs,
-                        temperature: profile.temperature
+                        temperature: profile.temperature,
+                        format: options.format
                     });
                     if (result.attemptedModels.length > 1) {
                         console.warn(`Fallback Ollama riuscito con ${result.model}; tentativi: ${result.attemptedModels.join(' → ')}`);
@@ -10085,6 +10086,7 @@
             ];
             return requestConfiguredAI(messages, {
                 task: 'strategic', maxTokens, maxAttempts: 3, timeoutMs: 55000,
+                format: 'json',
                 cacheTtlMs: Math.max(0, Number(options.cacheTtlMs) || 0)
             });
         }

@@ -243,7 +243,8 @@
                     ...common,
                     temperature,
                     top_p: topP,
-                    max_tokens: maxTokens || 1500
+                    max_tokens: maxTokens || 1500,
+                    ...(config?.format === 'json' ? { response_format: { type: 'json_object' } } : {})
                 }
                 : {
                     ...common,
@@ -251,6 +252,7 @@
                     // questo flag i modelli reasoning possono consumare il budget nel
                     // campo thinking e restituire message.content vuoto.
                     think: config?.think === true,
+                    ...(config?.format ? { format: config.format } : {}),
                     options: nativeOptions
                 };
 

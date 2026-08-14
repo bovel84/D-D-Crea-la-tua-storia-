@@ -1156,8 +1156,8 @@ test('il consigliere strategico usa soltanto informazioni note al protagonista',
     assert.equal(Object.hasOwn(publicState.knownActors[0], 'knowledge'), false);
     const prompt = strategicAdvisorApi.buildPrompt(context);
     assert.match(prompt, /PIANO AZIONI — JSON COMPATTO OBBLIGATORIO/);
-    assert.match(prompt, /ESATTAMENTE 4 questioni brevi/);
-    assert.match(prompt, /ESATTAMENTE 2 azioni alternative/);
+    assert.match(prompt, /Genera 3 questioni brevi/);
+    assert.match(prompt, /2 azioni alternative/);
     assert.doesNotMatch(prompt, /Consegnare Firenze ai Medici|Conosce i congiurati/);
 });
 
@@ -1209,6 +1209,46 @@ test('recupera il piano Ollama da ragionamento, contenitori alternativi e virgol
     assert.equal(parsed.source, 'ai');
     assert.equal(parsed.issues[0].title, 'Prestito Portigiani');
     assert.match(parsed.issues[0].actions[0].command, /seicento fiorini/);
+});
+
+test('accetta campi strategici italiani e azioni in forma compatta', () => {
+    const context = {
+        story: { title: 'Ravenhollow', desc: 'Una cripta minaccia il villaggio.' },
+        character: { name: 'Andrea', gold: 100 },
+        memory: { turnCount: 1, events: [], world: {} }
+    };
+    const parsed = strategicAdvisorApi.parseResponse(JSON.stringify({
+        analisi: {
+            titolo: 'La cripta richiede preparazione',
+            situazione: 'La nebbia avanza verso il villaggio.',
+            priorita: ['Raccogliere informazioni'],
+            rischi: ['Entrare impreparati'],
+            opportunita: ['Coinvolgere Padre Anselmo'],
+            questioni: [{
+                titolo: 'Accesso alla cripta', categoria: 'sicurezza', urgenza: 'alta',
+                valutazione: 'La via non è stata ancora esplorata.', attori: ['Padre Anselmo'],
+                azioni: {
+                    cauta: { titolo: 'Consultare Anselmo', descrizione: 'Chiedo a Padre Anselmo cosa conosce della cripta.', obiettivo: 'Ottenere una mappa', rischio: 'basso' },
+                    diretta: 'Ispeziono l’ingresso della cripta senza oltrepassarlo e cerco tracce verificabili.'
+                }
+            }]
+        }
+    }), context);
+    assert.equal(parsed.source, 'ai');
+    assert.equal(parsed.issues[0].title, 'Accesso alla cripta');
+    assert.equal(parsed.issues[0].actions.length, 2);
+    assert.match(parsed.issues[0].actions[0].command, /Padre Anselmo/);
+});
+
+test('recupera una questione completa anche se il contenitore JSON viene troncato', () => {
+    const context = {
+        story: { title: 'Ravenhollow' }, character: { name: 'Andrea' },
+        memory: { turnCount: 1, events: [], world: {} }
+    };
+    const truncated = '{"headline":"Piano","issues":[{"title":"Difendere il borgo","actions":[{"title":"Convocare le guardie","command":"Convoco le guardie e assegno turni di vigilanza alle porte."}]}],"risks":[';
+    const parsed = strategicAdvisorApi.parseResponse(truncated, context);
+    assert.equal(parsed.source, 'ai');
+    assert.equal(parsed.issues[0].title, 'Difendere il borgo');
 });
 
 test('seleziona e deseleziona più azioni strategiche in tutti gli argomenti', () => {
@@ -1615,6 +1655,21 @@ test('lascia a Ollama Cloud il contesto massimo automatico e limita i tentativi 
         maxAttempts: 2
     }), /Tutti i modelli/);
     assert.deepEqual(failedCalls, ['gpt-oss:120b', 'deepseek-v4-flash']);
+});
+
+test('attiva la modalità JSON nativa di Ollama per le analisi strutturate', async () => {
+    let body;
+    const client = new ollamaApi.OllamaCloudClient({
+        fetch: async (_url, options) => {
+            body = JSON.parse(options.body);
+            return { ok: true, status: 200, json: async () => ({ message: { content: '{"issues":[]}' } }) };
+        }
+    });
+    await client.generate([{ role: 'user', content: 'Analizza' }], {
+        apiKey: 'test-key', preferredModels: ['qwen3.5:397b'], format: 'json'
+    });
+    assert.equal(body.format, 'json');
+    assert.equal(body.think, false);
 });
 
 test('accetta un ID modello Ollama inserito manualmente', async () => {
@@ -3012,7 +3067,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
 
 test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260814-strategy-5"/);
+    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260814-strategy-6"/);
     assert.match(html, /id="btn-strategic-actions"/);
     assert.match(html, /id="modal-strategic-actions"/);
     assert.match(html, /id="btn-strategic-analyze"/);
@@ -3030,6 +3085,7 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
     assert.match(html, /strategicAdvisor\.buildPrompt/);
     assert.match(html, /strategicAdvisor\.parseResponse/);
     assert.match(html, /const repairPrompt = strategicAdvisor\.buildRepairPrompt/);
+    assert.match(html, /task: 'strategic',[\s\S]{0,180}format: 'json'/);
     assert.doesNotMatch(html, /G\.strategicAnalysis = strategicAdvisor\.buildFallback/);
     assert.match(html, /strategicAdvisor\.toTimelineChoices/);
     assert.match(html, /timelineSimulator\.parseStrategicOutcomes/);
