@@ -3,7 +3,7 @@
 > Un gioco di ruolo narrativo persistente in cui il Master LLM racconta il mondo, mentre il motore di gioco conserva memoria, tempo, risorse, attività economiche e regni.
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/bovel84/D-D-Crea-la-tua-storia-)
-[![Test](https://img.shields.io/badge/test-178%20superati-brightgreen.svg)](#-sviluppo-e-test)
+[![Test](https://img.shields.io/badge/test-185%20superati-brightgreen.svg)](#-sviluppo-e-test)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 🎮 **Gioca online:** [storia-app.vercel.app](https://storia-app.vercel.app/)
@@ -122,6 +122,8 @@ Il provider si sceglie dalle impostazioni del gioco. Le chiavi API restano nel b
 - **OpenRouter**, inclusi modelli gratuiti compatibili.
 - **Kimera / DeepSeek**, tramite endpoint `chat/completions` configurabile.
 
+Il livello `ai-efficiency` assegna un budget diverso a narrazione, avvio, chat, timeline e analisi strategica. Compatta soltanto il contesto eccedente, elimina regole gestionali non pertinenti, unisce le richieste duplicate già in corso e applica timeout e retry controllati a tutti i provider. In questo modo il modello riceve meno testo ridondante senza perdere l’ultima azione, il canone persistente o i tag necessari.
+
 Per Ollama Cloud l'app usa il proxy serverless:
 
 ```text
@@ -204,6 +206,7 @@ Poi apri l'indirizzo locale mostrato dal terminale.
 │   ├── chronicle-cast-v1.webp   # sei ritratti storico/fantasy ottimizzati
 │   └── modern-cast-v1.webp      # sei ritratti contemporanei ottimizzati
 ├── js/
+│   ├── ai-efficiency.js       # budget, compattazione, deduplica, timeout e retry LLM
 │   ├── story-generator.js      # generazione e completamento delle storie
 │   ├── character-options.js    # generi, origini, ruoli e dotazioni
 │   ├── portrait-manager.js     # atlanti, scelta e persistenza dei ritratti

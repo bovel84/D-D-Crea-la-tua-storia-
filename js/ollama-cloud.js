@@ -176,10 +176,13 @@
                 messages,
                 stream: false
             };
+            const temperature = Number.isFinite(Number(config?.temperature)) ? Number(config.temperature) : model.temperature;
+            const topP = Number.isFinite(Number(config?.topP)) ? Number(config.topP) : model.topP;
+            const topK = Number.isFinite(Number(config?.topK)) ? Number(config.topK) : model.topK;
             const nativeOptions = {
-                temperature: model.temperature,
-                top_p: model.topP,
-                top_k: model.topK,
+                temperature,
+                top_p: topP,
+                top_k: topK,
                 num_predict: maxTokens || 1500
             };
             // Ollama Cloud usa automaticamente il massimo contesto del modello.
@@ -192,8 +195,8 @@
             const body = endpoint.style === 'openai'
                 ? {
                     ...common,
-                    temperature: model.temperature,
-                    top_p: model.topP,
+                    temperature,
+                    top_p: topP,
                     max_tokens: maxTokens || 1500
                 }
                 : {
