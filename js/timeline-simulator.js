@@ -448,13 +448,16 @@ ${recent.length ? recent.map(item => `- ${cleanText(item.occurredAt, 100) ? `${c
 REGOLE OBBLIGATORIE:
 - Genera esattamente UN EVENTO: il primo fatto importante prodotto dalla causa in coda. Non generare eventi successivi nella stessa risposta.
 - Questo evento deve essere la risposta diretta e riconoscibile alla «Causa già vera» indicata sopra. Non sostituirla con una nuova iniziativa, un altro argomento o un riepilogo generico.
-- Se la causa è una scelta o una chat del giocatore, mostra prima che cosa produce quella scelta; soltanto una chiamata successiva potrà sviluppare nuove chat, nuove azioni o un seguito esplicitamente lasciato in coda.
+- Se la causa è una scelta del giocatore, mostra il primo risultato osservabile di quella precisa azione. Se è una iniziativa del mondo, mostra una mossa autonoma concreta di un attore esterno.
+- Se l'azione del giocatore consiste nel chiedere, convocare, negoziare o parlare con qualcuno, l'EVENTO apre la scena ma la risposta dell'interlocutore deve essere una CHAT: usa obiettivo conversazione, required e dialogue. Non riassumere al posto suo ciò che dovrebbe dire.
+- Se non è necessario parlare per raggiungere lo scopo, non creare CHAT e usa none oppure action. Le semplici conseguenze politiche o la presenza di due attori non bastano ad aprire una conversazione.
+- Soltanto una chiamata successiva potrà sviluppare altre azioni o un seguito esplicitamente lasciato in CODA_EVENTO.
 - ${strategicInstruction}
 - Il fatto deve contenere 3-5 frasi complete, azione osservabile, strumento usato, risultato verificabile e conseguenza persistente. Un'intenzione non è un risultato.
 - La conseguenza deve contenere 1-2 frasi complete. Chiudi ogni frase e ogni campo prima del separatore |; non interrompere mai un testo a metà.
 - Usa soltanto nomi propri, cariche e istituzioni presenti nel contesto. Vietati segnaposto come Autorità, Opposizione, Mediatore o Comunità.
 - interaction è dialogue se il giocatore deve rispondere parlando, action se deve agire nella scena, either se può scegliere, none se il fatto si risolve senza intervento.
-- Se serve un dialogo, puoi emettere al massimo UNA CHAT di apertura pronunciata da un solo interlocutore. Mai parole inventate per il protagonista.
+- Se interaction è dialogue e la conversazione è required, devi emettere esattamente UNA CHAT di apertura pronunciata da un solo interlocutore. Mai parole inventate per il protagonista.
 - Le conseguenze future non vanno narrate ora: lasciale in attesa con massimo 3 CODA_EVENTO compatti. Una CODA_EVENTO descrive solo causa e attori del futuro sviluppo, non il suo esito.
 - Per l'attore che agisce emetti al massimo un MONDO. Restituisci soltanto i tag seguenti.
 
@@ -526,13 +529,27 @@ REGOLE OBBLIGATORIE:
 
     function conversationGoalFor(event) {
         const actors = asArray(event?.actors).filter(Boolean);
-        if (actors.length < 2) return '';
+        if (!actors.length) return '';
         const type = keyOf(event?.type);
         if (type === 'economia') return `Negoziare condizioni, garanzie e costi tra ${actors.join(', ')}`;
         if (type === 'politica' || type === 'decisione') return `Confrontare le posizioni e decidere chi sosterrà la prossima mossa`;
         if (type === 'conflitto' || type === 'pericolo') return `Evitare l'escalation, imporre condizioni o organizzare una risposta comune`;
         if (type === 'relazione') return `Definire impegni, fiducia e contropartite tra le parti`;
         return `Chiarire responsabilità e prossime azioni dopo «${cleanText(event?.title, 100)}»`;
+    }
+
+    function eventRequiresConversation(event, seed = null) {
+        if (!event) return false;
+        const playerDialogueSeed = seed?.interactionMode === 'dialogue' && seed?.causalLane === 'player' &&
+            ['player_action', 'strategic_action', 'dialogue_reply', 'action_reply'].includes(seed?.kind);
+        if (playerDialogueSeed) return true;
+        const interactionMode = normalizeInteractionMode(
+            event.interactionMode,
+            seed?.interactionMode || (event.conversationMode === 'required' ? 'dialogue' : 'none')
+        );
+        if (event.conversationMode === 'required') return interactionMode === 'dialogue';
+        return interactionMode === 'dialogue' && seed?.causalLane === 'player' &&
+            ['player_action', 'strategic_action', 'dialogue_reply', 'action_reply'].includes(seed?.kind);
     }
 
     function enrichEvent(event, context = {}, index = 0, previousEvent = null) {
@@ -545,10 +562,18 @@ REGOLE OBBLIGATORIE:
         const historicalAnchor = cleanText(event?.historicalAnchor || [history.date, history.baseline].filter(Boolean).join(' — ') || context.passage?.startDate || world.setting, 320);
         const politicalShift = cleanText(event?.politicalShift || event?.consequence, 320);
         const stakes = cleanText(event?.stakes || world.stakes || force?.consequenceAt100 || event?.consequence, 280);
-        const conversationGoal = cleanText(event?.conversationGoal || conversationGoalFor(event), 280);
-        const conversationMode = event?.conversationMode === 'none'
-            ? 'none'
-            : (conversationGoal ? (event?.conversationMode === 'required' ? 'required' : 'available') : 'none');
+        const interactionMode = normalizeInteractionMode(
+            event?.interactionMode,
+            seed?.interactionMode || (event?.conversationMode === 'required' ? 'dialogue' : 'none')
+        );
+        const dialogueRequired = eventRequiresConversation({ ...event, interactionMode }, seed);
+        const conversationGoal = cleanText(
+            event?.conversationGoal || (dialogueRequired ? conversationGoalFor(event) : ''),
+            280
+        );
+        const conversationMode = dialogueRequired
+            ? 'required'
+            : (event?.conversationMode === 'none' || !conversationGoal ? 'none' : 'available');
         return {
             ...event,
             cause,
@@ -557,6 +582,7 @@ REGOLE OBBLIGATORIE:
             stakes,
             conversationGoal,
             conversationMode,
+            interactionMode: dialogueRequired ? 'dialogue' : interactionMode,
             centralityScore: eventCentralityScore(event, context),
             causalAlignmentScore: causalAlignmentScore(event, seed),
             causalKind: cleanText(event?.causalKind || seed?.kind, 40),
@@ -819,9 +845,26 @@ REGOLE OBBLIGATORIE:
     function selectNextEventSeed(queue) {
         const normalized = normalizeEventQueue(queue);
         const playerCausalQueue = normalized.filter(seed => seed.causalLane === 'player');
-        const candidates = playerCausalQueue.length ? playerCausalQueue : normalized;
+        const continuingPlayerQueue = playerCausalQueue.filter(seed =>
+            ['action_reply', 'dialogue_reply'].includes(seed.kind) || Number(seed.sequence || 0) > 0
+        );
+        const dueWorldQueue = normalized.filter(seed =>
+            seed.causalLane === 'world' && Number(seed.notBeforeMinutes || 0) <= 0
+        );
+        const oldestFreshPlayerTurn = Math.min(...playerCausalQueue.map(seed => Number(seed.createdAtTurn || 0)));
+        const overdueWorld = dueWorldQueue.slice().sort((left, right) =>
+            Number(left.createdAtTurn || 0) - Number(right.createdAtTurn || 0) ||
+            Number(right.priority || 0) - Number(left.priority || 0)
+        )[0];
+        const useOverdueWorld = !continuingPlayerQueue.length && overdueWorld &&
+            (!playerCausalQueue.length || Number(overdueWorld.createdAtTurn || 0) < oldestFreshPlayerTurn);
+        const candidates = continuingPlayerQueue.length
+            ? continuingPlayerQueue
+            : useOverdueWorld
+                ? dueWorldQueue
+                : playerCausalQueue.length ? playerCausalQueue : normalized;
         return candidates.slice().sort((left, right) => {
-            if (playerCausalQueue.length) {
+            if (candidates.some(seed => seed.causalLane === 'player')) {
                 const rootOrder = Number(left.originTurn || 0) - Number(right.originTurn || 0);
                 if (rootOrder) return rootOrder;
                 const sameRoot = left.causalRootId && left.causalRootId === right.causalRootId;
@@ -1176,8 +1219,7 @@ REGOLE OBBLIGATORIE:
         const actorByName = name => actors.find(item => keyOf(item.name) === keyOf(name));
         const protagonistKey = keyOf(context.protagonistName || 'protagonista');
         const event = asArray(events).find(item =>
-            isMeaningfulEvent(item) && item.conversationMode !== 'none' &&
-            ['dialogue', 'either'].includes(normalizeInteractionMode(item.interactionMode, item.conversationMode === 'required' ? 'dialogue' : 'either'))
+            isMeaningfulEvent(item) && eventRequiresConversation(item)
         );
         if (!event) return [];
         const participants = asArray(event.actors).map(name => cleanText(name, 100)).filter(Boolean);
@@ -1188,12 +1230,15 @@ REGOLE OBBLIGATORIE:
         if (!name) return [];
         const actor = actorByName(name) || { name, kind: 'npc' };
         const target = participants.find(item => keyOf(item) !== keyOf(name)) || context.protagonistName || 'protagonista';
+        const directFact = cleanText(event.summary || event.consequence, 420)
+            .replace(new RegExp(`^${String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[,.:;\\s-]*`, 'i'), '')
+            .trim();
         return [{
             eventId: event.id,
             eventTitle: event.title,
             speaker: name,
             speakerType: actor.kind === 'faction' ? 'fazione' : 'npc',
-            text: `Io chiedo che discutiamo ${cleanText(event.conversationGoal || 'le conseguenze di quanto è accaduto', 220)}. Voglio ${actorGoal(actor)} e userò ${actorResources(actor)} come leva.`,
+            text: `Ti rispondo direttamente su «${cleanText(event.title, 120)}»${directFact ? `: ${directFact}` : '.'} La mia priorità è ${actorGoal(actor)} e sono pronto a discutere ${cleanText(event.conversationGoal, 220)}.`,
             target,
             mood: 'determinato',
             turn: context.turn,
@@ -1256,6 +1301,7 @@ REGOLE OBBLIGATORIE:
         mergeStrategicOutcomeHistory,
         buildStrategicOutcomeChronicle,
         buildConversationStarters,
+        eventRequiresConversation,
         buildChronicle
     };
 });

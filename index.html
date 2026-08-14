@@ -3793,8 +3793,8 @@
     <script src="js/world-bootstrap.js?v=20260814-portraits-1"></script>
     <script src="js/world-map.js?v=20260814-map-factions-3"></script>
     <script src="js/event-manager.js"></script>
-    <script src="js/timeline-chat.js?v=20260814-dialogue-6"></script>
-    <script src="js/timeline-simulator.js?v=20260814-causal-7"></script>
+    <script src="js/timeline-chat.js?v=20260814-dialogue-7"></script>
+    <script src="js/timeline-simulator.js?v=20260814-causal-8"></script>
     <script src="js/strategic-advisor.js?v=20260814-strategy-6"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
@@ -11431,31 +11431,6 @@
             return String(event?.causalLabel || timelineSimulator.causalLabelFor(event?.queueKind || event?.causalKind) || '').trim();
         }
 
-        function eventParentTitle(event) {
-            const parentId = event?.causalParentEventId;
-            if (!parentId) return '';
-            return (G.worldMemory?.events || []).find(item => item.id === parentId)?.title || '';
-        }
-
-        function eventCausalContextMarkup(event) {
-            const cause = String(event?.cause || '').trim();
-            const parentTitle = eventParentTitle(event);
-            const waitMinutes = Math.max(0, Number(event?.waitMinutes) || 0);
-            const waitText = waitMinutes ? CronacheTimeEnergy.describePassage(waitMinutes) : '';
-            if (!cause && !parentTitle && !waitText) return '';
-            const origin = parentTitle
-                ? `Sviluppa direttamente «${escapeTimelineHtml(parentTitle)}».`
-                : cause
-                    ? `Nasce da: ${escapeTimelineHtml(cause)}`
-                    : '';
-            return `<section class="event-screen-section event-causal-context">
-                <h3>Perché accade ora</h3>
-                ${origin ? `<p>${origin}</p>` : ''}
-                ${parentTitle && cause ? `<p class="event-cause-detail">${escapeTimelineHtml(cause)}</p>` : ''}
-                ${waitText ? `<small>Tempo trascorso dall’innesco: ${escapeTimelineHtml(waitText)}.</small>` : ''}
-            </section>`;
-        }
-
         function renderTimeline() {
             if (!G.worldMemory) return;
             $('timeline-current-date').textContent = getFullTimeString();
@@ -11555,6 +11530,7 @@
             let aiError = null;
             let response = '';
             let timeAdvanced = false;
+            let autoOpenChatId = '';
             try {
                 const world = prepareTimelineWorld();
 
@@ -11882,7 +11858,12 @@
                 autoSave();
                 renderTimeline();
                 closeModal('modal-timeline');
-                showEventScreens(generated, 0);
+                const requiredThread = getActiveEventChat(generatedEvent.id);
+                if (requiredThread && timelineSimulator.eventRequiresConversation(generatedEvent, seed)) {
+                    autoOpenChatId = requiredThread.id;
+                } else {
+                    showEventScreens(generated, 0);
+                }
                 if (aiError) notify('Evento generato con il simulatore causale locale; gli sviluppi restano in coda.', 'info');
             } catch (error) {
                 console.error('Errore generazione prossimo evento:', error);
@@ -11898,6 +11879,10 @@
                 }
                 updateActionBar();
                 updateVaultControls();
+                if (autoOpenChatId) {
+                    openWorldChats(autoOpenChatId);
+                    notify('Questo sviluppo richiede una risposta: la conversazione è stata aperta.', 'info');
+                }
             }
         }
 
@@ -12191,6 +12176,11 @@
             if (!event) return;
             const pendingCount = timelineSimulator.normalizeEventQueue(G.worldMemory?.pendingTimelineEvents).length;
             const activeChat = getActiveEventChat(event.id);
+            const canChat = Boolean(activeChat || (
+                event.conversationMode !== 'none' && (event.actors || []).some(name =>
+                    timelineChatEngine.keyOf(name) !== timelineChatEngine.keyOf(G.character?.name)
+                )
+            ));
             $('event-screen-progress').textContent = activeChat ? 'Evento · Chat attiva' : 'Evento';
             const interactionMode = timelineSimulator.normalizeInteractionMode(
                 event.interactionMode,
@@ -12198,7 +12188,6 @@
             );
             const canAct = ['action', 'either'].includes(interactionMode);
             const causalLabel = eventCausalLabel(event);
-            const consequence = String(event.consequence || '').trim();
             $('event-screen-body').innerHTML = `
                 <div class="event-screen-hero">
                     <div class="event-screen-icon">${timelineChatEngine.iconForEvent(event.type)}</div>
@@ -12208,17 +12197,10 @@
                 <div class="event-screen-content">
                     ${causalLabel ? `<div class="event-causal-pill event-causal-pill-large">${escapeTimelineHtml(causalLabel)}</div>` : ''}
                     <h2>${escapeTimelineHtml(event.title || 'Evento')}</h2>
-                    <div class="event-screen-fact">
-                        <section class="event-screen-section">
-                            <h3>Cosa è successo</h3>
-                            <p>${escapeTimelineHtml(event.summary || 'L’evento è stato registrato, ma il resoconto non è disponibile.')}</p>
-                        </section>
-                        ${consequence ? `<section class="event-screen-section event-consequence"><h3>Cosa cambia</h3><p>${escapeTimelineHtml(consequence)}</p></section>` : ''}
-                        ${eventCausalContextMarkup(event)}
-                    </div>
+                    <div class="event-screen-fact">${eventNarrativeMarkup(event)}</div>
                     ${activeChat ? '<div class="event-chat-active">💬 Conversazione attiva per questo evento</div>' : ''}
                     <div class="event-screen-actions">
-                        ${activeChat ? '<button class="btn secondary" id="btn-event-chat">💬 Apri chat</button>' : ''}
+                        ${canChat ? `<button class="btn secondary" id="btn-event-chat">💬 ${activeChat ? 'Apri chat' : 'Parla con le parti'}</button>` : ''}
                         ${canAct ? '<button class="btn secondary" id="btn-event-action">⚡ Prepara azione</button>' : ''}
                         <button class="btn primary" id="btn-next-event">${pendingCount ? 'Evento successivo ›' : 'Apri timeline'}</button>
                     </div>
@@ -12379,7 +12361,8 @@
                     events: G.worldMemory.events,
                     turn: G.worldMemory.turnCount || 0,
                     occurredAt: event.occurredAt || getFullTimeString(),
-                    protagonistName: G.character?.name
+                    protagonistName: G.character?.name,
+                    force: true
                 });
                 G.worldMemory.chats = ensured.chats;
                 thread = ensured.created[0] || getActiveEventChat(eventId);

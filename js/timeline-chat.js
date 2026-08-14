@@ -462,6 +462,7 @@
         const created = [];
         asArray(events).forEach(event => {
             if (event?.conversationMode === 'none') return;
+            if (event?.conversationMode !== 'required' && context.force !== true) return;
             const participants = dedupeParticipants([
                 ...asArray(event?.actors),
                 ...(context.protagonistName ? [context.protagonistName] : [])

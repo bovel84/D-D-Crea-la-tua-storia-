@@ -232,8 +232,9 @@ test('il simulatore genera un solo prossimo evento importante e rinvia gli svilu
     assert.match(prompt, /azione osservabile/i);
     assert.match(prompt, /ATTESA_EVENTO/);
     assert.match(prompt, /CODA_EVENTO/);
-    assert.match(prompt, /al massimo UNA CHAT/i);
+    assert.match(prompt, /esattamente UNA CHAT/i);
     assert.match(prompt, /\[CHAT:/);
+    assert.match(prompt, /iniziativa del mondo.*mossa autonoma concreta/i);
 });
 
 test('il simulatore usa più attori quando il modello dispone di contesto esteso', () => {
@@ -321,6 +322,20 @@ test('una risposta causale precedente non viene scavalcata da una nuova azione',
         }
     ]);
     assert.equal(timelineSimulatorApi.selectNextEventSeed(queue).id, 'reply-old');
+});
+
+test('una iniziativa esterna già matura non viene affamata da nuove azioni', () => {
+    const queue = timelineSimulatorApi.normalizeEventQueue([
+        {
+            id: 'world-overdue', kind: 'world_initiative', cause: 'La gilda chiude il porto',
+            notBeforeMinutes: 0, priority: 70, createdAtTurn: 4, causalLane: 'world'
+        },
+        {
+            id: 'player-new', kind: 'player_action', cause: 'Il giocatore ispeziona il granaio',
+            notBeforeMinutes: 30, priority: 95, createdAtTurn: 5, causalLane: 'player'
+        }
+    ]);
+    assert.equal(timelineSimulatorApi.selectNextEventSeed(queue).id, 'world-overdue');
 });
 
 test('un evento risposta del giocatore non genera una catena automatica senza nuove scelte', () => {
@@ -502,13 +517,35 @@ test('la timeline apre una sola battuta di chat per evento', () => {
         story: { title: 'Astaria', setting: 'Khepra' }, world,
         passage: { days: 7, description: '1 settimana' }, turn: 17
     });
-    const events = arc.events.map((event, index) => ({ ...event, id: `event-live-${index}`, turn: 17 }));
-    const messages = timelineSimulatorApi.buildConversationStarters(events, world, {
+    const event = {
+        ...arc.events[0], id: 'event-live-dialogue', turn: 17,
+        conversationMode: 'required', interactionMode: 'dialogue',
+        conversationGoal: 'Concordare la risposta al blocco del porto'
+    };
+    const messages = timelineSimulatorApi.buildConversationStarters([event], world, {
         turn: 17, protagonistName: 'Nerissa'
     });
     assert.equal(messages.length, 1);
     assert.ok(messages.every(message => timelineChatApi.speaksInFirstPerson(message.text)));
     assert.ok(messages.every(message => message.eventId && message.target));
+});
+
+test('apre la chat soltanto quando serve allo scopo dell’azione', () => {
+    const dialogueSeed = timelineSimulatorApi.normalizeEventSeed({
+        id: 'ask-marco', kind: 'player_action', cause: 'Chiedo a Marco del malcontento popolare',
+        interactionMode: 'dialogue', causalLane: 'player'
+    });
+    const event = {
+        title: 'Marco prende posizione', summary: 'Marco accetta di rispondere.',
+        actors: ['Marco'], conversationMode: 'available', interactionMode: 'either'
+    };
+    const enriched = timelineSimulatorApi.enrichEvent(event, { seed: dialogueSeed }, 0);
+    assert.equal(enriched.conversationMode, 'required');
+    assert.equal(enriched.interactionMode, 'dialogue');
+    assert.equal(timelineSimulatorApi.eventRequiresConversation(enriched, dialogueSeed), true);
+    assert.equal(timelineSimulatorApi.eventRequiresConversation({
+        ...event, conversationMode: 'none', interactionMode: 'action'
+    }, { kind: 'world_initiative', causalLane: 'world', interactionMode: 'action' }), false);
 });
 
 test('gli eventi modificano davvero attori, relazioni e forze del mondo', () => {
@@ -835,7 +872,8 @@ test('crea chat persistenti collegate agli eventi e in prima persona', () => {
 test('normalizza in prima persona una risposta esterna e collega una chat anche prima dei messaggi', () => {
     const event = eventApi.normalizeEvent({
         id: 'event-gilda', type: 'economia', title: 'Sciopero della gilda',
-        summary: 'La gilda chiude le botteghe', actors: ['Gilda dei Fabbri', 'Consiglio'], turn: 8
+        summary: 'La gilda chiude le botteghe', actors: ['Gilda dei Fabbri', 'Consiglio'], turn: 8,
+        conversationGoal: 'Negoziare la riapertura', conversationMode: 'required', interactionMode: 'dialogue'
     });
     const message = timelineChatApi.normalizeMessage({
         event, speaker: 'Gilda dei Fabbri', speakerType: 'fazione',
@@ -845,6 +883,14 @@ test('normalizza in prima persona una risposta esterna e collega una chat anche 
     const ensured = timelineChatApi.ensureEventThreads([], [event], { events: [event], turn: 8 });
     assert.equal(ensured.created.length, 1);
     assert.deepEqual(ensured.chats[0].participants, ['Gilda dei Fabbri', 'Consiglio']);
+    const optional = timelineChatApi.ensureEventThreads([], [{
+        ...event, id: 'event-optional', conversationMode: 'available', interactionMode: 'either'
+    }], { events: [event], turn: 8 });
+    assert.equal(optional.created.length, 0);
+    const forced = timelineChatApi.ensureEventThreads([], [{
+        ...event, id: 'event-optional', conversationMode: 'available', interactionMode: 'either'
+    }], { events: [event], turn: 8, force: true });
+    assert.equal(forced.created.length, 1);
     const solitary = timelineChatApi.ensureEventThreads([], [{ ...event, id: 'event-solo', actors: ['Viandante'] }], {
         events: [event], turn: 8
     });
@@ -3005,8 +3051,8 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
-    assert.match(html, /src="js\/timeline-chat\.js\?v=20260814-dialogue-6"/);
-    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260814-causal-7"/);
+    assert.match(html, /src="js\/timeline-chat\.js\?v=20260814-dialogue-7"/);
+    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260814-causal-8"/);
     assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-4"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
@@ -3054,10 +3100,12 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /Prepara azione/);
     assert.match(html, /Conversazione attiva per questo evento/);
     assert.match(html, /G\.worldMemory\.lastTimelineEventId = generatedEvent\.id/);
-    assert.match(html, /function eventCausalContextMarkup/);
-    assert.match(html, /Cosa è successo/);
-    assert.match(html, /Cosa cambia/);
-    assert.match(html, /Perché accade ora/);
+    assert.match(html, /eventNarrativeMarkup\(event\)/);
+    assert.match(html, /timelineSimulator\.eventRequiresConversation\(generatedEvent, seed\)/);
+    assert.match(html, /openWorldChats\(autoOpenChatId\)/);
+    assert.doesNotMatch(html, /function eventCausalContextMarkup/);
+    assert.doesNotMatch(html, /<h3>Cosa cambia<\/h3>/);
+    assert.doesNotMatch(html, /<h3>Perché accade ora<\/h3>/);
     assert.match(html, /portraitActorsMarkup\(event\.actors/);
     assert.doesNotMatch(html, /class="timeline-event-tags"/);
     assert.doesNotMatch(html, /class="event-screen-meta"/);
