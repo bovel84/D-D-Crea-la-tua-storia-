@@ -2742,7 +2742,7 @@ test('nasconde controlli, ragionamenti e messaggi tecnici dalla cronaca', () => 
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /function stripHiddenWorkBlocks/);
     assert.match(html, /function isInternalStoryEntry/);
-    assert.match(html, /if \(type === 'analysis'\) return true/);
+    assert.match(html, /if \(type === 'analysis' \|\| type === 'mechanic'\) return true/);
     assert.match(html, /story-entry\.analysis \{\s*display: none !important/);
     assert.doesNotMatch(html, /addStoryEntry\(analysisContent, 'analysis'\)/);
     assert.doesNotMatch(html, /content = message\.reasoning/);
@@ -2923,7 +2923,7 @@ test('adatta lo stile della mappa al mondo e produce nodi esplorabili', () => {
 test('integra la mappa mobile con posizione, dettagli e controlli di gioco', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
-    assert.match(html, /src="js\/world-map\.js\?v=20260814-map-1"/);
+    assert.match(html, /src="js\/world-map\.js\?v=20260814-map-factions-2"/);
     assert.match(html, /id="modal-world-map"/);
     assert.match(html, /id="world-map-current-location"/);
     assert.match(html, /id="btn-map-center"/);
@@ -2935,6 +2935,63 @@ test('integra la mappa mobile con posizione, dettagli e controlli di gioco', () 
     assert.match(css, /\.world-map-modal/);
     assert.match(css, /\.world-map-player-pulse/);
     assert.doesNotMatch(html, /maps\.google|leaflet/i);
+});
+
+test('colloca proprietà, attività, risorse e territori sulla mappa del mondo', () => {
+    const model = worldMapApi.buildMapModel({
+        world: { name: 'Contea di Montefiorito', locations: [{ name: 'Borgo di Montefiorito', type: 'borgo' }] },
+        memory: {
+            properties: [{ name: 'Granaio di San Lorenzo', type: 'granaio', location: 'Borgo di Montefiorito' }],
+            management: { businesses: [{ name: 'Mulino del Torrente', type: 'mulino', location: 'Borgo di Montefiorito', reputation: 62 }] },
+            kingdom: {
+                active: true, name: 'Contea di Montefiorito', capital: 'Rocca di Montefiorito',
+                territories: [{ name: 'Valle del Torrente', type: 'valle', publicOrder: 70, population: 800 }],
+                resources: [{ name: 'Cava di Pietra', category: 'cava', territoryName: 'Valle del Torrente', production: 20, stock: 50 }]
+            }
+        }
+    }, { story: { genre: 'fantasy' }, currentLocation: 'Rocca di Montefiorito', protagonistName: 'Andrea', year: 1472 });
+    const names = new Set(model.locations.map(item => item.name));
+    assert.ok(names.has('Granaio di San Lorenzo'));
+    assert.ok(names.has('Mulino del Torrente'));
+    assert.ok(names.has('Valle del Torrente'));
+    assert.ok(names.has('Cava di Pietra'));
+    assert.equal(model.locations.find(item => item.name === 'Granaio di San Lorenzo').owned, true);
+    assert.equal(model.locations.find(item => item.name === 'Mulino del Torrente').kind, 'business');
+    assert.ok(model.locations.find(item => item.name === 'Granaio di San Lorenzo').connections.includes('Borgo di Montefiorito'));
+});
+
+test('rappresenta le fazioni avversarie con basi, minaccia e presenza geografica', () => {
+    const model = worldMapApi.buildMapModel({
+        world: {
+            name: 'Marca del Nord',
+            locations: [{ name: 'Forte del Confine', type: 'fortezza', controller: 'Lega del Vescovo' }],
+            factions: [{
+                name: 'Lega del Vescovo', type: 'coalizione', leader: 'Monsignor Alvise', base: 'Forte del Confine',
+                relationship: 'ostile', influence: 78, militaryStrength: 72, intelligence: 64,
+                tactics: 'assedio e interdizione dei raccolti', grievance: 'tributi non pagati', nextMove: 'bloccare il ponte'
+            }]
+        }
+    }, { currentLocation: 'Forte del Confine', year: 1472 });
+    assert.equal(model.factions.length, 1);
+    assert.equal(model.factions[0].stance, 'hostile');
+    assert.equal(model.factions[0].militaryStrength, 72);
+    assert.equal(model.factions[0].nextMove, 'bloccare il ponte');
+    assert.ok(model.locations.find(item => item.name === 'Forte del Confine').hostileFactionIds.length);
+    const svg = worldMapApi.svgMarkup(model);
+    assert.match(svg, /world-map-faction-zone hostile/);
+    assert.match(svg, /world-map-faction-flag/);
+});
+
+test('mantiene i comandi inferiori cliccabili e nasconde le schede meccaniche', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
+    assert.match(html, /data-bottom-command="analysis" onclick="openStrategicActions\(\); return false;"/);
+    assert.match(html, /data-bottom-command="chat" onclick="openWorldChats\(\); return false;"/);
+    assert.match(html, /data-bottom-command="timeline" onclick="openTimeline\(\); return false;"/);
+    assert.doesNotMatch(html, /'btn-strategic-actions', 'btn-strategic-analyze', 'btn-advance-world'/);
+    assert.match(html, /button\.disabled = false/);
+    assert.match(css, /\.ux-v7-ready \.input-area \{[\s\S]*?z-index: 180;[\s\S]*?background: linear-gradient\(180deg, #25130d, #100906\)/);
+    assert.match(css, /\.ux-v7-ready \.bottom-command \{[\s\S]*?pointer-events: auto;[\s\S]*?touch-action: manipulation/);
 });
 
 test('integra la scelta del volto e i ritratti persistenti nell’interfaccia', () => {

@@ -544,6 +544,13 @@
 }
 .world-map-player-ring { fill: #8d2227; stroke: #ffd75b; stroke-width: 7; filter: url(#map-shadow); }
 .world-map-player-pulse { fill: rgba(255, 215, 91, .2); stroke: #fff0a6; stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: mapPlayerPulse 1.8s ease-out infinite; }
+.world-map-faction-zone { fill: color-mix(in srgb, var(--map-faction-color) 18%, transparent); stroke: var(--map-faction-color); stroke-width: 5; stroke-dasharray: 6 5; opacity: .9; }
+.world-map-faction-zone.hostile { stroke-width: 7; animation: mapHostilePulse 2.2s ease-in-out infinite; }
+.world-map-faction-flag { fill: var(--map-faction-color); paint-order: stroke; stroke: #f7e8b1; stroke-width: 3px; font: 700 20px Georgia, serif; }
+.world-map-node.site .world-map-node-icon { font-size: 19px; }
+.world-map-node.site .world-map-node-label { font-size: 12px; }
+.world-map-node.hostile .world-map-node-label { fill: #791a20; }
+.world-map-owned { fill: none; stroke: #276b42; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; paint-order: stroke; }
 .world-map-node.current .world-map-node-icon { fill: #fff8d8; }
 .world-map-node.current .world-map-node-label { fill: #6c171d; font-size: 17px; }
 .world-map-danger { fill: #9b1d25; stroke: #f3d684; stroke-width: 2; }
@@ -555,10 +562,23 @@
     0% { transform: scale(.72); opacity: .95; }
     100% { transform: scale(1.35); opacity: 0; }
 }
-.world-map-detail {
+@keyframes mapHostilePulse {
+    0%, 100% { opacity: .65; }
+    50% { opacity: 1; }
+}
+.world-map-side {
     grid-area: detail;
+    display: grid;
+    align-content: start;
+    gap: 10px;
     min-width: 0;
+    min-height: 0;
+    max-height: 570px;
     overflow-y: auto;
+}
+.world-map-detail {
+    min-width: 0;
+    overflow: visible;
     padding: 14px;
     border: 1px solid rgba(94, 57, 22, .28);
     border-radius: 16px;
@@ -575,11 +595,38 @@
 .world-map-detail-list { display: grid; gap: 7px; }
 .world-map-detail-list div { padding: 8px 9px; border-radius: 9px; background: rgba(255,255,255,.45); font-size: .78rem; }
 .world-map-detail-list strong { color: #3c291d; }
+.world-map-inline-faction { display: inline-flex; margin: 2px 3px 2px 0; padding: 2px 6px; border-radius: 999px; color: #4f3b27; background: #e7d5a6; font-size: .68rem; }
+.world-map-inline-faction.hostile { color: #fff; background: #9b272b; }
+.world-map-inline-faction.allied { color: #fff; background: #2d7049; }
 .world-map-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; color: #6a543d; font-size: .7rem; }
 .world-map-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .world-map-legend i { width: 12px; height: 12px; border-radius: 50%; background: #f4e5b1; border: 2px solid #64441f; }
 .world-map-legend i.current { background: #8d2227; border-color: #ffd75b; }
 .world-map-empty { display: grid; place-items: center; min-height: 360px; padding: 30px; color: #5d4935; text-align: center; }
+.world-map-factions {
+    padding: 12px;
+    border: 1px solid rgba(94, 57, 22, .28);
+    border-radius: 16px;
+    color: #39271b;
+    background: rgba(255, 249, 226, .9);
+}
+.world-map-factions > header { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 9px; font: 700 .78rem 'Cinzel', serif; }
+.world-map-factions > header small { color: #9b272b; }
+.world-map-faction-list { display: grid; gap: 8px; }
+.world-map-faction-card { display: grid; gap: 6px; padding: 9px; border-left: 5px solid var(--map-faction-color); border-radius: 10px; background: rgba(255,255,255,.58); }
+.world-map-faction-card.hostile { background: rgba(155,39,43,.08); }
+.world-map-faction-card > div:first-child { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 6px; align-items: center; }
+.world-map-faction-card i { width: 10px; height: 10px; border-radius: 50%; background: var(--map-faction-color); }
+.world-map-faction-card strong { font-family: 'Cinzel', serif; }
+.world-map-faction-card > div:first-child span { padding: 2px 5px; border-radius: 999px; color: #6d4b2d; background: #eadcb5; font-size: .58rem; text-transform: uppercase; }
+.world-map-faction-card.hostile > div:first-child span { color: #fff; background: #9b272b; }
+.world-map-faction-card.allied > div:first-child span { color: #fff; background: #2d7049; }
+.world-map-faction-card > small { color: #745e47; font-size: .68rem; }
+.world-map-faction-meters { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 5px !important; }
+.world-map-faction-meters span { padding: 5px; border-radius: 7px; color: #765e45; background: rgba(255,255,255,.58); font-size: .58rem; text-align: center; }
+.world-map-faction-meters b { display: block; color: #352216; font-size: .7rem; }
+.world-map-faction-card p { margin: 0; color: #5d4938; font-size: .7rem; line-height: 1.35; }
+.world-map-factions-empty { color: #705c45; font-style: italic; text-align: center; }
 
 @media (max-width: 760px) {
     .world-map-modal {
@@ -602,6 +649,7 @@
     .world-map-status { align-items: stretch; padding: 9px 10px; }
     .world-map-position { max-width: 48%; align-self: center; }
     .world-map-viewport { min-height: 330px; height: 58dvh; }
+    .world-map-side { max-height: none; overflow: visible; }
     .world-map-detail { min-height: 210px; overflow: visible; }
     .world-map-tool { min-height: 43px; }
 }
@@ -755,15 +803,35 @@
 .chat-candidate { align-items: center; }
 .chat-candidate-portrait { width: 38px; height: 38px; border: 2px solid rgba(107, 46, 155, .18); }
 
-/* v11: la corona superiore è l'unica navigazione; in basso resta il compositore */
+/* Barra mobile persistente: i tre pannelli restano sempre apribili anche durante le elaborazioni. */
 .command-proxies { display: none !important; }
 .top-popup-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; }
 .top-popup-grid .btn { width:100%; min-height:48px; }
 .ux-v7-ready .input-area {
+    position: relative;
+    z-index: 180;
+    isolation: isolate;
+    pointer-events: auto;
     padding: 7px 9px calc(7px + var(--ux-safe-bottom));
-    background: linear-gradient(180deg, rgba(242,232,202,.94), rgba(218,202,164,.98));
-    border-top: 1px solid rgba(159,105,19,.42);
-    box-shadow: 0 -7px 20px rgba(44,24,16,.14);
+    background: linear-gradient(180deg, #25130d, #100906);
+    border-top: 2px solid #d4a928;
+    box-shadow: 0 -9px 24px rgba(0,0,0,.34);
+}
+.ux-v7-ready .bottom-command {
+    min-height: 76px;
+    pointer-events: auto;
+    touch-action: manipulation;
+}
+.ux-v7-ready .bottom-command[aria-busy='true']::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    right: calc(50% - 31px);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #f5d575;
+    box-shadow: 0 0 8px #f5d575;
 }
 .ux-v7-ready .input-row {
     gap: 7px;
@@ -1914,6 +1982,28 @@
 .kingdom-job-card .positive { color: #287449; }
 .kingdom-job-card .negative,
 .kingdom-social-card .negative { color: #a12424; }
+.kingdom-faction-card {
+    display: grid;
+    gap: 8px;
+    padding: 11px;
+    border: 1px solid rgba(44,24,16,.12);
+    border-left: 5px solid #9b7625;
+    border-radius: 11px;
+    background: rgba(255,255,255,.62);
+}
+.kingdom-faction-card.hostile { border-left-color: #a12424; background: rgba(161,36,36,.07); }
+.kingdom-faction-card.allied { border-left-color: #287449; background: rgba(40,116,73,.07); }
+.kingdom-faction-card header { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.kingdom-faction-card header > div { display: grid; min-width: 0; }
+.kingdom-faction-card header small { color: var(--ink-light); font-size: .68rem; }
+.kingdom-faction-card header > span { padding: 3px 7px; border-radius: 999px; color: #6d4b2d; background: #e8d9b2; font: 700 .58rem 'Cinzel', serif; text-transform: uppercase; }
+.kingdom-faction-card.hostile header > span { color: #fff; background: #a12424; }
+.kingdom-faction-card.allied header > span { color: #fff; background: #287449; }
+.kingdom-faction-stats { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 5px; }
+.kingdom-faction-stats span { display: grid; gap: 2px; padding: 6px; border-radius: 7px; color: var(--ink-light); background: rgba(181,138,37,.08); font-size: .6rem; text-align: center; }
+.kingdom-faction-stats b { color: var(--ink); font-size: .73rem; }
+.kingdom-faction-card p { margin: 0; color: var(--ink-light); font-size: .7rem; line-height: 1.35; }
+.kingdom-faction-card .next-move { padding: 7px; border-radius: 8px; color: #5f271e; background: rgba(161,36,36,.08); }
 
 @media (max-width: 900px) {
     .manager-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1966,6 +2056,7 @@
         min-height: 44px;
     }
     .kingdom-labor-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kingdom-faction-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .kingdom-social-card header,
     .kingdom-social-card footer { align-items: stretch; }
 }
