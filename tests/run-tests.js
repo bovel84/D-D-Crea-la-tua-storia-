@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const memoryApi = require('../js/memory-manager.js');
 const worldBootstrapApi = require('../js/world-bootstrap.js');
+const worldMapApi = require('../js/world-map.js');
 const eventApi = require('../js/event-manager.js');
 const timelineChatApi = require('../js/timeline-chat.js');
 const timelineSimulatorApi = require('../js/timeline-simulator.js');
@@ -2868,6 +2869,72 @@ test('integra la creazione iniziale del mondo con narrazione, timeline e chat', 
     assert.match(html, /function repairTimelineWorldIfNeeded/);
     assert.doesNotMatch(html, /addStoryEntry\(\s*`🌍 Mondo creato:/);
     assert.match(html, /isStart \? 3600/);
+});
+
+test('costruisce una mappa stabile dai luoghi della campagna e marca il protagonista', () => {
+    const world = {
+        name: 'La Cripta dei Sussurri',
+        locations: [
+            { name: 'Ravenhollow', type: 'villaggio', connections: ['Locanda Il Corvo Stanco'] },
+            { name: 'Locanda Il Corvo Stanco', type: 'locanda', connections: 'Ravenhollow, Cripta dei Sussurri' },
+            { name: 'Cripta dei Sussurri', type: 'cripta', danger: 'Nebbia vivente', connections: ['Locanda Il Corvo Stanco'] },
+            { name: 'Foresta di Vey', type: 'foresta' },
+            { name: 'Abbazia di San Lume', type: 'abbazia' }
+        ]
+    };
+    const context = {
+        story: { genre: 'fantasy', setting: 'Regno medievale' },
+        currentLocation: 'Cripta dei Sussurri',
+        year: 1472
+    };
+    const first = worldMapApi.buildMapModel({ world, memory: {} }, context);
+    const second = worldMapApi.buildMapModel({ world, memory: {} }, context);
+    assert.equal(first.locations.length, 5);
+    assert.equal(first.theme.id, 'fantasy');
+    assert.equal(first.currentLocationName, 'Cripta dei Sussurri');
+    assert.equal(first.locations.filter(location => location.current).length, 1);
+    assert.ok(first.edges.length >= 4);
+    assert.deepEqual(
+        first.locations.map(location => [location.name, location.x, location.y]),
+        second.locations.map(location => [location.name, location.x, location.y])
+    );
+});
+
+test('adatta lo stile della mappa al mondo e produce nodi esplorabili', () => {
+    assert.equal(worldMapApi.inferTheme({ story: { setting: 'Arcipelago dei corsari' }, year: 1650 }).id, 'maritime');
+    assert.equal(worldMapApi.inferTheme({ story: { setting: 'Londra vittoriana' }, year: 1888 }).id, 'industrial');
+    const model = worldMapApi.buildMapModel({
+        world: {
+            name: 'Regno di Astaria',
+            locations: [
+                { name: 'Khepra', type: 'capitale', connections: ['Forte di Daran'] },
+                { name: 'Forte di Daran', type: 'fortezza', danger: 'Assedio' }
+            ]
+        }
+    }, { story: { genre: 'fantasy' }, currentLocation: 'Khepra', year: 1320 });
+    const svg = worldMapApi.svgMarkup(model);
+    assert.match(svg, /^<svg/);
+    assert.match(svg, /world-map-player-pulse/);
+    assert.match(svg, /data-map-location-id=/);
+    assert.match(svg, /Khepra/);
+    assert.match(svg, /world-map-danger/);
+});
+
+test('integra la mappa mobile con posizione, dettagli e controlli di gioco', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
+    assert.match(html, /src="js\/world-map\.js\?v=20260814-map-1"/);
+    assert.match(html, /id="modal-world-map"/);
+    assert.match(html, /id="world-map-current-location"/);
+    assert.match(html, /id="btn-map-center"/);
+    assert.match(html, /id="btn-map-dice"/);
+    assert.match(html, /\$\('btn-top-story'\)\.onclick = openWorldMap/);
+    assert.match(html, /worldMapEngine\.buildMapModel/);
+    assert.match(html, /function centerWorldMapOnPlayer/);
+    assert.match(html, /getFullTimeString\(\)/);
+    assert.match(css, /\.world-map-modal/);
+    assert.match(css, /\.world-map-player-pulse/);
+    assert.doesNotMatch(html, /maps\.google|leaflet/i);
 });
 
 test('integra la scelta del volto e i ritratti persistenti nell’interfaccia', () => {

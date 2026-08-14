@@ -2897,7 +2897,7 @@
     <div class="screen" id="game-screen">
         <div class="game-topbar">
             <div class="portrait-topbar" aria-label="Comandi rapidi del protagonista">
-                <button class="portrait-orbit orbit-story" id="btn-top-story" title="Partita e tempo">☷</button>
+                <button class="portrait-orbit orbit-story" id="btn-top-story" title="Mappa del mondo" aria-label="Apri la mappa del mondo">🗺</button>
                 <button class="portrait-orbit orbit-world" id="btn-top-world" title="Mondo e cronaca">◈</button>
                 <button class="topbar-protagonist" id="btn-top-character" title="Apri personaggio" aria-label="Apri personaggio">
                     <span id="topbar-protagonist-portrait" class="portrait-fallback">⚔️</span>
@@ -3155,6 +3155,38 @@
             </div>
             <div class="modal-body">
                 <div id="kingdom-dashboard"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mappa procedurale: usa i luoghi persistenti e segue la posizione del protagonista -->
+    <div class="modal-overlay" id="modal-world-map">
+        <div class="modal world-map-modal">
+            <div class="modal-header">
+                <span>🗺️ Mappa del mondo</span>
+                <button class="modal-close" data-close="modal-world-map">✕</button>
+            </div>
+            <div class="world-map-body">
+                <div class="world-map-status">
+                    <div>
+                        <strong id="world-map-title">Mondo conosciuto</strong>
+                        <small id="world-map-subtitle">Luoghi scoperti e percorsi conosciuti</small>
+                    </div>
+                    <div class="world-map-position" title="Posizione attuale del protagonista">📍 <span id="world-map-current-location">Sconosciuto</span></div>
+                </div>
+                <div class="world-map-tools" aria-label="Controlli della mappa">
+                    <button class="world-map-tool" id="btn-map-center" type="button">◎ Sei qui</button>
+                    <button class="world-map-tool" id="btn-map-zoom-out" type="button" aria-label="Riduci mappa">−</button>
+                    <button class="world-map-tool" id="btn-map-zoom-in" type="button" aria-label="Ingrandisci mappa">＋</button>
+                    <button class="world-map-tool" id="btn-map-refresh" type="button">↻ Aggiorna</button>
+                    <button class="world-map-tool" id="btn-map-dice" type="button">🎲 Dadi</button>
+                </div>
+                <div class="world-map-viewport" id="world-map-viewport">
+                    <div class="world-map-canvas" id="world-map-canvas"></div>
+                </div>
+                <aside class="world-map-detail" id="world-map-detail">
+                    <div class="world-map-detail-empty">Seleziona un luogo sulla mappa per conoscerne i dettagli.</div>
+                </aside>
             </div>
         </div>
     </div>
@@ -3702,6 +3734,7 @@
 
     <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
     <script src="js/world-bootstrap.js?v=20260814-portraits-1"></script>
+    <script src="js/world-map.js?v=20260814-map-1"></script>
     <script src="js/event-manager.js"></script>
     <script src="js/timeline-chat.js?v=20260814-dialogue-6"></script>
     <script src="js/timeline-simulator.js?v=20260814-causal-7"></script>
@@ -3775,6 +3808,10 @@
             mediumTermTokens: 500
         });
         const worldBootstrapEngine = CronacheWorldBootstrap;
+        const worldMapEngine = CronacheWorldMap;
+        let activeWorldMapModel = null;
+        let selectedWorldMapLocationId = '';
+        let worldMapZoom = 1;
         const eventEngine = new CronacheEvents.EventManager({ maxEvents: 100 });
         const timelineChatEngine = CronacheTimelineChat;
         const timelineSimulator = CronacheTimelineSimulator;
@@ -6628,10 +6665,130 @@
         }
 
         // ==================== LOCATION TRACKING ====================
+        function worldMapContext() {
+            return {
+                story: G.currentStory,
+                genre: resolveGenreKey(G.currentStory),
+                setting: G.currentStory?.setting,
+                year: G.time?.year,
+                currentLocation: G.currentLocation,
+                turn: G.worldMemory?.turnCount || 0
+            };
+        }
+
+        function getWorldMapActors(locationName) {
+            const target = worldMapEngine.keyOf(locationName);
+            const sources = [
+                ...(G.worldMemory?.world?.actors || []),
+                ...(G.worldMemory?.npcs || [])
+            ];
+            const seen = new Set();
+            return sources.filter(actor => {
+                const name = String(actor?.name || '').trim();
+                const actorLocation = worldMapEngine.keyOf(actor?.location);
+                const matches = target && actorLocation && (target === actorLocation || target.includes(actorLocation) || actorLocation.includes(target));
+                const key = worldMapEngine.keyOf(name);
+                if (!matches || !key || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            }).slice(0, 6);
+        }
+
+        function renderWorldMapDetail(locationId) {
+            if (!activeWorldMapModel) return;
+            const location = activeWorldMapModel.locations.find(item => item.id === locationId)
+                || activeWorldMapModel.locations.find(item => item.current)
+                || activeWorldMapModel.locations[0];
+            if (!location) return;
+            selectedWorldMapLocationId = location.id;
+            $('world-map-canvas')?.querySelectorAll('[data-map-location-id]').forEach(node => {
+                node.classList.toggle('selected', node.dataset.mapLocationId === location.id);
+            });
+            const actors = getWorldMapActors(location.name);
+            const detail = $('world-map-detail');
+            detail.innerHTML = `
+                <header>
+                    <span class="world-map-detail-icon">${escapeTimelineHtml(location.icon)}</span>
+                    <div>
+                        <h3>${escapeTimelineHtml(location.name)}</h3>
+                        ${location.current ? '<span class="world-map-detail-current">SEI QUI</span>' : ''}
+                    </div>
+                </header>
+                <p>${escapeTimelineHtml(location.description || 'Questo luogo è conosciuto, ma deve ancora essere esplorato più a fondo.')}</p>
+                <div class="world-map-detail-list">
+                    ${location.region ? `<div><strong>Regione:</strong> ${escapeTimelineHtml(location.region)}</div>` : ''}
+                    ${location.type ? `<div><strong>Tipo:</strong> ${escapeTimelineHtml(location.type)}</div>` : ''}
+                    ${location.controller ? `<div><strong>Controllo:</strong> ${escapeTimelineHtml(location.controller)}</div>` : ''}
+                    ${location.resource ? `<div><strong>Risorsa:</strong> ${escapeTimelineHtml(location.resource)}</div>` : ''}
+                    ${location.danger ? `<div><strong>Pericolo:</strong> ${escapeTimelineHtml(location.danger)}</div>` : ''}
+                    ${location.connections.length ? `<div><strong>Collegamenti:</strong> ${location.connections.map(item => escapeTimelineHtml(item)).join(' · ')}</div>` : ''}
+                    ${actors.length ? `<div><strong>Presenti:</strong> ${actors.map(actor => escapeTimelineHtml(actor.name)).join(' · ')}</div>` : ''}
+                </div>
+                <div class="world-map-legend"><span><i class="current"></i> Posizione attuale</span><span><i></i> Luogo conosciuto</span><span>— Percorso</span></div>
+            `;
+        }
+
+        function applyWorldMapZoom() {
+            const svg = $('world-map-canvas')?.querySelector('.world-map-svg');
+            if (svg) svg.style.width = `${Math.round(worldMapEngine.MAP_WIDTH * worldMapZoom)}px`;
+        }
+
+        function centerWorldMapOnPlayer() {
+            if (!activeWorldMapModel) return;
+            const location = activeWorldMapModel.locations.find(item => item.current)
+                || activeWorldMapModel.locations.find(item => item.id === selectedWorldMapLocationId)
+                || activeWorldMapModel.locations[0];
+            const viewport = $('world-map-viewport');
+            if (!location || !viewport) return;
+            const left = Math.max(0, location.x * worldMapZoom - viewport.clientWidth / 2 + 7);
+            const top = Math.max(0, location.y * worldMapZoom - viewport.clientHeight / 2 + 7);
+            viewport.scrollTo({ left, top, behavior: 'smooth' });
+            renderWorldMapDetail(location.id);
+        }
+
+        function renderWorldMap() {
+            activeWorldMapModel = worldMapEngine.buildMapModel({
+                world: G.worldMemory?.world || {},
+                memory: G.worldMemory || {}
+            }, worldMapContext());
+            const canvas = $('world-map-canvas');
+            $('world-map-title').textContent = activeWorldMapModel.name || G.currentStory?.title || 'Mondo conosciuto';
+            $('world-map-subtitle').textContent = `${activeWorldMapModel.theme.icon} ${activeWorldMapModel.theme.label} · ${getFullTimeString()} · ${activeWorldMapModel.locations.length} luoghi · ${activeWorldMapModel.edges.length} percorsi`;
+            $('world-map-current-location').textContent = activeWorldMapModel.currentLocationName || G.currentLocation || 'Sconosciuto';
+            if (!activeWorldMapModel.locations.length) {
+                canvas.innerHTML = '<div class="world-map-empty"><div><strong>La mappa è ancora vuota.</strong><br>Esplora il mondo: i luoghi scoperti compariranno qui.</div></div>';
+                $('world-map-detail').innerHTML = '<div class="world-map-detail-empty">Nessun luogo ancora conosciuto.</div>';
+                return;
+            }
+            canvas.innerHTML = worldMapEngine.svgMarkup(activeWorldMapModel);
+            applyWorldMapZoom();
+            canvas.querySelectorAll('[data-map-location-id]').forEach(node => {
+                const select = () => renderWorldMapDetail(node.dataset.mapLocationId);
+                node.onclick = select;
+                node.onkeydown = event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        select();
+                    }
+                };
+            });
+            const preferred = activeWorldMapModel.locations.some(item => item.id === selectedWorldMapLocationId)
+                ? selectedWorldMapLocationId
+                : activeWorldMapModel.currentLocationId || activeWorldMapModel.locations[0].id;
+            renderWorldMapDetail(preferred);
+        }
+
+        function openWorldMap() {
+            renderWorldMap();
+            openModal('modal-world-map');
+            requestAnimationFrame(() => requestAnimationFrame(centerWorldMapOnPlayer));
+        }
+
         function setLocation(locationName) {
             if (!locationName || !locationName.trim()) return;
             G.currentLocation = locationName.trim();
             updateLocationDisplay();
+            if ($('modal-world-map')?.classList.contains('active')) renderWorldMap();
         }
 
         function updateLocationDisplay() {
@@ -14489,7 +14646,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             $('btn-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
             $('btn-memory').onclick = () => { updateMemoryUI(); openModal('modal-memory'); };
             $('btn-top-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
-            $('btn-top-story').onclick = () => showQuickModal('Tempo e dadi', `<p class="top-menu-time">${$('time-text')?.textContent || ''}<br><small>${$('time-date')?.textContent || ''} · ${$('time-location')?.textContent || ''}</small></p><div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-dice').click()">🎲 Dadi</button></div>`);
+            $('btn-top-story').onclick = openWorldMap;
             $('btn-top-world').onclick = () => showQuickModal('Memoria del mondo', `<div class="btn-row top-popup-grid"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-memory').click()">📜 Memoria</button>${$('btn-reopen-last-event')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-reopen-last-event').click()">📖 Ultimo evento</button>`}</div>`);
             $('btn-top-life').onclick = () => showQuickModal('Vita del protagonista', `<div class="btn-row top-popup-grid"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-inventory').click()">🎒 Inventario</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('panel-finances').click()">💰 Finanze</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('panel-family').click()">👨‍👩‍👧 Famiglia</button>${$('btn-business-manage')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-business-manage').click()">🏢 Attività</button>`}${$('btn-kingdom-manage')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-kingdom-manage').click()">👑 Regno</button>`}</div>`);
             $('btn-top-game').onclick = () => showQuickModal('Partita', `<div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-save-quick').click()">💾 Salvataggi</button><button class="btn danger" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-exit').click()">🚪 Esci</button></div>`);
@@ -14507,6 +14664,11 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if ($('btn-advance-world')) $('btn-advance-world').onclick = openTimeline;
             if ($('btn-reopen-last-event')) $('btn-reopen-last-event').onclick = reopenLastTimelineEvent;
             if ($('btn-world-chats')) $('btn-world-chats').onclick = () => openWorldChats();
+            if ($('btn-map-center')) $('btn-map-center').onclick = centerWorldMapOnPlayer;
+            if ($('btn-map-refresh')) $('btn-map-refresh').onclick = () => { renderWorldMap(); centerWorldMapOnPlayer(); };
+            if ($('btn-map-zoom-in')) $('btn-map-zoom-in').onclick = () => { worldMapZoom = Math.min(1.5, worldMapZoom + 0.15); applyWorldMapZoom(); };
+            if ($('btn-map-zoom-out')) $('btn-map-zoom-out').onclick = () => { worldMapZoom = Math.max(0.7, worldMapZoom - 0.15); applyWorldMapZoom(); };
+            if ($('btn-map-dice')) $('btn-map-dice').onclick = () => { closeModal('modal-world-map'); openModal('modal-dice'); };
             if ($('btn-simulate-timeline')) $('btn-simulate-timeline').onclick = simulateTimelineEvents;
             if ($('btn-send-chat')) $('btn-send-chat').onclick = sendWorldChatMessage;
             if ($('btn-new-world-chat')) $('btn-new-world-chat').onclick = () => openChatConvocation('new');
