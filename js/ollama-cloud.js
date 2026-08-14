@@ -106,12 +106,58 @@
         return headers;
     }
 
-    function parseContent(data, style) {
-        if (style === 'openai') {
-            const message = data?.choices?.[0]?.message;
-            return message?.content || message?.text || '';
+    function textValue(value) {
+        if (typeof value === 'string') return value.trim();
+        if (!Array.isArray(value)) return '';
+        return value.map(block => {
+            if (typeof block === 'string') return block;
+            return block?.text || block?.content || block?.value || '';
+        }).filter(Boolean).join('\n').trim();
+    }
+
+    function extractStructuredAnswer(value) {
+        const source = textValue(value);
+        if (!source) return '';
+
+        // Non mostriamo il ragionamento interno del modello. Recuperiamo soltanto
+        // una risposta finale esplicita o un payload strutturato che il gioco sa usare.
+        const finalMarker = source.match(/(?:RISPOSTA\s+FINALE|FINAL\s+ANSWER)\s*:\s*([\s\S]+)$/i);
+        if (finalMarker?.[1]?.trim()) return finalMarker[1].trim();
+
+        const fencedBlocks = [...source.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+        const fenced = fencedBlocks.at(-1)?.[1]?.trim();
+        if (fenced) return fenced;
+
+        const jsonStart = source.indexOf('{');
+        const jsonEnd = source.lastIndexOf('}');
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+            return source.slice(jsonStart, jsonEnd + 1).trim();
         }
-        return data?.message?.content || data?.response || '';
+
+        const tagged = source.match(/(\[(?:EVENTO|CRONISTA|CHAT|ESITO_CHAT|ACCORDO_CHAT|DATA_EVENTO|TEMPO_EVENTO|MONDO_[A-Z_]+|NPC_[A-Z_]+|FAZIONE_[A-Z_]+):[\s\S]+)$/i);
+        return tagged?.[1]?.trim() || '';
+    }
+
+    function parseContent(data, style) {
+        const nativeMessage = data?.message || {};
+        const choiceMessage = data?.choices?.[0]?.message || {};
+        const primary = style === 'openai'
+            ? (choiceMessage.content || choiceMessage.text || data?.output_text)
+            : (nativeMessage.content || nativeMessage.text || data?.response || data?.output_text || choiceMessage.content || choiceMessage.text);
+        const content = textValue(primary);
+        if (content) return content;
+
+        const explicitFinal = textValue(
+            nativeMessage.final || nativeMessage.final_answer ||
+            choiceMessage.final || choiceMessage.final_answer
+        );
+        if (explicitFinal) return explicitFinal;
+
+        return extractStructuredAnswer(
+            nativeMessage.reasoning_content || nativeMessage.reasoning || nativeMessage.thinking ||
+            choiceMessage.reasoning_content || choiceMessage.reasoning || choiceMessage.thinking ||
+            data?.reasoning_content || data?.thinking
+        );
     }
 
     function errorMessage(data, response) {
@@ -201,6 +247,10 @@
                 }
                 : {
                     ...common,
+                    // Le risposte del gioco devono arrivare nel campo content. Senza
+                    // questo flag i modelli reasoning possono consumare il budget nel
+                    // campo thinking e restituire message.content vuoto.
+                    think: config?.think === true,
                     options: nativeOptions
                 };
 
@@ -294,6 +344,8 @@
         OLLAMA_NATIVE_PROXY,
         DEFAULT_CLOUD_CONTEXT_SIZE,
         resolveEndpoint,
-        isValidModelId
+        isValidModelId,
+        parseContent,
+        extractStructuredAnswer
     };
 });

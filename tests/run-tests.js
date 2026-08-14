@@ -1540,6 +1540,43 @@ test('usa il modello successivo quando Ollama è sovraccarico', async () => {
     assert.equal(result.content, 'La storia continua.');
 });
 
+test('disattiva il thinking e recupera il JSON strutturato dalle risposte Ollama', async () => {
+    let body;
+    const client = new ollamaApi.OllamaCloudClient({
+        fetch: async (_url, options) => {
+            body = JSON.parse(options.body);
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    message: {
+                        content: '',
+                        thinking: 'Valuto il contesto.\n```json\n{"headline":"Difendere il borgo"}\n```'
+                    }
+                })
+            };
+        },
+        timeoutMs: 1000
+    });
+    const result = await client.generate([{ role: 'user', content: 'Analizza' }], {
+        apiKey: 'test-key', preferredModels: ['qwen3.5:397b'], maxAttempts: 1
+    });
+    assert.equal(body.think, false);
+    assert.equal(result.content, '{"headline":"Difendere il borgo"}');
+});
+
+test('recupera soltanto la risposta finale dai campi reasoning alternativi', () => {
+    assert.equal(ollamaApi.parseContent({
+        choices: [{ message: {
+            content: '',
+            reasoning_content: 'Analisi interna non visibile. FINAL ANSWER: [EVENTO: Il consiglio convoca il principe]'
+        } }]
+    }, 'native'), '[EVENTO: Il consiglio convoca il principe]');
+    assert.equal(ollamaApi.parseContent({
+        message: { content: '', thinking: 'Solo ragionamento interno senza una risposta finale.' }
+    }, 'native'), '');
+});
+
 test('lascia a Ollama Cloud il contesto massimo automatico e limita i tentativi della chat', async () => {
     const bodies = [];
     const client = new ollamaApi.OllamaCloudClient({
@@ -1560,6 +1597,7 @@ test('lascia a Ollama Cloud il contesto massimo automatico e limita i tentativi 
         maxAttempts: 2
     });
     assert.equal(result.content, 'Risposta completa.');
+    assert.equal(bodies[0].think, false);
     assert.equal(bodies[0].options.num_predict, 1800);
     assert.equal(Object.hasOwn(bodies[0].options, 'num_ctx'), false);
 
