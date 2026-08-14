@@ -397,6 +397,23 @@
 }
 
 /* Portrait-driven cast and causal event presentation v10 */
+.portrait-topbar {
+    display: grid;
+    grid-template-columns: 44px 44px 82px 44px 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 92px;
+}
+.topbar-protagonist, .portrait-orbit { border: 0; cursor: pointer; color: #24160d; box-shadow: 0 5px 14px rgba(0,0,0,.35); }
+.topbar-protagonist { width: 82px; height: 82px; padding: 4px; border-radius: 50%; background: linear-gradient(145deg,#ffe8a0,#9f6913); border: 2px solid #f8d56d; }
+.topbar-protagonist > span { width: 100%; height: 100%; display: grid; place-items: center; font-size: 2rem; border: 2px solid rgba(39,21,9,.65); }
+.portrait-orbit { width: 42px; height: 42px; border-radius: 50%; font: 800 1.2rem 'Cinzel', serif; background: linear-gradient(145deg,#f8d677,#9b651b); border: 1px solid rgba(255,236,165,.7); }
+.orbit-world { background: linear-gradient(145deg,#b887dd,#54247b); color:#fff; }.orbit-life { background:linear-gradient(145deg,#ec7d76,#8f1715); color:#fff; }.orbit-game { background:linear-gradient(145deg,#f8d677,#9b651b); }
+.top-menu-time { margin:0; text-align:center; font:700 1.05rem 'Cinzel',serif; color:var(--ink); }.top-menu-time small { font:400 .75rem system-ui,sans-serif; }
+.portrait-topbar ~ .topbar-row { display:none !important; }
+.topbar-protagonist .portrait-sprite { background-image: var(--portrait-image); background-size: var(--portrait-size); background-position: var(--portrait-position); background-repeat:no-repeat; }
+@media (min-width: 701px) { .portrait-topbar { min-height:100px; } }
 .portrait-sprite {
     display: inline-block;
     flex: 0 0 auto;

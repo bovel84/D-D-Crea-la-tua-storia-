@@ -2874,6 +2874,15 @@
     <!-- GAME SCREEN -->
     <div class="screen" id="game-screen">
         <div class="game-topbar">
+            <div class="portrait-topbar" aria-label="Comandi rapidi del protagonista">
+                <button class="portrait-orbit orbit-story" id="btn-top-story" title="Partita e tempo">☷</button>
+                <button class="portrait-orbit orbit-world" id="btn-top-world" title="Mondo e cronaca">◈</button>
+                <button class="topbar-protagonist" id="btn-top-character" title="Apri personaggio" aria-label="Apri personaggio">
+                    <span id="topbar-protagonist-portrait" class="portrait-fallback">⚔️</span>
+                </button>
+                <button class="portrait-orbit orbit-life" id="btn-top-life" title="Vita e risorse">♥</button>
+                <button class="portrait-orbit orbit-game" id="btn-top-game" title="Salvataggio e partita">⚙</button>
+            </div>
             <div class="topbar-row">
                 <div class="topbar-buttons">
                     <button class="topbar-btn danger" id="btn-exit" title="Esci">🚪</button>
@@ -5790,6 +5799,7 @@
                 origin: c.origin
             }));
             const charPortrait = $('char-portrait');
+            const topbarPortrait = $('topbar-protagonist-portrait');
             const selectedPortrait = portraitEngine.getPortrait(c.portraitId);
             if (charPortrait && selectedPortrait) {
                 charPortrait.classList.add('portrait-sprite');
@@ -5801,6 +5811,17 @@
                 charPortrait.classList.remove('portrait-sprite');
                 charPortrait.removeAttribute('style');
                 charPortrait.textContent = a.icon;
+            }
+            if (topbarPortrait && selectedPortrait) {
+                topbarPortrait.className = 'portrait-sprite';
+                topbarPortrait.setAttribute('style', portraitEngine.spriteStyle(selectedPortrait));
+                topbarPortrait.setAttribute('role', 'img');
+                topbarPortrait.setAttribute('aria-label', `Ritratto di ${c.name}`);
+                topbarPortrait.textContent = '';
+            } else if (topbarPortrait) {
+                topbarPortrait.className = 'portrait-fallback';
+                topbarPortrait.removeAttribute('style');
+                topbarPortrait.textContent = a.icon;
             }
             $('char-name').textContent = c.name;
             $('char-class').textContent = `${o.name} / ${a.name} Lv. ${c.level}`;
@@ -14426,6 +14447,11 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             $('btn-inventory').onclick = () => { updateCharacterUI(); openModal('modal-inventory'); };
             $('btn-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
             $('btn-memory').onclick = () => { updateMemoryUI(); openModal('modal-memory'); };
+            $('btn-top-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
+            $('btn-top-story').onclick = () => showQuickModal('Tempo e azioni', `<p class="top-menu-time">${$('time-text')?.textContent || ''}<br><small>${$('time-date')?.textContent || ''} · ${$('time-location')?.textContent || ''}</small></p><div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-dice').click()">🎲 Dadi</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-advance-world').click()">⏳ Avanza il tempo</button></div>`);
+            $('btn-top-world').onclick = () => showQuickModal('Mondo', `<div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-memory').click()">📜 Memoria</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-world-chats').click()">💬 Conversazioni</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-advance-world').click()">🗓 Timeline</button></div>`);
+            $('btn-top-life').onclick = () => showQuickModal('Vita del protagonista', `<div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-inventory').click()">🎒 Inventario</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('panel-finances').click()">💰 Finanze</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('panel-family').click()">👨‍👩‍👧 Famiglia</button></div>`);
+            $('btn-top-game').onclick = () => showQuickModal('Partita', `<div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-save-quick').click()">💾 Salvataggi</button><button class="btn danger" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-exit').click()">🚪 Esci</button></div>`);
 
             // ACTION BAR
             if ($('btn-rest')) $('btn-rest').onclick = doRest;
