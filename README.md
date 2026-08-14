@@ -3,7 +3,7 @@
 > Un gioco di ruolo narrativo persistente in cui il Master LLM racconta il mondo, mentre il motore di gioco conserva memoria, tempo, risorse, attività economiche e regni.
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/bovel84/D-D-Crea-la-tua-storia-)
-[![Test](https://img.shields.io/badge/test-99%20superati-brightgreen.svg)](#-sviluppo-e-test)
+[![Test](https://img.shields.io/badge/test-168%20superati-brightgreen.svg)](#-sviluppo-e-test)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 🎮 **Gioca online:** [storia-app.vercel.app](https://storia-app.vercel.app/)
@@ -19,7 +19,7 @@ Il Master LLM produce la narrazione, ma i dati importanti sono mantenuti da modu
 ### Ciclo di gioco
 
 1. Crea o genera una storia completa.
-2. Scegli origine, ruolo, caratteristiche e dotazione del personaggio.
+2. Scegli origine, ruolo, volto, caratteristiche e dotazione del personaggio.
 3. Interagisci liberamente con il mondo oppure usa le azioni rapide.
 4. Affronta prove con dadi, abilità e difficoltà reali.
 5. Gestisci tempo, energia, denaro, relazioni e proprietà.
@@ -48,11 +48,14 @@ Il Master LLM produce la narrazione, ma i dati importanti sono mantenuti da modu
 - PNG, fazioni, luoghi e conseguenze persistenti.
 - Consigliere strategico IA che divide l’analisi per argomenti, propone alternative concrete e permette di selezionare più azioni anche nello stesso tema, senza rivelare informazioni nascoste. Le azioni selezionate vengono trasformate in sviluppi causali persistenti e non partono al semplice tocco.
 - **Vai al prossimo evento importante** fa trascorrere il tempo realmente necessario — da pochi minuti a più anni — e genera un solo evento per chiamata. Risposte alle azioni, contromosse del mondo e sviluppi successivi rimangono in coda fino al clic su **Evento successivo**.
-- I metadati tecnici degli eventi restano nascosti al giocatore: la schermata mostra il fatto narrativo e segnala soltanto l’eventuale chat attiva o l’azione disponibile. Nelle chat risponde un solo interlocutore per chiamata; gli altri attendono il proprio turno.
+- La timeline espone il nesso narrativo in linguaggio naturale — risposta a un’azione, conseguenza di un dialogo o iniziativa del mondo — e separa chiaramente fatto, cambiamento prodotto e motivo temporale, senza mostrare ID o punteggi tecnici.
+- Nelle chat ogni interlocutore reagisce prima all’ultima battuta, riconosce proposte, domande, rifiuti e minacce, quindi risponde secondo obiettivi, risorse, personalità e vincoli propri. I PNG intervengono uno alla volta e possono dissentire tra loro.
 - Audit prima/dopo per mantenere coerenti i sistemi gestionali.
 
 ### Personaggio e vita quotidiana
 
+- Dodici ritratti illustrati in due atlanti — storico/fantasy e contemporaneo — assegnati in modo stabile al protagonista e ai PNG.
+- Selezione del volto nella creazione; lo stesso ritratto appare nella scheda, nelle chat e accanto agli eventi della timeline.
 - Caratteristiche, abilità, salute e risorsa secondaria legate al genere.
 - Inventario, equipaggiamento, denaro personale e proprietà.
 - Dadi D4, D6, D8, D10, D12 e D20.
@@ -197,11 +200,18 @@ Poi apri l'indirizzo locale mostrato dal terminale.
 ├── index.html                  # applicazione e interfaccia principale
 ├── css/
 │   └── experience-v7.css       # tema, dashboard e responsive mobile
+├── assets/portraits/
+│   ├── chronicle-cast-v1.webp   # sei ritratti storico/fantasy ottimizzati
+│   └── modern-cast-v1.webp      # sei ritratti contemporanei ottimizzati
 ├── js/
 │   ├── story-generator.js      # generazione e completamento delle storie
 │   ├── character-options.js    # generi, origini, ruoli e dotazioni
+│   ├── portrait-manager.js     # atlanti, scelta e persistenza dei ritratti
 │   ├── memory-manager.js       # memoria multilivello e retrieval
 │   ├── event-manager.js        # parsing e cronaca strutturata degli eventi
+│   ├── timeline-simulator.js   # coda causale e salti temporali
+│   ├── timeline-chat.js        # dialoghi reattivi multi-PNG
+│   ├── world-bootstrap.js      # attori, fazioni e forze persistenti
 │   ├── strategic-advisor.js    # analisi strategica e azioni eseguibili
 │   ├── narrative-master.js     # Narrative Compass
 │   ├── game-director.js        # timeline e pressioni del mondo

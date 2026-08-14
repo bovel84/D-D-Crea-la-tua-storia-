@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 6;
+    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 7;
     const EVENT_QUEUE_LIMIT = 40;
     const MIN_EVENT_DELAY_MINUTES = 5;
     const MAX_EVENT_DELAY_MINUTES = 5256000;
@@ -38,6 +38,46 @@
             hash = Math.imul(hash, 16777619);
         }
         return (hash >>> 0).toString(36);
+    }
+
+    const CAUSAL_STOP_WORDS = new Set([
+        'alla', 'alle', 'anche', 'come', 'dalla', 'dalle', 'della', 'delle', 'degli',
+        'dello', 'dopo', 'entro', 'essere', 'giocatore', 'mondo', 'nella', 'nelle',
+        'protagonista', 'questa', 'questo', 'sono', 'sulla', 'sulle', 'viene'
+    ]);
+
+    function causalTokens(value) {
+        return keyOf(value).split(/\s+/).filter(token => token.length >= 4 && !CAUSAL_STOP_WORDS.has(token));
+    }
+
+    function causalLabelFor(value) {
+        const kind = keyOf(value);
+        if (!kind) return '';
+        if (kind === 'strategic_action') return 'Esito del piano';
+        if (kind === 'player_action') return 'Risposta alla tua azione';
+        if (kind === 'dialogue_reply') return 'Conseguenza del dialogo';
+        if (kind === 'action_reply') return 'Sviluppo della tua azione';
+        if (kind === 'world_reply') return 'Reazione del mondo';
+        return 'Iniziativa del mondo';
+    }
+
+    function causalAlignmentScore(event, seed) {
+        if (!seed) return 10;
+        const source = [seed.cause, seed.title, seed.topic, seed.choice?.command, seed.choice?.objective]
+            .filter(Boolean).join(' ');
+        const outcome = [event?.title, event?.summary, event?.cause, event?.choice, event?.consequence]
+            .filter(Boolean).join(' ');
+        const sourceTokens = [...new Set(causalTokens(source))];
+        const outcomeKey = keyOf(outcome);
+        const matched = sourceTokens.filter(token => outcomeKey.includes(token));
+        const seedActors = asArray(seed.actors).map(keyOf).filter(Boolean);
+        const eventActors = asArray(event?.actors).map(keyOf).filter(Boolean);
+        let score = 0;
+        if (sourceTokens.length) score += Math.min(5, Math.ceil((matched.length / sourceTokens.length) * 5));
+        if (cleanText(seed.cause, 40) && keyOf(event?.cause).includes(keyOf(seed.cause).slice(0, 80))) score += 3;
+        if (seedActors.some(name => eventActors.includes(name))) score += 2;
+        if (cleanText(event?.cause, 30)) score += 1;
+        return score;
     }
 
     function isGenericActorName(value) {
@@ -162,6 +202,7 @@
                 : inferredLane;
         const causalRootId = cleanText(input.causalRootId || input.rootId, 170).replace(/[^a-zA-Z0-9_-]/g, '') || id;
         const parentSeedId = cleanText(input.parentSeedId, 170).replace(/[^a-zA-Z0-9_-]/g, '');
+        const parentEventId = cleanText(input.parentEventId || input.causalParentEventId, 170).replace(/[^a-zA-Z0-9_-]/g, '');
         const originTurn = Math.max(0, Number(input.originTurn ?? input.causalOriginTurn ?? choice?.turn ?? createdAtTurn) || 0);
         const sequence = Math.max(0, Math.min(20, Math.round(Number(input.sequence) || 0)));
         return {
@@ -183,6 +224,7 @@
             causalLane,
             causalRootId,
             parentSeedId,
+            parentEventId,
             originTurn,
             sequence,
             status: 'pending'
@@ -498,7 +540,8 @@ REGOLE OBBLIGATORIE:
         const history = world.historicalContext || {};
         const force = asArray(world.forces).find(item => item.status !== 'resolved');
         const choices = normalizeTimelineChoices(context.choices).map(choice => cleanText(choice.summary, 240));
-        const cause = cleanText(event?.cause || event?.choice || (index > 0 ? previousEvent?.title : '') || choices[0] || force?.cause || force?.objective || world.centralConflict, 320);
+        const seed = context.seed ? normalizeEventSeed(context.seed, 0, context) : null;
+        const cause = cleanText(event?.cause || seed?.cause || event?.choice || (index > 0 ? previousEvent?.title : '') || choices[0] || force?.cause || force?.objective || world.centralConflict, 800);
         const historicalAnchor = cleanText(event?.historicalAnchor || [history.date, history.baseline].filter(Boolean).join(' — ') || context.passage?.startDate || world.setting, 320);
         const politicalShift = cleanText(event?.politicalShift || event?.consequence, 320);
         const stakes = cleanText(event?.stakes || world.stakes || force?.consequenceAt100 || event?.consequence, 280);
@@ -515,6 +558,14 @@ REGOLE OBBLIGATORIE:
             conversationGoal,
             conversationMode,
             centralityScore: eventCentralityScore(event, context),
+            causalAlignmentScore: causalAlignmentScore(event, seed),
+            causalKind: cleanText(event?.causalKind || seed?.kind, 40),
+            causalLabel: cleanText(event?.causalLabel || causalLabelFor(seed?.kind), 80),
+            causalLane: cleanText(event?.causalLane || seed?.causalLane, 20),
+            causalRootId: cleanText(event?.causalRootId || seed?.causalRootId, 170),
+            causalParentSeedId: cleanText(event?.causalParentSeedId || seed?.parentSeedId, 170),
+            causalParentEventId: cleanText(event?.causalParentEventId || seed?.parentEventId, 170),
+            causalSequence: Math.max(0, Number(event?.causalSequence ?? seed?.sequence) || 0),
             timelineSimulatorSchemaVersion: TIMELINE_SIMULATOR_SCHEMA_VERSION
         };
     }
@@ -741,7 +792,8 @@ REGOLE OBBLIGATORIE:
                         batchId,
                         createdAtTurn: turn,
                         originTurn: turn,
-                        causalLane: 'world'
+                        causalLane: 'world',
+                        parentEventId: previousEvent.id
                     }, seeds.length, { turn, batchId });
                     if (worldSeed) seeds.push(worldSeed);
                 }
@@ -821,6 +873,7 @@ REGOLE OBBLIGATORIE:
                 causalLane: context.parentSeed?.causalLane,
                 causalRootId: context.parentSeed?.causalRootId || context.parentSeed?.id,
                 parentSeedId: context.parentSeed?.id,
+                parentEventId: context.parentEvent?.id || context.parentEventId,
                 originTurn: context.parentSeed?.originTurn ?? context.parentSeed?.createdAtTurn ?? context.turn,
                 sequence: Math.min(20, Number(context.parentSeed?.sequence || 0) + 1)
             }, seeds.length, context);
@@ -880,7 +933,9 @@ REGOLE OBBLIGATORIE:
 
     function ensureSingleEvent(incomingEvents, context = {}) {
         const meaningful = asArray(incomingEvents).filter(isMeaningfulEvent);
-        const accepted = meaningful.find(event => eventCentralityScore(event, context) >= 6);
+        const accepted = meaningful.find(event =>
+            eventCentralityScore(event, context) >= 6 && causalAlignmentScore(event, context.seed) >= 2
+        );
         const event = accepted
             ? enrichEvent({
                 ...accepted,
@@ -931,6 +986,7 @@ REGOLE OBBLIGATORIE:
                 causalLane: parent.causalLane,
                 causalRootId: parent.causalRootId || parent.id,
                 parentSeedId: parent.id,
+                parentEventId: event?.id,
                 originTurn: parent.originTurn,
                 sequence: Math.min(20, Number(parent.sequence || 0) + 1)
             });
@@ -959,6 +1015,7 @@ REGOLE OBBLIGATORIE:
                 causalLane: parent.causalLane,
                 causalRootId: parent.causalRootId || parent.id,
                 parentSeedId: parent.id,
+                parentEventId: event?.id,
                 originTurn: parent.originTurn,
                 sequence: Math.min(20, Number(parent.sequence || 0) + 1)
             });
@@ -1166,6 +1223,9 @@ REGOLE OBBLIGATORIE:
         isGenericActorName,
         containsPlaceholder,
         isPlaceholderSeed,
+        causalTokens,
+        causalLabelFor,
+        causalAlignmentScore,
         parseDurationMinutes,
         normalizeInteractionMode,
         inferInteractionMode,
