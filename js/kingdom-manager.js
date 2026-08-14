@@ -459,12 +459,20 @@
     function normalizeFaction(raw, index = 0) {
         const source = raw && typeof raw === 'object' ? raw : {};
         const name = clean(source.name || `Fazione ${index + 1}`, 100);
+        const loyalty = clamp(source.loyalty ?? 50);
+        const hostility = clamp(source.hostility ?? Math.max(0, 65 - loyalty));
         return {
             id: clean(source.id || `faction-${keyOf(name) || index + 1}`, 120),
             name, category: clean(source.category || 'altro', 70),
             leader: clean(source.leader || '', 100), power: clamp(source.power ?? 25),
-            loyalty: clamp(source.loyalty ?? 50), wealth: clamp(source.wealth ?? 25),
-            goal: clean(source.goal || '', 180), status: clean(source.status || 'attiva', 50)
+            loyalty, wealth: clamp(source.wealth ?? 25),
+            goal: clean(source.goal || '', 180), status: clean(source.status || 'attiva', 50),
+            territoryName: clean(source.territoryName || source.base || source.location || '', 100),
+            militaryStrength: clamp(source.militaryStrength ?? source.power ?? 20),
+            intelligence: clamp(source.intelligence ?? 35), hostility,
+            tactics: clean(source.tactics || source.strategy || '', 200),
+            grievance: clean(source.grievance || source.claims || '', 200),
+            nextMove: clean(source.nextMove || source.lastMove || '', 220)
         };
     }
 
@@ -588,7 +596,7 @@
             TERRITORIO_REGNO: ['territory', ['kingdomName', 'name', 'territoryType', 'population', 'foodProduction', 'taxIncome', 'fortification', 'loyalty', 'controller', 'strategicResource', 'status', 'prosperity', 'publicOrder', 'health', 'infrastructure', 'employment', 'poverty', 'capital']],
             RISORSA_REGNO: ['resource', ['kingdomName', 'territoryName', 'name', 'category', 'production', 'stock', 'unitValue', 'status']],
             CRISI_REGNO: ['crisis', ['kingdomName', 'name', 'severity', 'territoryName', 'effect', 'status']],
-            FAZIONE_REGNO: ['faction', ['kingdomName', 'name', 'category', 'leader', 'power', 'loyalty', 'wealth', 'goal', 'status']],
+            FAZIONE_REGNO: ['faction', ['kingdomName', 'name', 'category', 'leader', 'power', 'loyalty', 'wealth', 'goal', 'status', 'territoryName', 'militaryStrength', 'intelligence', 'hostility', 'tactics', 'grievance', 'nextMove']],
             ESERCITO_REGNO: ['army', ['kingdomName', 'levies', 'professionals', 'cavalry', 'navy', 'morale', 'readiness', 'upkeep']],
             DIPLOMAZIA_REGNO: ['diplomacy', ['kingdomName', 'realm', 'relation', 'trust', 'tension', 'treaty', 'trade', 'claims']],
             LEGGE_REGNO: ['law', ['kingdomName', 'title', 'area', 'effect', 'status', 'support', 'opposition']],
@@ -1293,7 +1301,8 @@
         }));
         state.factions = state.factions.map(item => ({
             ...item,
-            loyalty: clamp(item.loyalty + approvalDelta / 4 - taxPressure / 8)
+            loyalty: clamp(item.loyalty + approvalDelta / 4 - taxPressure / 8),
+            hostility: clamp(item.hostility - approvalDelta / 6 + taxPressure / 7 + (shortage ? 3 : 0))
         }));
         state.people.classes = state.people.classes.map(item => ({
             ...item,
@@ -1377,7 +1386,7 @@
             `TERRITORI: ${territories || 'nessuno registrato'}.`,
             `RISORSE: ${resources || 'nessuna censita'}.`,
             `ESERCITO: ${state.army.levies} leve, ${state.army.professionals} professionisti, ${state.army.cavalry} cavalleria, ${state.army.navy} flotta; morale ${Math.round(state.army.morale)}, prontezza ${Math.round(state.army.readiness)}, costo ${state.army.upkeep}.`,
-            `FAZIONI: ${state.factions.length ? state.factions.map(item => `${item.name}/${item.category}: potere ${Math.round(item.power)}, lealtà ${Math.round(item.loyalty)}, obiettivo ${item.goal || 'ignoto'}`).join('; ') : 'nessuna'}.`,
+            `FAZIONI: ${state.factions.length ? state.factions.map(item => `${item.name}/${item.category}: potere ${Math.round(item.power)}, lealtà ${Math.round(item.loyalty)}, ostilità ${Math.round(item.hostility)}, forza militare ${Math.round(item.militaryStrength)}, base ${item.territoryName || 'ignota'}, obiettivo ${item.goal || 'ignoto'}, tattiche ${item.tactics || 'ignote'}, rivendicazione ${item.grievance || 'nessuna'}, prossima mossa ${item.nextMove || 'non nota'}`).join('; ') : 'nessuna'}.`,
             `DIPLOMAZIA: ${state.diplomacy.length ? state.diplomacy.map(item => `${item.realm}: ${item.relation}, fiducia ${Math.round(item.trust)}, tensione ${Math.round(item.tension)}`).join('; ') : 'nessuna'}.`,
             `CRISI: ${state.crises.filter(item => item.status === 'active').map(item => `${item.name} (${Math.round(item.severity)}/100${item.territoryName ? ', ' + item.territoryName : ''}): ${item.effect}`).join('; ') || 'nessuna attiva'}.`,
             `DIAGNOSI MOTORE: governo ${advisor.level} (${advisor.score}/100). Rischi: ${advisor.risks.join('; ') || 'nessuno grave'}. Priorità: ${advisor.priorities.join('; ')}.`,

@@ -206,6 +206,12 @@
             legitimacy: numberBetween(input.legitimacy, 0, 100, 50),
             leverage: cleanText(input.leverage || input.resources, 260),
             constraints: cleanText(input.constraints, 260),
+            militaryStrength: numberBetween(input.militaryStrength, 0, 100, input.influence || 35),
+            intelligence: numberBetween(input.intelligence, 0, 100, 40),
+            hostility: numberBetween(input.hostility, 0, 100, /ostil|nemic|avvers|guerra/i.test(input.relationship || '') ? 75 : 40),
+            tactics: cleanText(input.tactics || input.strategy, 240),
+            grievance: cleanText(input.grievance || input.claims, 240),
+            nextMove: cleanText(input.nextMove || input.lastMove, 300),
             influence: numberBetween(input.influence, 0, 100, 50),
             relationship: cleanText(input.relationship || 'neutrale', 100),
             status: normalizeStatus(input.status),
@@ -356,7 +362,8 @@
             name: parts[0], type: parts[1], leader: parts[2], description: parts[3], goal: parts[4],
             strategy: parts[5], resources: parts[6], influence: parts[7], relationship: parts[8],
             status: parts[9], base: parts[10], ideology: parts[11], legitimacy: parts[12],
-            leverage: parts[13], constraints: parts[14]
+            leverage: parts[13], constraints: parts[14], militaryStrength: parts[15], intelligence: parts[16],
+            hostility: parts[17], tactics: parts[18], grievance: parts[19], nextMove: parts[20]
         })).map(item => normalizeFaction(item, context)).filter(Boolean);
         const relations = bodies(response, 'RELAZIONE_SETUP').map(fields).map(parts => ({
             from: parts[0], to: parts[1], type: parts[2], trust: parts[3], tension: parts[4], description: parts[5]
@@ -578,6 +585,10 @@
             `${item.leverage || item.resources ? `; leva: ${item.leverage || item.resources}` : ''}` +
             `${item.constraints ? `; vincoli: ${item.constraints}` : ''}` +
             `${place ? `; base: ${place}` : ''}` +
+            `${item.kind === 'faction' ? `; forza militare ${Math.round(item.militaryStrength || 0)}/100; intelligence ${Math.round(item.intelligence || 0)}/100; ostilità ${Math.round(item.hostility || 0)}/100` : ''}` +
+            `${item.kind === 'faction' && item.tactics ? `; tattiche: ${item.tactics}` : ''}` +
+            `${item.kind === 'faction' && item.grievance ? `; rivendicazione: ${item.grievance}` : ''}` +
+            `${item.kind === 'faction' && item.nextMove ? `; prossima mossa: ${item.nextMove}` : ''}` +
             `${item.lastMove ? `; ultima mossa: ${item.lastMove}` : ''}`;
     }
 
@@ -611,7 +622,7 @@ ${protagonistName ? `- Il protagonista controllato dal giocatore è «${protagon
 - Il canone persistente, gli eventi già registrati e i nomi già usati hanno precedenza su etichette generiche della scheda. Se la data dell'interfaccia contraddice ripetutamente il canone narrativo, segnala il conflitto nel CONTESTO_STORICO_SETUP e conserva l'epoca della storia: non fondere epoche diverse.
 - Se l'ambientazione è storica o contemporanea, usa persone, cariche, istituzioni, confini, crisi e rapporti di forza plausibili per luogo e data. Non spostare figure tra epoche e non presentare invenzioni come fatti storici certi. Se la campagna è alternativa, definisci il punto di divergenza.
 - Vietati segnaposto come «Autorità», «Opposizione», «Guida locale» e «Mediatore indipendente»: assegna nomi propri, cariche esatte e appartenenze riconoscibili.
-- Ogni personaggio deve avere obiettivo pubblico e privato, leva concreta, limiti, conoscenze parziali e un'agenda. Ogni fazione deve avere ideologia, legittimità, leve e vincoli.
+- Ogni personaggio deve avere obiettivo pubblico e privato, leva concreta, limiti, conoscenze parziali e un'agenda. Ogni fazione deve avere ideologia, legittimità, leve, vincoli, forza militare, intelligence, ostilità, tattiche, una rivendicazione e una prossima mossa concreta.
 - Ogni forza storica deve avere una causa, avversari identificati e una conseguenza concreta al 100% di progresso.
 - Crea alleati potenziali, rivali e parti neutrali; non renderli tutti dipendenti dal protagonista.
 - Le relazioni devono contenere cooperazione, conflitto e tensioni capaci di evolvere nella timeline.
@@ -620,7 +631,7 @@ ${protagonistName ? `- Il protagonista controllato dal giocatore è «${protagon
 [CONTESTO_STORICO_SETUP: data_o_epoca|regione|istituzioni_e_assetto_politico|situazione_storica_di_partenza|tensioni_attive|vincoli_storici|regola_di_divergenza]
 [LUOGO_SETUP: nome|tipo|regione|descrizione|controllore|risorsa|pericolo|collegamenti_separati_da_virgola]
 [PERSONAGGIO_SETUP: nome|carica_o_ruolo|fazione_o_vuoto|descrizione|personalità|obiettivo_generale|strategia|risorse|influenza_0_100|relazione_col_protagonista|active|luogo|obiettivo_pubblico|obiettivo_privato|leva_concreta|vincoli|conoscenze|agenda|ruolo_storico]
-[FAZIONE_SETUP: nome_esatto|tipo|leader|descrizione|obiettivo|strategia|risorse|influenza_0_100|relazione_col_protagonista|active|base|ideologia|legittimità_0_100|leva_concreta|vincoli]
+[FAZIONE_SETUP: nome_esatto|tipo|leader|descrizione|obiettivo|strategia|risorse|influenza_0_100|relazione_col_protagonista|active|base|ideologia|legittimità_0_100|leva_concreta|vincoli|forza_militare_0_100|intelligence_0_100|ostilità_0_100|tattiche|rivendicazione|prossima_mossa]
 [RELAZIONE_SETUP: soggetto|bersaglio|tipo|fiducia_0_100|tensione_0_100|descrizione]
 [FORZA_SETUP: nome|attore_responsabile|obiettivo|progresso_0_100|urgenza_0_100|active|causa|avversari_separati_da_virgola|conseguenza_al_100]
 La scena iniziale deve inoltre usare [LUOGO] e [POSIZIONE] per il luogo in cui si trova davvero il protagonista.`;

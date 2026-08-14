@@ -320,7 +320,10 @@
             })),
             factions: asArray(input.factions).filter(item => item.status !== 'inactive').slice(0, 6).map(item => ({
                 name: cleanText(item.name, 100), power: Math.round(clamp(item.power, 0, 100)),
-                loyalty: Math.round(clamp(item.loyalty, 0, 100)), goal: cleanText(item.goal, 180)
+                loyalty: Math.round(clamp(item.loyalty, 0, 100)), hostility: Math.round(clamp(item.hostility, 0, 100)),
+                militaryStrength: Math.round(clamp(item.militaryStrength, 0, 100)), intelligence: Math.round(clamp(item.intelligence, 0, 100)),
+                territory: cleanText(item.territoryName, 100), goal: cleanText(item.goal, 180),
+                tactics: cleanText(item.tactics, 180), grievance: cleanText(item.grievance, 180), nextMove: cleanText(item.nextMove, 200)
             })),
             diplomacy: asArray(input.diplomacy).slice(0, 6).map(item => ({
                 realm: cleanText(item.realm, 100), relation: cleanText(item.relation, 80),

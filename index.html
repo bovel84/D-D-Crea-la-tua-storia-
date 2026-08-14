@@ -2869,7 +2869,7 @@
             100% { filter: brightness(1); }
         }
     </style>
-    <link rel="stylesheet" href="css/experience-v7.css">
+    <link rel="stylesheet" href="css/experience-v7.css?v=20260814-map-factions-2">
 </head>
 <body>
     <!-- HOME SCREEN -->
@@ -2985,17 +2985,17 @@
             </div>
 
             <div class="input-area" aria-label="Comandi della cronaca">
-                <button class="bottom-command strategic" id="btn-strategic-actions" title="Apri l'analisi strategica e prepara le azioni">
+                <button type="button" class="bottom-command strategic" id="btn-strategic-actions" data-bottom-command="analysis" onclick="openStrategicActions(); return false;" title="Apri l'analisi strategica e prepara le azioni">
                     <span class="bottom-command-icon" aria-hidden="true">✦</span>
                     <span>Analisi</span>
                     <span class="world-control-badge" id="strategic-action-badge">0</span>
                 </button>
-                <button class="bottom-command chat" id="btn-world-chats" title="Apri le conversazioni del mondo">
+                <button type="button" class="bottom-command chat" id="btn-world-chats" data-bottom-command="chat" onclick="openWorldChats(); return false;" title="Apri le conversazioni del mondo">
                     <span class="bottom-command-icon" aria-hidden="true">💬</span>
                     <span>Chat</span>
                     <span class="world-control-badge" id="world-chat-badge">0</span>
                 </button>
-                <button class="bottom-command timeline" id="btn-advance-world" title="Apri la timeline e avanza il tempo">
+                <button type="button" class="bottom-command timeline" id="btn-advance-world" data-bottom-command="timeline" onclick="openTimeline(); return false;" title="Apri la timeline e avanza il tempo">
                     <span class="bottom-command-icon" aria-hidden="true">⌛</span>
                     <span>Timeline</span>
                 </button>
@@ -3178,14 +3178,18 @@
                     <button class="world-map-tool" id="btn-map-center" type="button">◎ Sei qui</button>
                     <button class="world-map-tool" id="btn-map-zoom-out" type="button" aria-label="Riduci mappa">−</button>
                     <button class="world-map-tool" id="btn-map-zoom-in" type="button" aria-label="Ingrandisci mappa">＋</button>
+                    <button class="world-map-tool" id="btn-map-factions" type="button">⚑ Fazioni</button>
                     <button class="world-map-tool" id="btn-map-refresh" type="button">↻ Aggiorna</button>
                     <button class="world-map-tool" id="btn-map-dice" type="button">🎲 Dadi</button>
                 </div>
                 <div class="world-map-viewport" id="world-map-viewport">
                     <div class="world-map-canvas" id="world-map-canvas"></div>
                 </div>
-                <aside class="world-map-detail" id="world-map-detail">
-                    <div class="world-map-detail-empty">Seleziona un luogo sulla mappa per conoscerne i dettagli.</div>
+                <aside class="world-map-side">
+                    <div class="world-map-detail" id="world-map-detail">
+                        <div class="world-map-detail-empty">Seleziona un luogo sulla mappa per conoscerne i dettagli.</div>
+                    </div>
+                    <section class="world-map-factions" id="world-map-factions" aria-label="Fazioni presenti sulla mappa"></section>
                 </aside>
             </div>
         </div>
@@ -3734,7 +3738,7 @@
 
     <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
     <script src="js/world-bootstrap.js?v=20260814-portraits-1"></script>
-    <script src="js/world-map.js?v=20260814-map-1"></script>
+    <script src="js/world-map.js?v=20260814-map-factions-2"></script>
     <script src="js/event-manager.js"></script>
     <script src="js/timeline-chat.js?v=20260814-dialogue-6"></script>
     <script src="js/timeline-simulator.js?v=20260814-causal-7"></script>
@@ -3751,7 +3755,7 @@
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
     <script src="js/ollama-cloud.js"></script>
-    <script src="js/experience-v7.js"></script>
+    <script src="js/experience-v7.js?v=20260814-mobile-dock-2"></script>
     <script>
         // ==================== GAME STATE ====================
         const G = {
@@ -5542,9 +5546,15 @@
             updateStrategicSelectionBadge();
             updateLastEventButton();
             if (!G.character) return;
-            ['btn-business-manage', 'btn-kingdom-manage', 'btn-strategic-actions', 'btn-strategic-analyze', 'btn-advance-world', 'btn-reopen-last-event', 'btn-world-chats', 'btn-new-world-chat', 'btn-confirm-convocation'].forEach(id => {
+            ['btn-business-manage', 'btn-kingdom-manage', 'btn-strategic-analyze', 'btn-reopen-last-event', 'btn-new-world-chat', 'btn-confirm-convocation'].forEach(id => {
                 const button = $(id);
                 if (button) button.disabled = G.isProcessing || G.isStrategicProcessing;
+            });
+            ['btn-strategic-actions', 'btn-advance-world', 'btn-world-chats'].forEach(id => {
+                const button = $(id);
+                if (!button) return;
+                button.disabled = false;
+                button.setAttribute('aria-busy', String(Boolean(G.isProcessing || G.isStrategicProcessing)));
             });
         }
 
@@ -6672,6 +6682,7 @@
                 setting: G.currentStory?.setting,
                 year: G.time?.year,
                 currentLocation: G.currentLocation,
+                protagonistName: G.character?.name,
                 turn: G.worldMemory?.turnCount || 0
             };
         }
@@ -6705,6 +6716,7 @@
                 node.classList.toggle('selected', node.dataset.mapLocationId === location.id);
             });
             const actors = getWorldMapActors(location.name);
+            const factions = (location.factionIds || []).map(id => activeWorldMapModel.factions.find(item => item.id === id)).filter(Boolean);
             const detail = $('world-map-detail');
             detail.innerHTML = `
                 <header>
@@ -6721,11 +6733,32 @@
                     ${location.controller ? `<div><strong>Controllo:</strong> ${escapeTimelineHtml(location.controller)}</div>` : ''}
                     ${location.resource ? `<div><strong>Risorsa:</strong> ${escapeTimelineHtml(location.resource)}</div>` : ''}
                     ${location.danger ? `<div><strong>Pericolo:</strong> ${escapeTimelineHtml(location.danger)}</div>` : ''}
+                    ${location.owned ? '<div><strong>Possesso:</strong> bene del protagonista</div>' : ''}
+                    ${factions.length ? `<div><strong>Presenza politica:</strong> ${factions.map(faction => `<span class="world-map-inline-faction ${faction.stance}">${escapeTimelineHtml(faction.name)}</span>`).join(' ')}</div>` : ''}
                     ${location.connections.length ? `<div><strong>Collegamenti:</strong> ${location.connections.map(item => escapeTimelineHtml(item)).join(' · ')}</div>` : ''}
                     ${actors.length ? `<div><strong>Presenti:</strong> ${actors.map(actor => escapeTimelineHtml(actor.name)).join(' · ')}</div>` : ''}
                 </div>
                 <div class="world-map-legend"><span><i class="current"></i> Posizione attuale</span><span><i></i> Luogo conosciuto</span><span>— Percorso</span></div>
             `;
+        }
+
+        function renderWorldMapFactions() {
+            const root = $('world-map-factions');
+            if (!root || !activeWorldMapModel) return;
+            const factions = activeWorldMapModel.factions || [];
+            if (!factions.length) {
+                root.innerHTML = '<div class="world-map-factions-empty">Nessuna fazione conosciuta.</div>';
+                return;
+            }
+            root.innerHTML = `<header><strong>⚑ Forze in campo</strong><small>${factions.filter(item => item.stance === 'hostile').length} avversarie</small></header><div class="world-map-faction-list">${factions.map(faction => `
+                <article class="world-map-faction-card ${faction.stance}" style="--map-faction-color:${faction.color}">
+                    <div><i></i><strong>${escapeTimelineHtml(faction.name)}</strong><span>${faction.stance === 'hostile' ? 'Avversaria' : faction.stance === 'allied' ? 'Alleata' : 'Incerta'}</span></div>
+                    <small>${escapeTimelineHtml([faction.type, faction.leader, faction.location].filter(Boolean).join(' · '))}</small>
+                    <div class="world-map-faction-meters"><span>Minaccia <b>${Math.round(faction.hostility)}%</b></span><span>Forza <b>${Math.round(faction.power)}%</b></span><span>Militare <b>${Math.round(faction.militaryStrength)}%</b></span></div>
+                    ${faction.objective ? `<p><strong>Obiettivo:</strong> ${escapeTimelineHtml(faction.objective)}</p>` : ''}
+                    ${faction.nextMove ? `<p><strong>Prossima mossa:</strong> ${escapeTimelineHtml(faction.nextMove)}</p>` : ''}
+                    ${faction.grievance ? `<p><strong>Rivendicazione:</strong> ${escapeTimelineHtml(faction.grievance)}</p>` : ''}
+                </article>`).join('')}</div>`;
         }
 
         function applyWorldMapZoom() {
@@ -6753,8 +6786,10 @@
             }, worldMapContext());
             const canvas = $('world-map-canvas');
             $('world-map-title').textContent = activeWorldMapModel.name || G.currentStory?.title || 'Mondo conosciuto';
-            $('world-map-subtitle').textContent = `${activeWorldMapModel.theme.icon} ${activeWorldMapModel.theme.label} · ${getFullTimeString()} · ${activeWorldMapModel.locations.length} luoghi · ${activeWorldMapModel.edges.length} percorsi`;
+            const hostileFactions = activeWorldMapModel.factions.filter(item => item.stance === 'hostile').length;
+            $('world-map-subtitle').textContent = `${activeWorldMapModel.theme.icon} ${activeWorldMapModel.theme.label} · ${getFullTimeString()} · ${activeWorldMapModel.locations.length} luoghi · ${activeWorldMapModel.factions.length} fazioni${hostileFactions ? ` (${hostileFactions} ostili)` : ''}`;
             $('world-map-current-location').textContent = activeWorldMapModel.currentLocationName || G.currentLocation || 'Sconosciuto';
+            renderWorldMapFactions();
             if (!activeWorldMapModel.locations.length) {
                 canvas.innerHTML = '<div class="world-map-empty"><div><strong>La mappa è ancora vuota.</strong><br>Esplora il mondo: i luoghi scoperti compariranno qui.</div></div>';
                 $('world-map-detail').innerHTML = '<div class="world-map-detail-empty">Nessun luogo ancora conosciuto.</div>';
@@ -8229,6 +8264,8 @@
                 return '<span class="kingdom-trend ' + (positive ? 'up' : 'down') + '">' +
                     (delta > 0 ? '▲ +' : '▼ ') + Number(delta.toFixed(1)).toLocaleString('it-IT') + '</span>';
             };
+            const factionStance = faction => faction.hostility >= 65 || faction.loyalty < 30
+                ? 'hostile' : faction.loyalty >= 65 && faction.hostility <= 30 ? 'allied' : 'uncertain';
             const advisorPriorities = kingdom.governance.priorities.length
                 ? kingdom.governance.priorities : advisor.priorities;
             root.innerHTML =
@@ -8378,10 +8415,17 @@
                         Math.round(crisis.severity) + '%<small>' + safeManagerText(crisis.effect) + '</small></span></article>') + '</section>' +
                     '<section class="manager-section kingdom-section-anchor" id="kingdom-politics"><div class="manager-section-head"><h4>⚖️ Corte e fazioni</h4><span>' + kingdom.factions.length + '</span></div>' +
                     kingdomCards(kingdom.factions, 'Nessuna fazione di corte registrata.', faction =>
-                        '<article class="manager-compact-card"><div><strong>' + safeManagerText(faction.name) + '</strong><small>' +
+                        '<article class="kingdom-faction-card ' + factionStance(faction) + '"><header><div><strong>⚑ ' + safeManagerText(faction.name) + '</strong><small>' +
                         safeManagerText(faction.category) + (faction.leader ? ' · ' + safeManagerText(faction.leader) : '') +
-                        '</small></div><span>Potere ' + Math.round(faction.power) + '% · Lealtà ' + Math.round(faction.loyalty) +
-                        '%<small>' + safeManagerText(faction.goal) + '</small></span></article>') + '</section>' +
+                        '</small></div><span>' + (factionStance(faction) === 'hostile' ? 'Avversaria' : factionStance(faction) === 'allied' ? 'Alleata' : 'Incerta') + '</span></header>' +
+                        '<div class="kingdom-faction-stats"><span>Potere <b>' + Math.round(faction.power) + '%</b></span><span>Lealtà <b>' + Math.round(faction.loyalty) + '%</b></span>' +
+                        '<span>Ostilità <b>' + Math.round(faction.hostility) + '%</b></span><span>Forza militare <b>' + Math.round(faction.militaryStrength) + '%</b></span>' +
+                        '<span>Intelligence <b>' + Math.round(faction.intelligence) + '%</b></span></div>' +
+                        '<p><strong>Base:</strong> ' + safeManagerText(faction.territoryName || 'non localizzata') + '</p>' +
+                        '<p><strong>Obiettivo:</strong> ' + safeManagerText(faction.goal || 'non dichiarato') + '</p>' +
+                        (faction.tactics ? '<p><strong>Tattiche:</strong> ' + safeManagerText(faction.tactics) + '</p>' : '') +
+                        (faction.grievance ? '<p><strong>Rivendicazione:</strong> ' + safeManagerText(faction.grievance) + '</p>' : '') +
+                        (faction.nextMove ? '<p class="next-move"><strong>Prossima mossa:</strong> ' + safeManagerText(faction.nextMove) + '</p>' : '') + '</article>') + '</section>' +
                     '<section class="manager-section"><div class="manager-section-head"><h4>🤝 Diplomazia</h4><span>' + kingdom.diplomacy.length + '</span></div>' +
                     kingdomCards(kingdom.diplomacy, 'Nessuna relazione diplomatica registrata.', relation =>
                         '<article class="manager-compact-card"><div><strong>' + safeManagerText(relation.realm) + '</strong><small>' +
@@ -10347,7 +10391,7 @@
 
         function isInternalStoryEntry(value, type) {
             const text = String(value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-            if (type === 'analysis') return true;
+            if (type === 'analysis' || type === 'mechanic') return true;
             if (type === 'system' && /(?:il narratore sta scrivendo|\bmondo creato:|stats registrate|tag .* incompleto|oggetto ignorato|proprietà non trovata|nessuna quantità rimossa)/i.test(text)) return true;
             if (type === 'narrator' && /(?:\bDATI GIOCO\b|tag di setup obbligatori|nessuna correzione necessaria|nessun \[?LOOT\]? da emettere|\bCHECK SISTEMA\b|creo il mondo con i tag)/i.test(text)) return true;
             return false;
@@ -11212,10 +11256,12 @@
                 ...kingdom.factions.map(item => ({
                     name: item.name, type: item.category, leader: item.leader,
                     description: `${item.category}; potere ${Math.round(item.power)}, lealtà ${Math.round(item.loyalty)}.`,
-                    goal: item.goal, strategy: 'usare influenza, ricchezza e alleanze',
+                    goal: item.goal, strategy: item.tactics || 'usare influenza, ricchezza e alleanze', tactics: item.tactics,
                     resources: `potere ${Math.round(item.power)}/100 e ricchezza ${Math.round(item.wealth)}/100`,
                     influence: item.power, relationship: item.loyalty < 35 ? 'ostile' : item.loyalty >= 65 ? 'alleata' : 'incerta',
-                    status: item.status, location: kingdom.capital || G.currentLocation
+                    militaryStrength: item.militaryStrength, intelligence: item.intelligence, hostility: item.hostility,
+                    grievance: item.grievance, nextMove: item.nextMove,
+                    status: item.status, location: item.territoryName || kingdom.capital || G.currentLocation
                 })),
                 ...socialFactions
             ] : [];
@@ -12867,7 +12913,7 @@ Quando esiste già un regno attivo, esegui INTERNAMENTE questo audit prima/dopo 
 - [TERRITORIO_REGNO: regno|nome|tipo|popolazione|produzione_viveri|entrate_periodo|fortificazione_0_100|lealtà_0_100|controllore|risorsa_strategica|stato|prosperità_0_100|ordine_0_100|salute_0_100|infrastrutture_0_100|occupazione_0_100|povertà_0_100|capoluogo]
 - [RISORSA_REGNO: regno|territorio|nome|categoria|produzione_periodo|scorte|valore_unitario|stato]
 - [CRISI_REGNO: regno|nome|gravità_0_100|territorio_o_vuoto|effetto|active/resolved]
-- [FAZIONE_REGNO: regno|nome|categoria|leader|potere_0_100|lealtà_0_100|ricchezza_0_100|obiettivo|stato]
+- [FAZIONE_REGNO: regno|nome|categoria|leader|potere_0_100|lealtà_0_100|ricchezza_0_100|obiettivo|stato|territorio_o_base|forza_militare_0_100|intelligence_0_100|ostilità_0_100|tattiche|rivendicazione|prossima_mossa]
 - [ESERCITO_REGNO: regno|leve|professionisti|cavalleria|flotta|morale_0_100|prontezza_0_100|costo_periodo]
 - [DIPLOMAZIA_REGNO: regno|altro_regno|relazione|fiducia_0_100|tensione_0_100|trattato|commercio|rivendicazioni]
 - [LEGGE_REGNO: regno|titolo|ambito|effetto|stato|sostegno|opposizione]
@@ -12875,7 +12921,7 @@ Quando esiste già un regno attivo, esegui INTERNAMENTE questo audit prima/dopo 
 - [VALUTAZIONE_REGNO: regno|diagnosi_sintetica|priorità_1|priorità_2|priorità_3|attendibilità_0_100]
 - [TESORO_REGNO: regno|entra/esce|importo|motivo]
 - [EVENTO_REGNO: regno|tipo|descrizione|tesoro_delta|viveri_delta|popolazione_delta|stabilità_delta|legittimità_delta|prosperità_delta|consenso_delta|disordini_delta|salute_delta]
-Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, professione, istruzione, reddito, bisogni e desideri. Nessuno può ottenere un lavoro qualificato senza istruzione e qualifiche sufficienti, una classe ammessa e un posto vacante. Disoccupazione, salari bassi e bisogni essenziali insoddisfatti generano radicali; tenore di vita e mobilità sociale generano lealisti. Usa numeri conservativi e spiegabili: non modificare una statistica senza una causa nella scena o nella simulazione, non trasformare delte in valori assoluti e non sommare due volte lo stesso effetto. Ogni decisione del sovrano deve produrre vincitori, perdenti, costi e reazioni credibili. Informa sempre il motore dei cambiamenti numerici con i tag; non raccontare carestie, migrazioni, rivolte, investimenti, epidemie, raccolti, riforme o conquiste soltanto in prosa. Le categorie sociali devono agire e pesare sulle decisioni: nobiltà fondiaria, clero, contadini, artigiani/gilde, mercanti, lavoratori ed emarginati. Il tesoro reale NON è denaro personale e NON è la cassa di un negozio. Non duplicare mai la stessa variazione in sistemi diversi.`;
+Ogni POP è un gruppo reale di persone con classe, territorio, cultura, fede, professione, istruzione, reddito, bisogni e desideri. Nessuno può ottenere un lavoro qualificato senza istruzione e qualifiche sufficienti, una classe ammessa e un posto vacante. Disoccupazione, salari bassi e bisogni essenziali insoddisfatti generano radicali; tenore di vita e mobilità sociale generano lealisti. Le fazioni, soprattutto quelle avversarie, devono possedere una base geografica, capacità militare e informativa, tattiche, una rivendicazione concreta e una prossima mossa coerente: non trattarle come semplici percentuali immobili. Usa numeri conservativi e spiegabili: non modificare una statistica senza una causa nella scena o nella simulazione, non trasformare delte in valori assoluti e non sommare due volte lo stesso effetto. Ogni decisione del sovrano deve produrre vincitori, perdenti, costi e reazioni credibili. Informa sempre il motore dei cambiamenti numerici con i tag; non raccontare carestie, migrazioni, rivolte, investimenti, epidemie, raccolti, riforme o conquiste soltanto in prosa. Le categorie sociali devono agire e pesare sulle decisioni: nobiltà fondiaria, clero, contadini, artigiani/gilde, mercanti, lavoratori ed emarginati. Il tesoro reale NON è denaro personale e NON è la cassa di un negozio. Non duplicare mai la stessa variazione in sistemi diversi.`;
             const layeredMemory = memoryManager.buildContext(action, G.history, G.worldMemory, {
                 ...getAIContextProfile(),
                 continuity: {
@@ -14665,6 +14711,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if ($('btn-reopen-last-event')) $('btn-reopen-last-event').onclick = reopenLastTimelineEvent;
             if ($('btn-world-chats')) $('btn-world-chats').onclick = () => openWorldChats();
             if ($('btn-map-center')) $('btn-map-center').onclick = centerWorldMapOnPlayer;
+            if ($('btn-map-factions')) $('btn-map-factions').onclick = () => $('world-map-factions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             if ($('btn-map-refresh')) $('btn-map-refresh').onclick = () => { renderWorldMap(); centerWorldMapOnPlayer(); };
             if ($('btn-map-zoom-in')) $('btn-map-zoom-in').onclick = () => { worldMapZoom = Math.min(1.5, worldMapZoom + 0.15); applyWorldMapZoom(); };
             if ($('btn-map-zoom-out')) $('btn-map-zoom-out').onclick = () => { worldMapZoom = Math.max(0.7, worldMapZoom - 0.15); applyWorldMapZoom(); };
