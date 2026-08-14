@@ -8,8 +8,8 @@
     const TASK_PROFILES = Object.freeze({
         story: Object.freeze({ maxInputTokens: 9000, maxOutputTokens: 1800, timeoutMs: 55000, maxAttempts: 2, temperature: 0.72 }),
         chat: Object.freeze({ maxInputTokens: 8000, maxOutputTokens: 1400, timeoutMs: 45000, maxAttempts: 2, temperature: 0.68 }),
-        timeline: Object.freeze({ maxInputTokens: 9000, maxOutputTokens: 2200, timeoutMs: 35000, maxAttempts: 3, temperature: 0.52 }),
-        strategic: Object.freeze({ maxInputTokens: 6500, maxOutputTokens: 1800, timeoutMs: 30000, maxAttempts: 3, temperature: 0.22 }),
+        timeline: Object.freeze({ maxInputTokens: 9000, maxOutputTokens: 2200, timeoutMs: 60000, maxAttempts: 3, temperature: 0.52 }),
+        strategic: Object.freeze({ maxInputTokens: 6500, maxOutputTokens: 1800, timeoutMs: 55000, maxAttempts: 3, temperature: 0.22 }),
         start: Object.freeze({ maxInputTokens: 22000, maxOutputTokens: 3600, timeoutMs: 80000, maxAttempts: 2, temperature: 0.66 }),
         narrative: Object.freeze({ maxInputTokens: 16000, maxOutputTokens: 2200, timeoutMs: 60000, maxAttempts: 2, temperature: 0.62 }),
         summary: Object.freeze({ maxInputTokens: 7000, maxOutputTokens: 1000, timeoutMs: 40000, maxAttempts: 1, temperature: 0.2 })
@@ -30,13 +30,6 @@
             maxAttempts: Math.max(1, Math.min(3, Number(overrides.maxAttempts) || base.maxAttempts)),
             temperature: Number.isFinite(Number(overrides.temperature)) ? Number(overrides.temperature) : base.temperature
         };
-    }
-
-    function orderModelsForTask(task, primaryModel, fallbackOrder = []) {
-        const preferred = ['timeline', 'strategic'].includes(task)
-            ? ['gpt-oss:20b', 'deepseek-v4-flash', primaryModel, ...fallbackOrder]
-            : [primaryModel, ...fallbackOrder];
-        return preferred.filter((model, index, values) => model && values.indexOf(model) === index);
     }
 
     function estimateTokens(value) {
@@ -283,7 +276,6 @@
         TASK_PROFILES,
         RETRYABLE_STATUSES,
         getTaskProfile,
-        orderModelsForTask,
         estimateTokens,
         compactText,
         compactMessages,

@@ -1420,15 +1420,12 @@ test('applica budget distinti ai diversi compiti LLM', () => {
     assert.equal(aiEfficiencyApi.getTaskProfile('strategic').temperature, 0.22);
 });
 
-test('usa modelli rapidi per timeline e strategia senza perdere i fallback', () => {
-    assert.deepEqual(
-        aiEfficiencyApi.orderModelsForTask('strategic', 'qwen3.5:397b', ['deepseek-v4-flash', 'gpt-oss:20b']),
-        ['gpt-oss:20b', 'deepseek-v4-flash', 'qwen3.5:397b']
-    );
-    assert.deepEqual(
-        aiEfficiencyApi.orderModelsForTask('narrative', 'qwen3.5:397b', ['gpt-oss:20b']),
-        ['qwen3.5:397b', 'gpt-oss:20b']
-    );
+test('rispetta il modello Ollama Cloud scelto prima dei fallback', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.match(html, /preferredModels:\s*\[\s*provider\.model,/);
+    assert.doesNotMatch(html, /orderModelsForTask/);
+    assert.match(html, /Sei il Game Master e consigliere strategico/);
+    assert.match(html, /Sei il Game Master e simulatore storico-politico/);
 });
 
 test('compatta il contesto senza perdere istruzioni e ultima azione', () => {
@@ -1611,8 +1608,7 @@ test('applica a Ollama il profilo di temperatura del compito', async () => {
 
 test('instrada tutte le chiamate del gioco attraverso il gestore LLM efficiente', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/ai-efficiency\.js\?v=20260814-llm-efficiency-3"/);
-    assert.match(html, /CronacheAI\.orderModelsForTask/);
+    assert.match(html, /src="js\/ai-efficiency\.js\?v=20260814-llm-efficiency-4"/);
     assert.match(html, /const aiRequestManager = CronacheAI\.createRequestManager\(\)/);
     assert.match(html, /async function requestConfiguredAI/);
     assert.match(html, /CronacheAI\.compactMessages/);
@@ -2994,8 +2990,9 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
     assert.match(html, /function removeStrategicAction/);
     assert.match(html, /function openTimelineWithStrategicActions/);
     assert.match(html, /strategicAdvisor\.buildPrompt/);
-    assert.match(html, /strategicAdvisor\.ensureAnalysis/);
-    assert.doesNotMatch(html, /const repairPrompt = strategicAdvisor\.buildRepairPrompt/);
+    assert.match(html, /strategicAdvisor\.parseResponse/);
+    assert.match(html, /const repairPrompt = strategicAdvisor\.buildRepairPrompt/);
+    assert.doesNotMatch(html, /G\.strategicAnalysis = strategicAdvisor\.buildFallback/);
     assert.match(html, /strategicAdvisor\.toTimelineChoices/);
     assert.match(html, /timelineSimulator\.parseStrategicOutcomes/);
     assert.match(html, /timelineSimulator\.ensureStrategicOutcomes/);

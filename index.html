@@ -3258,7 +3258,7 @@
                 <div class="strategic-loading" id="strategic-loading" role="status" aria-live="polite">
                     <div class="strategic-loading-icon">🧭</div>
                     <strong>Aggiorno i consigli…</strong>
-                    <small>Il piano locale è già utilizzabile.</small>
+                    <small>Attendo la risposta del Game Master selezionato.</small>
                 </div>
                 <div id="strategic-content">
                     <div class="strategic-empty">Apri l’analisi per ricevere una lista di azioni collegate alla situazione reale della campagna.</div>
@@ -3807,7 +3807,7 @@
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
     <script src="js/campaign-vault.js"></script>
-    <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-3"></script>
+    <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-4"></script>
     <script src="js/ollama-cloud.js?v=20260814-llm-efficiency-1"></script>
     <script src="js/experience-v7.js?v=20260814-mobile-dock-2"></script>
     <script>
@@ -3852,7 +3852,6 @@
             timelineEventIndex: 0,
             strategicAnalysis: null,
             isStrategicProcessing: false,
-            strategicAIRequestedTurn: null,
             activeChatId: null,
             pendingChatThreadId: null,
             pendingChatSpeaker: '',
@@ -10007,11 +10006,10 @@
                     const result = await ollamaClient.generate(compacted.messages, {
                         apiKey: provider.apiKey,
                         nativeProxy: config.nativeProxy,
-                        preferredModels: CronacheAI.orderModelsForTask(
-                            task,
+                        preferredModels: [
                             provider.model,
-                            Array.isArray(config.fallbackOrder) ? config.fallbackOrder : []
-                        ),
+                            ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
+                        ],
                         discoveredModels: config.discoveredModels,
                         maxTokens: profile.maxOutputTokens,
                         maxAttempts: profile.maxAttempts,
@@ -10066,13 +10064,13 @@
             const messages = [
                 {
                     role: 'system',
-                    content: 'Sei un simulatore storico-politico causale per un gioco narrativo persistente. Rispetta data, istituzioni, cariche, risorse, conoscenze e relazioni. Fai agire personaggi e fazioni secondo obiettivi pubblici e privati, leve e vincoli. Produci soltanto i tag strutturati richiesti dal prompt; niente routine, ipotesi, segnaposto generici o prosa esterna.'
+                    content: 'Sei il Game Master e simulatore storico-politico causale di un gioco narrativo persistente. Rispetta data, istituzioni, cariche, risorse, conoscenze e relazioni. Fai agire personaggi e fazioni secondo obiettivi pubblici e privati, leve e vincoli. Produci soltanto i tag strutturati richiesti dal prompt; niente routine, ipotesi, segnaposto generici o prosa esterna.'
                 },
                 { role: 'user', content: prompt }
             ];
             return requestConfiguredAI(messages, {
                 task: 'timeline', maxTokens, maxAttempts: 3,
-                timeoutMs: Math.max(20000, Number(options.timeoutMs) || 35000)
+                timeoutMs: Math.max(30000, Number(options.timeoutMs) || 60000)
             });
         }
 
@@ -10081,13 +10079,13 @@
             const messages = [
                 {
                     role: 'system',
-                    content: 'Sei il consigliere strategico di un gioco narrativo persistente. Analizza soltanto informazioni note al protagonista, distingui fatti da ipotesi, valuta costi, tempi, rischi, attori e conseguenze. Non decidere gli esiti e non inventare risorse o autorità. Restituisci esclusivamente il JSON valido richiesto dal messaggio utente.'
+                    content: 'Sei il Game Master e consigliere strategico di un gioco narrativo persistente. Analizza soltanto informazioni note al protagonista, distingui fatti da ipotesi, valuta costi, tempi, rischi, attori e conseguenze. Non decidere gli esiti e non inventare risorse o autorità. Restituisci esclusivamente il JSON valido richiesto dal messaggio utente.'
                 },
                 { role: 'user', content: prompt }
             ];
             return requestConfiguredAI(messages, {
-                task: 'strategic', maxTokens, maxAttempts: 3, timeoutMs: 30000,
-                cacheTtlMs: Math.max(0, Number(options.cacheTtlMs) || 300000)
+                task: 'strategic', maxTokens, maxAttempts: 3, timeoutMs: 55000,
+                cacheTtlMs: Math.max(0, Number(options.cacheTtlMs) || 0)
             });
         }
 
@@ -11056,6 +11054,8 @@
             const content = $('strategic-content');
             const source = $('strategic-source');
             if (loading) loading.classList.toggle('active', active);
+            if (content) content.hidden = active;
+            if (source && active) source.hidden = true;
             const button = $('btn-strategic-analyze');
             if (button) {
                 button.disabled = active;
@@ -11067,36 +11067,33 @@
             if (!G.currentStory || !G.character || G.isProcessing || G.isStrategicProcessing) return;
             const context = buildStrategicAdvisorContext();
             const cached = G.strategicAnalysis || G.worldMemory?.strategicAnalysis;
-            if (!force && strategicAdvisor.isFresh(cached, context)) {
+            if (!force && cached?.source !== 'local' && strategicAdvisor.isFresh(cached, context)) {
                 G.strategicAnalysis = cached;
                 renderStrategicAnalysis(cached);
                 return;
             }
 
-            const fallback = strategicAdvisor.buildFallback(context);
-            G.strategicAnalysis = fallback;
-            G.worldMemory.strategicAnalysis = fallback;
-            renderStrategicAnalysis(fallback);
             G.isStrategicProcessing = true;
-            G.strategicAIRequestedTurn = Number(G.worldMemory?.turnCount || 0);
+            const content = $('strategic-content');
+            if (content) content.innerHTML = '<div class="strategic-empty">Il Game Master sta leggendo lo stato della campagna…</div>';
             setStrategicLoading(true);
             try {
                 const prompt = strategicAdvisor.buildPrompt(context);
-                const response = await requestStrategicAI(prompt);
-                const analysis = strategicAdvisor.ensureAnalysis(response, context);
-                G.strategicAnalysis = analysis;
-                G.worldMemory.strategicAnalysis = analysis;
-                renderStrategicAnalysis(analysis);
-                if (analysis.source === 'local') {
-                    notify('Risposta IA non strutturata: ho preparato un piano locale usando lo stato del gioco.', 'info');
+                let response = await requestStrategicAI(prompt);
+                let analysis = strategicAdvisor.parseResponse(response, context);
+                if (!analysis) {
+                    const repairPrompt = strategicAdvisor.buildRepairPrompt(response, context);
+                    response = await requestStrategicAI(repairPrompt, { maxTokens: 1400, cacheTtlMs: 0 });
+                    analysis = strategicAdvisor.parseResponse(response, context);
                 }
-            } catch (error) {
-                console.warn('Consigliere strategico IA non disponibile, uso analisi locale:', error.message);
-                const analysis = strategicAdvisor.buildFallback(context);
+                if (!analysis) throw new Error('Il Game Master non ha restituito un piano strategico valido.');
                 G.strategicAnalysis = analysis;
                 G.worldMemory.strategicAnalysis = analysis;
                 renderStrategicAnalysis(analysis);
-                notify(`Analisi locale pronta. IA non disponibile: ${error.message}`, 'info');
+            } catch (error) {
+                console.warn('Game Master strategico non disponibile:', error.message);
+                if (content) content.innerHTML = `<div class="strategic-empty"><strong>Il Game Master non ha completato l’analisi.</strong><br>${escapeTimelineHtml(error.message)}<br>Puoi riprovare senza perdere il turno.</div>`;
+                notify(`Il Game Master non ha completato l’analisi: ${error.message}`, 'error');
             } finally {
                 G.isStrategicProcessing = false;
                 setStrategicLoading(false);
@@ -11111,17 +11108,12 @@
             openModal('modal-strategic-actions');
             const context = buildStrategicAdvisorContext();
             const cached = G.strategicAnalysis || G.worldMemory?.strategicAnalysis;
-            if (strategicAdvisor.isFresh(cached, context)) {
+            if (cached?.source !== 'local' && strategicAdvisor.isFresh(cached, context)) {
                 G.strategicAnalysis = cached;
                 renderStrategicAnalysis(cached);
-                const turn = Number(G.worldMemory?.turnCount || 0);
-                if (cached.source === 'local' && G.strategicAIRequestedTurn !== turn) generateStrategicAnalysis(true);
                 return;
             }
-            const fallback = strategicAdvisor.buildFallback(context);
-            G.strategicAnalysis = fallback;
-            G.worldMemory.strategicAnalysis = fallback;
-            renderStrategicAnalysis(fallback);
+            G.strategicAnalysis = null;
             generateStrategicAnalysis(true);
         }
 
