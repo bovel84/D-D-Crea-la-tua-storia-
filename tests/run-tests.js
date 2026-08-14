@@ -1415,9 +1415,20 @@ test('applica budget distinti ai diversi compiti LLM', () => {
     assert.ok(chat.maxInputTokens < narrative.maxInputTokens);
     assert.ok(timeline.maxInputTokens < narrative.maxInputTokens);
     assert.ok(chat.maxOutputTokens < timeline.maxOutputTokens);
-    assert.equal(timeline.maxAttempts, 1);
-    assert.equal(aiEfficiencyApi.getTaskProfile('strategic').maxAttempts, 1);
+    assert.equal(timeline.maxAttempts, 3);
+    assert.equal(aiEfficiencyApi.getTaskProfile('strategic').maxAttempts, 3);
     assert.equal(aiEfficiencyApi.getTaskProfile('strategic').temperature, 0.22);
+});
+
+test('usa modelli rapidi per timeline e strategia senza perdere i fallback', () => {
+    assert.deepEqual(
+        aiEfficiencyApi.orderModelsForTask('strategic', 'qwen3.5:397b', ['deepseek-v4-flash', 'gpt-oss:20b']),
+        ['gpt-oss:20b', 'deepseek-v4-flash', 'qwen3.5:397b']
+    );
+    assert.deepEqual(
+        aiEfficiencyApi.orderModelsForTask('narrative', 'qwen3.5:397b', ['gpt-oss:20b']),
+        ['qwen3.5:397b', 'gpt-oss:20b']
+    );
 });
 
 test('compatta il contesto senza perdere istruzioni e ultima azione', () => {
@@ -1600,7 +1611,8 @@ test('applica a Ollama il profilo di temperatura del compito', async () => {
 
 test('instrada tutte le chiamate del gioco attraverso il gestore LLM efficiente', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/ai-efficiency\.js\?v=20260814-llm-efficiency-2"/);
+    assert.match(html, /src="js\/ai-efficiency\.js\?v=20260814-llm-efficiency-3"/);
+    assert.match(html, /CronacheAI\.orderModelsForTask/);
     assert.match(html, /const aiRequestManager = CronacheAI\.createRequestManager\(\)/);
     assert.match(html, /async function requestConfiguredAI/);
     assert.match(html, /CronacheAI\.compactMessages/);
