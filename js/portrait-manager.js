@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const PORTRAIT_SCHEMA_VERSION = 1;
+    const PORTRAIT_SCHEMA_VERSION = 3;
     const ATLAS_COLUMNS = 3;
     const ATLAS_ROWS = 2;
     const CHRONICLE_GENRES = new Set(['fantasy', 'historical', 'pirate', 'rural']);
@@ -38,7 +38,13 @@
         return hash >>> 0;
     }
 
-    function portrait(id, family, atlas, column, row, label, tags) {
+    function portrait(id, family, atlas, column, row, label, tags, metadata = {}) {
+        const identityCorpus = keyOf([id, label, ...tags].join(' '));
+        const inferredGender = /\b(princess|principessa|queen|regina|empress|imperatrice|priestess|sacerdotessa|guaritrice|consigliera|nobildonna|ereditiera)\b/.test(identityCorpus)
+            ? 'female'
+            : /\b(prince|principe|king|re|emperor|imperatore|cavaliere|monaco|fabbro|locandiere|diplomatico|capitano|scienziato|lavoratore|investigatore|analista|dirigente|specialista|medico|studioso|mercante|artigiano|generale|senatore|scriba|contadino|ranger|industriale)\b/.test(identityCorpus)
+                ? 'male'
+                : 'any';
         return Object.freeze({
             id,
             family,
@@ -48,6 +54,9 @@
             row,
             label,
             tags: Object.freeze(tags.slice()),
+            eras: Object.freeze((metadata.eras || [family === 'modern' ? 'modern' : 'medieval']).slice()),
+            roles: Object.freeze((metadata.roles || ['generic']).slice()),
+            genders: Object.freeze((metadata.genders || [inferredGender]).slice()),
             backgroundSize: `${ATLAS_COLUMNS * 100}% ${ATLAS_ROWS * 100}%`,
             backgroundPosition: `${column === 0 ? 0 : column === ATLAS_COLUMNS - 1 ? 100 : 50}% ${row === 0 ? 0 : 100}%`
         });
@@ -55,29 +64,59 @@
 
     const PORTRAITS = Object.freeze([
         portrait('chronicle-vanguard', 'chronicle', 'assets/portraits/chronicle-cast-v1.webp', 0, 0, 'Avanguardia',
-            ['warrior', 'guerriero', 'knight', 'cavaliere', 'guard', 'guardia', 'ranger', 'ramingo', 'scout', 'soldier', 'fante']),
+            ['warrior', 'guerriero', 'knight', 'cavaliere', 'guard', 'guardia', 'ranger', 'ramingo', 'scout', 'soldier', 'fante'], { eras: ['medieval', 'fantasy', 'pirate'], roles: ['warrior', 'ranger'] }),
         portrait('chronicle-scholar', 'chronicle', 'assets/portraits/chronicle-cast-v1.webp', 1, 0, 'Studioso',
-            ['scholar', 'studioso', 'diplomat', 'diplomatico', 'advisor', 'consigliere', 'mage', 'mago', 'cleric', 'chierico', 'mediator', 'orator']),
+            ['scholar', 'studioso', 'diplomat', 'diplomatico', 'advisor', 'consigliere', 'mage', 'mago', 'cleric', 'chierico', 'mediator', 'orator'], { eras: ['medieval', 'fantasy', 'pirate'], roles: ['scholar', 'religious'] }),
         portrait('chronicle-merchant', 'chronicle', 'assets/portraits/chronicle-cast-v1.webp', 2, 0, 'Mercante',
-            ['merchant', 'mercante', 'noble', 'nobile', 'leader', 'capo', 'courtier', 'cortigiano', 'emissary', 'emissario', 'negotiator']),
+            ['merchant', 'mercante', 'noble', 'nobile', 'leader', 'capo', 'courtier', 'cortigiano', 'emissary', 'emissario', 'negotiator'], { eras: ['medieval', 'fantasy', 'pirate'], roles: ['merchant', 'noble'] }),
         portrait('chronicle-corsair', 'chronicle', 'assets/portraits/chronicle-cast-v1.webp', 0, 1, 'Corsaro',
-            ['rogue', 'ladro', 'outlaw', 'fuorilegge', 'pirate', 'pirata', 'corsair', 'corsaro', 'sailor', 'marinaio', 'spy', 'spia']),
+            ['rogue', 'ladro', 'outlaw', 'fuorilegge', 'pirate', 'pirata', 'corsair', 'corsaro', 'sailor', 'marinaio', 'spy', 'spia'], { eras: ['pirate'], roles: ['pirate'] }),
         portrait('chronicle-healer', 'chronicle', 'assets/portraits/chronicle-cast-v1.webp', 1, 1, 'Guaritrice',
-            ['healer', 'guaritore', 'guaritrice', 'mystic', 'mistico', 'priest', 'sacerdote', 'cleric', 'chierico', 'elder', 'saggio', 'alchemist']),
+            ['healer', 'guaritore', 'guaritrice', 'mystic', 'mistico', 'priest', 'sacerdote', 'cleric', 'chierico', 'elder', 'saggio', 'alchemist'], { eras: ['medieval', 'fantasy', 'pirate'], roles: ['healer', 'religious'] }),
         portrait('chronicle-artisan', 'chronicle', 'assets/portraits/chronicle-cast-v1.webp', 2, 1, 'Artigiano',
-            ['artisan', 'artigiano', 'farmer', 'contadino', 'captain', 'capitano', 'worker', 'lavoratore', 'builder', 'costruttore', 'navigator', 'allevatore']),
+            ['artisan', 'artigiano', 'farmer', 'contadino', 'captain', 'capitano', 'worker', 'lavoratore', 'builder', 'costruttore', 'navigator', 'allevatore'], { eras: ['medieval', 'fantasy', 'pirate'], roles: ['artisan', 'commoner'] }),
         portrait('modern-investigator', 'modern', 'assets/portraits/modern-cast-v1.webp', 0, 0, 'Investigatore',
-            ['investigator', 'investigatore', 'journalist', 'giornalista', 'detective', 'reporter', 'spy', 'spia', 'field agent', 'agente']),
+            ['investigator', 'investigatore', 'journalist', 'giornalista', 'detective', 'reporter', 'spy', 'spia', 'field agent', 'agente'], { eras: ['modern'], roles: ['investigator'] }),
         portrait('modern-analyst', 'modern', 'assets/portraits/modern-cast-v1.webp', 1, 0, 'Analista',
-            ['analyst', 'analista', 'hacker', 'scientist', 'scienziato', 'coder', 'sviluppatore', 'technician', 'tecnico', 'controller']),
+            ['analyst', 'analista', 'hacker', 'scientist', 'scienziato', 'coder', 'sviluppatore', 'technician', 'tecnico', 'controller'], { eras: ['modern'], roles: ['scholar'] }),
         portrait('modern-executive', 'modern', 'assets/portraits/modern-cast-v1.webp', 2, 0, 'Dirigente',
-            ['executive', 'dirigente', 'manager', 'diplomat', 'diplomatico', 'official', 'funzionario', 'leader', 'ceo', 'fondatore', 'orator']),
+            ['executive', 'dirigente', 'manager', 'diplomat', 'diplomatico', 'official', 'funzionario', 'leader', 'ceo', 'fondatore', 'orator'], { eras: ['modern'], roles: ['executive', 'noble'] }),
         portrait('modern-specialist', 'modern', 'assets/portraits/modern-cast-v1.webp', 0, 1, 'Specialista',
-            ['athlete', 'atleta', 'sportivo', 'player', 'giocatore', 'scout', 'ricognitore', 'driver', 'autista', 'infiltrator', 'infiltrato', 'operative']),
+            ['athlete', 'atleta', 'sportivo', 'player', 'giocatore', 'scout', 'ricognitore', 'driver', 'autista', 'infiltrator', 'infiltrato', 'operative'], { eras: ['modern'], roles: ['ranger', 'worker'] }),
         portrait('modern-medic', 'modern', 'assets/portraits/modern-cast-v1.webp', 1, 1, 'Medico',
-            ['medic', 'medico', 'doctor', 'dottore', 'officer', 'ufficiale', 'military', 'militare', 'caregiver', 'soccorritore', 'veteran']),
+            ['medic', 'medico', 'doctor', 'dottore', 'officer', 'ufficiale', 'military', 'militare', 'caregiver', 'soccorritore', 'veteran'], { eras: ['modern'], roles: ['healer', 'warrior'] }),
         portrait('modern-handler', 'modern', 'assets/portraits/modern-cast-v1.webp', 2, 1, 'Consigliera',
-            ['handler', 'fixer', 'facilitatore', 'professor', 'professore', 'advisor', 'consigliere', 'mediator', 'mediatore', 'intelligence', 'diplomat'])
+            ['handler', 'fixer', 'facilitatore', 'professor', 'professore', 'advisor', 'consigliere', 'mediator', 'mediatore', 'intelligence', 'diplomat'], { eras: ['modern'], roles: ['scholar', 'executive'] }),
+        portrait('ancient-heir', 'chronicle', 'assets/portraits/antiquity-cast-v1.webp', 0, 0, 'Erede antico', ['prince', 'principe', 'heir', 'erede'], { eras: ['ancient'], roles: ['royal-heir'] }),
+        portrait('ancient-queen', 'chronicle', 'assets/portraits/antiquity-cast-v1.webp', 1, 0, 'Regina antica', ['queen', 'regina', 'empress', 'imperatrice'], { eras: ['ancient'], roles: ['sovereign', 'royal-heir'] }),
+        portrait('ancient-general', 'chronicle', 'assets/portraits/antiquity-cast-v1.webp', 2, 0, 'Generale antico', ['general', 'generale', 'commander', 'comandante'], { eras: ['ancient'], roles: ['warrior'] }),
+        portrait('ancient-priestess', 'chronicle', 'assets/portraits/antiquity-cast-v1.webp', 0, 1, 'Sacerdotessa antica', ['priestess', 'sacerdotessa', 'oracle', 'oracolo'], { eras: ['ancient'], roles: ['religious', 'healer'] }),
+        portrait('ancient-noble', 'chronicle', 'assets/portraits/antiquity-cast-v1.webp', 1, 1, 'Nobile antico', ['senator', 'senatore', 'noble', 'nobile'], { eras: ['ancient'], roles: ['noble', 'sovereign'] }),
+        portrait('ancient-scholar', 'chronicle', 'assets/portraits/antiquity-cast-v1.webp', 2, 1, 'Sapiente antico', ['scholar', 'studioso', 'scribe', 'scriba'], { eras: ['ancient'], roles: ['scholar', 'artisan'] }),
+        portrait('medieval-prince', 'chronicle', 'assets/portraits/medieval-court-v1.webp', 0, 0, 'Principe medievale', ['prince', 'principe', 'heir', 'erede'], { eras: ['medieval', 'fantasy'], roles: ['royal-heir'] }),
+        portrait('medieval-princess', 'chronicle', 'assets/portraits/medieval-court-v1.webp', 1, 0, 'Principessa medievale', ['princess', 'principessa', 'heir', 'erede'], { eras: ['medieval', 'fantasy'], roles: ['royal-heir'] }),
+        portrait('medieval-king', 'chronicle', 'assets/portraits/medieval-court-v1.webp', 2, 0, 'Re medievale', ['king', 're', 'sovereign', 'sovrano'], { eras: ['medieval', 'fantasy'], roles: ['sovereign'] }),
+        portrait('medieval-queen', 'chronicle', 'assets/portraits/medieval-court-v1.webp', 0, 1, 'Regina medievale', ['queen', 'regina', 'sovereign', 'sovrana'], { eras: ['medieval', 'fantasy'], roles: ['sovereign'] }),
+        portrait('medieval-knight', 'chronicle', 'assets/portraits/medieval-court-v1.webp', 1, 1, 'Cavaliere medievale', ['knight', 'cavaliere', 'commander', 'comandante'], { eras: ['medieval', 'fantasy'], roles: ['warrior'] }),
+        portrait('medieval-diplomat', 'chronicle', 'assets/portraits/medieval-court-v1.webp', 2, 1, 'Diplomatico medievale', ['diplomat', 'diplomatico', 'advisor', 'consigliere'], { eras: ['medieval', 'fantasy'], roles: ['scholar', 'noble'] }),
+        portrait('medieval-innkeeper', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 0, 0, 'Locandiere', ['innkeeper', 'locandiere', 'host', 'oste'], { eras: ['medieval', 'fantasy'], roles: ['commoner', 'merchant'] }),
+        portrait('medieval-blacksmith', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 1, 0, 'Fabbro', ['blacksmith', 'fabbro', 'smith'], { eras: ['medieval', 'fantasy'], roles: ['artisan'] }),
+        portrait('medieval-peasant', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 2, 0, 'Contadino', ['peasant', 'contadino', 'farmer'], { eras: ['medieval', 'fantasy'], roles: ['commoner'] }),
+        portrait('medieval-healer', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 0, 1, 'Guaritrice del villaggio', ['healer', 'guaritrice', 'herbalist', 'erborista'], { eras: ['medieval', 'fantasy'], roles: ['healer'] }),
+        portrait('medieval-monk', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 1, 1, 'Monaco', ['monk', 'monaco', 'cleric', 'chierico'], { eras: ['medieval', 'fantasy'], roles: ['religious', 'scholar'] }),
+        portrait('medieval-ranger', 'chronicle', 'assets/portraits/medieval-people-v1.webp', 2, 1, 'Ranger', ['ranger', 'ramingo', 'scout', 'esploratore'], { eras: ['medieval', 'fantasy'], roles: ['ranger'] }),
+        portrait('renaissance-prince', 'chronicle', 'assets/portraits/renaissance-cast-v1.webp', 0, 0, 'Principe rinascimentale', ['prince', 'principe', 'heir', 'erede'], { eras: ['renaissance'], roles: ['royal-heir'] }),
+        portrait('renaissance-princess', 'chronicle', 'assets/portraits/renaissance-cast-v1.webp', 1, 0, 'Principessa rinascimentale', ['princess', 'principessa', 'noblewoman', 'nobildonna'], { eras: ['renaissance'], roles: ['royal-heir', 'noble'] }),
+        portrait('renaissance-merchant', 'chronicle', 'assets/portraits/renaissance-cast-v1.webp', 2, 0, 'Banchiere rinascimentale', ['banker', 'banchiere', 'merchant', 'mercante'], { eras: ['renaissance'], roles: ['merchant', 'noble'] }),
+        portrait('renaissance-diplomat', 'chronicle', 'assets/portraits/renaissance-cast-v1.webp', 0, 1, 'Diplomatico rinascimentale', ['diplomat', 'diplomatico', 'statesman', 'statista'], { eras: ['renaissance'], roles: ['noble', 'executive'] }),
+        portrait('renaissance-scholar', 'chronicle', 'assets/portraits/renaissance-cast-v1.webp', 1, 1, 'Artista rinascimentale', ['artist', 'artista', 'scholar', 'studioso'], { eras: ['renaissance'], roles: ['scholar', 'artisan'] }),
+        portrait('renaissance-captain', 'chronicle', 'assets/portraits/renaissance-cast-v1.webp', 2, 1, 'Capitano rinascimentale', ['captain', 'capitano', 'guard', 'guardia'], { eras: ['renaissance'], roles: ['warrior'] }),
+        portrait('industrial-heir', 'chronicle', 'assets/portraits/industrial-cast-v1.webp', 0, 0, 'Erede aristocratico', ['prince', 'principe', 'heir', 'erede'], { eras: ['industrial'], roles: ['royal-heir', 'noble'] }),
+        portrait('industrial-princess', 'chronicle', 'assets/portraits/industrial-cast-v1.webp', 1, 0, 'Principessa industriale', ['princess', 'principessa', 'heiress', 'ereditiera'], { eras: ['industrial'], roles: ['royal-heir', 'noble'] }),
+        portrait('industrial-officer', 'chronicle', 'assets/portraits/industrial-cast-v1.webp', 2, 0, 'Ufficiale industriale', ['officer', 'ufficiale', 'military', 'militare'], { eras: ['industrial'], roles: ['warrior'] }),
+        portrait('industrialist', 'chronicle', 'assets/portraits/industrial-cast-v1.webp', 0, 1, 'Industriale', ['industrialist', 'industriale', 'entrepreneur', 'imprenditore'], { eras: ['industrial'], roles: ['executive', 'merchant'] }),
+        portrait('industrial-scientist', 'chronicle', 'assets/portraits/industrial-cast-v1.webp', 1, 1, 'Scienziato industriale', ['scientist', 'scienziato', 'doctor', 'medico'], { eras: ['industrial'], roles: ['scholar', 'healer'] }),
+        portrait('industrial-worker', 'chronicle', 'assets/portraits/industrial-cast-v1.webp', 2, 1, 'Lavoratore industriale', ['worker', 'lavoratore', 'journalist', 'giornalista'], { eras: ['industrial'], roles: ['worker', 'commoner', 'investigator'] })
     ]);
 
     const PORTRAIT_BY_ID = new Map(PORTRAITS.map(item => [item.id, item]));
@@ -93,13 +132,57 @@
         return 'modern';
     }
 
+    function resolveEra(context = {}) {
+        const story = context.story || {};
+        const genre = keyOf(context.genre || story.genre);
+        const setting = keyOf(context.setting || story.setting || story.description);
+        const yearSources = [context.year, story.year, story.startYear, story.startTime?.year, story.startDate?.year, story.calendar?.year];
+        const explicitYear = yearSources.map(Number).find(Number.isFinite);
+        const embeddedYear = Number((setting.match(/\b([12]\d{3}|[1-9]\d{2})\b/) || [])[1]);
+        const year = Number.isFinite(explicitYear) ? explicitYear : embeddedYear;
+        if (/pirat|corsar|sailor|marinaio/.test(`${genre} ${setting}`)) return 'pirate';
+        if (/antich|ancient|roma|roman|grec|ellen|egitt|faraon|mesopotam/.test(setting) || (Number.isFinite(year) && year < 600)) return 'ancient';
+        if (/rinasc|renaissance|quattrocent|cinquecent/.test(setting) || (Number.isFinite(year) && year >= 1400 && year < 1700)) return 'renaissance';
+        if (/vittorian|victorian|ottocent|industr|belle epoque|western|risorgiment/.test(setting) || (Number.isFinite(year) && year >= 1700 && year < 1920)) return 'industrial';
+        if (/contempor|modern|business|cyber|sport|crime|odiern/.test(`${genre} ${setting}`) || (Number.isFinite(year) && year >= 1920)) return 'modern';
+        if (/fantasy|medioevo|medieval|feud|castello|regno|cavaliere/.test(`${genre} ${setting}`)) return 'medieval';
+        return genre === 'historical' ? 'medieval' : resolveFamily(context) === 'modern' ? 'modern' : 'medieval';
+    }
+
+    function resolveRole(entity, context = {}) {
+        const corpus = entityCorpus(entity, context);
+        if (/\b(prince|principe|princess|principessa|royal heir|erede al trono|erede reale|delfino)\b/.test(corpus)) return 'royal-heir';
+        if (/\b(king|queen|re|regina|sovrano|sovrana|monarca|imperatore|imperatrice|emperor|empress)\b/.test(corpus)) return 'sovereign';
+        if (/\b(pirate|pirata|corsair|corsaro|buccaneer|bucaniere|sailor|marinaio)\b/.test(corpus)) return 'pirate';
+        if (/\b(priest|priestess|sacerdote|sacerdotessa|monk|monaco|cleric|chierico|oracle|oracolo)\b/.test(corpus)) return 'religious';
+        if (/\b(healer|guaritore|guaritrice|medic|medico|doctor|dottore|herbalist|erborista)\b/.test(corpus)) return 'healer';
+        if (/\b(knight|cavaliere|general|generale|soldier|soldato|guard|guardia|officer|ufficiale|captain|capitano|warrior|guerriero)\b/.test(corpus)) return 'warrior';
+        if (/\b(ranger|ramingo|scout|esploratore|hunter|cacciatore)\b/.test(corpus)) return 'ranger';
+        if (/\b(noble|nobile|nobildonna|duke|duca|duchess|duchessa|count|conte|baron|barone|courtier|cortigiano)\b/.test(corpus)) return 'noble';
+        if (/\b(merchant|mercante|banker|banchiere|trader|commerciante|innkeeper|locandiere|oste)\b/.test(corpus)) return 'merchant';
+        if (/\b(artisan|artigiano|blacksmith|fabbro|artist|artista|builder|costruttore)\b/.test(corpus)) return 'artisan';
+        if (/\b(scholar|studioso|scientist|scienziato|scribe|scriba|diplomat|diplomatico|advisor|consigliere|professor|professore|mage|mago)\b/.test(corpus)) return 'scholar';
+        if (/\b(executive|dirigente|manager|industrialist|industriale|entrepreneur|imprenditore|official|funzionario)\b/.test(corpus)) return 'executive';
+        if (/\b(investigator|investigatore|detective|journalist|giornalista|spy|spia|agent|agente)\b/.test(corpus)) return 'investigator';
+        if (/\b(worker|lavoratore|operaio|peasant|contadino|farmer|servant|servo|popolano)\b/.test(corpus)) return 'commoner';
+        return 'generic';
+    }
+
+    function resolveGender(entity, context = {}) {
+        const corpus = entityCorpus(entity, context);
+        if (/\b(princess|principessa|queen|regina|empress|imperatrice|priestess|sacerdotessa|woman|donna|female|femmina|guaritrice|nobildonna|duchessa|contessa|baronessa|ereditiera)\b/.test(corpus)) return 'female';
+        if (/\b(prince|principe|king|re|emperor|imperatore|man|uomo|male|maschio|knight|cavaliere|monk|monaco|blacksmith|fabbro)\b/.test(corpus)) return 'male';
+        return 'any';
+    }
+
     function getPortrait(id) {
         return PORTRAIT_BY_ID.get(cleanText(id, 80)) || null;
     }
 
     function listPortraits(context = {}) {
-        const family = resolveFamily(context);
-        return PORTRAITS.filter(item => item.family === family);
+        const era = resolveEra(context);
+        const matches = PORTRAITS.filter(item => item.eras.includes(era));
+        return matches.length ? matches : PORTRAITS.filter(item => item.family === resolveFamily(context));
     }
 
     function entityCorpus(entity, context = {}) {
@@ -125,15 +208,26 @@
     function choosePortrait(entity, context = {}) {
         const input = entity && typeof entity === 'object' ? entity : { name: entity };
         const explicit = getPortrait(input.portraitId || context.portraitId);
-        if (explicit) return explicit;
-        const candidates = listPortraits(context);
+        const era = resolveEra(context);
+        const role = resolveRole(input, context);
+        const gender = resolveGender(input, context);
+        const genderMatches = item => gender === 'any' || item.genders.includes('any') || item.genders.includes(gender);
+        if (explicit && explicit.eras.includes(era) && (role === 'generic' || explicit.roles.includes(role)) && genderMatches(explicit)) return explicit;
+        let candidates = listPortraits(context);
         if (!candidates.length) return PORTRAITS[0] || null;
+        const exactRole = candidates.filter(item => item.roles.includes(role));
+        if (exactRole.length) candidates = exactRole;
+        else if (role === 'royal-heir') candidates = candidates.filter(item => item.roles.includes('sovereign') || item.roles.includes('noble'));
+        else if (role === 'sovereign') candidates = candidates.filter(item => item.roles.includes('royal-heir') || item.roles.includes('noble'));
+        if (!candidates.length) candidates = listPortraits(context).filter(item => item.roles[0] !== 'pirate');
+        const genderCandidates = candidates.filter(genderMatches);
+        if (genderCandidates.length) candidates = genderCandidates;
         const corpus = entityCorpus(input, context);
         const scored = candidates.map(item => ({ item, score: roleScore(item, corpus) }));
         const bestScore = Math.max(...scored.map(entry => entry.score));
         const best = scored.filter(entry => entry.score === bestScore).map(entry => entry.item);
         const identity = keyOf(input.name || context.name || `${context.role || ''}|${context.archetype || ''}`) || 'protagonista';
-        return best[hashNumber(`${identity}|${resolveFamily(context)}|${bestScore}`) % best.length];
+        return best[hashNumber(`${identity}|${era}|${role}|${gender}|${bestScore}`) % best.length];
     }
 
     function assignPortrait(entity, context = {}) {
@@ -164,6 +258,9 @@
         cleanText,
         keyOf,
         resolveFamily,
+        resolveEra,
+        resolveRole,
+        resolveGender,
         getPortrait,
         listPortraits,
         choosePortrait,

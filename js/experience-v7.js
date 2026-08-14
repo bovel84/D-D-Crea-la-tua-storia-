@@ -127,7 +127,7 @@
     function setupThinkingState(documentRef, windowRef) {
         const inputArea = documentRef.querySelector('.input-area');
         const send = documentRef.getElementById('btn-send');
-        if (!inputArea || !send) return;
+        if (!inputArea || !send || send.hidden) return;
 
         const status = createElement(documentRef, 'div', 'ux-thinking');
         status.setAttribute('role', 'status');

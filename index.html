@@ -611,13 +611,84 @@
             margin-right: 5px;
         }
 
-        /* Input Area */
+        /* Barra comandi inferiore */
         .input-area {
-            padding: 10px 15px;
-            background: linear-gradient(180deg, var(--parchment-dark), #c4b490);
-            border-top: 2px solid var(--gold-dark);
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: clamp(12px, 5vw, 36px);
+            align-items: start;
+            justify-items: center;
+            padding: 12px clamp(18px, 6vw, 70px) calc(10px + env(safe-area-inset-bottom));
+            background:
+                radial-gradient(circle at 50% -70%, rgba(107, 46, 155, 0.28), transparent 58%),
+                linear-gradient(180deg, #24120c 0%, #120b08 100%);
+            border-top: 2px solid var(--gold);
             flex-shrink: 0;
-            box-shadow: 0 -6px 16px rgba(0,0,0,0.18);
+            box-shadow: 0 -10px 26px rgba(0,0,0,0.34);
+            isolation: isolate;
+        }
+
+        .bottom-command {
+            position: relative;
+            display: grid;
+            justify-items: center;
+            gap: 5px;
+            width: 100%;
+            min-width: 0;
+            padding: 0;
+            border: 0;
+            color: #f4e7bd;
+            background: transparent;
+            font-family: 'Cinzel', serif;
+            font-size: clamp(0.67rem, 2.4vw, 0.82rem);
+            font-weight: 700;
+            letter-spacing: 0.035em;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .bottom-command-icon {
+            display: grid;
+            place-items: center;
+            width: clamp(50px, 14vw, 62px);
+            aspect-ratio: 1;
+            border: 2px solid #f1d57d;
+            border-radius: 50%;
+            color: #fff7da;
+            background: linear-gradient(145deg, #8b51c7, #4e187f);
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.38),
+                inset 0 -6px 12px rgba(0,0,0,0.18),
+                0 4px 0 #6e4812,
+                0 8px 16px rgba(0,0,0,0.4);
+            font-size: clamp(1.35rem, 5vw, 1.75rem);
+            transition: transform 0.16s ease, filter 0.16s ease;
+        }
+
+        .bottom-command.chat .bottom-command-icon {
+            background: linear-gradient(145deg, #c95055, #8d181d);
+        }
+
+        .bottom-command.timeline .bottom-command-icon {
+            color: #21130b;
+            background: linear-gradient(145deg, #f5d575, #a87909);
+        }
+
+        .bottom-command:active .bottom-command-icon {
+            transform: translateY(3px) scale(0.96);
+            filter: brightness(1.12);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.32), 0 2px 0 #6e4812, 0 4px 9px rgba(0,0,0,0.35);
+        }
+
+        .bottom-command .world-control-badge {
+            top: -5px;
+            right: calc(50% - 36px);
+            z-index: 2;
+        }
+
+        .command-proxies {
+            display: none !important;
         }
 
         .quick-actions {
@@ -2345,16 +2416,12 @@
                 line-height: 1.65;
             }
             .input-area {
-                padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+                padding: 11px clamp(18px, 6vw, 48px) calc(10px + env(safe-area-inset-bottom));
                 position: sticky;
                 bottom: 0;
                 left: 0;
                 right: 0;
-                background: linear-gradient(180deg, rgba(212,196,160,0.97), rgba(196,180,144,0.95));
-                border-top-width: 1px;
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
-                box-shadow: 0 -8px 20px rgba(0,0,0,0.2);
+                border-top-width: 2px;
             }
             .action-bar {
                 gap: 5px;
@@ -2377,25 +2444,6 @@
             .quick-btn {
                 padding: 5px 10px;
                 font-size: 0.78em;
-            }
-            .input-row {
-                gap: 6px;
-                align-items: center;
-                background: rgba(255,255,255,0.94);
-                padding: 6px 8px;
-                border-radius: 14px;
-                border: 1px solid rgba(0,0,0,0.08);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            }
-            .input-row input {
-                font-size: 1em;
-                padding: 10px 12px;
-                border-radius: 20px;
-            }
-            .input-row button {
-                min-width: 50px;
-                padding: 10px 16px;
-                font-size: 0.9em;
             }
             .suggestions-area { padding: 8px 10px; }
             .suggestion-btn { padding: 6px 10px; font-size: 0.85em; }
@@ -2470,23 +2518,11 @@
                 border-radius: 12px;
             }
             .input-area {
-                padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+                gap: 12px;
+                padding: 9px 15px calc(8px + env(safe-area-inset-bottom));
             }
-            .input-row {
-                padding: 5px 6px;
-                gap: 5px;
-                border-radius: 12px;
-            }
-            .input-row input {
-                padding: 9px 10px;
-                font-size: 0.95em;
-                border-radius: 16px;
-            }
-            .input-row button {
-                min-width: 44px;
-                padding: 9px 14px;
-                font-size: 0.85em;
-                border-radius: 16px;
+            .bottom-command-icon {
+                width: 50px;
             }
             .modal {
                 max-height: 92vh;
@@ -2962,26 +2998,29 @@
                 <div class="suggestions-list" id="suggestions-list"></div>
             </div>
 
-            <div class="input-area">
-                <div class="action-bar" id="action-bar" hidden>
+            <div class="input-area" aria-label="Comandi della cronaca">
+                <button class="bottom-command strategic" id="btn-strategic-actions" title="Apri l'analisi strategica e prepara le azioni">
+                    <span class="bottom-command-icon" aria-hidden="true">✦</span>
+                    <span>Analisi</span>
+                    <span class="world-control-badge" id="strategic-action-badge">0</span>
+                </button>
+                <button class="bottom-command chat" id="btn-world-chats" title="Apri le conversazioni del mondo">
+                    <span class="bottom-command-icon" aria-hidden="true">💬</span>
+                    <span>Chat</span>
+                    <span class="world-control-badge" id="world-chat-badge">0</span>
+                </button>
+                <button class="bottom-command timeline" id="btn-advance-world" title="Apri la timeline e avanza il tempo">
+                    <span class="bottom-command-icon" aria-hidden="true">⌛</span>
+                    <span>Timeline</span>
+                </button>
+                <div class="action-bar command-proxies" id="action-bar" hidden>
                     <button class="action-btn business-manage" id="btn-business-manage" title="Apri la gestione di imprese e negozi" hidden>🏢 Gestisci attività</button>
                     <button class="action-btn kingdom-manage" id="btn-kingdom-manage" title="Apri la gestione del regno" hidden>👑 Gestisci regno</button>
                 </div>
-                <div class="world-controls command-proxies" aria-hidden="true">
-                    <button class="world-control-btn strategic" id="btn-strategic-actions" title="Analisi strategica per argomenti e azioni selezionabili">
-                        ✨ Analisi strategica e azioni
-                        <span class="world-control-badge" id="strategic-action-badge">0</span>
-                    </button>
-                    <button class="world-control-btn" id="btn-advance-world" title="Avanza il tempo e simula le conseguenze">⏩ Vai avanti</button>
-                    <button class="world-control-btn chat" id="btn-world-chats" title="Conversazioni generate dagli eventi">
-                        💬 Chat
-                        <span class="world-control-badge" id="world-chat-badge">0</span>
-                    </button>
+                <div class="command-proxies" aria-hidden="true">
                     <button class="world-control-btn last-event" id="btn-reopen-last-event" title="Rileggi l'ultimo evento generato" hidden>📜 Rileggi ultimo evento</button>
-                </div>
-                <div class="input-row">
-                    <input type="text" id="action-input" placeholder="Cosa fai?" autocomplete="off">
-                    <button id="btn-send">➤</button>
+                    <input type="hidden" id="action-input" value="">
+                    <button type="button" id="btn-send" hidden>Invia</button>
                 </div>
             </div>
         </div>
@@ -3684,7 +3723,7 @@
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
-    <script src="js/portrait-manager.js?v=20260814-portraits-2"></script>
+    <script src="js/portrait-manager.js?v=20260814-portraits-3"></script>
     <script src="js/time-energy.js"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
@@ -14489,8 +14528,8 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             $('btn-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
             $('btn-memory').onclick = () => { updateMemoryUI(); openModal('modal-memory'); };
             $('btn-top-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
-            $('btn-top-story').onclick = () => showQuickModal('Tempo e azioni', `<p class="top-menu-time">${$('time-text')?.textContent || ''}<br><small>${$('time-date')?.textContent || ''} · ${$('time-location')?.textContent || ''}</small></p><div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-dice').click()">🎲 Dadi</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-advance-world').click()">⏳ Avanza il tempo</button></div>`);
-            $('btn-top-world').onclick = () => showQuickModal('Mondo e strategia', `<div class="btn-row top-popup-grid"><button class="btn special" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-strategic-actions').click()">✨ Analisi strategica</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-memory').click()">📜 Memoria</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-world-chats').click()">💬 Conversazioni</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-advance-world').click()">🗓 Timeline</button>${$('btn-reopen-last-event')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-reopen-last-event').click()">📖 Ultimo evento</button>`}</div>`);
+            $('btn-top-story').onclick = () => showQuickModal('Tempo e dadi', `<p class="top-menu-time">${$('time-text')?.textContent || ''}<br><small>${$('time-date')?.textContent || ''} · ${$('time-location')?.textContent || ''}</small></p><div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-dice').click()">🎲 Dadi</button></div>`);
+            $('btn-top-world').onclick = () => showQuickModal('Memoria del mondo', `<div class="btn-row top-popup-grid"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-memory').click()">📜 Memoria</button>${$('btn-reopen-last-event')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-reopen-last-event').click()">📖 Ultimo evento</button>`}</div>`);
             $('btn-top-life').onclick = () => showQuickModal('Vita del protagonista', `<div class="btn-row top-popup-grid"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-inventory').click()">🎒 Inventario</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('panel-finances').click()">💰 Finanze</button><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('panel-family').click()">👨‍👩‍👧 Famiglia</button>${$('btn-business-manage')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-business-manage').click()">🏢 Attività</button>`}${$('btn-kingdom-manage')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-kingdom-manage').click()">👑 Regno</button>`}</div>`);
             $('btn-top-game').onclick = () => showQuickModal('Partita', `<div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-save-quick').click()">💾 Salvataggi</button><button class="btn danger" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-exit').click()">🚪 Esci</button></div>`);
 

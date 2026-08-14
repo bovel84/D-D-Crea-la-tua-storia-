@@ -945,14 +945,15 @@ test('assegna ritratti persistenti e coerenti con epoca e ruolo', () => {
     assert.ok(modern.every(item => item.family === 'modern'));
     const healer = { name: 'Mirella', role: 'guaritrice e alchimista' };
     portraitApi.assignPortrait(healer, { story: { genre: 'fantasy' } });
-    assert.equal(healer.portraitId, 'chronicle-healer');
+    assert.ok(portraitApi.getPortrait(healer.portraitId).roles.includes('healer'));
+    assert.ok(portraitApi.getPortrait(healer.portraitId).genders.includes('female'));
     assert.equal(healer.portraitSchemaVersion, portraitApi.PORTRAIT_SCHEMA_VERSION);
     assert.equal(
         portraitApi.choosePortrait({ name: 'Jacopo Gherardi' }, { story: { genre: 'historical' } }).id,
         portraitApi.choosePortrait({ name: 'Jacopo Gherardi' }, { story: { genre: 'historical' } }).id
     );
-    assert.match(portraitApi.spriteStyle(healer.portraitId), /chronicle-cast-v1\.webp/);
-    assert.equal(portraitApi.imageSrc(healer.portraitId), 'assets/portraits/chronicle-healer.webp');
+    assert.match(portraitApi.spriteStyle(healer.portraitId), /(?:chronicle-cast|medieval-people)-v1\.webp/);
+    assert.match(portraitApi.imageSrc(healer.portraitId), /assets\/portraits\/(?:chronicle|medieval)-healer\.webp/);
     [...historical, ...modern].forEach(item => {
         const file = fs.readFileSync(path.join(__dirname, '..', portraitApi.imageSrc(item)));
         assert.equal(file.subarray(0, 4).toString('ascii'), 'RIFF');
@@ -960,14 +961,37 @@ test('assegna ritratti persistenti e coerenti con epoca e ruolo', () => {
     });
 });
 
+test('vieta i costumi incompatibili e sceglie principi coerenti con sesso ed epoca', () => {
+    const renaissancePrince = portraitApi.choosePortrait(
+        { name: 'Lorenzo', role: 'principe erede al trono' },
+        { story: { genre: 'historical', setting: 'Firenze 1478', startYear: 1478 } }
+    );
+    const medievalPrincess = portraitApi.choosePortrait(
+        { name: 'Beatrice', role: 'principessa del regno' },
+        { story: { genre: 'fantasy', setting: 'Regno medievale', startYear: 1240 } }
+    );
+    assert.equal(renaissancePrince.id, 'renaissance-prince');
+    assert.equal(medievalPrincess.id, 'medieval-princess');
+    assert.doesNotMatch(renaissancePrince.id, /corsair|corsaro|pirat/);
+    assert.equal(portraitApi.resolveEra({ story: { setting: 'Roma, 120 d.C.', startYear: 120 } }), 'ancient');
+    assert.equal(portraitApi.resolveEra({ story: { setting: 'Londra vittoriana, 1888', startYear: 1888 } }), 'industrial');
+});
+
 test('gli atlanti dei protagonisti sono immagini 3 per 2 pronte per il gioco', () => {
-    ['chronicle-cast-v1.webp', 'modern-cast-v1.webp'].forEach(filename => {
+    [
+        'chronicle-cast-v1.webp', 'modern-cast-v1.webp', 'antiquity-cast-v1.webp',
+        'medieval-court-v1.webp', 'medieval-people-v1.webp', 'renaissance-cast-v1.webp',
+        'industrial-cast-v1.webp'
+    ].forEach(filename => {
         const file = fs.readFileSync(path.join(__dirname, '..', 'assets', 'portraits', filename));
         assert.equal(file.subarray(0, 4).toString('ascii'), 'RIFF');
         assert.equal(file.subarray(8, 12).toString('ascii'), 'WEBP');
-        assert.equal(file.subarray(12, 16).toString('ascii'), 'VP8X');
-        assert.equal(file.readUIntLE(24, 3) + 1, 600);
-        assert.equal(file.readUIntLE(27, 3) + 1, 400);
+        const encoding = file.subarray(12, 16).toString('ascii');
+        assert.ok(['VP8X', 'VP8 '].includes(encoding));
+        const width = encoding === 'VP8X' ? file.readUIntLE(24, 3) + 1 : file.readUInt16LE(26) & 0x3fff;
+        const height = encoding === 'VP8X' ? file.readUIntLE(27, 3) + 1 : file.readUInt16LE(28) & 0x3fff;
+        assert.equal(width, 600);
+        assert.equal(height, 400);
     });
 });
 
@@ -2689,14 +2713,28 @@ test('espone gli helper canonici anche sull’istanza per compatibilità con int
     assert.equal(manager.inferCanonicalYear(memory, { startTime: { year: 1400 } }).year, 1400);
 });
 
-test('la barra mobile mostra soltanto la gestione di attività e regno', () => {
+test('la barra mobile conserva i proxy di gestione senza reintrodurre azioni duplicate', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    const actionBar = html.match(/<div class="action-bar" id="action-bar"[\s\S]*?<div class="input-row">/)?.[0] || '';
+    const actionBar = html.match(/<div class="action-bar command-proxies" id="action-bar"[\s\S]*?<\/div>/)?.[0] || '';
     assert.match(actionBar, /id="btn-business-manage"/);
     assert.match(actionBar, /id="btn-kingdom-manage"/);
     assert.doesNotMatch(actionBar, /id="btn-(?:rest|eat|heal|wait|train)"/);
     assert.doesNotMatch(actionBar, /id="quick-actions"/);
     assert.match(html, /managementActionBar\.hidden = businessManageButton\.hidden && kingdomButton\.hidden/);
+});
+
+test('sostituisce il compositore mobile con la barra nera Analisi Chat Timeline', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const gameDock = html.match(/<div class="input-area" aria-label="Comandi della cronaca">[\s\S]*?<\/div>\s*<\/div>\s*<\/div>\s*<!-- Character Modal -->/)?.[0] || '';
+    assert.match(gameDock, /bottom-command strategic[^>]*id="btn-strategic-actions"/);
+    assert.match(gameDock, /bottom-command chat[^>]*id="btn-world-chats"/);
+    assert.match(gameDock, /bottom-command timeline[^>]*id="btn-advance-world"/);
+    assert.match(gameDock, />Analisi</);
+    assert.match(gameDock, />Chat</);
+    assert.match(gameDock, />Timeline</);
+    assert.match(gameDock, /type="hidden" id="action-input"/);
+    assert.doesNotMatch(gameDock, /class="input-row"|placeholder="Cosa fai\?"/);
+    assert.match(html, /linear-gradient\(180deg, #24120c 0%, #120b08 100%\)/);
 });
 
 test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migrazione incompleta', () => {
@@ -2718,7 +2756,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
     assert.match(html, /src="js\/timeline-chat\.js\?v=20260814-dialogue-6"/);
     assert.match(html, /src="js\/timeline-simulator\.js\?v=20260814-causal-7"/);
-    assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-2"/);
+    assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-3"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);

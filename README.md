@@ -3,7 +3,7 @@
 > Un gioco di ruolo narrativo persistente in cui il Master LLM racconta il mondo, mentre il motore di gioco conserva memoria, tempo, risorse, attività economiche e regni.
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/bovel84/D-D-Crea-la-tua-storia-)
-[![Test](https://img.shields.io/badge/test-169%20superati-brightgreen.svg)](#-sviluppo-e-test)
+[![Test](https://img.shields.io/badge/test-171%20superati-brightgreen.svg)](#-sviluppo-e-test)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 🎮 **Gioca online:** [storia-app.vercel.app](https://storia-app.vercel.app/)
