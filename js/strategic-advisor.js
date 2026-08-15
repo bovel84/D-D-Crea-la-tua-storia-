@@ -8,7 +8,9 @@
     const SCHEMA_VERSION = 2;
     const MAX_ISSUES = 5;
     const MAX_ACTIONS_PER_ISSUE = 3;
-    const MAX_QUEUED_ACTIONS = MAX_ISSUES * MAX_ACTIONS_PER_ISSUE;
+    // Come nel ciclo di Pax Historia, il piano del turno deve restare breve:
+    // poche azioni precise lasciano spazio anche all'iniziativa del mondo.
+    const MAX_QUEUED_ACTIONS = 4;
 
     function asArray(value) {
         return Array.isArray(value) ? value : [];

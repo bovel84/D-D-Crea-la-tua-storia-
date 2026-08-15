@@ -5,8 +5,9 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 9;
+    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 10;
     const EVENT_QUEUE_LIMIT = 40;
+    const MAX_PLAYER_ACTIONS_PER_TURN = 4;
     const MIN_EVENT_DELAY_MINUTES = 5;
     const MAX_EVENT_DELAY_MINUTES = 5256000;
 
@@ -784,7 +785,7 @@ REGOLE OBBLIGATORIE:
     }
 
     function createEventSeeds(choices, world, context = {}) {
-        const normalizedChoices = normalizeTimelineChoices(choices);
+        const normalizedChoices = normalizeTimelineChoices(choices).slice(0, MAX_PLAYER_ACTIONS_PER_TURN);
         const turn = Math.max(0, Number(context.turn) || 0);
         const batchId = cleanText(context.batchId || `event-batch-${turn}-${hashText(context.currentDate || turn)}`, 180);
         const seeds = normalizedChoices.map((choice, index) => normalizeEventSeed({
@@ -841,6 +842,144 @@ REGOLE OBBLIGATORIE:
             }
         }
         return normalizeEventQueue(seeds, { turn, batchId });
+    }
+
+    function buildTurnPrompt(context = {}) {
+        const world = context.world || {};
+        const seeds = normalizeEventQueue(context.seeds || context.pendingEvents, {
+            turn: context.turn,
+            batchId: context.batchId
+        });
+        const actors = activeActors(world, context).slice(0, Math.max(2, Math.min(12, Number(context.actorLimit) || 8)));
+        const forces = asArray(world.forces).filter(item =>
+            item?.status !== 'resolved' &&
+            !containsPlaceholder(`${item?.name || ''} ${item?.actor || ''}`) &&
+            !/deterministic-fallback|timeline-recovery/i.test(item?.source || '')
+        ).slice(0, Math.max(1, Math.min(8, Number(context.forceLimit) || 5)));
+        const recent = asArray(context.recentEvents).filter(isMeaningfulEvent).slice(-6);
+        const history = world.historicalContext || {};
+        const seedLines = seeds.map((seed, index) => {
+            const choice = seed.choice;
+            return `${index + 1}. ID ${seed.id} · ${seed.causalLane === 'world' ? 'MONDO ESTERNO' : 'AZIONE DEL GIOCATORE'}\n` +
+                `   Causa da chiudere: ${seed.cause}\n` +
+                `   Attori collegati: ${seed.actors.join(', ') || 'scegli fra gli attori registrati'}\n` +
+                `   Interazione: ${seed.interactionMode}` +
+                (choice ? `\n   Obiettivo: ${choice.objective || choice.expectedOutcome || 'risultato concreto coerente con il comando'}; costo: ${choice.cost || 'solo se dichiarato'}; durata: ${choice.duration || 'stimala'}; rischio: ${choice.risk || 'medio'}; ID strategico: ${choice.isStrategic ? choice.id : 'nessuno'}` : '');
+        }).join('\n\n');
+        const actorLines = actors.length ? actors.map(actorLine).join('\n') : '- Usa soltanto persone, gruppi e istituzioni già nominati nella cronaca.';
+        const forceLines = forces.length ? forces.map(item =>
+            `- ${cleanText(item.name, 120)}: ${cleanText(item.actor, 100)} persegue ${cleanText(item.objective, 260)}; progresso ${Math.round(Number(item.progress) || 0)}%, urgenza ${Math.round(Number(item.urgency) || 0)}%.`
+        ).join('\n') : '- Nessun fronte autonomo strutturato: fai muovere un attore registrato secondo il suo obiettivo.';
+        const recentLines = recent.length ? recent.map(item =>
+            `- ${cleanText(item.occurredAt, 100)} — ${cleanText(item.title, 140)}: ${cleanText(item.summary, 650)} Conseguenza valida: ${cleanText(item.consequence, 360)}`
+        ).join('\n') : '- Nessun evento precedente.';
+
+        return `SEI IL GAME MASTER. RISOLVI UN SOLO TURNO COMPLETO CON LO STESSO CICLO DI UN GIOCO STRATEGICO A TURNI: azioni preparate → avanzamento del tempo → esiti del giocatore → iniziativa autonoma del mondo → turno chiuso.
+
+${cleanText(context.continuityPrompt, 14000) || 'CANONE: conserva fatti, nomi, luoghi, risorse e rapporti già registrati.'}
+
+DATA INIZIALE: ${cleanText(context.currentDate || history.date || 'data corrente', 160)}.
+STORIA: ${cleanText(context.story?.title, 120)} — ${cleanText(context.story?.setting || world.setting, 180)}.
+CONFLITTO CENTRALE: ${cleanText(world.centralConflict || world.premise || context.story?.desc, 500)}.
+BASE STORICA: ${cleanText(history.baseline || history.politicalSystem || world.premise, 700)}.
+
+CAUSE DEL TURNO — RISOLVILE NELL'ORDINE INDICATO:
+${seedLines || '1. Il mondo esterno compie una sola mossa autonoma concreta.'}
+
+ATTORI DISPONIBILI:
+${actorLines}
+
+FRONTI APERTI:
+${forceLines}
+
+EVENTI RECENTI, DA NON RIPETERE:
+${recentLines}
+
+REGOLE DEL TURNO:
+- Produci esattamente ${seeds.length || 1} EVENTI: uno per ogni ID, nello stesso ordine. Ogni evento chiude la propria causa; nessun evento genera un altro evento in questo turno.
+- Prima di ogni EVENTO emetti RISOLUZIONE con l'ID esatto, i minuti trascorsi dall'inizio del turno e una ragione causale. I minuti possono coincidere fra eventi.
+- Per un'AZIONE DEL GIOCATORE mostra l'esito osservabile di quel comando: cosa riesce, cosa fallisce, quale costo viene realmente pagato e quale possibilità cambia. Non sostituire l'azione con una trama inventata.
+- Per il MONDO ESTERNO fai agire indipendentemente un attore già registrato: nomina obiettivo, luogo, leva impiegata e soggetto colpito. Non farlo reagire passivamente al giocatore se possiede una propria agenda.
+- Ogni fatto deve contenere 3-5 frasi complete con PRIMA → MOSSA → REAZIONE → DOPO. La conseguenza deve essere persistente e verificabile nel turno seguente.
+- Vietati esiti generici come “la situazione cambia”, “gli equilibri cambiano”, “rafforza la posizione”, “dovrà reagire”, e vietati attori generici come Autorità, Opposizione o Comunità.
+- Usa soltanto nomi, ruoli, luoghi, istituzioni e risorse presenti nel contesto. Non confondere genere, titolo, funzione o epoca dei personaggi.
+- Apri una CHAT soltanto quando lo scopo dell'azione richiede davvero parole dell'interlocutore (negoziare, interrogare, convocare, chiedere). In tal caso interaction=dialogue, conversation=required ed emetti una sola battuta iniziale. Gli altri eventi non aprono chat.
+- Ogni azione strategica riceve esattamente un ESITO_STRATEGICO con il suo ID. Può essere completata, parziale, fallita o in_corso, ma non può creare una coda automatica.
+- Emetti al massimo un MONDO per evento. Non emettere CODA_EVENTO, nuovi prompt, analisi strategiche o testo fuori dai tag.
+
+FORMATO RIPETUTO PER OGNI CAUSA:
+[RISOLUZIONE: ID_esatto|minuti_dall_inizio|motivo_concreto]
+[EVENTO: tipo|titolo|tre-cinque frasi complete sul fatto accaduto|luogo|attori separati da virgola|una-due frasi sulla conseguenza persistente|normal/high/critical|active/developing/resolved|momento relativo|causa precisa|ancoraggio storico|spostamento politico|posta in gioco|obiettivo conversazione|available/required/none|dialogue/action/either/none]
+[ESITO_STRATEGICO: ID_esatto|completata/parziale/fallita/in_corso|risultato osservabile|conseguenza persistente|reazione concreta del mondo|attori separati da virgola]
+[MONDO: attore|mossa concreta compiuta|stato|visible/hidden]
+[CHAT: titolo esatto evento|un solo parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]`;
+    }
+
+    function parseTurnTimings(response, seeds) {
+        const normalizedSeeds = normalizeEventQueue(seeds);
+        const byId = new Map(normalizedSeeds.map(seed => [seed.id, seed]));
+        const timings = new Map();
+        const regex = /\[RISOLUZIONE:\s*([^|\]]+)\|([^|\]]+)(?:\|([^\]]*))?\]/gi;
+        let match;
+        while ((match = regex.exec(String(response || '')))) {
+            const id = cleanText(match[1], 170).replace(/[^a-zA-Z0-9_-]/g, '');
+            const seed = byId.get(id);
+            if (!seed || timings.has(id)) continue;
+            const parsed = parseDurationMinutes(match[2]);
+            timings.set(id, {
+                seedId: id,
+                minutes: clampEventDelay(Math.max(Number(seed.notBeforeMinutes) || 0, parsed || inferEventDelay(seed)), inferEventDelay(seed)),
+                reason: cleanText(match[3] || `Tempo necessario per «${seed.title}»`, 320),
+                source: parsed ? 'timeline-ai' : 'timeline-fallback'
+            });
+        }
+        return normalizedSeeds.map(seed => timings.get(seed.id) || {
+            seedId: seed.id,
+            minutes: clampEventDelay(Math.max(Number(seed.notBeforeMinutes) || 0, inferEventDelay(seed)), inferEventDelay(seed)),
+            reason: `Tempo necessario per «${seed.title}»`,
+            source: 'timeline-fallback'
+        });
+    }
+
+    function ensureTurnBatch(incomingEvents, seeds, context = {}) {
+        const normalizedSeeds = normalizeEventQueue(seeds, { turn: context.turn, batchId: context.batchId });
+        const candidates = asArray(incomingEvents).filter(isMeaningfulEvent);
+        const timings = parseTurnTimings(context.response, normalizedSeeds);
+        const used = new Set();
+        let fallbackAdded = 0;
+        const assignments = normalizedSeeds.map((seed, index) => {
+            const ranked = candidates.map((event, eventIndex) => ({
+                event,
+                eventIndex,
+                score: causalAlignmentScore(event, seed),
+                quality: eventCentralityScore(event, context) >= 6 && eventSpecificityScore(event, context) >= 6
+            })).filter(item => !used.has(item.eventIndex) && item.quality)
+                .sort((left, right) => right.score - left.score || Math.abs(left.eventIndex - index) - Math.abs(right.eventIndex - index));
+            const accepted = ranked.find(item => item.score >= 2) || null;
+            if (accepted) used.add(accepted.eventIndex);
+            else fallbackAdded++;
+            const rawEvent = accepted?.event || createFallbackEvent({ ...context, seed });
+            const timing = timings.find(item => item.seedId === seed.id) || parseTurnTimings('', [seed])[0];
+            const event = rawEvent ? enrichEvent({
+                ...rawEvent,
+                seedId: seed.id,
+                queueKind: seed.kind,
+                waitMinutes: timing.minutes,
+                timingReason: timing.reason,
+                strategicTopic: seed.choice?.topic || rawEvent.strategicTopic,
+                strategicActionIds: seed.choice?.isStrategic ? [seed.choice.id] : asArray(rawEvent.strategicActionIds)
+            }, { ...context, seed }, index, null) : null;
+            return { seed, timing, event, usedFallback: !accepted };
+        }).filter(item => item.event);
+        return {
+            assignments,
+            events: assignments.map(item => item.event),
+            timings,
+            elapsedMinutes: Math.max(MIN_EVENT_DELAY_MINUTES, ...timings.map(item => Number(item.minutes) || 0)),
+            fallbackAdded,
+            qualityRejected: Math.max(0, candidates.length - used.size),
+            usedFallback: fallbackAdded > 0
+        };
     }
 
     function scheduleEventSeeds(queue, incoming, context = {}) {
@@ -1229,6 +1368,7 @@ REGOLE OBBLIGATORIE:
     return {
         TIMELINE_SIMULATOR_SCHEMA_VERSION,
         EVENT_QUEUE_LIMIT,
+        MAX_PLAYER_ACTIONS_PER_TURN,
         MIN_EVENT_DELAY_MINUTES,
         MAX_EVENT_DELAY_MINUTES,
         cleanText,
@@ -1248,6 +1388,9 @@ REGOLE OBBLIGATORIE:
         normalizeEventSeed,
         normalizeEventQueue,
         createEventSeeds,
+        buildTurnPrompt,
+        parseTurnTimings,
+        ensureTurnBatch,
         scheduleEventSeeds,
         selectNextEventSeed,
         advanceEventQueue,

@@ -3237,17 +3237,17 @@
             <div class="modal-body">
                 <div class="timeline-current">
                     <strong id="timeline-current-date">Data attuale</strong>
-                    <small>Il tempo avanzerà soltanto fino al primo evento importante disponibile.</small>
+                    <small>Le azioni preparate e una mossa autonoma del mondo verranno risolte insieme in un solo turno.</small>
                 </div>
                 <div class="timeline-choices" id="timeline-recent-choices"></div>
                 <div class="timeline-pending-summary" id="timeline-pending-events"></div>
                 <div class="timeline-advance-box">
-                    <button class="timeline-simulate" id="btn-simulate-timeline">⏩ Vai al prossimo evento importante</button>
+                    <button class="timeline-simulate" id="btn-simulate-timeline">⏩ Avanza il turno</button>
                 </div>
                 <div class="timeline-loading" id="timeline-loading">
                     <div class="timeline-loading-icon">⌛</div>
-                    <strong>Raggiungo il prossimo evento importante…</strong>
-                    <div>Genero un solo evento e chiudo la causa corrente.</div>
+                    <strong>Il Game Master risolve il turno…</strong>
+                    <div>Elabora insieme azioni, conseguenze e iniziativa del mondo.</div>
                 </div>
                 <div class="timeline-strategic-results" id="timeline-strategic-results"></div>
                 <div class="timeline-list" id="timeline-events-list"></div>
@@ -3717,8 +3717,8 @@
     <script src="js/world-map.js?v=20260815-map-intel-5"></script>
     <script src="js/event-manager.js?v=20260815-event-delta-2"></script>
     <script src="js/timeline-chat.js?v=20260815-chat-cycle-8"></script>
-    <script src="js/timeline-simulator.js?v=20260815-event-delta-10"></script>
-    <script src="js/strategic-advisor.js?v=20260814-strategy-6"></script>
+    <script src="js/timeline-simulator.js?v=20260815-pax-turn-11"></script>
+    <script src="js/strategic-advisor.js?v=20260815-pax-actions-7"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
@@ -10630,7 +10630,9 @@
                     return true;
                 })
                 .slice(-5);
-            return [...recentChoices, ...strategic];
+            const remainingSlots = Math.max(0, timelineSimulator.MAX_PLAYER_ACTIONS_PER_TURN - strategic.length);
+            const recentToResolve = remainingSlots ? recentChoices.slice(-remainingSlots) : [];
+            return [...strategic, ...recentToResolve].slice(0, timelineSimulator.MAX_PLAYER_ACTIONS_PER_TURN);
         }
 
         function queueTimelineChoice(text, source = 'player-action') {
@@ -10866,10 +10868,10 @@
             const simulateButton = $('btn-simulate-timeline');
             if (simulateButton) {
                 simulateButton.textContent = pendingEvents.length
-                    ? `⏩ Elabora ${pendingEvents.length} ${pendingEvents.length === 1 ? 'azione' : 'azioni'}`
-                    : strategicCount
-                        ? `⏩ Avvia ${strategicCount} ${strategicCount === 1 ? 'azione' : 'azioni'} fino al primo evento`
-                        : '⏩ Vai al prossimo evento importante';
+                    ? `⏩ Risolvi il turno · ${pendingEvents.length} ${pendingEvents.length === 1 ? 'causa' : 'cause'}`
+                    : choices.length
+                        ? `⏩ Avanza il turno · ${choices.length} ${choices.length === 1 ? 'azione' : 'azioni'} + mondo`
+                        : '⏩ Avanza il turno · lascia agire il mondo';
             }
             $('timeline-recent-choices').innerHTML = choices.length
                 ? choices.map(choice => choice.source === 'strategic-advisor'
@@ -10881,9 +10883,8 @@
             if (pendingSummary) {
                 pendingSummary.classList.toggle('visible', pendingEvents.length > 0);
                 pendingSummary.innerHTML = nextPendingEvent
-                    ? `📌 <strong>${pendingEvents.length} ${pendingEvents.length === 1 ? 'causa da elaborare' : 'cause da elaborare'}.</strong> ` +
-                        `Il prossimo riguarda ${escapeTimelineHtml(nextPendingEvent.title || nextPendingEvent.topic || 'la trama attiva')}` +
-                        `${nextPendingEvent.notBeforeMinutes > 0 ? `, non prima di circa ${escapeTimelineHtml(CronacheTimeEnergy.describePassage(nextPendingEvent.notBeforeMinutes))}` : ', ed è già disponibile'}.`
+                    ? `📌 <strong>Turno in attesa:</strong> ${pendingEvents.length} ${pendingEvents.length === 1 ? 'causa verrà chiusa' : 'cause verranno chiuse'} insieme. ` +
+                        `Il Game Master includerà anche la reazione autonoma del mondo.`
                     : '';
             }
             const allEvents = G.worldMemory.events || [];
@@ -10923,7 +10924,7 @@
             openModal('modal-timeline');
         }
 
-        async function simulateTimelineEvents(options = {}) {
+        async function simulateTimelineEventsSequentialLegacy(options = {}) {
             if (G.isProcessing || !G.currentStory) return;
             const fromEventScreen = options.fromEventScreen === true;
             const maxAdvanceMinutes = 0;
@@ -11284,6 +11285,325 @@
             }
         }
 
+        async function simulateTimelineEvents(options = {}) {
+            if (G.isProcessing || !G.currentStory) return;
+            const choices = getRecentTimelineChoices();
+            const previousTurn = Math.max(0, Number(G.worldMemory.turnCount) || 0);
+            const batchId = `turn-${previousTurn}-${G.time.year}-${G.time.month}-${G.time.day}-${G.time.hour}-${G.time.minute}`;
+            const simulateButton = $('btn-simulate-timeline');
+            const nextButton = $('btn-next-event');
+            $('timeline-loading')?.classList.add('active');
+            if (simulateButton) simulateButton.disabled = true;
+            if (nextButton && options.fromEventScreen === true) {
+                nextButton.disabled = true;
+                nextButton.textContent = '⌛ Risolvo il turno…';
+            }
+            G.isProcessing = true;
+            $('btn-send').disabled = true;
+            updateActionBar();
+
+            let response = '';
+            let aiError = null;
+            let timeAdvanced = false;
+            try {
+                const world = prepareTimelineWorld();
+                const aiContextProfile = getAIContextProfile();
+                const knownActors = [...(G.worldMemory.npcs || []), ...(G.worldMemory.factions || [])].slice(-10);
+                const recentEvents = (G.worldMemory.events || [])
+                    .filter(timelineSimulator.isMeaningfulEvent)
+                    .slice(-8);
+                const continuity = CronacheMemory.buildContinuityContext(G.worldMemory, {
+                    story: G.currentStory,
+                    currentDate: getFullTimeString(),
+                    location: G.currentLocation,
+                    protagonistName: G.character?.name,
+                    maxTokens: aiContextProfile.continuityTokens
+                });
+
+                let seeds = timelineSimulator.normalizeEventQueue(G.worldMemory.pendingTimelineEvents, {
+                    turn: previousTurn,
+                    batchId
+                });
+                const scheduledChoices = choices.length > 0;
+                if (scheduledChoices || !seeds.length) {
+                    seeds = timelineSimulator.createEventSeeds(choices, world, {
+                        turn: previousTurn,
+                        batchId,
+                        currentDate: getFullTimeString(),
+                        includeWorld: true,
+                        knownActors,
+                        recentEvents,
+                        protagonistName: G.character?.name
+                    });
+                }
+                if (!seeds.length) {
+                    seeds = timelineSimulator.normalizeEventQueue([{
+                        kind: 'world_initiative',
+                        title: 'Iniziativa del mondo',
+                        cause: world.centralConflict || world.premise || G.currentStory.desc,
+                        priority: 60,
+                        notBeforeMinutes: 1440,
+                        interactionMode: 'either',
+                        batchId,
+                        createdAtTurn: previousTurn
+                    }], { turn: previousTurn, batchId });
+                }
+                if (!seeds.length) throw new Error('Il mondo non contiene ancora una causa concreta da sviluppare');
+
+                const prompt = timelineSimulator.buildTurnPrompt({
+                    story: G.currentStory,
+                    world,
+                    seeds,
+                    recentEvents,
+                    agreements: G.worldMemory.agreements || [],
+                    knownActors,
+                    protagonistName: G.character?.name,
+                    continuityPrompt: continuity.prompt,
+                    location: G.currentLocation,
+                    currentDate: getFullTimeString(),
+                    turn: previousTurn,
+                    batchId,
+                    actorLimit: 8,
+                    forceLimit: 5
+                });
+                try {
+                    response = await requestTimelineAI(prompt, {
+                        maxTokens: Math.min(5200, 1400 + seeds.length * 850),
+                        timeoutMs: 90000
+                    });
+                } catch (error) {
+                    aiError = error;
+                    console.warn('Game Master del turno non disponibile, completo il ciclo con il simulatore locale:', error.message);
+                }
+
+                const previewContext = {
+                    story: G.currentStory,
+                    world,
+                    turn: previousTurn + 1,
+                    location: G.currentLocation,
+                    knownActors: [...(G.worldMemory.npcs || []), ...(G.worldMemory.factions || [])],
+                    protagonistName: G.character?.name,
+                    recentEvents,
+                    agreements: G.worldMemory.agreements || [],
+                    source: 'timeline-ai',
+                    batchId,
+                    response
+                };
+                const parsedEvents = eventEngine.parse(response, previewContext);
+                const turnBatch = timelineSimulator.ensureTurnBatch(parsedEvents, seeds, previewContext);
+                if (!turnBatch.events.length) throw new Error('Il Game Master non ha prodotto esiti utilizzabili');
+
+                campaignVault.capture({
+                    character: G.character,
+                    currentStory: G.currentStory,
+                    storyLog: G.storyLog,
+                    history: G.history,
+                    time: G.time,
+                    worldMemory: G.worldMemory,
+                    currentLocation: G.currentLocation
+                }, `Turno ${previousTurn + 1}: ${seeds.length} cause`);
+                updateVaultControls();
+
+                const startDate = getFullTimeString();
+                advanceTime(turnBatch.elapsedMinutes);
+                timeAdvanced = true;
+                G.worldMemory.turnCount = previousTurn + 1;
+                const endDate = getFullTimeString();
+                const passage = {
+                    elapsed: turnBatch.elapsedMinutes,
+                    days: turnBatch.elapsedMinutes / CronacheTimeEnergy.MINUTES_PER_DAY,
+                    description: CronacheTimeEnergy.describePassage(turnBatch.elapsedMinutes),
+                    summary: `Il Game Master ha risolto ${seeds.length} cause in un solo ciclo di turno, senza effetti automatici di fame o metabolismo.`,
+                    startDate,
+                    endDate,
+                    startTurn: previousTurn,
+                    endTurn: previousTurn + 1,
+                    choices,
+                    source: 'pax-turn-cycle',
+                    strategicBatchId: batchId
+                };
+                const eventContext = {
+                    ...previewContext,
+                    turn: previousTurn + 1,
+                    occurredAt: endDate,
+                    timePassage: passage
+                };
+                const normalizedEvents = turnBatch.assignments.map(({ event, seed, timing }) => eventEngine.create({
+                    ...event,
+                    occurredAt: endDate,
+                    seedId: seed.id,
+                    queueKind: seed.kind,
+                    waitMinutes: timing.minutes,
+                    timingReason: timing.reason,
+                    source: event?.source || (aiError ? 'timeline-fallback' : 'timeline-ai')
+                }, { ...eventContext, choice: seed.cause })).filter(Boolean);
+                const eventResult = eventEngine.record(G.worldMemory.events, normalizedEvents, eventContext);
+                G.worldMemory.events = eventResult.events;
+                const generated = eventResult.added.filter(timelineSimulator.isMeaningfulEvent);
+                if (!generated.length) throw new Error('Gli esiti del turno coincidono con eventi già registrati');
+
+                const strategicChoices = choices.filter(choice => choice?.isStrategic);
+                const parsedStrategicOutcomes = timelineSimulator.parseStrategicOutcomes(response, strategicChoices, {
+                    turn: eventContext.turn,
+                    occurredAt: endDate,
+                    passage,
+                    batchId
+                });
+                const strategicOutcomes = timelineSimulator.ensureStrategicOutcomes(
+                    parsedStrategicOutcomes,
+                    strategicChoices,
+                    generated,
+                    world,
+                    {
+                        turn: eventContext.turn,
+                        occurredAt: endDate,
+                        passage,
+                        batchId,
+                        knownActors,
+                        recentEvents,
+                        protagonistName: G.character?.name
+                    }
+                );
+                G.worldMemory.strategicActionHistory = timelineSimulator.mergeStrategicOutcomeHistory(
+                    G.worldMemory.strategicActionHistory,
+                    strategicOutcomes
+                );
+
+                const ensuredChats = timelineChatEngine.ensureEventThreads(
+                    G.worldMemory.chats,
+                    generated,
+                    { events: G.worldMemory.events, turn: eventContext.turn, occurredAt: endDate, protagonistName: G.character?.name }
+                );
+                G.worldMemory.chats = ensuredChats.chats;
+                const parsedMessages = timelineChatEngine.parseChatTags(response, {
+                    events: G.worldMemory.events,
+                    turn: eventContext.turn,
+                    occurredAt: endDate
+                }).filter(message => !isProtagonistChatSpeaker(message));
+                const openingMessages = [];
+                generated.forEach(event => {
+                    const assignment = turnBatch.assignments.find(item => item.seed.id === event.seedId);
+                    if (!timelineSimulator.eventRequiresConversation(event, assignment?.seed)) return;
+                    const matching = parsedMessages.filter(message =>
+                        message.eventId === event.id || timelineChatEngine.keyOf(message.eventTitle) === timelineChatEngine.keyOf(event.title)
+                    );
+                    const selected = timelineChatEngine.selectSingleReply(matching);
+                    if (selected.length) openingMessages.push(selected[0]);
+                    else {
+                        const fallback = timelineSimulator.buildConversationStarters([event], world, {
+                            turn: eventContext.turn,
+                            protagonistName: G.character?.name,
+                            occurredAt: endDate,
+                            knownActors,
+                            recentEvents
+                        });
+                        if (fallback[0]) openingMessages.push(fallback[0]);
+                    }
+                });
+                const chatResult = timelineChatEngine.recordMessages(
+                    G.worldMemory.chats,
+                    openingMessages,
+                    { events: G.worldMemory.events, turn: eventContext.turn, occurredAt: endDate, protagonistName: G.character?.name }
+                );
+                G.worldMemory.chats = chatResult.chats;
+                chatResult.added.forEach(message => {
+                    G.worldMemory.world = worldBootstrapEngine.markInteraction(
+                        G.worldMemory.world,
+                        message.speaker,
+                        eventContext.turn,
+                        message.text,
+                        { story: G.currentStory }
+                    );
+                });
+                G.worldMemory.unreadChatCount = Math.max(0, Number(G.worldMemory.unreadChatCount) || 0) + chatResult.added.length;
+
+                const taggedMoves = CronacheDirector.extractTags(response).worldMoves.slice(0, generated.length);
+                const fallbackMoves = turnBatch.assignments.filter(item => item.usedFallback && item.event?.actors?.[0]).map(item => ({
+                    actor: item.event.actors[0],
+                    action: item.event.summary,
+                    status: item.event.status,
+                    visibility: 'visible',
+                    source: 'timeline-fallback'
+                }));
+                G.worldMemory.world = worldBootstrapEngine.applyWorldMoves(
+                    G.worldMemory.world,
+                    [...taggedMoves, ...fallbackMoves],
+                    eventContext.turn,
+                    { story: G.currentStory, location: G.currentLocation }
+                );
+                G.worldMemory.world = worldBootstrapEngine.applyTimelineEvents(
+                    G.worldMemory.world,
+                    generated,
+                    eventContext.turn,
+                    { story: G.currentStory, location: G.currentLocation, days: passage.days }
+                );
+                G.worldMemory = worldBootstrapEngine.projectToMemory(G.worldMemory.world, G.worldMemory, {
+                    story: G.currentStory,
+                    turn: eventContext.turn,
+                    protagonistName: G.character?.name
+                });
+
+                G.worldMemory.pendingTimelineEvents = [];
+                G.worldMemory.lastTimelineDecisionIndex = (G.worldMemory.playerDecisions || []).length;
+                G.worldMemory.pendingTimelineChoices = [];
+                G.worldMemory.pendingStrategicActions = [];
+                const chronicle = timelineSimulator.buildChronicle(generated, passage) +
+                    timelineSimulator.buildStrategicOutcomeChronicle(strategicOutcomes);
+                const action = `AVANZA IL TURNO (${passage.description}): ${choices.length ? choices.map(item => item.command || item.summary).join(' · ') : 'iniziativa autonoma del mondo'}`;
+                addStoryEntry(chronicle, 'narrator');
+                lifeEngine.commitTurn(action, response || chronicle, G.character, G.worldMemory);
+                updateMediumTermMemory(action, chronicle, {
+                    type: 'timeline',
+                    title: `Turno ${eventContext.turn}: ${generated.length} sviluppi`,
+                    actors: [...new Set(generated.flatMap(event => event.actors || []))].slice(0, 8),
+                    date: endDate,
+                    source: aiError ? 'timeline-fallback' : 'timeline-ai'
+                });
+                const directorTags = generated.map(event =>
+                    `[CRONISTA: ${event.title}|${event.summary}|${event.importance}]`
+                ).join('\n');
+                const directorCommit = gameDirector.commitTurn(action, `${response}\n${directorTags}`, G.worldMemory, {
+                    character: G.character,
+                    story: G.currentStory,
+                    time: G.time,
+                    currentLocation: G.currentLocation
+                });
+                G.worldMemory.director = directorCommit.state;
+                G.history.push({ role: 'user', content: action });
+                G.history.push({ role: 'assistant', content: chronicle });
+                const compression = memoryManager.compress(G.history, G.worldMemory, getAIContextProfile());
+                G.history = compression.history;
+                G.worldMemory = compression.memory;
+                G.worldMemory.lastTimelineAdvanceTurn = eventContext.turn;
+                G.worldMemory.lastTimelineEventId = generated[generated.length - 1].id;
+                G.pendingTimePassage = null;
+
+                updateCharacterUI();
+                updateTimeDisplay();
+                updateMemoryUI();
+                updateInfoPanels();
+                updateWorldChatBadge();
+                updateStrategicSelectionBadge();
+                updateLastEventButton();
+                autoSave();
+                renderTimeline();
+                closeModal('modal-timeline');
+                showEventScreens(generated, 0);
+                if (aiError) notify('Il turno è stato completato dal Game Master locale senza perdere le azioni preparate.', 'info');
+            } catch (error) {
+                console.error('Errore risoluzione turno:', error);
+                notify(`Turno non completato: ${error.message}${timeAdvanced ? '. Puoi ripristinare il checkpoint precedente.' : '. Le azioni restano nel piano e puoi riprovare.'}`, 'error');
+            } finally {
+                G.isProcessing = false;
+                $('btn-send').disabled = false;
+                $('timeline-loading')?.classList.remove('active');
+                if (simulateButton) simulateButton.disabled = false;
+                if (nextButton && nextButton.isConnected && nextButton.disabled) nextButton.disabled = false;
+                updateActionBar();
+                updateVaultControls();
+            }
+        }
+
         async function simulateTimelineEventsLegacy() {
             if (G.isProcessing || !G.currentStory) return;
             const retryPassage = G.pendingTimePassage?.source === 'timeline' ? G.pendingTimePassage : null;
@@ -11522,8 +11842,24 @@
             G.timelineEventQueue = (events || []).filter(Boolean);
             if (!G.timelineEventQueue.length) return;
             G.timelineEventIndex = Math.max(0, Math.min(index, G.timelineEventQueue.length - 1));
+            G.timelineAutoOpenedChatIds = [];
             renderEventScreen();
             openModal('modal-event-screen');
+            maybeOpenRequiredEventChat();
+        }
+
+        function maybeOpenRequiredEventChat() {
+            const event = G.timelineEventQueue?.[G.timelineEventIndex || 0];
+            if (!event || event.conversationMode !== 'required') return;
+            const thread = getActiveEventChat(event.id);
+            if (!thread) return;
+            if (!Array.isArray(G.timelineAutoOpenedChatIds)) G.timelineAutoOpenedChatIds = [];
+            if (G.timelineAutoOpenedChatIds.includes(thread.id)) return;
+            G.timelineAutoOpenedChatIds.push(thread.id);
+            setTimeout(() => {
+                openWorldChats(thread.id);
+                notify('La risposta dell’interlocutore è necessaria per lo scopo dell’azione.', 'info');
+            }, 0);
         }
 
         function getLastTimelineEvent() {
@@ -11572,14 +11908,14 @@
             const index = G.timelineEventIndex || 0;
             const event = events[index];
             if (!event) return;
-            const pendingCount = timelineSimulator.normalizeEventQueue(G.worldMemory?.pendingTimelineEvents).length;
             const activeChat = getActiveEventChat(event.id);
             const canChat = Boolean(activeChat || (
                 event.conversationMode !== 'none' && (event.actors || []).some(name =>
                     timelineChatEngine.keyOf(name) !== timelineChatEngine.keyOf(G.character?.name)
                 )
             ));
-            $('event-screen-progress').textContent = activeChat ? 'Evento · Chat attiva' : 'Evento';
+            const hasNext = index < events.length - 1;
+            $('event-screen-progress').textContent = `Evento ${index + 1} di ${events.length}${activeChat ? ' · Chat attiva' : ''}`;
             const interactionMode = timelineSimulator.normalizeInteractionMode(
                 event.interactionMode,
                 event.conversationMode === 'required' ? 'dialogue' : event.conversationMode !== 'none' ? 'either' : 'none'
@@ -11600,15 +11936,16 @@
                     <div class="event-screen-actions">
                         ${canChat ? `<button class="btn secondary" id="btn-event-chat">💬 ${activeChat ? 'Apri chat' : 'Parla con le parti'}</button>` : ''}
                         ${canAct ? '<button class="btn secondary" id="btn-event-action">⚡ Prepara azione</button>' : ''}
-                        <button class="btn primary" id="btn-next-event">${pendingCount ? 'Evento successivo ›' : 'Apri timeline'}</button>
+                        <button class="btn primary" id="btn-next-event">${hasNext ? 'Evento successivo ›' : 'Fine turno · Timeline'}</button>
                     </div>
                 </div>`;
             if ($('btn-event-chat')) $('btn-event-chat').onclick = () => openChatForEvent(event.id);
             if ($('btn-event-action')) $('btn-event-action').onclick = () => prepareActionForEvent(event);
-            $('btn-next-event').onclick = async () => {
-                const remaining = timelineSimulator.normalizeEventQueue(G.worldMemory?.pendingTimelineEvents).length;
-                if (remaining) {
-                    await simulateTimelineEvents({ fromEventScreen: true });
+            $('btn-next-event').onclick = () => {
+                if (G.timelineEventIndex < events.length - 1) {
+                    G.timelineEventIndex += 1;
+                    renderEventScreen();
+                    maybeOpenRequiredEventChat();
                     return;
                 }
                 closeModal('modal-event-screen');

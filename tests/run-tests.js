@@ -278,6 +278,43 @@ test('ogni chiamata della timeline completa al massimo un evento vivo', () => {
     assert.equal(/^Vita durante/i.test(single.event.title), false);
 });
 
+test('il ciclo in stile Pax risolve tutte le azioni e una iniziativa del mondo in una sola risposta', () => {
+    const world = makeConcreteWorld();
+    const choices = [{
+        id: 'choice-porta', source: 'player-action', summary: 'Ordino di rinforzare la porta orientale.'
+    }, {
+        id: 'strategic-grano', source: 'strategic-advisor', topic: 'Scorte cittadine',
+        actionTitle: 'Acquistare grano', command: 'Invio Jacopo al mercato per acquistare cento sacchi di grano.',
+        objective: 'Riempire il granaio', duration: '2 giorni'
+    }];
+    const seeds = timelineSimulatorApi.createEventSeeds(choices, world, {
+        turn: 10, batchId: 'batch-pax', includeWorld: true
+    });
+    assert.equal(seeds.length, 3);
+    assert.equal(seeds.filter(seed => seed.causalLane === 'player').length, 2);
+    assert.equal(seeds.filter(seed => seed.causalLane === 'world').length, 1);
+    const prompt = timelineSimulatorApi.buildTurnPrompt({
+        story: { title: 'Astaria', setting: 'Khepra' }, world, seeds, turn: 10, batchId: 'batch-pax'
+    });
+    assert.match(prompt, /RISOLVI UN SOLO TURNO COMPLETO/);
+    assert.match(prompt, /Produci esattamente 3 EVENTI/);
+    assert.match(prompt, /azioni preparate.*iniziativa autonoma del mondo.*turno chiuso/is);
+    assert.match(prompt, /nessun evento genera un altro evento/i);
+    assert.match(prompt, /\[RISOLUZIONE:/);
+    assert.doesNotMatch(prompt, /\[CODA_EVENTO:/);
+    const timingResponse = seeds.map((seed, index) =>
+        `[RISOLUZIONE: ${seed.id}|${(index + 1) * 120}|Causa ${index + 1}]`
+    ).join('\n');
+    const batch = timelineSimulatorApi.ensureTurnBatch([], seeds, {
+        story: { title: 'Astaria', setting: 'Khepra' }, world, turn: 11,
+        location: 'Khepra', protagonistName: 'Andrea', response: timingResponse
+    });
+    assert.equal(batch.events.length, 3);
+    assert.equal(new Set(batch.events.map(event => event.seedId)).size, 3);
+    assert.equal(batch.fallbackAdded, 3);
+    assert.ok(batch.elapsedMinutes >= 360);
+});
+
 test('la coda causale conserva più azioni e sceglie quella disponibile per prima', () => {
     const world = worldBootstrapApi.migrateWorld({
         actors: [{ name: 'Elara Vey', goal: 'convocare il consiglio', status: 'active', influence: 70 }],
@@ -3109,13 +3146,13 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
     assert.match(html, /src="js\/timeline-chat\.js\?v=20260815-chat-cycle-8"/);
-    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260815-event-delta-10"/);
+    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260815-pax-turn-11"/);
     assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-4"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);
     assert.match(html, /id="btn-simulate-timeline"/);
-    assert.match(html, /Vai al prossimo evento importante/);
+    assert.match(html, /Avanza il turno/);
     assert.doesNotMatch(html, /id="timeline-step"/);
     assert.match(html, /id="timeline-pending-events"/);
     assert.match(html, /id="modal-event-screen"/);
@@ -3137,10 +3174,8 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /function queueTimelineChoice/);
     assert.match(html, /function requestTimelineAI/);
     assert.match(html, /timelineSimulator\.createEventSeeds/);
-    assert.match(html, /timelineSimulator\.selectNextEventSeed/);
-    assert.match(html, /timelineSimulator\.parseEventTiming/);
-    assert.match(html, /timelineSimulator\.ensureSingleEvent/);
-    assert.match(html, /timelineSimulator\.advanceEventQueue/);
+    assert.match(html, /timelineSimulator\.buildTurnPrompt/);
+    assert.match(html, /timelineSimulator\.ensureTurnBatch/);
     assert.match(html, /timelineSimulator\.buildConversationStarters/);
     assert.match(html, /timelineSimulator\.isMeaningfulEvent/);
     assert.match(html, /deferActionEventToTimeline/);
@@ -3155,13 +3190,14 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /world-chat-resolution/);
     assert.match(html, /function runWorldChatNpcTurn/);
     assert.match(html, /pendingChatSpeaker/);
-    assert.match(html, /simulateTimelineEvents\(\{ fromEventScreen: true \}\)/);
+    assert.doesNotMatch(html, /await simulateTimelineEvents\(\{ fromEventScreen: true \}\)/);
     assert.match(html, /Prepara azione/);
     assert.match(html, /Conversazione attiva per questo evento/);
-    assert.match(html, /G\.worldMemory\.lastTimelineEventId = generatedEvent\.id/);
+    assert.match(html, /G\.worldMemory\.lastTimelineEventId = generated\[generated\.length - 1\]\.id/);
     assert.match(html, /eventNarrativeMarkup\(event\)/);
-    assert.match(html, /timelineSimulator\.eventRequiresConversation\(generatedEvent, seed\)/);
-    assert.match(html, /openWorldChats\(autoOpenChatId\)/);
+    assert.match(html, /timelineSimulator\.eventRequiresConversation\(event, assignment\?\.seed\)/);
+    assert.match(html, /function maybeOpenRequiredEventChat/);
+    assert.match(html, /G\.timelineEventIndex \+= 1/);
     assert.doesNotMatch(html, /function eventCausalContextMarkup/);
     assert.doesNotMatch(html, /<h3>Cosa cambia<\/h3>/);
     assert.doesNotMatch(html, /<h3>Perché accade ora<\/h3>/);
@@ -3174,7 +3210,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
 
 test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260814-strategy-6"/);
+    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260815-pax-actions-7"/);
     assert.match(html, /id="btn-strategic-actions"/);
     assert.match(html, /id="modal-strategic-actions"/);
     assert.match(html, /id="btn-strategic-analyze"/);
