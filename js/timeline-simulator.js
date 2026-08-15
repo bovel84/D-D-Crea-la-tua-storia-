@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 8;
+    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 9;
     const EVENT_QUEUE_LIMIT = 40;
     const MIN_EVENT_DELAY_MINUTES = 5;
     const MAX_EVENT_DELAY_MINUTES = 5256000;
@@ -90,6 +90,12 @@
             /\b(?:Custode|Guida locale|Mediatore indipendente|Voce dell['’ ]Opposizione)\b/i.test(text) ||
             /\b(?:Equilibrio in cambiamento|Prossimo sviluppo del mondo|Definire il prossimo passo)\b/i.test(text) ||
             /(?:Storico|Historical)\s*\/\s*(?:Business|Economia)/i.test(text);
+    }
+
+    function containsGenericEventLanguage(value) {
+        const text = keyOf(value);
+        return /\b(?:la situazione cambia|gli equilibri cambiano|rafforza la propria posizione|deve ricalcolare la propria posizione|deve decidere se reagire|il mondo reagisce|si aprono nuove possibilita|le conseguenze si faranno sentire|qualcosa e cambiato)\b/.test(text) ||
+            /^(?:sviluppo della situazione|risposta alla scelta|iniziativa del mondo|prossimo evento|nuovo equilibrio)$/.test(text);
     }
 
     function isPlaceholderActor(actor) {
@@ -422,7 +428,7 @@ ${choice ? `- Azione del giocatore: ${choice.command}\n- Obiettivo: ${choice.obj
 
 TEMPO FINO ALL'EVENTO:
 - ${manualLimit}
-- Emetti ATTESA_EVENTO con minuti interi e una motivazione causale. Il motore farà vivere normalmente il protagonista durante l'attesa; non trasformare sonno, pasti o routine in un evento.
+- Emetti ATTESA_EVENTO con minuti interi e una motivazione causale. Il tempo serve soltanto a collocare il fatto; non generare routine o bisogni tecnici.
 - Non anticipare un fatto che richiede viaggio, preparazione, risposta istituzionale o maturazione economica; non rinviare artificialmente un pericolo immediato.
 
 BASE STORICO-POLITICA:
@@ -456,6 +462,10 @@ REGOLE OBBLIGATORIE:
 - Se non è necessario parlare per raggiungere lo scopo, non creare CHAT e usa none oppure action. Le semplici conseguenze politiche o la presenza di due attori non bastano ad aprire una conversazione.
 - Questo evento chiude la causa consumata. Non emettere CODA_EVENTO e non trasformare la conseguenza in un altro evento automatico.
 - ${strategicInstruction}
+- Costruisci il fatto come una variazione di stato completa: PRIMA (vincolo già vero) → AZIONE (chi agisce, dove e con quale leva) → REAZIONE (di un attore registrato) → DOPO (che cosa ora è ottenuto, perduto, bloccato, aperto o vincolato).
+- Il campo fatto deve nominare almeno un attore specifico, un luogo specifico e una leva concreta fra denaro, documenti, uomini, informazioni, influenza, proprietà, scorte, istituzioni o risorse già presenti. Il campo conseguenza deve modificare una possibilità reale del prossimo turno.
+- Sono vietati come esito principale «la situazione cambia», «gli equilibri cambiano», «rafforza la propria posizione», «deve decidere se reagire» e formule equivalenti. Un evento senza una nuova realtà osservabile non è valido.
+- Per una iniziativa del mondo mostra la spesa o l'impiego di una risorsa dell'attore esterno e chi ne subisce l'effetto. Per una azione del giocatore mostra il risultato di quella azione, non una nuova trama scelta dal Game Master.
 - Il fatto deve contenere 3-5 frasi complete, azione osservabile, strumento usato, risultato verificabile e conseguenza persistente. Un'intenzione non è un risultato.
 - La conseguenza deve contenere 1-2 frasi complete. Chiudi ogni frase e ogni campo prima del separatore |; non interrompere mai un testo a metà.
 - Usa soltanto nomi propri, cariche e istituzioni presenti nel contesto. Vietati segnaposto come Autorità, Opposizione, Mediatore o Comunità.
@@ -529,6 +539,30 @@ REGOLE OBBLIGATORIE:
         return score;
     }
 
+    function eventSpecificityScore(event, context = {}) {
+        if (!isMeaningfulEvent(event)) return 0;
+        const title = cleanText(event?.title, 140);
+        const summary = cleanText(event?.summary, 1200);
+        const consequence = cleanText(event?.consequence, 700);
+        const location = cleanText(event?.location, 140);
+        const actors = asArray(event?.actors).map(item => cleanText(item, 100)).filter(Boolean);
+        const knownActors = new Set(activeActors(context.world || {}, context).map(actor => keyOf(actor.name)));
+        const corpus = `${title} ${summary} ${consequence}`;
+        let score = 0;
+        if (title.length >= 10 && !containsGenericEventLanguage(title)) score += 1;
+        if (location && !/^(?:sconosciuto|luogo|territorio|regione|area|nel territorio)$/i.test(keyOf(location))) score += 1;
+        if (actors.length && actors.every(name => !isGenericActorName(name))) score += 1;
+        if (actors.some(name => knownActors.has(keyOf(name)))) score += 1;
+        if (summary.length >= 90 && summary.split(/[.!?]+/).filter(Boolean).length >= 2) score += 1;
+        if (/\b(?:convoca|ordina|firma|consegna|blocca|occupa|apre|chiude|invia|mobilita|schiera|compra|vende|finanzia|sequestra|arresta|libera|costruisce|ispeziona|interroga|rivela|nega|concede|vota|approva|respinge|attacca|ritira|trasferisce|pubblica|impone|riduce|aumenta)\b/i.test(summary)) score += 2;
+        if (/\b(?:con|usando|tramite|impiega|spende|documenti|guardie|denaro|credito|truppe|lettera|decreto|scorte|archivi|contatti|testimoni|navi|carri)\b/i.test(summary)) score += 1;
+        if (/\b(?:ottiene|perde|controlla|cede|resta senza|diventa accessibile|non e piu accessibile|vincola|interrompe|riapre|chiude|sale|scende|passa da|entro|fino a)\b/i.test(consequence)) score += 2;
+        if (cleanText(event?.cause, 30)) score += 1;
+        if (containsGenericEventLanguage(corpus)) score -= 4;
+        if (/\b(?:potrebbe|forse|eventualmente|in futuro)\b/i.test(consequence)) score -= 2;
+        return score;
+    }
+
     function conversationGoalFor(event) {
         const actors = asArray(event?.actors).filter(Boolean);
         if (!actors.length) return '';
@@ -586,6 +620,7 @@ REGOLE OBBLIGATORIE:
             conversationMode,
             interactionMode: dialogueRequired ? 'dialogue' : interactionMode,
             centralityScore: eventCentralityScore(event, context),
+            specificityScore: eventSpecificityScore(event, context),
             causalAlignmentScore: causalAlignmentScore(event, seed),
             causalKind: cleanText(event?.causalKind || seed?.kind, 40),
             causalLabel: cleanText(event?.causalLabel || causalLabelFor(seed?.kind), 80),
@@ -910,20 +945,45 @@ REGOLE OBBLIGATORIE:
         const choice = seed?.choice;
         const strategic = choice?.isStrategic;
         const worldLed = /^world/.test(seed?.kind || '');
+        const force = asArray(context.world?.forces).find(item =>
+            item?.status !== 'resolved' && (
+                keyOf(item.actor) === keyOf(actor.name) ||
+                keyOf(item.name) === keyOf(seed?.title) ||
+                keyOf(item.id) === keyOf(seed?.sourceId)
+            )
+        );
+        const actorResource = actorResources(actor);
+        const actorPlan = actorStrategy(actor);
+        const playerAction = cleanText(choice?.command || seed?.cause, 420);
+        const actionKey = keyOf(playerAction);
+        const intendedResult = cleanText(choice?.expectedOutcome || choice?.objective, 260);
+        const committedCost = cleanText(choice?.cost, 160);
+        let playerResult;
+        if (/chied|parl|convoc|negozi|propon|interrog/.test(actionKey)) {
+            playerResult = `${actor.name} riceve la richiesta nel luogo indicato e deve rispondere usando soltanto le informazioni e l'autorità che possiede; la risposta resta affidata alla scena di dialogo.`;
+        } else if (/indag|cerc|ispezion|esamin|studia|scopri/.test(actionKey)) {
+            playerResult = `${actor.name} reagisce proteggendo o mettendo in gioco ${actorResource}; l'accesso a quella leva diventa il primo risultato verificabile dell'indagine.`;
+        } else if (/attacc|assalt|arrest|blocca|minaccia|occupa/.test(actionKey)) {
+            playerResult = `${actor.name} impiega ${actorResource} per contenere il tentativo nel punto in cui avviene; il controllo immediato del luogo viene ora conteso apertamente.`;
+        } else if (/compra|vende|finanzia|investe|costru|assum|paga/.test(actionKey)) {
+            playerResult = `${committedCost ? `${committedCost} viene impegnato nel tentativo.` : 'Le risorse dichiarate vengono impegnate nel tentativo.'} ${actor.name} modifica il proprio piano usando ${actorResource}, rendendo il costo non più soltanto ipotetico.`;
+        } else {
+            playerResult = `${actor.name} risponde con una mossa coerente: ${actorPlan}, impiegando ${actorResource}. Il tentativo produce così un cambiamento osservabile nel controllo della questione.`;
+        }
         const event = worldLed ? {
             type: actor?.kind === 'faction' ? 'politica' : 'mondo',
             title: seed?.title || `La mossa di ${actor.name}`,
-            summary: `${actor.name}, perseguendo ${actorGoal(actor)}, ha usato ${actorResources(actor)} per ${actorStrategy(actor)}. La mossa è diventata visibile${target ? ` a ${target.name}, che ora deve ricalcolare la propria posizione` : ' nel contesto già registrato'}.`,
-            consequence: `${actor.name} conquista temporaneamente l'iniziativa${target ? ` e ${target.name} deve decidere se reagire, negoziare o ostacolarlo` : ''}.`,
+            summary: `A ${place}, ${actor.name} ha impiegato ${actorResource} per perseguire ${actorGoal(actor)}. La mossa concreta è stata ${actorPlan}${target ? ` e ha sottratto margine d'azione a ${target.name}` : ''}.${force ? ` Il fronte «${cleanText(force.name, 140)}» passa dal ${Math.round(Number(force.progress) || 0)}% al ${Math.min(100, Math.round(Number(force.progress) || 0) + 10)}%.` : ''}`,
+            consequence: `${actor.name} ha ora impegnato ${actorResource} a ${place}${target ? `; ${target.name} non può usare la stessa posizione o risorsa senza affrontarne l'opposizione` : ''}.`,
             actors: [actor.name, target?.name].filter(Boolean)
         } : {
             type: strategic ? 'decisione' : 'missione',
-            title: seed?.title || (strategic ? `${choice.topic}: il piano entra in azione` : 'La scelta produce un primo effetto'),
-            summary: `Il protagonista ha avviato «${cleanText(choice?.command || seed?.cause, 300)}» usando le risorse realmente disponibili. ${actor.name}, interessato a ${actorGoal(actor)}, ha osservato il tentativo e ne ha condizionato il primo risultato.`,
+            title: seed?.title || (strategic ? `${choice.topic}: il piano entra in azione` : `${actor.name} reagisce all'azione del protagonista`),
+            summary: `A ${place}, ${protagonist?.name || 'il protagonista'} ha eseguito «${playerAction}»${intendedResult ? ` per ottenere ${intendedResult}` : ''}. ${playerResult}`,
             consequence: strategic
-                ? `L'azione su «${choice.topic || seed?.topic || 'la questione'}» produce un esito verificabile. ${actor.name} registra il nuovo equilibrio e il ciclo si chiude.`
-                : `La scelta del protagonista cambia le opzioni di ${actor.name}; la conseguenza viene registrata senza aprire automaticamente un altro evento.`,
-            actors: [actor.name, target?.name].filter(Boolean),
+                ? `Il piano su «${choice.topic || seed?.topic || 'la questione'}» ha impegnato le risorse dichiarate; qualsiasi ulteriore sviluppo richiederà una nuova scelta.`
+                : `${actor.name} ha già impiegato ${actorResource} in risposta: quella risorsa e il luogo ${place} restano vincolati a questo esito nel prossimo turno.`,
+            actors: [protagonist?.name, actor.name, target?.name].filter(Boolean),
             strategicTopic: choice?.topic,
             strategicActionIds: strategic ? [choice.id] : []
         };
@@ -944,7 +1004,9 @@ REGOLE OBBLIGATORIE:
     function ensureSingleEvent(incomingEvents, context = {}) {
         const meaningful = asArray(incomingEvents).filter(isMeaningfulEvent);
         const accepted = meaningful.find(event =>
-            eventCentralityScore(event, context) >= 6 && causalAlignmentScore(event, context.seed) >= 2
+            eventCentralityScore(event, context) >= 6 &&
+            causalAlignmentScore(event, context.seed) >= 2 &&
+            eventSpecificityScore(event, context) >= 6
         );
         const event = accepted
             ? enrichEvent({
@@ -1160,7 +1222,7 @@ REGOLE OBBLIGATORIE:
             `• ${cleanText(event.occurredAt || 'Durante il periodo', 100)} — ${cleanText(event.summary, 1400)}`
         );
         const finalConsequence = cleanText(meaningful[meaningful.length - 1].consequence, 900);
-        return `Durante ${cleanText(passage.description || 'il periodo', 120)}, il protagonista ha continuato a dormire, mangiare e vivere normalmente. Nel frattempo il mondo non è rimasto fermo:\n\n${lines.join('\n\n')}` +
+        return `Durante ${cleanText(passage.description || 'il periodo', 120)}, il mondo ha prodotto questo cambiamento:\n\n${lines.join('\n\n')}` +
             (finalConsequence ? `\n\nSituazione attuale: ${finalConsequence}` : '');
     }
 
@@ -1195,6 +1257,7 @@ REGOLE OBBLIGATORIE:
         desiredEventCount,
         isMeaningfulEvent,
         eventCentralityScore,
+        eventSpecificityScore,
         enrichEvent,
         buildPrompt,
         createFallbackArc,

@@ -5,9 +5,11 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const CHAT_SCHEMA_VERSION = 5;
+    const CHAT_SCHEMA_VERSION = 6;
     const MAX_THREADS = 60;
     const MAX_MESSAGES_PER_THREAD = 80;
+    const MAX_PLAYER_TURNS_PER_THREAD = 5;
+    const MAX_DIALOGUE_MESSAGES_PER_THREAD = 14;
     const SPEAKER_TYPES = ['protagonista', 'npc', 'fazione', 'regno', 'gruppo'];
     const RESOLUTION_STATUSES = ['open', 'proposal', 'agreement', 'refused', 'failed', 'closed'];
     const AGREEMENT_STATUSES = ['draft', 'active', 'rejected', 'broken', 'fulfilled'];
@@ -167,6 +169,27 @@
         return AGREEMENT_STATUSES.includes(key) ? key : 'draft';
     }
 
+    function isTerminalResolution(value) {
+        return ['agreement', 'refused', 'failed', 'closed'].includes(normalizeResolutionStatus(value));
+    }
+
+    function conversationMetrics(thread) {
+        const messages = asArray(thread?.messages);
+        const playerTurns = messages.filter(message =>
+            message?.source === 'player' || message?.speakerType === 'protagonista'
+        ).length;
+        const npcTurns = Math.max(0, messages.length - playerTurns);
+        const lastMessage = messages[messages.length - 1] || null;
+        return {
+            playerTurns,
+            npcTurns,
+            totalMessages: messages.length,
+            remainingPlayerTurns: Math.max(0, MAX_PLAYER_TURNS_PER_THREAD - playerTurns),
+            lastMessage,
+            finalRound: playerTurns >= MAX_PLAYER_TURNS_PER_THREAD || messages.length >= MAX_DIALOGUE_MESSAGES_PER_THREAD
+        };
+    }
+
     function normalizeAgreement(source, context = {}) {
         const input = source && typeof source === 'object' ? source : {};
         const title = cleanText(input.title, 140);
@@ -279,6 +302,8 @@
         const agenda = /^(available|required|none|open|dialogue|action|either)$/i.test(keyOf(rawAgenda))
             ? cleanText(event?.conversationGoal || event?.consequence || input.purpose || 'Affrontare le conseguenze dell’evento', 420)
             : rawAgenda;
+        const terminalAgreement = agreements.some(agreement => agreement.status === 'active');
+        const explicitlyClosed = /closed|chius/.test(keyOf(input.status));
         return {
             chatSchemaVersion: CHAT_SCHEMA_VERSION,
             id,
@@ -292,7 +317,7 @@
             origin: cleanText(input.origin || (event ? 'event' : 'player'), 40),
             resolution,
             agreements,
-            status: /closed|chius/.test(keyOf(input.status)) ? 'closed' : 'active',
+            status: explicitlyClosed || isTerminalResolution(resolution.status) || terminalAgreement ? 'closed' : 'active',
             createdAtTurn: Math.max(0, Number(input.createdAtTurn ?? event?.turn ?? context.turn) || 0),
             updatedAtTurn: Math.max(0, Number(input.updatedAtTurn ?? input.createdAtTurn ?? event?.turn ?? context.turn) || 0),
             occurredAt: cleanText(input.occurredAt || event?.occurredAt || context.occurredAt, 100),
@@ -438,6 +463,7 @@
                 }, context);
                 threads.push(thread);
             }
+            if (thread.status === 'closed') return;
             const protagonistName = cleanText(
                 context.protagonistName || thread.messages.find(item => item.source === 'player')?.speaker,
                 100
@@ -523,7 +549,7 @@
     function inviteParticipants(chats, threadId, participants, context = {}) {
         const threads = migrateChats(chats, context);
         const thread = threads.find(item => item.id === threadId);
-        if (!thread) return { chats: threads, thread: null, invited: [] };
+        if (!thread || thread.status === 'closed') return { chats: threads, thread: thread || null, invited: [] };
         const protagonistName = cleanText(context.protagonistName || thread.messages.find(item => item.source === 'player')?.speaker, 100);
         const invited = splitParticipants(participants, 12).filter(name =>
             !isProtagonistAlias(name, protagonistName) &&
@@ -536,6 +562,7 @@
 
     function chooseNextSpeaker(thread, playerMessage = '', context = {}) {
         const item = normalizeThread(thread, context);
+        if (item.status === 'closed') return '';
         const protagonistName = cleanText(
             context.protagonistName || item.messages.find(message => message.source === 'player')?.speaker,
             100
@@ -589,6 +616,7 @@
 
     function chooseSpeakerRound(thread, playerMessage = '', context = {}) {
         const item = normalizeThread(thread, context);
+        if (item.status === 'closed') return [];
         const protagonistName = cleanText(
             context.protagonistName || item.messages.find(message => message.source === 'player')?.speaker,
             100
@@ -632,6 +660,7 @@
 
     function buildFallbackReply(thread, playerMessage, context = {}) {
         const item = normalizeThread(thread, context);
+        if (item.status === 'closed') return null;
         const speaker = cleanText(
             context.nextSpeaker || chooseNextSpeaker(item, playerMessage, context) ||
             item.participants.find(name => !/^(protagonista|giocatore|player)$/i.test(keyOf(name))),
@@ -646,13 +675,26 @@
         const publicGoal = actorProfile.publicGoal || actorProfile.strategy || 'proteggere i miei interessi';
         const resources = actorProfile.resources || 'le risorse che controllo';
         const dialogueAct = classifyDialogueAct(context.triggerMessage || playerMessage);
+        const metrics = conversationMetrics(item);
+        const closingRound = context.forceClosing === true || metrics.finalRound;
         const triggerSpeaker = cleanText(context.triggerSpeaker, 100);
         const target = triggerSpeaker && !isSamePersonName(triggerSpeaker, speaker)
             ? triggerSpeaker
             : cleanText(context.protagonistName || 'Protagonista', 100);
         let text;
         let mood = 'prudente';
-        if (context.autonomous && triggerSpeaker) {
+        if (closingRound) {
+            if (dialogueAct === 'acceptance') {
+                text = `Io considero accettata la linea emersa su ${agenda}. La mia posizione finale resta legata a ${publicGoal}; da questo momento valuterò i fatti e gli impegni concreti, non altre dichiarazioni. Per me la discussione è conclusa.`;
+                mood = 'conclusivo';
+            } else if (dialogueAct === 'refusal') {
+                text = `Io prendo atto del rifiuto su ${agenda}. Non insisterò in questa sede: perseguirò ${publicGoal} con ${resources} e giudicherò le prossime mosse dai loro effetti. La conversazione termina qui.`;
+                mood = 'fermo';
+            } else {
+                text = `Io ho esposto la mia posizione finale su ${agenda}: la mia priorità resta ${publicGoal} e agirò entro i limiti delle risorse che controllo. Non aggiungerò altre condizioni in questa sede; qualsiasi seguito dovrà nascere da un fatto nuovo. Considero conclusa la conversazione.`;
+                mood = 'conclusivo';
+            }
+        } else if (context.autonomous && triggerSpeaker) {
             if (/ambiz|domin|aggress|impuls|orgogli|autorit/.test(personality)) {
                 text = `Io non lascio che sia ${triggerSpeaker} a fissare da solo i termini su ${agenda}. La mia posizione conta, e pretendo che rischi, vantaggi e responsabilità siano ripartiti in modo esplicito prima di procedere.`;
                 mood = 'assertivo';
@@ -766,7 +808,7 @@
                 followUp: outcome.followUp,
                 updatedAtTurn: outcome.turn
             };
-            thread.status = outcome.status === 'closed' ? 'closed' : 'active';
+            thread.status = isTerminalResolution(outcome.status) ? 'closed' : 'active';
             thread.updatedAtTurn = Math.max(thread.updatedAtTurn, outcome.turn);
             outcome.threadId = thread.id;
             outcome.participants = thread.participants.slice();
@@ -782,6 +824,7 @@
                 if (thread.resolution.status === 'agreement') {
                     thread.resolution.status = 'proposal';
                     thread.resolution.summary = `Proposta in attesa dell'accettazione esplicita di tutte le parti: ${agreement.terms}`;
+                    thread.status = 'active';
                 }
             }
             agreement.threadId = thread.id;
@@ -795,11 +838,49 @@
                     consequence: agreement.consequence, followUp: agreement.deadline,
                     updatedAtTurn: agreement.turn
                 };
+                thread.status = 'closed';
             }
             thread.updatedAtTurn = Math.max(thread.updatedAtTurn, agreement.turn);
             appliedAgreements.push(agreement);
         });
         return { chats: threads.slice(-MAX_THREADS), outcomes: appliedOutcomes, agreements: appliedAgreements, changed: Boolean(appliedOutcomes.length || appliedAgreements.length) };
+    }
+
+    function closeConversation(chats, threadId, context = {}) {
+        const threads = migrateChats(chats, context);
+        const thread = threads.find(item => item.id === threadId);
+        if (!thread) return { chats: threads, thread: null, closed: false, reason: 'missing' };
+        const metrics = conversationMetrics(thread);
+        const terminal = isTerminalResolution(thread.resolution?.status) ||
+            asArray(thread.agreements).some(agreement => agreement.status === 'active');
+        const limitReached = metrics.finalRound && metrics.lastMessage?.source !== 'player';
+        const forced = context.force === true;
+        if (thread.status === 'closed') return { chats: threads, thread, closed: true, reason: 'already-closed' };
+        if (!terminal && !limitReached && !forced) return { chats: threads, thread, closed: false, reason: 'open' };
+        const lastNpcMessage = [...thread.messages].reverse().find(message =>
+            message.source !== 'player' && message.speakerType !== 'protagonista'
+        );
+        const explicitSummary = cleanText(context.summary, 500);
+        const explicitConsequence = cleanText(context.consequence, 420);
+        const existingStatus = normalizeResolutionStatus(thread.resolution?.status);
+        thread.status = 'closed';
+        thread.resolution = {
+            status: isTerminalResolution(existingStatus) ? existingStatus : 'closed',
+            summary: explicitSummary || thread.resolution?.summary ||
+                (forced
+                    ? `Il protagonista ha concluso la conversazione su ${thread.agenda || thread.title}.`
+                    : `Le parti hanno espresso una posizione finale su ${thread.agenda || thread.title}.`),
+            consequence: explicitConsequence || thread.resolution?.consequence || cleanText(lastNpcMessage?.text, 420),
+            followUp: cleanText(context.followUp || thread.resolution?.followUp || 'Un seguito richiederà una nuova azione o un nuovo evento.', 320),
+            updatedAtTurn: Math.max(0, Number(context.turn ?? thread.updatedAtTurn) || 0)
+        };
+        thread.updatedAtTurn = Math.max(thread.updatedAtTurn, Number(context.turn) || 0);
+        return {
+            chats: threads.slice(-MAX_THREADS),
+            thread,
+            closed: true,
+            reason: forced ? 'manual' : terminal ? 'terminal-outcome' : 'turn-limit'
+        };
     }
 
     function buildSimulationPrompt(context = {}) {
@@ -820,6 +901,7 @@
 
     function buildChatPrompt(thread, playerMessage, context = {}) {
         const item = normalizeThread(thread, context);
+        const metrics = conversationMetrics(item);
         const historyLimit = Math.max(12, Math.min(
             MAX_MESSAGES_PER_THREAD,
             Math.trunc(Number(context.historyLimit) || 24)
@@ -853,6 +935,7 @@ PARTECIPANTI: ${participants}
 SCOPO: ${item.purpose || 'dialogo'}
 ORDINE DEL GIORNO: ${item.agenda || 'affrontare le conseguenze dell’evento'}
 STATO DELLA TRATTATIVA: ${item.resolution.status}; ${item.resolution.summary || 'nessun esito ancora'}
+CICLO DEL DIALOGO: ${metrics.playerTurns}/${MAX_PLAYER_TURNS_PER_THREAD} interventi del protagonista; ${metrics.remainingPlayerTurns} ancora disponibili prima della conclusione obbligatoria.
 ACCORDI ESISTENTI: ${activeAgreements}
 CONTESTO: ${cleanText(context.eventSummary, 2000) || 'Usa i fatti registrati nell’evento.'}
 CANONE DELLA CAMPAGNA: ${cleanText(context.continuityPrompt, 12000) || 'Continua esclusivamente dai fatti e dai nomi già registrati.'}
@@ -868,10 +951,11 @@ PROSSIMO E UNICO PARLANTE: ${nextSpeaker}
 Rispondi senza narrazione esterna e produci ESATTAMENTE UNA CHAT, pronunciata soltanto da ${nextSpeaker}:
 [CHAT: ${item.eventTitle}|${nextSpeaker}|npc/fazione/regno/gruppo|messaggio_in_prima_persona|destinatario|emozione]
 ${nextSpeaker} parla in prima persona e conserva carica, obiettivi pubblici e privati, carattere, alleanze, leve, vincoli e conoscenze parziali. La personalità deve essere udibile nel lessico, nella lunghezza delle frasi, nella deferenza o aggressività e nel modo di dissentire: non usare una voce da assistente generico. Può contraddire quanto detto prima, mentire, chiedere garanzie, rifiutare o fare una controproposta. Non far parlare nessun altro in questa chiamata, non parlare mai al posto del protagonista e non rendere tutti automaticamente disponibili o concordi.
-La battuta deve essere completa, reattiva e dialogica: 2-5 frasi, circa 50-160 parole, senza interrompere l'ultima frase. Reagisci prima di tutto all'ULTIMA battuta disponibile: ${autonomousExchange ? `quella di ${triggerSpeaker}, intervenendo come partecipante autonomo e rivolgendoti a lui, al protagonista o al gruppo secondo il tuo interesse` : 'quella del giocatore'}. Se contiene una domanda, rispondi; se accetta o rifiuta, riconoscilo; se propone termini, valutali uno per uno. Non ripetere né parafrasare le battute precedenti e non ricominciare dall'ordine del giorno. Fai avanzare il dialogo con una decisione, un fatto noto al parlante, una richiesta concreta o una controproposta coerente. Non usare formule metanarrative come «dimmi quale risultato vuoi ottenere» quando è già stato specificato.
+La battuta deve essere completa, reattiva e dialogica: 2-5 frasi, circa 50-160 parole, senza interrompere l'ultima frase. Reagisci prima di tutto all'ULTIMA battuta disponibile: ${autonomousExchange ? `quella di ${triggerSpeaker}, intervenendo come partecipante autonomo e rivolgendoti a lui, al protagonista o al gruppo secondo il tuo interesse` : 'quella del giocatore'}. Se contiene una domanda, rispondi; se accetta o rifiuta, riconoscilo; se propone termini, valutali uno per uno. Non ripetere né parafrasare le battute precedenti e non ricominciare dall'ordine del giorno. Ogni risposta deve avvicinare a uno fra accordo, rifiuto, fallimento o chiusura; non porre un'altra domanda se il fatto o la condizione richiesta sono già stati forniti. Fai avanzare il dialogo con una decisione, un fatto noto al parlante, una richiesta concreta o una controproposta coerente. Non usare formule metanarrative come «dimmi quale risultato vuoi ottenere» quando è già stato specificato.
 
-Se e soltanto se questo scambio cambia davvero la situazione, aggiungi:
+Se questo scambio produce accordo, rifiuto, fallimento o una posizione finale, devi aggiungere:
 [ESITO_CHAT: ${item.id}|open/proposal/agreement/refused/failed/closed|esito concreto|conseguenza sul mondo|azione successiva]
+${metrics.finalRound ? `Questo è l'ultimo giro consentito: non fare domande e usa obbligatoriamente agreement, refused, failed oppure closed.` : 'Usa open o proposal solo se manca ancora una condizione concreta e non già discussa.'}
 Se nasce un contratto, trattato, patto o incarico con termini verificabili, aggiungi anche:
 [ACCORDO_CHAT: ${item.id}|titolo|parti separate da virgola|contratto/trattato/patto/incarico|termini precisi|draft/active/rejected/broken/fulfilled|scadenza o vuoto|conseguenza se rispettato o violato|ambito o attività]
 Usa active soltanto se tutte le parti necessarie hanno accettato esplicitamente nella conversazione; una proposta unilaterale resta draft. Le parole del protagonista contano soltanto se sono state scritte dal giocatore.`;
@@ -889,6 +973,8 @@ Usa active soltanto se tutte le parti necessarie hanno accettato esplicitamente 
         CHAT_SCHEMA_VERSION,
         MAX_THREADS,
         MAX_MESSAGES_PER_THREAD,
+        MAX_PLAYER_TURNS_PER_THREAD,
+        MAX_DIALOGUE_MESSAGES_PER_THREAD,
         SPEAKER_TYPES,
         RESOLUTION_STATUSES,
         AGREEMENT_STATUSES,
@@ -898,6 +984,8 @@ Usa active soltanto se tutte le parti necessarie hanno accettato esplicitamente 
         ensureFirstPerson,
         normalizeMessage,
         normalizeThread,
+        isTerminalResolution,
+        conversationMetrics,
         classifyDialogueAct,
         dialogueActLabel,
         buildDialogueState,
@@ -919,6 +1007,7 @@ Usa active soltanto se tutte le parti necessarie hanno accettato esplicitamente 
         canActivateAgreement,
         parseOutcomeTags,
         applyConversationResults,
+        closeConversation,
         buildSimulationPrompt,
         buildChatPrompt,
         threadIdFor,

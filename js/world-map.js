@@ -61,15 +61,23 @@
     function isGenericMapName(value) {
         const label = keyOf(value);
         return !label || /^(?:sconosciuto|unknown|luogo sconosciuto|posizione attuale|base di fazione|obiettivo strategico|proprieta|attivita|risorsa|territorio|area di presenza|mondo conosciuto|autorita|opposizione|fazione avversaria|fazione alleata|alleati|nemici)$/.test(label) ||
+            /^(?:luogo|area|zona|territorio|regione|sito|punto di interesse|base|sede)\s*(?:\d+|[a-z])?$/.test(label) ||
+            /^(?:nome del luogo|nome luogo|da definire|non disponibile|n a|tbd)$/.test(label) ||
             /(?:_setup\b|\bsetup\b|\bfazione setup\b|\bluogo setup\b)/.test(label);
     }
 
     function usefulMapLabel(value) {
         const label = cleanText(value, 120);
         if (!label) return '';
-        return /^(?:luogo|location|place|fazione|gruppo|territorio|proprietà|proprieta|attività|attivita|risorsa|base di fazione|obiettivo strategico|posizione attuale|generico|generica|altro)$/i.test(label)
+        return /^(?:luogo|location|place|fazione|gruppo|territorio|regione|area|zona|sito|edificio|struttura|insediamento|proprietà|proprieta|attività|attivita|risorsa|base di fazione|obiettivo strategico|posizione attuale|generico|generica|altro|da definire)$/i.test(label)
             ? ''
             : label;
+    }
+
+    function usefulMapFact(value, maxLength = 180) {
+        const fact = cleanText(value, maxLength);
+        if (!fact || isGenericMapName(fact) || /^(?:nessuno|nessuna|non noto|non nota|generico|generica|altro)$/i.test(fact)) return '';
+        return fact;
     }
 
     function inferLocationType(source = {}) {
@@ -77,26 +85,32 @@
         if (explicit) return explicit;
         const corpus = keyOf([source.name, source.description, source.notes].filter(Boolean).join(' '));
         const patterns = [
-            [/granaio|magazzino|deposito|silo/, 'magazzino'],
+            [/granaio|silo/, 'deposito cereali'],
+            [/magazzino|deposito/, 'deposito'],
             [/mulino/, 'mulino'],
-            [/fattoria|tenuta|podere|vigna/, 'tenuta agricola'],
-            [/mercato|bottega|negozio|banco|emporio/, 'sede commerciale'],
-            [/caserma|guarnigione|accampamento/, 'presidio militare'],
-            [/cripta|tomba|catacomb|cimiter/, 'sito funerario'],
+            [/fattoria|tenuta|podere|vigna/, 'azienda agricola'],
+            [/mercato/, 'mercato'],
+            [/bottega|negozio|banco|emporio/, 'attività commerciale'],
+            [/caserma|guarnigione/, 'caserma'],
+            [/accampamento/, 'accampamento'],
+            [/cripta|catacomb/, 'cripta'],
+            [/tomba|cimiter/, 'luogo funerario'],
             [/rovina|dungeon/, 'rovine'],
-            [/tempio|chiesa|abbazia|santuario|monaster/, 'luogo religioso'],
+            [/abbazia|monaster/, 'monastero'],
+            [/tempio|chiesa|santuario/, 'santuario'],
             [/castell|fort|rocca|cittadella/, 'fortificazione'],
             [/palazzo/, 'palazzo'],
-            [/foresta|bosco|selva|giungla/, 'area naturale'],
+            [/foresta|bosco|selva|giungla/, 'foresta'],
             [/montagn|picco|passo|collina/, 'rilievo'],
             [/porto|molo|baia/, 'porto'],
             [/isola/, 'isola'],
             [/mare|oceano|lago|fiume|palude/, 'acque'],
             [/locanda|taverna|osteria/, 'locanda'],
-            [/villaggio|borgo|frazione|comunita/, 'insediamento'],
-            [/citta|capitale|metropoli|quartiere/, 'centro abitato'],
+            [/villaggio|borgo|frazione|comunita/, 'borgo'],
+            [/capitale/, 'capitale'],
+            [/citta|metropoli|quartiere/, 'centro urbano'],
             [/fabbrica|officina|miniera|stazione|cava/, 'sito produttivo'],
-            [/deserto|oasi|duna/, 'area naturale'],
+            [/deserto|oasi|duna/, 'territorio arido'],
             [/grotta|caverna/, 'cavità naturale']
         ];
         return patterns.find(([pattern]) => pattern.test(corpus))?.[1] || '';
@@ -169,13 +183,13 @@
                 id: cleanText(source?.id, 140) || `map-faction-${hashNumber(name).toString(36)}`,
                 name,
                 type: usefulMapLabel(source?.type || source?.category),
-                leader: cleanText(source?.leader, 120),
+                leader: usefulMapFact(source?.leader, 120),
                 description: cleanText(source?.description, 360),
-                objective: cleanText(source?.goal || source?.objective, 260),
-                tactics: cleanText(source?.tactics || source?.strategy, 220),
-                grievance: cleanText(source?.grievance || source?.claims, 220),
-                nextMove: cleanText(source?.nextMove || source?.lastMove, 260),
-                location: cleanText(source?.base || source?.location || source?.territoryName, 120),
+                objective: usefulMapFact(source?.goal || source?.objective, 260),
+                tactics: usefulMapFact(source?.tactics || source?.strategy, 220),
+                grievance: usefulMapFact(source?.grievance || source?.claims, 220),
+                nextMove: usefulMapFact(source?.nextMove || source?.lastMove, 260),
+                location: usefulMapFact(source?.base || source?.location || source?.territoryName, 120),
                 power: Math.max(0, Math.min(100, Number(source?.power ?? source?.influence ?? 45) || 0)),
                 militaryStrength: Math.max(0, Math.min(100, Number(source?.militaryStrength ?? source?.power ?? source?.influence ?? 35) || 0)),
                 hostility,
@@ -298,13 +312,13 @@
                 id: cleanText(source?.id, 140) || `map-location-${hashNumber(name).toString(36)}`,
                 name,
                 type: inferLocationType(source),
-                region: cleanText(source?.region || context.setting || context.story?.setting, 120),
+                region: usefulMapFact(source?.region || context.setting || context.story?.setting, 120),
                 description: cleanText(source?.description || source?.notes, 420).replace(/^(?:luogo|area|territorio|sito) (?:generico|generica)\.?$/i, ''),
-                controller: cleanText(source?.controller, 120),
-                resource: cleanText(source?.resource, 160),
-                danger: cleanText(source?.danger, 180),
-                objective: cleanText(source?.objective, 180),
-                connections: asList(source?.connections),
+                controller: usefulMapFact(source?.controller, 120),
+                resource: usefulMapFact(source?.resource, 160),
+                danger: usefulMapFact(source?.danger, 180),
+                objective: usefulMapFact(source?.objective, 180),
+                connections: asList(source?.connections).filter(connection => !isGenericMapName(connection) && keyOf(connection) !== key),
                 kind: cleanText(source?.kind || 'location', 40),
                 owned: Boolean(source?.owned),
                 discoveredAtTurn: Math.max(0, Number(source?.discovered ?? source?.createdAtTurn ?? index) || 0)
@@ -383,6 +397,37 @@
         return edges;
     }
 
+    function buildLocationIntel(location, presentFactions = [], linkedObjectives = []) {
+        const hostile = presentFactions.filter(faction => faction.stance === 'hostile');
+        const access = location.owned
+            ? 'accesso e gestione diretta del protagonista'
+            : hostile.length
+                ? `accesso conteso da ${hostile.map(faction => faction.name).join(', ')}`
+                : location.controller
+                    ? `sotto controllo di ${location.controller}`
+                    : location.current
+                        ? 'presenza diretta del protagonista'
+                        : '';
+        const strategicValue = location.resource
+            ? `produzione o scorta: ${location.resource}`
+            : linkedObjectives.length
+                ? `necessario per: ${linkedObjectives.map(objective => objective.title).join(', ')}`
+                : location.connections.length >= 3
+                    ? `snodo verso ${location.connections.length} luoghi conosciuti`
+                    : '';
+        const localDanger = /^presenza ostile\b/i.test(location.danger || '') ? '' : location.danger;
+        const factionPressure = hostile.length
+            ? hostile.map(faction => faction.nextMove || faction.tactics || `${faction.name}: minaccia ${Math.round(faction.hostility)}%`).join(' · ')
+            : '';
+        const pressure = [factionPressure, localDanger].filter(Boolean).join(' · ');
+        return {
+            function: usefulMapLabel(location.type),
+            access: usefulMapFact(access, 260),
+            strategicValue: usefulMapFact(strategicValue, 320),
+            pressure: usefulMapFact(pressure, 320)
+        };
+    }
+
     function buildMapModel(input = {}, context = {}) {
         const world = input.world || input;
         const memory = input.memory || {};
@@ -404,7 +449,8 @@
                 const objectiveLocation = keyOf(objective.location);
                 return objectiveLocation && (locationKey.includes(objectiveLocation) || objectiveLocation.includes(keyOf(location.name)));
             }).map(objective => objective.id);
-            return {
+            const linkedObjectives = objectives.filter(objective => objectiveIds.includes(objective.id));
+            const mapped = {
                 ...location,
                 icon: locationIcon(location, theme.id),
                 factionIds: presentFactions.map(faction => faction.id),
@@ -412,9 +458,14 @@
                 objectiveIds,
                 dominantFactionId: presentFactions.sort((left, right) => right.hostility - left.hostility || right.power - left.power)[0]?.id || ''
             };
+            mapped.intel = buildLocationIntel(mapped, presentFactions, linkedObjectives);
+            return mapped;
         });
         const current = findCurrentLocation(locations, context.currentLocation || context.location);
-        locations.forEach(location => { location.current = Boolean(current && current.id === location.id); });
+        locations.forEach(location => {
+            location.current = Boolean(current && current.id === location.id);
+            if (location.current && !location.intel.access) location.intel.access = 'presenza diretta del protagonista';
+        });
         return {
             id: `world-map-${hashNumber(seed).toString(36)}`,
             name: seed || 'Mondo conosciuto',
@@ -482,12 +533,14 @@
         keyOf,
         isGenericMapName,
         usefulMapLabel,
+        usefulMapFact,
         inferLocationType,
         inferTheme,
         locationIcon,
         findCurrentLocation,
         buildFactions,
         buildObjectives,
+        buildLocationIntel,
         buildMapModel,
         svgMarkup
     };
