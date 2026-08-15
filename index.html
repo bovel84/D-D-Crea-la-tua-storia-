@@ -3775,25 +3775,25 @@
     </div>
 
     <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
-    <script src="js/world-bootstrap.js?v=20260815-cache-bust-1"></script>
+    <script src="js/world-bootstrap.js?v=20260815-root-fix-1"></script>
     <script src="js/world-map.js?v=20260815-map-intel-5"></script>
     <script src="js/event-manager.js?v=20260815-event-delta-2"></script>
-    <script src="js/timeline-chat.js?v=20260815-cache-bust-1"></script>
-    <script src="js/timeline-simulator.js?v=20260815-cache-bust-1"></script>
-    <script src="js/strategic-advisor.js?v=20260815-cache-bust-1"></script>
+    <script src="js/timeline-chat.js?v=20260815-root-fix-1"></script>
+    <script src="js/timeline-simulator.js?v=20260815-root-fix-1"></script>
+    <script src="js/strategic-advisor.js?v=20260815-root-fix-1"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
-    <script src="js/portrait-manager.js?v=20260815-cache-bust-1"></script>
-    <script src="js/portrait-svg.js?v=20260815-cache-bust-1"></script>
+    <script src="js/portrait-manager.js?v=20260815-root-fix-1"></script>
+    <script src="js/portrait-svg.js?v=20260815-root-fix-1"></script>
     <script src="js/time-energy.js?v=20260815-no-metabolism-1"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
     <script src="js/story-generator.js?v=20260811-calendar-2"></script>
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
-    <script src="js/timeline-engine.js?v=20260815-cache-bust-1"></script>
-    <script src="js/timeline-bridge.js?v=20260815-cache-bust-1"></script>
+    <script src="js/timeline-engine.js?v=20260815-root-fix-1"></script>
+    <script src="js/timeline-bridge.js?v=20260815-root-fix-1"></script>
     <script src="js/campaign-vault.js"></script>
     <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-4"></script>
     <script src="js/ollama-cloud.js?v=20260814-ollama-content-3"></script>
@@ -10449,7 +10449,7 @@
             }
 
             // Fallback: genera SVG deterministico basato su nome, genere, ruolo, era
-            const svgGen = root.CronachePortraitSVG;
+            const svgGen = window.CronachePortraitSVG;
             if (svgGen) {
                 const era = portraitEngine.resolveEra(portraitContext(context));
                 const role = portraitEngine.resolveRole(entity || { name: label }, portraitContext(context));
