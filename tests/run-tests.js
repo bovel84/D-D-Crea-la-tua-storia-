@@ -3146,10 +3146,10 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
 
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260815-cache-bust-1"/);
-    assert.match(html, /src="js\/timeline-chat\.js\?v=20260815-cache-bust-1"/);
-    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260815-cache-bust-1"/);
-    assert.match(html, /src="js\/portrait-manager\.js\?v=20260815-cache-bust-1"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260815-map-genre-1"/);
+    assert.match(html, /src="js\/timeline-chat\.js\?v=20260815-root-fix-1"/);
+    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260815-root-fix-1"/);
+    assert.match(html, /src="js\/portrait-manager\.js\?v=20260815-root-fix-1"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);
@@ -3212,7 +3212,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
 
 test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260815-cache-bust-1"/);
+    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260815-root-fix-1"/);
     assert.match(html, /id="btn-strategic-actions"/);
     assert.match(html, /id="modal-strategic-actions"/);
     assert.match(html, /id="btn-strategic-analyze"/);
@@ -3242,7 +3242,7 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
 
 test('integra la creazione iniziale del mondo con narrazione, timeline e chat', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260815-cache-bust-1"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260815-map-genre-1"/);
     assert.match(html, /worldBootstrapEngine\.buildBootstrapPrompt/);
     assert.match(html, /worldBootstrapEngine\.ingestResponse/);
     assert.match(html, /worldBootstrapEngine\.projectToMemory/);
@@ -3327,7 +3327,7 @@ test('porta obiettivi e filtri strategici direttamente sulla mappa', () => {
 test('integra la mappa mobile con posizione, dettagli e controlli di gioco', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
-    assert.match(html, /src="js\/world-map\.js\?v=20260815-map-intel-5"/);
+    assert.match(html, /src="js\/world-map\.js\?v=20260815-map-genre-1"/);
     assert.match(html, /id="modal-world-map"/);
     assert.match(html, /id="world-map-current-location"/);
     assert.match(html, /id="btn-map-center"/);

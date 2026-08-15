@@ -138,7 +138,9 @@
         return {
             id: cleanText(input.id, 140) || `world-location-${hashText(name)}`,
             name,
-            type: cleanText(input.type || 'luogo', 60),
+            type: /^(?:fantasy|contemporary|sport|business|crime|historical|military|diplomatic|rural|pirate|spy|storico|luogo|location|place|generico|altro|da definire)$/i.test(cleanText(input.type || '', 60))
+            ? ''
+            : cleanText(input.type || 'luogo', 60),
             region: cleanText(input.region || context.setting, 120),
             description: cleanText(input.description, 420),
             controller: cleanText(input.controller, 120),

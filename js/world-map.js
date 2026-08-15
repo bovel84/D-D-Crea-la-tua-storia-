@@ -69,7 +69,7 @@
     function usefulMapLabel(value) {
         const label = cleanText(value, 120);
         if (!label) return '';
-        return /^(?:luogo|location|place|fazione|gruppo|territorio|regione|area|zona|sito|edificio|struttura|insediamento|proprietà|proprieta|attività|attivita|risorsa|base di fazione|obiettivo strategico|posizione attuale|generico|generica|altro|da definire)$/i.test(label)
+        return /^(?:luogo|location|place|fazione|gruppo|territorio|regione|area|zona|sito|edificio|struttura|insediamento|proprietà|proprieta|attività|attivita|risorsa|base di fazione|obiettivo strategico|posizione attuale|generico|generica|altro|da definire|fantasy|contemporary|sport|business|crime|historical|military|diplomatic|rural|pirate|spy|storico)$/i.test(label)
             ? ''
             : label;
     }
