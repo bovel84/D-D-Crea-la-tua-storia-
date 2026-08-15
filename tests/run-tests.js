@@ -3146,10 +3146,10 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
 
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
-    assert.match(html, /src="js\/timeline-chat\.js\?v=20260815-chat-cycle-8"/);
-    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260815-pax-turn-11"/);
-    assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-4"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260815-cache-bust-1"/);
+    assert.match(html, /src="js\/timeline-chat\.js\?v=20260815-cache-bust-1"/);
+    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260815-cache-bust-1"/);
+    assert.match(html, /src="js\/portrait-manager\.js\?v=20260815-cache-bust-1"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);
@@ -3212,7 +3212,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
 
 test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260815-pax-actions-7"/);
+    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260815-cache-bust-1"/);
     assert.match(html, /id="btn-strategic-actions"/);
     assert.match(html, /id="modal-strategic-actions"/);
     assert.match(html, /id="btn-strategic-analyze"/);
@@ -3242,7 +3242,7 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
 
 test('integra la creazione iniziale del mondo con narrazione, timeline e chat', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260815-cache-bust-1"/);
     assert.match(html, /worldBootstrapEngine\.buildBootstrapPrompt/);
     assert.match(html, /worldBootstrapEngine\.ingestResponse/);
     assert.match(html, /worldBootstrapEngine\.projectToMemory/);
