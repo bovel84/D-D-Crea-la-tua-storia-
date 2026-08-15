@@ -1074,6 +1074,7 @@ FORMATO RIPETUTO PER OGNI CAUSA:
         const actors = fallbackActors(context.world || {}, context);
         const named = seed?.actors?.map(name => actors.find(actor => keyOf(actor.name) === keyOf(name))).filter(Boolean) || [];
         const actor = named[0] || actors[0];
+        const worldLed = /^world/.test(seed?.kind || '');
         if (!actor) {
             // Nessun attore disponibile: crea un evento mondiale minimo
             const protagonistName = cleanText(context.protagonistName, 100);
@@ -1117,7 +1118,6 @@ FORMATO RIPETUTO PER OGNI CAUSA:
         const place = actorPlace(actor, context);
         const choice = seed?.choice;
         const strategic = choice?.isStrategic;
-        const worldLed = /^world/.test(seed?.kind || '');
         const force = asArray(context.world?.forces).find(item =>
             item?.status !== 'resolved' && (
                 keyOf(item.actor) === keyOf(actor.name) ||
