@@ -518,6 +518,32 @@ test('rifiuta eventi politici generici e mantiene soltanto attori specifici dell
     assert.ok(arc.events.every(event => event.actors.every(name => !timelineSimulatorApi.keyOf(name).includes('mediatore indipendente'))));
 });
 
+test('accetta soltanto eventi con luogo, leva concreta e cambiamento osservabile', () => {
+    const world = makeConcreteWorld();
+    const seed = timelineSimulatorApi.normalizeEventSeed({
+        id: 'credit-action', kind: 'player_action', causalLane: 'player',
+        cause: 'Chiedo a Jacopo Gherardi di finanziare le guardie', actors: ['Jacopo Gherardi']
+    });
+    const concrete = eventApi.normalizeEvent({
+        type: 'economia', title: 'Jacopo vincola il credito ai dazi',
+        summary: 'A Palazzo Vecchio, Jacopo Gherardi consegna alla Signoria una lettera di credito per finanziare le guardie. Impiega cento fiorini dell’Arte del Cambio e pretende il registro dei dazi come garanzia. Niccolò Capponi firma la ricevuta davanti al cancelliere.',
+        location: 'Palazzo Vecchio', actors: ['Jacopo Gherardi', 'Niccolò Capponi'],
+        consequence: 'La Signoria ottiene cento fiorini entro sera, ma i dazi restano vincolati all’Arte del Cambio fino al rimborso.',
+        cause: seed.cause, source: 'timeline-ai'
+    });
+    const generic = eventApi.normalizeEvent({
+        type: 'politica', title: 'Nuovo equilibrio',
+        summary: 'La situazione cambia e Jacopo rafforza la propria posizione. Il mondo reagisce.',
+        location: 'territorio', actors: ['Jacopo Gherardi'],
+        consequence: 'Gli equilibri potrebbero cambiare in futuro.', cause: seed.cause, source: 'timeline-ai'
+    });
+    assert.ok(timelineSimulatorApi.eventSpecificityScore(concrete, { world }) >= 6);
+    assert.ok(timelineSimulatorApi.eventSpecificityScore(generic, { world }) < 6);
+    const accepted = timelineSimulatorApi.ensureSingleEvent([generic, concrete], { world, seed, location: 'Palazzo Vecchio' });
+    assert.equal(accepted.usedFallback, false);
+    assert.equal(accepted.event.title, concrete.title);
+});
+
 test('la timeline apre una sola battuta di chat per evento', () => {
     const world = makeConcreteWorld();
     const arc = timelineSimulatorApi.createFallbackArc({
@@ -1120,8 +1146,13 @@ test('la chat conserva la cronologia ampia e garantisce un turno NPC di fallback
     assert.equal(fallback.speaker, 'Jacopo Gherardi');
     assert.equal(fallback.source, 'local-fallback');
     assert.match(fallback.text, /^Io /);
-    assert.match(fallback.text, /\?$/);
-    const autonomousFallback = timelineChatApi.buildFallbackReply(thread, fallback.text, {
+    assert.doesNotMatch(fallback.text, /\?$/);
+    assert.match(fallback.text, /conclus/i);
+    const shortThread = timelineChatApi.normalizeThread({
+        ...thread, id: 'chat-autonoma-breve', messages: messages.slice(0, 2),
+        participants: ['Jacopo Gherardi', 'Niccolò Capponi', 'Lorenzo']
+    }, { protagonistName: 'Lorenzo', turn: 11 });
+    const autonomousFallback = timelineChatApi.buildFallbackReply(shortThread, fallback.text, {
         protagonistName: 'Lorenzo', nextSpeaker: 'Niccolò Capponi',
         triggerSpeaker: 'Jacopo Gherardi', autonomous: true,
         actor: { personality: 'ambizioso, dominante e orgoglioso' }, turn: 11
@@ -1156,6 +1187,34 @@ test('una negoziazione registra esito e contratto persistente senza accettazioni
     assert.equal(applied.chats[0].resolution.status, 'agreement');
     assert.equal(applied.chats[0].agreements[0].title, 'Prestito delle guardie');
     assert.equal(applied.chats[0].agreements[0].status, 'active');
+    assert.equal(applied.chats[0].status, 'closed');
+});
+
+test('le conversazioni terminano per esito o al limite senza dipendere dal modello', () => {
+    const created = timelineChatApi.createThread([], {
+        title: 'Udienza del Consiglio', purpose: 'negoziazione', agenda: 'Ottenere il voto del Consiglio',
+        participants: ['Niccolò Capponi']
+    }, { protagonistName: 'Lorenzo', turn: 12 });
+    const refused = timelineChatApi.applyConversationResults(created.chats, {
+        outcomes: [{ threadId: created.thread.id, threadRef: created.thread.id, status: 'refused', summary: 'Niccolò rifiuta il voto.', consequence: 'Il decreto non passa.', turn: 12 }]
+    }, { protagonistName: 'Lorenzo', turn: 12 });
+    assert.equal(refused.chats[0].status, 'closed');
+
+    const messages = Array.from({ length: 10 }, (_, index) => ({
+        threadId: 'chat-limite', eventTitle: 'Consiglio lungo',
+        speaker: index % 2 ? 'Niccolò Capponi' : 'Lorenzo',
+        speakerType: index % 2 ? 'npc' : 'protagonista',
+        source: index % 2 ? 'llm' : 'player', text: `Io espongo la posizione ${index}.`
+    }));
+    const limited = timelineChatApi.normalizeThread({
+        id: 'chat-limite', title: 'Consiglio lungo', eventTitle: 'Consiglio lungo',
+        agenda: 'Decidere il decreto', participants: ['Niccolò Capponi', 'Lorenzo'], messages
+    }, { protagonistName: 'Lorenzo', turn: 12 });
+    const closed = timelineChatApi.closeConversation([limited], limited.id, { protagonistName: 'Lorenzo', turn: 12 });
+    assert.equal(closed.closed, true);
+    assert.equal(closed.reason, 'turn-limit');
+    assert.equal(closed.thread.status, 'closed');
+    assert.match(closed.thread.resolution.followUp, /nuova azione|nuovo evento/i);
 });
 
 test('gli esiti delle chat modificano fiducia e tensione tra le parti', () => {
@@ -3049,8 +3108,8 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
-    assert.match(html, /src="js\/timeline-chat\.js\?v=20260814-dialogue-7"/);
-    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260815-pax-cycle-9"/);
+    assert.match(html, /src="js\/timeline-chat\.js\?v=20260815-chat-cycle-8"/);
+    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260815-event-delta-10"/);
     assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-4"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
@@ -3092,6 +3151,8 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /timelineChatEngine\.chooseSpeakerRound/);
     assert.match(html, /timelineChatEngine\.selectSingleReply/);
     assert.match(html, /timelineChatEngine\.buildFallbackReply/);
+    assert.doesNotMatch(html, /queueTimelineChoice\(`Nella chat/);
+    assert.match(html, /world-chat-resolution/);
     assert.match(html, /function runWorldChatNpcTurn/);
     assert.match(html, /pendingChatSpeaker/);
     assert.match(html, /simulateTimelineEvents\(\{ fromEventScreen: true \}\)/);
@@ -3228,7 +3289,7 @@ test('porta obiettivi e filtri strategici direttamente sulla mappa', () => {
 test('integra la mappa mobile con posizione, dettagli e controlli di gioco', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
-    assert.match(html, /src="js\/world-map\.js\?v=20260815-map-clean-4"/);
+    assert.match(html, /src="js\/world-map\.js\?v=20260815-map-intel-5"/);
     assert.match(html, /id="modal-world-map"/);
     assert.match(html, /id="world-map-current-location"/);
     assert.match(html, /id="btn-map-center"/);
@@ -3285,9 +3346,27 @@ test('la mappa elimina tag generici e assegna categorie utili ai luoghi concreti
     }, { currentLocation: 'Abbazia di San Lume', year: 1472 });
     assert.equal(model.locations.some(item => item.name === 'Posizione attuale'), false);
     assert.equal(model.locations.some(item => item.name === 'Grano'), false);
-    assert.equal(model.locations.find(item => item.name === 'Granaio delle Querce').type, 'magazzino');
-    assert.equal(model.locations.find(item => item.name === 'Abbazia di San Lume').type, 'luogo religioso');
+    assert.equal(model.locations.find(item => item.name === 'Granaio delle Querce').type, 'deposito cereali');
+    assert.equal(model.locations.find(item => item.name === 'Abbazia di San Lume').type, 'monastero');
     assert.equal(model.factions.some(item => item.name === 'Opposizione'), false);
+});
+
+test('la mappa espone informazioni operative invece di etichette generiche', () => {
+    const model = worldMapApi.buildMapModel({
+        world: {
+            name: 'Marca del Nord',
+            locations: [{ name: 'Ponte di San Lume', type: 'luogo', connections: ['Rocca di Confine'], controller: 'Lega del Vescovo' }],
+            factions: [{ name: 'Lega del Vescovo', base: 'Ponte di San Lume', relationship: 'ostile', tactics: 'bloccare i carri del grano', nextMove: 'chiudere il ponte' }]
+        },
+        memory: { quests: [{ name: 'Riaprire la via del grano', location: 'Ponte di San Lume', status: 'active' }] }
+    }, { currentLocation: 'Rocca di Confine', year: 1472 });
+    const bridge = model.locations.find(item => item.name === 'Ponte di San Lume');
+    assert.ok(bridge);
+    assert.equal(bridge.type, '');
+    assert.match(bridge.intel.access, /conteso|controllo/i);
+    assert.match(bridge.intel.strategicValue, /Riaprire la via del grano/);
+    assert.match(bridge.intel.pressure, /chiudere il ponte|bloccare i carri/);
+    assert.doesNotMatch(JSON.stringify(bridge.intel), /\b(?:generico|luogo|area|territorio)\b/i);
 });
 
 test('rappresenta le fazioni avversarie con basi, minaccia e presenza geografica', () => {

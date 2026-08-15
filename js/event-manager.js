@@ -392,9 +392,12 @@
 - Usa active quando una minaccia, un impegno o una conseguenza resta aperta; developing quando sta evolvendo; resolved quando il fatto è concluso.
 - Registra l'ESITO realmente narrato, non l'intenzione del giocatore, un'ipotesi, una scelta non ancora compiuta o informazioni hidden del Simulatore.
 - Il titolo deve distinguere l'evento; il fatto deve dire chi ha fatto cosa; la conseguenza deve indicare cosa i turni futuri dovranno rispettare. Causa, ancoraggio storico e spostamento politico spiegano perché il fatto è centrale. Evita categorie anonime come «l'Autorità» o «l'Opposizione» quando esistono nomi e istituzioni precise. Se non c'è conseguenza persistente scrivi «nessuna».
+  - Ogni EVENTO deve descrivere un delta completo: situazione precedente, azione con leva concreta, reazione di un soggetto registrato e nuova realtà osservabile. Nomina il luogo specifico e la risorsa effettivamente usata.
+  - Non sono eventi validi «la situazione cambia», «gli equilibri cambiano», «rafforza la propria posizione», «deve decidere se reagire» o una semplice intenzione. Indica invece chi ottiene o perde accesso, controllo, denaro, uomini, informazioni, tempo, fiducia o libertà d'azione.
   - Scrivi il fatto in 3-5 frasi complete e la conseguenza in 1-2 frasi complete. Chiudi ogni frase e ogni campo prima del separatore |: nessun testo può terminare a metà.
   - L'unico evento deve avere una data o un momento concreto coerente con il periodo. Deve essere una conseguenza delle scelte recenti quando esiste un legame causale: ${recentChoices.length ? recentChoices.join(' / ') : 'nessuna scelta recente registrata'}.
   - Usa interaction dialogue se richiede una risposta parlata, action se richiede un'azione del protagonista, either se ammette entrambe, none se non richiede intervento.
+  - Apri una conversazione required soltanto quando una risposta pronunciata è indispensabile allo scopo immediato. Non aprirla per una conseguenza già compiuta o per chiedere al giocatore di ripetere una decisione.
   - Non emettere CODA_EVENTO: conseguenze e pressioni aggiornano il mondo, ma non generano automaticamente un altro evento.
 - EVENTO alimenta la cronaca ma non sostituisce i tag di stato: se il fatto cambia soldi, inventario, NPC, quest, attività o regno emetti nello stesso turno anche il relativo tag MECCANICA, LOOT, NPC, QUEST, *_NEGOZIO o *_REGNO.
 - Usa i nomi esatti già presenti nella memoria. Non inserire il carattere | o ] nei valori. Non duplicare eventi recenti e non spezzare lo stesso fatto in tag ripetitivi.
