@@ -231,7 +231,8 @@ test('il simulatore genera un solo prossimo evento importante e rinvia gli svilu
     assert.match(prompt, /minuti, ore, giorni, mesi o anni/i);
     assert.match(prompt, /azione osservabile/i);
     assert.match(prompt, /ATTESA_EVENTO/);
-    assert.match(prompt, /CODA_EVENTO/);
+    assert.match(prompt, /non emettere CODA_EVENTO/i);
+    assert.match(prompt, /evento chiude la causa consumata/i);
     assert.match(prompt, /esattamente UNA CHAT/i);
     assert.match(prompt, /\[CHAT:/);
     assert.match(prompt, /iniziativa del mondo.*mossa autonoma concreta/i);
@@ -294,8 +295,8 @@ test('la coda causale conserva più azioni e sceglie quella disponibile per prim
     assert.ok(queue.some(seed => seed.kind === 'player_action'));
     assert.ok(queue.some(seed => seed.kind === 'world_initiative'));
     const custom = timelineSimulatorApi.normalizeEventQueue([
-        { id: 'later', kind: 'world_reply', cause: 'Risposta diplomatica', notBeforeMinutes: 1440, priority: 90 },
-        { id: 'first', kind: 'action_reply', cause: 'Il messaggero ritorna', notBeforeMinutes: 45, priority: 60 }
+        { id: 'later', kind: 'world_initiative', cause: 'La corte convoca il consiglio', notBeforeMinutes: 1440, priority: 90 },
+        { id: 'first', kind: 'player_action', cause: 'Il giocatore invia un messaggero', notBeforeMinutes: 45, priority: 60 }
     ]);
     assert.equal(timelineSimulatorApi.selectNextEventSeed(custom).id, 'first');
     const remaining = timelineSimulatorApi.advanceEventQueue(custom, 'first', 45);
@@ -303,7 +304,7 @@ test('la coda causale conserva più azioni e sceglie quella disponibile per prim
     assert.equal(remaining[0].notBeforeMinutes, 1395);
 });
 
-test('una risposta causale precedente non viene scavalcata da una nuova azione', () => {
+test('le risposte causali legacy vengono eliminate e non bloccano una nuova azione', () => {
     const queue = timelineSimulatorApi.normalizeEventQueue([
         {
             id: 'reply-old', kind: 'action_reply', cause: 'Il corriere torna con la risposta del consiglio',
@@ -321,7 +322,19 @@ test('una risposta causale precedente non viene scavalcata da una nuova azione',
             causalLane: 'world'
         }
     ]);
-    assert.equal(timelineSimulatorApi.selectNextEventSeed(queue).id, 'reply-old');
+    assert.equal(queue.some(seed => seed.id === 'reply-old'), false);
+    assert.equal(timelineSimulatorApi.selectNextEventSeed(queue).id, 'action-new');
+});
+
+test('la coda conserva soltanto cause radice del ciclo corrente', () => {
+    const queue = timelineSimulatorApi.normalizeEventQueue([
+        { id: 'root', kind: 'player_action', cause: 'Il giocatore apre il consiglio', depth: 0 },
+        { id: 'child-depth', kind: 'player_action', cause: 'Il consiglio replica', depth: 1 },
+        { id: 'child-parent', kind: 'world_initiative', cause: 'La corte rilancia', parentSeedId: 'root' },
+        { id: 'child-source', kind: 'world_initiative', cause: 'Un altro effetto automatico', source: 'event-continuity' },
+        { id: 'legacy-reply', kind: 'world_reply', cause: 'Una vecchia risposta automatica' }
+    ]);
+    assert.deepEqual(queue.map(seed => seed.id), ['root']);
 });
 
 test('una iniziativa esterna già matura non viene affamata da nuove azioni', () => {
@@ -351,7 +364,7 @@ test('un evento risposta del giocatore non genera una catena automatica senza nu
     assert.equal(followUps.length, 0);
 });
 
-test('la risposta a una mossa autonoma del mondo resta in coda', () => {
+test('la risposta a una mossa autonoma del mondo chiude il ciclo senza discendenti', () => {
     const parentSeed = timelineSimulatorApi.normalizeEventSeed({
         id: 'world-first', kind: 'world_initiative', title: 'Blocco del porto',
         cause: 'La Lega chiude il porto', notBeforeMinutes: 60, depth: 0
@@ -361,10 +374,7 @@ test('la risposta a una mossa autonoma del mondo resta in coda', () => {
         consequence: 'I mercanti devono scegliere se negoziare o forzare il blocco.',
         actors: ['Lega del Porto', 'Gilda dei Mercanti'], importance: 'high'
     }, null, { parentSeed, turn: 5, batchId: 'world-batch' });
-    assert.equal(followUps.length, 1);
-    assert.equal(followUps[0].kind, 'world_reply');
-    assert.equal(followUps[0].parentEventId, 'event-world-first');
-    assert.match(followUps[0].cause, /mercanti/i);
+    assert.equal(followUps.length, 0);
 });
 
 test('gli eventi conservano etichetta e allineamento con la propria causa', () => {
@@ -400,10 +410,7 @@ test('il tempo del prossimo evento può variare da minuti ad anni', () => {
         '[CODA_EVENTO: reply-1|world_reply|La corte reagisce alla nomina|Elara Vey|85|2 giorni|dialogue|dyn]',
         { turn: 6, batchId: 'batch-dyn', parentSeed: seed }
     );
-    assert.equal(queued.length, 1);
-    assert.equal(queued[0].notBeforeMinutes, 2880);
-    assert.equal(queued[0].interactionMode, 'dialogue');
-    assert.equal(queued[0].parentSeedId, 'dyn');
+    assert.equal(queued.length, 0);
 });
 
 test('risolve ogni azione strategica e conserva anche le reazioni del mondo', () => {
@@ -447,7 +454,7 @@ test('risolve ogni azione strategica e conserva anche le reazioni del mondo', ()
     const history = timelineSimulatorApi.mergeStrategicOutcomeHistory([], outcomes);
     assert.equal(history.length, 2);
     assert.match(timelineSimulatorApi.buildStrategicOutcomeChronicle(history), /Credito cittadino/);
-    assert.match(timelineSimulatorApi.buildStrategicOutcomeChronicle(history), /Sviluppo del mondo in attesa/);
+    assert.match(timelineSimulatorApi.buildStrategicOutcomeChronicle(history), /Reazione registrata/);
     const fallbackArc = timelineSimulatorApi.createFallbackArc({
         story: { title: 'Firenze contesa', setting: 'Firenze' }, world,
         passage: { days: 7, description: '1 settimana' }, choices, location: 'Firenze'
@@ -798,7 +805,7 @@ test('il prompt eventi impone tag completi e usa il contesto della campagna', ()
     assert.match(prompt, /Elara è scomparsa/);
 });
 
-test('il prompt di un salto lungo conserva la routine ma registra un solo evento', () => {
+test('il prompt di un salto lungo usa il tempo solo come data e registra un solo evento', () => {
     const prompt = eventApi.buildPrompt({
         location: 'Castello di Montefeltro',
         timePassage: {
@@ -808,11 +815,11 @@ test('il prompt di un salto lungo conserva la routine ma registra un solo evento
             summary: '30 notti di sonno e circa 90 pasti'
         }
     });
-    assert.match(prompt, /vita ordinaria è già simulata/i);
+    assert.match(prompt, /tempo serve soltanto a datare/i);
     assert.match(prompt, /PRIMO evento importante/i);
-    assert.match(prompt, /conseguenza successiva resta in attesa/i);
+    assert.match(prompt, /evento chiude il ciclo corrente/i);
     assert.match(prompt, /30 notti di sonno e circa 90 pasti/i);
-    assert.match(prompt, /CODA_EVENTO/);
+    assert.match(prompt, /non emettere CODA_EVENTO/i);
 });
 
 test('gli eventi del periodo conservano data e scelta causale', () => {
@@ -1834,7 +1841,7 @@ test('riconosce quando il giocatore sta leggendo eventi precedenti', () => {
     }, 30), false);
 });
 
-test('interpreta il tempo narrativo e applica il metabolismo senza rigenerazione gratuita', () => {
+test('interpreta il tempo narrativo senza applicare metabolismo o penalità', () => {
     assert.equal(timeEnergyApi.parseTimeExpression('2h'), 120);
     assert.equal(timeEnergyApi.parseTimeExpression('90 min'), 90);
     assert.equal(timeEnergyApi.parseTimeExpression('1 giorno, 5 ore'), 1740);
@@ -1842,30 +1849,21 @@ test('interpreta il tempo narrativo e applica il metabolismo senza rigenerazione
     assert.equal(timeEnergyApi.parseTimeExpression('+45'), 45);
     assert.equal(timeEnergyApi.parseTimeExpression('domani'), 0);
 
-    let state = { _metabolismCarry: { stamina: 0, hunger: 0 } };
-    let result = timeEnergyApi.consumeMetabolism(state, 10, false);
+    const state = { _metabolismCarry: { stamina: 7, hunger: 9 } };
+    const result = timeEnergyApi.consumeMetabolism(state, 480, false);
     assert.equal(result.staminaLoss, 0);
-    state._metabolismCarry = result.carry;
-    result = timeEnergyApi.consumeMetabolism(state, 10, false);
-    assert.equal(result.staminaLoss, 1);
-    assert.equal(result.hungerLoss, 1);
-    result = timeEnergyApi.consumeMetabolism({ _metabolismCarry: { stamina: 0, hunger: 0 } }, 480, true);
-    assert.equal(result.staminaLoss, 0);
-    assert.equal(result.hungerLoss, 12);
+    assert.equal(result.hungerLoss, 0);
+    assert.deepEqual(result.carry, {});
 });
 
-test('un mese simula pasti e sonno senza ridurre il protagonista a fame ed energia zero', () => {
+test('i salti temporali non simulano più pasti, sonno o rigenerazione automatica', () => {
     const routine = timeEnergyApi.simulateDailyRoutine({
         health: { cur: 3, max: 9 },
         stamina: { cur: 4, max: 100 },
         hunger: { cur: 2, max: 100 }
     }, timeEnergyApi.MINUTES_PER_MONTH);
-    assert.equal(routine.nights, 30);
-    assert.equal(routine.meals, 90);
-    assert.ok(routine.stamina >= 70);
-    assert.ok(routine.hunger >= 65);
-    assert.equal(routine.health, 9);
-    assert.equal(timeEnergyApi.simulateDailyRoutine({}, 12 * 60), null, 'le azioni brevi usano ancora il metabolismo normale');
+    assert.equal(routine, null);
+    assert.equal(timeEnergyApi.simulateDailyRoutine({}, 12 * 60), null);
 });
 
 test('classifica gli intenti del Game Director', () => {
@@ -2945,17 +2943,17 @@ test('espone accessi visibili alla gestione del negozio', () => {
     );
 });
 
-test('collega tempo ed energia al motore deterministico', () => {
+test('mantiene il calendario ma rimuove fame, metabolismo e attesa tecnica', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/time-energy\.js"/);
+    assert.match(html, /src="js\/time-energy\.js\?v=20260815-no-metabolism-1"/);
     assert.match(html, /CronacheTimeEnergy\.normalizeMinutes/);
     assert.match(html, /CronacheTimeEnergy\.parseTimeExpression/);
-    assert.match(html, /CronacheTimeEnergy\.simulateDailyRoutine/);
     assert.match(html, /\[A-ZÀ-Ü_\]\+_REGNO/);
-    assert.match(html, /normale vita quotidiana del protagonista/);
-    assert.match(html, /advanceTime\(480, \{ resting: true \}\)/);
     assert.match(html, /case 'stamina': case 'energia': case 'energy'/);
-    assert.equal(html.includes('const regenAmount = 3'), false, 'l’energia non deve rigenerarsi durante ogni azione');
+    assert.doesNotMatch(html, /CronacheTimeEnergy\.simulateDailyRoutine|consumeMetabolism/);
+    assert.doesNotMatch(html, /id="(?:mini-hunger|stat-hunger|modal-wait)"|class="wait-btn"/);
+    assert.doesNotMatch(html, /function (?:doEat|doRest|doTrain|waitUntilHour)/);
+    assert.doesNotMatch(html, /normale vita quotidiana del protagonista|Vita quotidiana garantita/);
 });
 
 test('mostra l’anno e recupera il canone senza bloccare i browser con asset precedenti in cache', () => {
@@ -3052,7 +3050,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.match(html, /src="js\/world-bootstrap\.js\?v=20260814-portraits-1"/);
     assert.match(html, /src="js\/timeline-chat\.js\?v=20260814-dialogue-7"/);
-    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260814-causal-8"/);
+    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260815-pax-cycle-9"/);
     assert.match(html, /src="js\/portrait-manager\.js\?v=20260814-portraits-4"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
@@ -3087,8 +3085,8 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
     assert.match(html, /timelineSimulator\.buildConversationStarters/);
     assert.match(html, /timelineSimulator\.isMeaningfulEvent/);
     assert.match(html, /deferActionEventToTimeline/);
-    assert.match(html, /deferActionEvents \? \[\] : timelineSimulator\.parsePendingEventSeeds/);
-    assert.match(html, /Vita quotidiana garantita/);
+    assert.doesNotMatch(html, /timelineSimulator\.parsePendingEventSeeds|timelineSimulator\.buildFollowUpSeeds/);
+    assert.doesNotMatch(html, /Vita quotidiana garantita/);
     assert.match(html, /timelineChatEngine\.parseChatTags/);
     assert.match(html, /timelineChatEngine\.chooseNextSpeaker/);
     assert.match(html, /timelineChatEngine\.chooseSpeakerRound/);
@@ -3230,7 +3228,7 @@ test('porta obiettivi e filtri strategici direttamente sulla mappa', () => {
 test('integra la mappa mobile con posizione, dettagli e controlli di gioco', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
-    assert.match(html, /src="js\/world-map\.js\?v=20260814-map-factions-3"/);
+    assert.match(html, /src="js\/world-map\.js\?v=20260815-map-clean-4"/);
     assert.match(html, /id="modal-world-map"/);
     assert.match(html, /id="world-map-current-location"/);
     assert.match(html, /id="btn-map-center"/);
@@ -3268,6 +3266,28 @@ test('colloca proprietà, attività, risorse e territori sulla mappa del mondo',
     assert.equal(model.locations.find(item => item.name === 'Granaio di San Lorenzo').owned, true);
     assert.equal(model.locations.find(item => item.name === 'Mulino del Torrente').kind, 'business');
     assert.ok(model.locations.find(item => item.name === 'Granaio di San Lorenzo').connections.includes('Borgo di Montefiorito'));
+});
+
+test('la mappa elimina tag generici e assegna categorie utili ai luoghi concreti', () => {
+    const model = worldMapApi.buildMapModel({
+        world: {
+            name: 'Marca del Torrente',
+            locations: [
+                { name: 'Posizione attuale', type: 'luogo', description: 'Area generica' },
+                { name: 'Granaio delle Querce', type: 'generico', description: 'Deposito del raccolto' },
+                { name: 'Abbazia di San Lume', type: 'luogo', description: 'Monastero fortificato' }
+            ],
+            factions: [{ name: 'Opposizione', type: 'fazione' }]
+        },
+        memory: {
+            kingdom: { resources: [{ name: 'Grano', category: 'risorsa', territoryName: 'Marca del Torrente' }] }
+        }
+    }, { currentLocation: 'Abbazia di San Lume', year: 1472 });
+    assert.equal(model.locations.some(item => item.name === 'Posizione attuale'), false);
+    assert.equal(model.locations.some(item => item.name === 'Grano'), false);
+    assert.equal(model.locations.find(item => item.name === 'Granaio delle Querce').type, 'magazzino');
+    assert.equal(model.locations.find(item => item.name === 'Abbazia di San Lume').type, 'luogo religioso');
+    assert.equal(model.factions.some(item => item.name === 'Opposizione'), false);
 });
 
 test('rappresenta le fazioni avversarie con basi, minaccia e presenza geografica', () => {

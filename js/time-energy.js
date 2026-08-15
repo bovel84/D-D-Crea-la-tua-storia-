@@ -36,49 +36,17 @@
         return normalizeMinutes(total);
     }
 
+    // Compatibilità con i vecchi salvataggi: il tempo resta una coordinata
+    // narrativa, ma non consuma più automaticamente energia, sazietà o salute.
     function consumeMetabolism(character, minutes, resting) {
         const elapsed = normalizeMinutes(minutes);
-        const carry = { ...(character?._metabolismCarry || {}) };
-        const staminaRate = resting ? 0 : 4;
-        const hungerRate = resting ? 1.5 : 3;
-        carry.stamina = Number(carry.stamina || 0) + (elapsed / MINUTES_PER_HOUR) * staminaRate;
-        carry.hunger = Number(carry.hunger || 0) + (elapsed / MINUTES_PER_HOUR) * hungerRate;
-        const staminaLoss = Math.floor(carry.stamina);
-        const hungerLoss = Math.floor(carry.hunger);
-        carry.stamina -= staminaLoss;
-        carry.hunger -= hungerLoss;
-        return { elapsed, carry, staminaLoss, hungerLoss };
+        return { elapsed, carry: {}, staminaLoss: 0, hungerLoss: 0 };
     }
 
-    function readPool(character, key) {
-        const pool = character?.[key] || {};
-        const max = Math.max(1, Number(pool.max) || 100);
-        return { cur: Math.max(0, Number(pool.cur) || 0), max };
-    }
-
-    // Nei salti di almeno un giorno il gioco presume la normale vita quotidiana:
-    // il protagonista dorme e mangia invece di restare sveglio e a digiuno per settimane.
+    // Conservata come API legacy. Pasti, sonno e routine non sono più statistiche
+    // da simulare: entrano nella storia soltanto se sono rilevanti per una scena.
     function simulateDailyRoutine(character, minutes) {
-        const elapsed = normalizeMinutes(minutes);
-        if (elapsed < MINUTES_PER_DAY || !character) return null;
-        const days = elapsed / MINUTES_PER_DAY;
-        const fullDays = Math.max(1, Math.floor(days));
-        const stamina = readPool(character, 'stamina');
-        const hunger = readPool(character, 'hunger');
-        const health = readPool(character, 'health');
-        const targetStamina = Math.round(stamina.max * 0.72);
-        const targetHunger = Math.round(hunger.max * 0.68);
-        const healed = Math.min(health.max - health.cur, Math.max(1, Math.floor(days * 1.5)));
-        return {
-            elapsed,
-            days,
-            nights: fullDays,
-            meals: Math.max(3, Math.round(days * 3)),
-            stamina: Math.min(stamina.max, Math.max(stamina.cur, targetStamina)),
-            hunger: Math.min(hunger.max, Math.max(hunger.cur, targetHunger)),
-            health: Math.min(health.max, health.cur + healed),
-            healed
-        };
+        return null;
     }
 
     function describePassage(minutes) {

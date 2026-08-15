@@ -380,10 +380,10 @@
             .slice(-5);
         const passageDirective = passage
             ? `\n⏳ PERIODO DA CONSIDERARE: ${cleanText(passage.description, 120)}.
-- La vita ordinaria è già simulata: riassumila brevemente senza trasformare sonno, pasti o lavoro ripetitivo in eventi.
-- Registra soltanto il PRIMO evento importante del periodo. Qualunque reazione o conseguenza successiva resta in attesa con CODA_EVENTO e non viene narrata ora.
-- Resoconto già simulato dal motore, da rispettare: ${cleanText(passage.summary, 300)}\n`
-            : `\n- Se fai trascorrere del tempo con [TEMPO], registra soltanto il primo evento importante. Le conseguenze successive restano in attesa con CODA_EVENTO.\n`;
+- Il tempo serve soltanto a datare il fatto: non genera fame, energia, pasti, sonno o eventi tecnici.
+- Registra soltanto il PRIMO evento importante del periodo. Questo evento chiude il ciclo corrente.
+- Resoconto temporale del motore: ${cleanText(passage.summary, 300)}\n`
+            : `\n- Se fai trascorrere del tempo con [TEMPO], usalo soltanto per datare il primo evento importante. Non creare eventi successivi automatici.\n`;
         return `📜 **CRONACA STRUTTURATA DEL MONDO**
 - Dopo la narrazione registra ${eventCount} fatto diventato vero in questo turno. Un fatto causale = un tag.
 - Formato completo obbligatorio per i nuovi tag:
@@ -395,7 +395,7 @@
   - Scrivi il fatto in 3-5 frasi complete e la conseguenza in 1-2 frasi complete. Chiudi ogni frase e ogni campo prima del separatore |: nessun testo può terminare a metà.
   - L'unico evento deve avere una data o un momento concreto coerente con il periodo. Deve essere una conseguenza delle scelte recenti quando esiste un legame causale: ${recentChoices.length ? recentChoices.join(' / ') : 'nessuna scelta recente registrata'}.
   - Usa interaction dialogue se richiede una risposta parlata, action se richiede un'azione del protagonista, either se ammette entrambe, none se non richiede intervento.
-  - Per le risposte o reazioni future emetti soltanto [CODA_EVENTO: id_o_vuoto|player_action/world_reply/action_reply/dialogue_reply/world_initiative|causa_già_vera|attori|priorità_0_100|minuti_minimi|dialogue/action/either/none|id_sorgente]. Non narrarne ancora l'esito.
+  - Non emettere CODA_EVENTO: conseguenze e pressioni aggiornano il mondo, ma non generano automaticamente un altro evento.
 - EVENTO alimenta la cronaca ma non sostituisce i tag di stato: se il fatto cambia soldi, inventario, NPC, quest, attività o regno emetti nello stesso turno anche il relativo tag MECCANICA, LOOT, NPC, QUEST, *_NEGOZIO o *_REGNO.
 - Usa i nomi esatti già presenti nella memoria. Non inserire il carattere | o ] nei valori. Non duplicare eventi recenti e non spezzare lo stesso fatto in tag ripetitivi.
 - Collega gli eventi a missioni e persone solo quando la scena li modifica davvero. Missioni attive: ${questNames}. Posizione attuale: ${cleanText(context.location, 100) || 'Sconosciuta'}.
