@@ -1074,7 +1074,41 @@ FORMATO RIPETUTO PER OGNI CAUSA:
         const actors = fallbackActors(context.world || {}, context);
         const named = seed?.actors?.map(name => actors.find(actor => keyOf(actor.name) === keyOf(name))).filter(Boolean) || [];
         const actor = named[0] || actors[0];
-        if (!actor) return null;
+        if (!actor) {
+            // Nessun attore disponibile: crea un evento mondiale minimo
+            const protagonistName = cleanText(context.protagonistName, 100);
+            const place = cleanText(context.location?.name || context.location, 120) || 'il territorio';
+            const cause = cleanText(seed?.cause || context.world?.centralConflict || context.story?.desc, 300) || 'il mondo continua a muoversi';
+            const genericEvent = worldLed ? {
+                type: 'mondo',
+                title: seed?.title || 'Sviluppi inattesi',
+                summary: `A ${place}, gli eventi seguono il loro corso. ${cause}. Le forze in campo si ridispiegano senza preavviso.`,
+                consequence: `La situazione a ${place} e' cambiata; nuove opportunita' e nuovi rischi emergono per ${protagonistName || 'il protagonista'}.`,
+                actors: protagonistName ? [protagonistName] : []
+            } : {
+                type: strategic ? 'decisione' : 'missione',
+                title: seed?.title || (strategic ? `Piano in azione: ${choice?.topic || 'la questione'}` : "L'azione produce effetti"),
+                summary: `A ${place}, ${protagonistName || 'il protagonista'} agisce: ${cleanText(choice?.command || cause, 300)}. L'impresa ha un primo risultato concreto.`,
+                consequence: strategic
+                    ? `Il piano su «${choice?.topic || 'la questione'}» ha impegnato le risorse dichiarate; servira' una nuova scelta per continuare.`
+                    : `L'azione ha modificato la situazione a ${place}; servira' una nuova decisione per proseguire.`,
+                actors: protagonistName ? [protagonistName] : [],
+                strategicTopic: choice?.topic,
+                strategicActionIds: strategic ? [choice.id] : []
+            };
+            return enrichEvent({
+                ...genericEvent,
+                location: place,
+                importance: seed?.priority >= 85 ? 'critical' : 'high',
+                status: 'developing',
+                occurredAt: context.occurredAt || context.passage?.endDate || 'prossimo momento importante',
+                cause: seed?.cause || cause,
+                interactionMode: seed?.interactionMode || 'either',
+                source: 'timeline-fallback',
+                seedId: seed?.id,
+                queueKind: seed?.kind
+            }, context, 0, null);
+        }
         const protagonistName = cleanText(context.protagonistName, 100);
         const protagonist = protagonistName && keyOf(protagonistName) !== keyOf(actor.name)
             ? { name: protagonistName, kind: 'protagonista' }
@@ -1097,23 +1131,38 @@ FORMATO RIPETUTO PER OGNI CAUSA:
         const actionKey = keyOf(playerAction);
         const intendedResult = cleanText(choice?.expectedOutcome || choice?.objective, 260);
         const committedCost = cleanText(choice?.cost, 160);
+        const actorHasData = Boolean(actor?.goal || actor?.strategy || actor?.resources || actor?.publicGoal);
         let playerResult;
         if (/chied|parl|convoc|negozi|propon|interrog/.test(actionKey)) {
-            playerResult = `${actor.name} riceve la richiesta nel luogo indicato e deve rispondere usando soltanto le informazioni e l'autorità che possiede; la risposta resta affidata alla scena di dialogo.`;
+            playerResult = actorHasData
+                ? `${actor.name} ascolta la richiesta e prepara una risposta secondo la propria posizione.`
+                : `${actor.name} riceve la richiesta e prende tempo per valutarla.`;
         } else if (/indag|cerc|ispezion|esamin|studia|scopri/.test(actionKey)) {
-            playerResult = `${actor.name} reagisce proteggendo o mettendo in gioco ${actorResource}; l'accesso a quella leva diventa il primo risultato verificabile dell'indagine.`;
+            playerResult = actorHasData
+                ? `${actor.name} reagisce mettendo in gioco le proprie leve; l'accesso a quella risorsa diventa il primo risultato verificabile dell'indagine.`
+                : `${actor.name} non lascia scoprire facilmente ciò che sa; l'indagine rivela un primo indizio concreto.`;
         } else if (/attacc|assalt|arrest|blocca|minaccia|occupa/.test(actionKey)) {
-            playerResult = `${actor.name} impiega ${actorResource} per contenere il tentativo nel punto in cui avviene; il controllo immediato del luogo viene ora conteso apertamente.`;
+            playerResult = actorHasData
+                ? `${actor.name} si oppone nel punto in cui avviene il tentativo; il controllo del luogo viene ora conteso apertamente.`
+                : `${actor.name} reagisce con prontezza e il controllo del luogo diventa oggetto di scontro.`;
         } else if (/compra|vende|finanzia|investe|costru|assum|paga/.test(actionKey)) {
-            playerResult = `${committedCost ? `${committedCost} viene impegnato nel tentativo.` : 'Le risorse dichiarate vengono impegnate nel tentativo.'} ${actor.name} modifica il proprio piano usando ${actorResource}, rendendo il costo non più soltanto ipotetico.`;
+            playerResult = actorHasData
+                ? `${committedCost ? `${committedCost} viene impegnato.` : 'Le risorse dichiarate vengono impegnate.'} ${actor.name} ricalcola il proprio piano di conseguenza.`
+                : `${committedCost ? `${committedCost} viene impegnato.` : 'Le risorse indicate vengono impiegate.'} ${actor.name} aggiusta la propria strategia in risposta.`;
         } else {
-            playerResult = `${actor.name} risponde con una mossa coerente: ${actorPlan}, impiegando ${actorResource}. Il tentativo produce così un cambiamento osservabile nel controllo della questione.`;
+            playerResult = actorHasData
+                ? `${actor.name} risponde con una mossa coerente: ${actorPlan}, impiegando ${actorResource}. Il tentativo produce un cambiamento osservabile.`
+                : `${actor.name} reagisce alla mossa con una contromossa pragmatica. Lo scontro produce un cambiamento tangibile nella situazione.`;
         }
+        const actorLabel = actor?.kind === 'faction' ? actor.name : actor.name;
+        const goalText = actorHasData ? actorGoal(actor) : 'un proprio obiettivo';
+        const planText = actorHasData ? actorPlan : 'una mossa pragmatica';
+        const resourceText = actorHasData ? actorResource : 'le proprie leve';
         const event = worldLed ? {
             type: actor?.kind === 'faction' ? 'politica' : 'mondo',
             title: seed?.title || `La mossa di ${actor.name}`,
-            summary: `A ${place}, ${actor.name} ha impiegato ${actorResource} per perseguire ${actorGoal(actor)}. La mossa concreta è stata ${actorPlan}${target ? ` e ha sottratto margine d'azione a ${target.name}` : ''}.${force ? ` Il fronte «${cleanText(force.name, 140)}» passa dal ${Math.round(Number(force.progress) || 0)}% al ${Math.min(100, Math.round(Number(force.progress) || 0) + 10)}%.` : ''}`,
-            consequence: `${actor.name} ha ora impegnato ${actorResource} a ${place}${target ? `; ${target.name} non può usare la stessa posizione o risorsa senza affrontarne l'opposizione` : ''}.`,
+            summary: `A ${place}, ${actorLabel} ha agito per ${goalText}. ${actorPlan ? `La mossa concreta: ${planText}` : 'Ha portato avanti la propria strategia'}${target ? `, innescando uno scontro con ${target.name}` : ''}.${force ? ` Il fronte «${cleanText(force.name, 140)}» avanza dal ${Math.round(Number(force.progress) || 0)}% al ${Math.min(100, Math.round(Number(force.progress) || 0) + 10)}%.` : ''}`,
+            consequence: `${actor.name} ha ora impegnato ${resourceText} a ${place}${target ? `; ${target.name} deve fare i conti con questa mossa prima di agire nello stesso ambito` : ''}.`,
             actors: [actor.name, target?.name].filter(Boolean)
         } : {
             type: strategic ? 'decisione' : 'missione',
@@ -1121,7 +1170,7 @@ FORMATO RIPETUTO PER OGNI CAUSA:
             summary: `A ${place}, ${protagonist?.name || 'il protagonista'} ha eseguito «${playerAction}»${intendedResult ? ` per ottenere ${intendedResult}` : ''}. ${playerResult}`,
             consequence: strategic
                 ? `Il piano su «${choice.topic || seed?.topic || 'la questione'}» ha impegnato le risorse dichiarate; qualsiasi ulteriore sviluppo richiederà una nuova scelta.`
-                : `${actor.name} ha già impiegato ${actorResource} in risposta: quella risorsa e il luogo ${place} restano vincolati a questo esito nel prossimo turno.`,
+                : `${actor.name} ha già reagito a ${place}; la situazione è cambiata e qualsiasi nuova mossa dovrà fare i conti con questo esito.`,
             actors: [protagonist?.name, actor.name, target?.name].filter(Boolean),
             strategicTopic: choice?.topic,
             strategicActionIds: strategic ? [choice.id] : []

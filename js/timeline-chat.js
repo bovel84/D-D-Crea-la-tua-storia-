@@ -367,13 +367,14 @@
             personality: cleanText(actor.personality || actor.traits, 240),
             constraints: cleanText(actor.constraints || actor.limits, 260),
             influence: Math.max(0, Math.min(100, Number(actor.influence) || 0)),
-            status: cleanText(actor.status, 60)
+            status: cleanText(actor.status, 60),
+            gender: cleanText(actor.gender || actor.sex || '', 20)
         };
     }
 
     function formatActorProfile(profile) {
         const entries = [
-            ['ruolo', profile.role], ['obiettivo pubblico', profile.publicGoal],
+            ['ruolo', profile.role], ['genere', profile.gender], ['obiettivo pubblico', profile.publicGoal],
             ['obiettivo privato', profile.privateGoal], ['strategia', profile.strategy],
             ['risorse e leve', profile.resources], ['personalità', profile.personality],
             ['vincoli', profile.constraints]
@@ -414,6 +415,34 @@
         return messages.slice(0, 24);
     }
 
+    function looksLikePromptEcho(text) {
+        var lower = String(text || '').toLowerCase();
+        var PROMPT_ECHO_PATTERNS = [
+            /\bdeve rispondere usando\b/,
+            /\bsoltanto le informazioni e l['\u2019\x27]autorit\b/,
+            /\bautorit\s+che\s+possiede\b/,
+            /\bla\s+risposta\s+resta\s+affidata\b/,
+            /\briceve\s+la\s+richiesta\s+nel\s+luogo\b/,
+            /\bscena\s+di\s+dialogo\b/,
+            /\bun\s+interlocutore\s+per\s+chiamata\b/,
+            /\bprofilo\s+del\s+parlante\b/,
+            /\bciclo\s+del\s+dialogo\b/,
+            /\bdestinatario\s+esplicito\b/,
+            /\bstato\s+ della\s+trattativa\b/,
+            /\bcanone\s+ della\s+campagna\b/,
+            /\bsnodo\s+attuale\b/,
+            /\bha\s+eseguito\s/i,
+            /\bconfrontare\s+le\s+posizioni\s+e\s+decidere\b/i,
+            /\bordine\s+del\s+giorno\b/i,
+            /\bprotagonista\s+ha\s+eseguito\b/i,
+            /\binterlocutore\s+per\s+chiamata\b/i,
+            /\bsnodo\s+attuale\s+di\b/,
+            /\batto=\s*\w+/,
+            /\bciclo\s+del\s+dialogo\s*\x3a\s*\d/i
+        ];
+        return PROMPT_ECHO_PATTERNS.some(function(pattern) { return pattern.test(lower); });
+    }
+
     function parseChatResponse(response, context = {}) {
         const tagged = parseChatTags(response, context).filter(message =>
             !isProtagonistAlias(message.speaker, context.protagonistName)
@@ -430,6 +459,7 @@
             .replace(/\s+/g, ' ')
             .trim();
         if (!text || /^[\[{]/.test(text) || text.length < 8) return [];
+        if (looksLikePromptEcho(text)) return [];
         const message = normalizeMessage({
             event: context.event,
             eventId: context.eventId,

@@ -917,6 +917,11 @@
         .strategic-issue.urgency-alta { border-left-color: #e67e22; }
         .strategic-issue.urgency-critica { border-left-color: var(--blood); }
         .strategic-issue.urgency-bassa { border-left-color: #2e8b57; }
+        .strategic-issue.locked { opacity: 0.55; }
+        .strategic-issue.locked > summary { cursor: not-allowed; }
+        .strategic-active-topic { font: 600 0.8em 'Inter', sans-serif; color: #2e8b57; background: rgba(46,139,87,0.12); padding: 3px 10px; border-radius: 999px; margin-left: 8px; }
+        .strategic-chip.locked-chip { color: #999; background: rgba(0,0,0,0.06); }
+        .strategic-action-execute:disabled { opacity: 0.5; cursor: not-allowed; }
         .strategic-issue > summary {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
@@ -1197,6 +1202,29 @@
         }
         .timeline-event-card.high { border-left-color: #e67e22; }
         .timeline-event-card.critical { border-left-color: var(--blood); }
+        .timeline-event-card.world-initiative {
+            border-left-color: #2d7a4b;
+            background: linear-gradient(135deg, rgba(45,122,75,0.06), rgba(255,255,255,0.78));
+            border-color: rgba(45,122,75,0.25);
+        }
+        .timeline-event-card.world-initiative .timeline-event-icon::after {
+            content: '🌐';
+            position: absolute;
+            top: -4px;
+            right: -6px;
+            font-size: 0.6em;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+        }
+        .timeline-event-card.world-initiative .event-causal-pill {
+            background: rgba(45,122,75,0.15);
+            color: #2d7a4b;
+            border-color: rgba(45,122,75,0.3);
+        }
+        .timeline-event-card.world-initiative h4 { color: #1a5a35; }
+        .timeline-event-card.world-initiative .timeline-event-date {
+            color: #2d7a4b;
+            font-weight: 600;
+        }
         .timeline-event-icon { font-size: 1.65em; text-align: center; }
         .timeline-event-card h4 { margin: 0 0 3px; font-family: 'Cinzel', serif; }
         .timeline-event-card p {
@@ -1235,6 +1263,20 @@
         .event-screen-date { margin-top: 5px; opacity: 0.82; font-family: 'Cinzel', serif; }
         .event-screen-content { padding: 20px; }
         .event-screen-content h2 { font-family: 'Cinzel', serif; margin-bottom: 10px; }
+        .event-screen-hero.world-initiative {
+            background: linear-gradient(145deg, #1a3a2a, #2d7a4b 55%, #1a5a35);
+        }
+        .event-screen-content.world-initiative h2 { color: #1a5a35; }
+        .event-causal-pill.world-initiative {
+            background: rgba(45,122,75,0.15);
+            color: #2d7a4b;
+            border-color: rgba(45,122,75,0.3);
+        }
+        .event-causal-pill-large.world-initiative {
+            background: rgba(45,122,75,0.12);
+            color: #1a5a35;
+            border: 1px solid rgba(45,122,75,0.3);
+        }
         .event-screen-fact { font-size: 1.08em; line-height: 1.55; }
         .event-screen-fact p { margin: 0 0 0.85em; }
         .event-screen-fact p:last-child { margin-bottom: 0; }
@@ -1486,6 +1528,35 @@
         .char-portrait {
             font-size: 4em;
             margin-bottom: 5px;
+        }
+
+        /* Portrait SVG fallback — generati proceduralmente */
+        .portrait-image.portrait-svg {
+            object-fit: contain;
+            border-radius: 6px;
+            background: var(--bg-dark, #2a2a2a);
+            image-rendering: auto;
+        }
+        .portrait-svg.chat-avatar-portrait {
+            width: 40px; height: 46px;
+            border-radius: 50%;
+            border: 2px solid var(--accent, #c5a05c);
+        }
+        .portrait-svg.portrait-choice-image {
+            width: 80px; height: 92px;
+            border-radius: 8px;
+        }
+        .portrait-svg.portrait-stack-item {
+            width: 28px; height: 32px;
+            border-radius: 4px;
+        }
+        .portrait-svg.participant-portrait {
+            width: 24px; height: 28px;
+            border-radius: 50%;
+        }
+        .portrait-svg.chat-candidate-portrait {
+            width: 36px; height: 42px;
+            border-radius: 6px;
         }
 
         .char-name {
@@ -1984,6 +2055,46 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 10px;
             margin-bottom: 15px;
+        }
+
+        .gender-choice-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .gender-choice {
+            background: white;
+            border-radius: 10px;
+            padding: 18px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .gender-choice:hover {
+            transform: translateY(-2px);
+        }
+
+        .gender-choice.selected {
+            border-color: var(--gold);
+            background: rgba(201, 162, 39, 0.1);
+        }
+
+        .gender-icon {
+            font-size: 2.2em;
+            line-height: 1;
+        }
+
+        .gender-name {
+            font-weight: 600;
+            font-size: 0.95em;
         }
 
         .creation-option {
@@ -3553,83 +3664,31 @@
                 <button class="modal-close" data-close="modal-new-game">✕</button>
             </div>
             <div class="modal-body">
-                <div class="form-group" data-wizard-step="0">
+                <div class="form-group">
                     <label class="form-label">Scegli una Storia</label>
                     <select class="form-select" id="new-game-story"></select>
                 </div>
-                <div class="form-group" data-wizard-step="1">
+                <div class="form-group">
                     <label class="form-label">Nome Personaggio</label>
                     <input type="text" class="form-input" id="new-game-name" placeholder="Il tuo nome...">
                 </div>
-                <div class="form-group session-zero-form" data-wizard-step="2">
-                    <div class="session-zero-heading">
-                        <span>🎭</span>
-                        <div>
-                            <strong>Sessione Zero</strong>
-                            <small>Definisci come vuoi vivere questa campagna. Potrai iniziare senza compilare la premessa.</small>
-                        </div>
+                <div class="form-group">
+                    <label class="form-label">Genere</label>
+                    <div class="gender-choice-grid" id="gender-grid">
+                        <button type="button" class="gender-choice selected" data-gender="male" aria-pressed="true">
+                            <span class="gender-icon">♂</span>
+                            <span class="gender-name">Maschio</span>
+                        </button>
+                        <button type="button" class="gender-choice" data-gender="female" aria-pressed="false">
+                            <span class="gender-icon">♀</span>
+                            <span class="gender-name">Femmina</span>
+                        </button>
                     </div>
-                    <div class="session-zero-grid">
-                        <label>
-                            <span>Tono</span>
-                            <select class="form-select" id="new-game-tone">
-                                <option value="adventurous" selected>Avventuroso</option>
-                                <option value="heroic">Eroico</option>
-                                <option value="dark">Oscuro</option>
-                                <option value="realistic">Realistico</option>
-                                <option value="light">Leggero</option>
-                            </select>
-                        </label>
-                        <label>
-                            <span>Focus</span>
-                            <select class="form-select" id="new-game-focus">
-                                <option value="balanced" selected>Bilanciato</option>
-                                <option value="roleplay">Interpretazione</option>
-                                <option value="exploration">Esplorazione</option>
-                                <option value="tactical">Tattico</option>
-                                <option value="management">Gestionale</option>
-                            </select>
-                        </label>
-                        <label>
-                            <span>Libertà</span>
-                            <select class="form-select" id="new-game-freedom">
-                                <option value="balanced" selected>Equilibrata</option>
-                                <option value="guided">Guidata</option>
-                                <option value="sandbox">Sandbox</option>
-                            </select>
-                        </label>
-                        <label>
-                            <span>Intensità</span>
-                            <select class="form-select" id="new-game-intensity">
-                                <option value="standard" selected>Standard</option>
-                                <option value="gentle">Morbida</option>
-                                <option value="intense">Intensa</option>
-                            </select>
-                        </label>
-                    </div>
-                    <label class="session-zero-wide">
-                        <span>Premessa personale <small>(opzionale)</small></span>
-                        <textarea class="form-textarea" id="new-game-premise" placeholder="Es. Voglio iniziare come apprendista senza poteri e costruire lentamente la mia reputazione."></textarea>
-                    </label>
-                    <label class="session-zero-wide">
-                        <span>Temi da evitare <small>(opzionale)</small></span>
-                        <textarea class="form-textarea compact" id="new-game-boundaries" placeholder="Es. crudeltà sugli animali, violenza grafica..."></textarea>
-                    </label>
                 </div>
-                <div class="creation-context" id="creation-context" data-wizard-step="3"></div>
-                <div class="form-group" data-wizard-step="3">
-                    <label class="form-label">Origine <small>Scegli il passato del personaggio</small></label>
-                    <div class="creation-grid" id="origin-grid"></div>
-                </div>
-                <div class="form-group" data-wizard-step="3">
-                    <label class="form-label">Professione / ruolo <small>Coerente con il periodo della storia</small></label>
-                    <div class="creation-grid" id="archetype-grid"></div>
-                </div>
-                <div class="form-group" data-wizard-step="3">
+                <div class="form-group">
                     <label class="form-label">Volto del protagonista <small>Lo stesso ritratto ti accompagnerà in cronaca e nelle chat</small></label>
                     <div class="portrait-choice-grid" id="portrait-grid"></div>
                 </div>
-                <div class="creation-loadout" id="creation-loadout" data-wizard-step="3"></div>
                 <button class="btn primary" id="btn-start-game" style="width: 100%;">⚔️ Inizia Avventura!</button>
             </div>
         </div>
@@ -3723,12 +3782,15 @@
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
     <script src="js/portrait-manager.js?v=20260814-portraits-4"></script>
+    <script src="js/portrait-svg.js?v=20260815-svg-1"></script>
     <script src="js/time-energy.js?v=20260815-no-metabolism-1"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
     <script src="js/story-generator.js?v=20260811-calendar-2"></script>
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
+    <script src="js/timeline-engine.js?v=20260815-timeline-engine-1"></script>
+    <script src="js/timeline-bridge.js?v=20260815-timeline-bridge-1"></script>
     <script src="js/campaign-vault.js"></script>
     <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-4"></script>
     <script src="js/ollama-cloud.js?v=20260814-ollama-content-3"></script>
@@ -3763,6 +3825,8 @@
             selectedSave: null,
             selectedOrigin: null,
             selectedArchetype: null,
+            selectedGender: 'male',
+            selectedPortrait: null,
             selectedPortrait: null,
             editingStory: null,
             isPlaying: false,
@@ -5109,6 +5173,82 @@
             const period = getTimePeriod();
             const season = getCurrentSeason();
             return `${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}, ${getTimeString()} (${period.name}, ${season})`;
+        }
+
+        /**
+         * Estrae una data dalla narrazione del GM e riallinea G.time.
+         * Cerca pattern italiani: "15 marzo 1400", "il 15 marzo", "Lunedì 15 marzo 1400", ecc.
+         * @param {string} text - La risposta narrativa del GM.
+         * @returns {number|null} - Minuti di scostamento se la data è stata sincronizzata, altrimenti null.
+         */
+        function syncTimeFromNarration(text) {
+            if (!text || typeof text !== 'string') return null;
+            const monthNames = MONTHS.map(m => m.name);
+            const monthMap = {};
+            monthNames.forEach((name, i) => {
+                monthMap[name.toLowerCase()] = i + 1;
+                monthMap[name.substring(0, 3).toLowerCase()] = i + 1;
+            });
+            // Pattern: (giorno) (mese) (anno) — es. "15 marzo 1400", "il 15 marzo", "l'11 marzo 1400"
+            const dateRegex = new RegExp(
+                '\\b(?:il\\s+)?(\\d{1,2})\\s+(' + monthNames.join('|') + ')\\s+(\\d{3,4})?\\b',
+                'i'
+            );
+            // Pattern: (mese) (anno) — es. "marzo 1400"
+            const monthYearRegex = new RegExp(
+                '\\b(' + monthNames.join('|') + ')\\s+(\\d{3,4})\\b',
+                'i'
+            );
+            // Pattern: giorno della settimana — es. "Lunedì", "Martedì"
+            const dayNameRegex = new RegExp('\\b(' + DAYS.join('|') + ')\\b', 'i');
+
+            const fullMatch = text.match(dateRegex);
+            const monthYearMatch = !fullMatch ? text.match(monthYearRegex) : null;
+            const dayNameMatch = text.match(dayNameRegex);
+
+            if (!fullMatch && !monthYearMatch) return null;
+
+            let newDay = G.time.day;
+            let newMonth = G.time.month;
+            let newYear = G.time.year;
+
+            if (fullMatch) {
+                newDay = parseInt(fullMatch[1], 10);
+                newMonth = monthMap[fullMatch[2].toLowerCase()];
+                if (fullMatch[3]) {
+                    newYear = parseInt(fullMatch[3], 10);
+                }
+            } else if (monthYearMatch) {
+                newMonth = monthMap[monthYearMatch[1].toLowerCase()];
+                newYear = parseInt(monthYearMatch[2], 10);
+            }
+
+            // Validazione
+            if (newMonth < 1 || newMonth > 12) return null;
+            const dim = getDaysInMonth(newMonth, newYear);
+            if (newDay < 1 || newDay > dim) return null;
+            if (newYear < 1000 || newYear > 3000) return null;
+
+            // Calcola i minuti effettivi tra la data corrente e quella narrata
+            const oldTotalMin = G.time.year * 525600 + G.time.month * 43200 + G.time.day * 1440 + G.time.hour * 60 + G.time.minute;
+            const newTotalMin = newYear * 525600 + newMonth * 43200 + newDay * 1440 + G.time.hour * 60 + G.time.minute;
+            const diffMinutes = newTotalMin - oldTotalMin;
+
+            // Solo se c'è una differenza significativa (> 30 min)
+            if (Math.abs(diffMinutes) < 30) return null;
+
+            // Riallinea G.time alla data narrata
+            G.time.day = newDay;
+            G.time.month = newMonth;
+            G.time.year = newYear;
+            if (dayNameMatch) {
+                G.time.dayName = dayNameMatch[1];
+            } else {
+                G.time.dayName = computeDayName(newYear, newMonth, newDay);
+            }
+
+            updateTimeDisplay();
+            return diffMinutes;
         }
 
         function updateTimeDisplay() {
@@ -9961,22 +10101,17 @@
             const storyIdx = parseInt($('new-game-story').value);
             const name = $('new-game-name').value.trim() || 'Eroe';
             
-            if (!G.selectedOrigin || !G.selectedArchetype) {
-                notify('Seleziona origine e archetipo!', 'error');
-                return;
-            }
+            // Auto-select defaults if not set
+            const genreCfg = getGenreConfig(G.stories[storyIdx] || G.stories[0] || {});
+            if (!G.selectedOrigin) G.selectedOrigin = Object.keys(genreCfg.origins || {})[0] || null;
+            if (!G.selectedArchetype) G.selectedArchetype = Object.keys(genreCfg.archetypes || {})[0] || null;
 
             G.currentStory = JSON.parse(JSON.stringify(G.stories[storyIdx]));
             G.currentStory.genre = resolveGenreKey(G.currentStory);
-            G.currentStory.campaignProfile = CronacheCampaign.createProfile({
-                tone: $('new-game-tone')?.value,
-                focus: $('new-game-focus')?.value,
-                freedom: $('new-game-freedom')?.value,
-                intensity: $('new-game-intensity')?.value,
-                premise: $('new-game-premise')?.value,
-                boundaries: $('new-game-boundaries')?.value
-            });
+            G.currentStory.campaignProfile = CronacheCampaign.createProfile({});
             createCharacter(name, G.selectedOrigin, G.selectedArchetype);
+            // Store protagonist gender
+            if (G.character) G.character.gender = G.selectedGender || 'male';
             if (Number.isFinite(Number(G.currentStory.starterGold))) {
                 G.character.gold = Number(G.currentStory.starterGold);
             }
@@ -10214,6 +10349,7 @@
                     context += `- ${npc.name}: MORTO\n`;
                 } else {
                     let line = `- ${npc.name}`;
+                    if (npc.gender) line += ` (${npc.gender})`;
                     if (npc.status) line += ` [${npc.status}]`;
                     if (npc.location) line += ` @ ${npc.location}`;
                     if (npc.goals) line += ` - Vuole: ${npc.goals}`;
@@ -10262,7 +10398,7 @@
                 const key = timelineChatEngine.keyOf(entity.name);
                 const inheritedId = assignedByName.get(key);
                 if (inheritedId && !portraitEngine.getPortrait(entity.portraitId)) entity.portraitId = inheritedId;
-                portraitEngine.assignPortrait(entity, portraitContext({ ...context, role: entity.role || entity.type || entity.category }));
+                portraitEngine.assignPortrait(entity, portraitContext({ ...context, role: entity.role || entity.type || entity.category, gender: entity.gender || '' }));
                 assignedByName.set(key, entity.portraitId);
             });
             if (G.character) {
@@ -10287,12 +10423,40 @@
             return selected;
         }
 
+        /**
+         * Controlla se il ritratto sprite rispetta il genere dell'entità.
+         * Se non c'è match, usa il generatore SVG deterministico.
+         */
         function portraitSpriteMarkup(name, className = '', context = {}) {
-            const portrait = portraitForName(name, context);
-            if (!portrait) return `<span class="portrait-fallback">${escapeTimelineHtml(String(name || '?').charAt(0).toUpperCase())}</span>`;
+            const entity = typeof name === 'object' && name ? name : findPortraitEntity(name);
+            const label = typeof name === 'object' ? (name.name || 'Personaggio') : String(name || 'Personaggio');
             const safeClass = String(className || '').replace(/[^a-z0-9 _-]/gi, ' ').trim();
-            const label = typeof name === 'object' ? name.name : name;
-            return `<img class="portrait-image ${safeClass}" src="${portraitEngine.imageSrc(portrait)}" alt="Ritratto di ${escapeTimelineHtml(label || portrait.label)}" title="${escapeTimelineHtml(label || portrait.label)}" loading="lazy">`;
+
+            // Risolvi genere dall'entità o dal contesto
+            const resolvedGender = portraitEngine.resolveGender(entity || { name: label }, portraitContext(context));
+            const portrait = portraitForName(name, context);
+
+            // Se il ritratto sprite esiste ma il genere non matcha, usa SVG
+            if (portrait) {
+                const portraitGenders = portrait.genders || [];
+                const genderOk = portraitGenders.includes('any') || portraitGenders.includes(resolvedGender);
+                if (genderOk) {
+                    return `<img class="portrait-image ${safeClass}" src="${portraitEngine.imageSrc(portrait)}" alt="Ritratto di ${escapeTimelineHtml(label)}" title="${escapeTimelineHtml(label)}" loading="lazy">`;
+                }
+            }
+
+            // Fallback: genera SVG deterministico basato su nome, genere, ruolo, era
+            const svgGen = root.CronachePortraitSVG;
+            if (svgGen) {
+                const era = portraitEngine.resolveEra(portraitContext(context));
+                const role = portraitEngine.resolveRole(entity || { name: label }, portraitContext(context));
+                const svg = svgGen.generate(entity || { name: label, gender: resolvedGender }, { era, role, gender: resolvedGender });
+                const uri = svgGen.toDataUri(svg);
+                return `<img class="portrait-image portrait-svg ${safeClass}" src="${uri}" alt="Ritratto di ${escapeTimelineHtml(label)}" title="${escapeTimelineHtml(label)}" loading="lazy">`;
+            }
+
+            // Fallback finale: iniziale
+            return `<span class="portrait-fallback ${safeClass}">${escapeTimelineHtml(label.charAt(0).toUpperCase())}</span>`;
         }
 
         function portraitActorsMarkup(actors, className = '') {
@@ -10391,6 +10555,7 @@
             );
             const queuedActions = getPendingStrategicActions();
             const queuedIds = new Set(queuedActions.map(item => item.id));
+            const activeTopic = queuedActions.length ? queuedActions[0].issueTitle : null;
             const sourceLabels = {
                 ai: 'Analisi IA',
                 'ai+local': 'IA verificata',
@@ -10410,10 +10575,12 @@
                     <section class="strategic-signal"><strong>⚠️ Rischio</strong><span>${escapeTimelineHtml(analysis.risks?.[0] || 'Nessun allarme immediato')}</span></section>
                     <section class="strategic-signal"><strong>💡 Occasione</strong><span>${escapeTimelineHtml(analysis.opportunities?.[0] || 'Esplora le alternative')}</span></section>
                 </div>
-                <h3 class="strategic-topics-title">Argomenti strategici</h3>
+                <h3 class="strategic-topics-title">Argomenti strategici${activeTopic ? ` <span class="strategic-active-topic">Piano attivo: ${escapeTimelineHtml(activeTopic)}</span>` : ''}</h3>
                 <div class="strategic-issue-list">
-                    ${analysis.issues.map((issue, issueIndex) => `
-                        <details class="strategic-issue urgency-${escapeTimelineHtml(issue.urgency || 'media')}" data-issue-id="${escapeTimelineHtml(issue.id)}" ${openedIssueIds.has(issue.id) ? 'open' : ''}>
+                    ${analysis.issues.map((issue, issueIndex) => {
+                        const isLocked = activeTopic && issue.title !== activeTopic;
+                        return `
+                        <details class="strategic-issue urgency-${escapeTimelineHtml(issue.urgency || 'media')}${isLocked ? ' locked' : ''}" data-issue-id="${escapeTimelineHtml(issue.id)}" ${openedIssueIds.has(issue.id) ? 'open' : ''}>
                             <summary>
                                 <span>
                                     <span class="strategic-issue-title">${escapeTimelineHtml(issue.title)}</span>
@@ -10421,6 +10588,7 @@
                                         <span class="strategic-chip">${escapeTimelineHtml(issue.category || 'strategia')}</span>
                                         <span class="strategic-chip">Urgenza ${escapeTimelineHtml(issue.urgency || 'media')}</span>
                                         ${(issue.actors || []).slice(0, 3).map(actor => `<span class="strategic-chip">👤 ${escapeTimelineHtml(actor)}</span>`).join('')}
+                                        ${isLocked ? '<span class="strategic-chip locked-chip">🔒 Bloccato</span>' : ''}
                                     </span>
                                 </span>
                             </summary>
@@ -10445,14 +10613,14 @@
                                                 ${item.tradeoff ? `<div class="strategic-action-detail"><strong>Contropartita:</strong> ${escapeTimelineHtml(item.tradeoff)}</div>` : ''}
                                                 ${(item.prerequisites || []).length ? `<div class="strategic-action-detail"><strong>Requisiti:</strong> ${item.prerequisites.map(escapeTimelineHtml).join(' · ')}</div>` : ''}
                                                 <div class="strategic-action-command">“${escapeTimelineHtml(item.command)}”</div>
-                                                <button class="strategic-action-execute ${selected ? 'selected' : ''}" data-issue-index="${issueIndex}" data-action-index="${actionIndex}" aria-pressed="${selected}">${selected ? '✓ Selezionata' : '＋ Seleziona azione'}</button>
+                                                <button class="strategic-action-execute ${selected ? 'selected' : ''}" data-issue-index="${issueIndex}" data-action-index="${actionIndex}" aria-pressed="${selected}"${isLocked ? ' disabled' : ''}>${selected ? '✓ Selezionata' : isLocked ? '🔒 Cambia piano' : '＋ Seleziona azione'}</button>
                                             </article>
                                         `;
                                     }).join('')}
                                 </div>
                             </div>
-                        </details>
-                    `).join('')}
+                        </details>`;
+                    }).join('')}
                 </div>
                 ${strategicSelectionMarkup(queuedActions)}
             `;
@@ -10541,6 +10709,11 @@
             generateStrategicAnalysis(true);
         }
 
+        function activeStrategicTopic() {
+            const queue = getPendingStrategicActions();
+            if (!queue.length) return null;
+            return queue[0].issueTitle || null;
+        }
         function toggleStrategicAction(issueIndex, actionIndex) {
             if (G.isProcessing) return;
             const queuedAction = strategicAdvisor.createQueuedAction(
@@ -10553,7 +10726,16 @@
                 notify('Azione strategica non disponibile.', 'error');
                 return;
             }
-            const result = strategicAdvisor.toggleQueuedAction(getPendingStrategicActions(), queuedAction);
+            const currentQueue = getPendingStrategicActions();
+            const activeTopic = activeStrategicTopic();
+            if (activeTopic && queuedAction.issueTitle !== activeTopic) {
+                const isRemoving = currentQueue.some(item => item.id === queuedAction.id);
+                if (!isRemoving) {
+                    notify(`Il piano attuale è su «${activeTopic}». Rimuovi le azioni selezionate per cambiare argomento.`, 'error');
+                    return;
+                }
+            }
+            const result = strategicAdvisor.toggleQueuedAction(currentQueue, queuedAction);
             if (result.full) {
                 notify(`Puoi selezionare fino a ${strategicAdvisor.MAX_QUEUED_ACTIONS} azioni strategiche.`, 'error');
                 return;
@@ -10851,6 +11033,15 @@
             ) || null;
         }
 
+        function isWorldInitiativeEvent(event) {
+            if (!event) return false;
+            const k = (event.queueKind || event.causalKind || event.kind || '').toLowerCase().trim();
+            if (k === 'world_initiative' || k === 'world_reply') return true;
+            const label = (event.causalLabel || '').toLowerCase().trim().replace(/\s+/g, '_');
+            if (label === 'iniziativa_del_mondo' || label === 'reazione_del_mondo') return true;
+            return false;
+        }
+
         function eventCausalLabel(event) {
             return String(event?.causalLabel || timelineSimulator.causalLabelFor(event?.queueKind || event?.causalKind) || '').trim();
         }
@@ -10894,9 +11085,9 @@
                 const activeChat = getActiveEventChat(event.id);
                 const causalLabel = eventCausalLabel(event);
                 return `
-                    <article class="timeline-event-card ${escapeTimelineHtml(event.importance || 'normal')}" data-event-index="${index}">
+                    <article class="timeline-event-card ${escapeTimelineHtml(event.importance || 'normal')} ${isWorldInitiativeEvent(event) ? 'world-initiative' : ''}" data-event-index="${index}">
                         <div class="timeline-event-icon-rail">
-                            <div class="timeline-event-icon">${timelineChatEngine.iconForEvent(event.type)}</div>
+                            <div class="timeline-event-icon" style="position:relative">${timelineChatEngine.iconForEvent(event.type)}</div>
                             ${portraitActorsMarkup(event.actors, 'timeline-event-portraits')}
                         </div>
                         <div>
@@ -11073,6 +11264,11 @@
                 const startDate = getFullTimeString();
                 advanceTime(timing.minutes);
                 timeAdvanced = true;
+                // Sincronizza l'orologio con la data narrata dal GM
+                const narratedDiff = syncTimeFromNarration(response);
+                if (narratedDiff !== null) {
+                    console.log('[Timeline] Data sincronizzata dalla narrazione:', getFullTimeString());
+                }
                 if ((Number(G.worldMemory.turnCount) || 0) <= previousTurn) {
                     G.worldMemory.turnCount = previousTurn + 1;
                 }
@@ -11260,9 +11456,9 @@
                 const requiredThread = getActiveEventChat(generatedEvent.id);
                 if (requiredThread && timelineSimulator.eventRequiresConversation(generatedEvent, seed)) {
                     autoOpenChatId = requiredThread.id;
-                } else {
-                    showEventScreens(generated, 0);
                 }
+                // Moistra sempre l'evento prima di aprire la chat
+                showEventScreens(generated, 0);
                 if (aiError) notify('Evento generato con il simulatore causale locale; il ciclo terminerà dopo le azioni già inviate.', 'info');
             } catch (error) {
                 console.error('Errore generazione prossimo evento:', error);
@@ -11279,8 +11475,11 @@
                 updateActionBar();
                 updateVaultControls();
                 if (autoOpenChatId) {
-                    openWorldChats(autoOpenChatId);
-                    notify('Questo sviluppo richiede una risposta: la conversazione è stata aperta.', 'info');
+                    // Ritarda l'apertura della chat per lasciare tempo di vedere l'evento
+                    setTimeout(() => {
+                        openWorldChats(autoOpenChatId);
+                        notify('Questo sviluppo richiede una risposta: la conversazione è stata aperta.', 'info');
+                    }, 2800);
                 }
             }
         }
@@ -11407,6 +11606,11 @@
                 const startDate = getFullTimeString();
                 advanceTime(turnBatch.elapsedMinutes);
                 timeAdvanced = true;
+                // Sincronizza l'orologio con la data narrata dal GM
+                const narratedDiff = syncTimeFromNarration(response);
+                if (narratedDiff !== null) {
+                    console.log('[Timeline] Data sincronizzata dalla narrazione:', getFullTimeString());
+                }
                 G.worldMemory.turnCount = previousTurn + 1;
                 const endDate = getFullTimeString();
                 const passage = {
@@ -11856,10 +12060,11 @@
             if (!Array.isArray(G.timelineAutoOpenedChatIds)) G.timelineAutoOpenedChatIds = [];
             if (G.timelineAutoOpenedChatIds.includes(thread.id)) return;
             G.timelineAutoOpenedChatIds.push(thread.id);
+            // Ritarda l'apertura della chat per lasciare tempo di vedere l'evento
             setTimeout(() => {
                 openWorldChats(thread.id);
-                notify('La risposta dell’interlocutore è necessaria per lo scopo dell’azione.', 'info');
-            }, 0);
+                notify('La risposta dell'interlocutore è necessaria per lo scopo dell'azione.', 'info');
+            }, 2800);
         }
 
         function getLastTimelineEvent() {
@@ -11922,14 +12127,15 @@
             );
             const canAct = ['action', 'either'].includes(interactionMode);
             const causalLabel = eventCausalLabel(event);
+            const isWorldInit = isWorldInitiativeEvent(event);
             $('event-screen-body').innerHTML = `
-                <div class="event-screen-hero">
-                    <div class="event-screen-icon">${timelineChatEngine.iconForEvent(event.type)}</div>
+                <div class="event-screen-hero${isWorldInit ? ' world-initiative' : ''}">
+                    <div class="event-screen-icon">${timelineChatEngine.iconForEvent(event.type)}${isWorldInit ? ' 🌐' : ''}</div>
                     ${portraitActorsMarkup(event.actors, 'event-screen-cast')}
                     <div class="event-screen-date">${escapeTimelineHtml(event.occurredAt || `Turno ${event.turn || 0}`)}</div>
                 </div>
-                <div class="event-screen-content">
-                    ${causalLabel ? `<div class="event-causal-pill event-causal-pill-large">${escapeTimelineHtml(causalLabel)}</div>` : ''}
+                <div class="event-screen-content${isWorldInit ? ' world-initiative' : ''}">
+                    ${causalLabel ? `<div class="event-causal-pill event-causal-pill-large${isWorldInit ? ' world-initiative' : ''}">${escapeTimelineHtml(causalLabel)}</div>` : ''}
                     <h2>${escapeTimelineHtml(event.title || 'Evento')}</h2>
                     <div class="event-screen-fact">${eventNarrativeMarkup(event)}</div>
                     ${activeChat ? '<div class="event-chat-active">💬 Conversazione attiva per questo evento</div>' : ''}
@@ -14239,7 +14445,8 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 name: $('new-game-name')?.value.trim() || 'Protagonista',
                 role: archetype.name,
                 archetype: G.selectedArchetype,
-                origin: G.selectedOrigin
+                origin: G.selectedOrigin,
+                gender: G.selectedGender || 'male'
             };
             const options = portraitEngine.listCompatiblePortraits(
                 portraitSubject,
@@ -14266,31 +14473,10 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
             const genreCfg = getGenreConfig(story);
             const originEntries = Object.entries(genreCfg.origins || {});
             const archeEntries = Object.entries(genreCfg.archetypes || {});
+            // Auto-select defaults for origin and archetype
             if (!G.selectedOrigin || !genreCfg.origins[G.selectedOrigin]) G.selectedOrigin = originEntries[0]?.[0] || null;
             if (!G.selectedArchetype || !genreCfg.archetypes[G.selectedArchetype]) G.selectedArchetype = archeEntries[0]?.[0] || null;
-            const summary = CronacheCharacter.getChoiceSummary(genreCfg);
-            if ($('creation-context')) {
-                $('creation-context').innerHTML =
-                    '<div><strong>' + escapeCreationText(genreCfg.name || genreKey) + '</strong>' +
-                    (summary.eraLabel ? '<span>' + escapeCreationText(summary.eraLabel) + '</span>' : '') + '</div>' +
-                    '<small>' + summary.origins + ' origini · ' + summary.archetypes + ' ruoli · ' + summary.items + ' oggetti disponibili</small>';
-            }
-            $('origin-grid').innerHTML = originEntries.map(([k, v]) => `
-                <button type="button" class="creation-option ${G.selectedOrigin === k ? 'selected' : ''}" data-origin="${k}" aria-pressed="${G.selectedOrigin === k}">
-                    <span class="creation-icon">${escapeCreationText(v.icon)}</span>
-                    <span class="creation-name">${escapeCreationText(v.name)}</span>
-                    <span class="creation-desc">${escapeCreationText(v.desc)}</span>
-                </button>
-            `).join('');
-            $('archetype-grid').innerHTML = archeEntries.map(([k, v]) => `
-                <button type="button" class="creation-option ${G.selectedArchetype === k ? 'selected' : ''}" data-archetype="${k}" aria-pressed="${G.selectedArchetype === k}">
-                    <span class="creation-icon">${escapeCreationText(v.icon)}</span>
-                    <span class="creation-name">${escapeCreationText(v.name)}</span>
-                    <span class="creation-desc">${escapeCreationText(v.desc)}</span>
-                </button>
-            `).join('');
             renderCreationPortraits(story, genreKey, genreCfg);
-            renderCreationLoadout(genreCfg);
         }
 
         // ==================== DICE ====================
@@ -14451,30 +14637,20 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 G.selectedPortrait = null;
                 renderCreationOptions();
             };
-            $('origin-grid').onclick = e => {
-                const opt = e.target.closest('.creation-option');
-                if (opt) {
-                    $$('#origin-grid .creation-option').forEach(o => o.classList.remove('selected'));
-                    opt.classList.add('selected');
-                    G.selectedOrigin = opt.dataset.origin;
-                    opt.setAttribute('aria-pressed', 'true');
-                    const storyIdx = parseInt($('new-game-story').value) || 0;
-                    renderCreationLoadout(getGenreConfig(G.stories[storyIdx] || G.stories[0] || {}));
-                }
-            };
-            $('archetype-grid').onclick = e => {
-                const opt = e.target.closest('.creation-option');
-                if (opt) {
-                    $$('#archetype-grid .creation-option').forEach(o => o.classList.remove('selected'));
-                    opt.classList.add('selected');
-                    G.selectedArchetype = opt.dataset.archetype;
-                    opt.setAttribute('aria-pressed', 'true');
-                    const storyIdx = parseInt($('new-game-story').value) || 0;
-                    const story = G.stories[storyIdx] || G.stories[0] || {};
-                    const genreCfg = getGenreConfig(story);
-                    renderCreationPortraits(story, resolveGenreKey(story), genreCfg);
-                    renderCreationLoadout(genreCfg);
-                }
+            $('gender-grid').onclick = e => {
+                const opt = e.target.closest('.gender-choice');
+                if (!opt) return;
+                $$('#gender-grid .gender-choice').forEach(o => { o.classList.remove('selected'); o.setAttribute('aria-pressed', 'false'); });
+                opt.classList.add('selected');
+                opt.setAttribute('aria-pressed', 'true');
+                G.selectedGender = opt.dataset.gender;
+                // Re-render portraits filtered by gender
+                const storyIdx = parseInt($('new-game-story').value) || 0;
+                const story = G.stories[storyIdx] || G.stories[0] || {};
+                const genreKey = resolveGenreKey(story);
+                const genreCfg = getGenreConfig(story);
+                G.selectedPortrait = null;
+                renderCreationPortraits(story, genreKey, genreCfg);
             };
             $('portrait-grid').onclick = e => {
                 const opt = e.target.closest('.portrait-choice');

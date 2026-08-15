@@ -172,6 +172,7 @@
             constraints: cleanText(input.constraints, 260),
             knowledge: cleanText(input.knowledge, 320),
             agenda: cleanText(input.agenda || input.strategy, 260),
+            gender: cleanText(input.gender || input.sex || '', 20),
             historicalRole: cleanText(input.historicalRole, 220),
             portraitId: cleanText(input.portraitId, 80),
             portraitSchemaVersion: Math.max(0, Number(input.portraitSchemaVersion) || 0),

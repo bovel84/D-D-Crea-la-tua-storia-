@@ -197,8 +197,8 @@
         if (/^(female|femmina|donna|she her|lei)$/.test(declared)) return 'female';
         if (/^(male|maschio|uomo|he him|lui)$/.test(declared)) return 'male';
         const corpus = entityCorpus(entity, context);
-        if (/\b(princess|principessa|queen|regina|empress|imperatrice|priestess|sacerdotessa|woman|donna|female|femmina|madre|suora|sorella|badessa|signora|lady|guaritrice|nobildonna|duchessa|contessa|baronessa|ereditiera|dottoressa)\b/.test(corpus)) return 'female';
-        if (/\b(prince|principe|king|re|emperor|imperatore|man|uomo|male|maschio|padre|frate|prete|monsignor|vescovo|abate|don|signore|sir|lord|conte|duca|barone|dottore|knight|cavaliere|monk|monaco|blacksmith|fabbro)\b/.test(corpus)) return 'male';
+        if (/\b(princess|principessa|queen|regina|empress|imperatrice|priestess|sacerdotessa|woman|donna|female|femmina|madre|suora|sorella|badessa|signora|lady|guaritrice|nobildonna|duchessa|contessa|baronessa|ereditiera|dottoressa|fata|strega|maghetta|serva|ancella|cameriera|cuoca|tessitrice|ricamatrice|merce|contadinella|ragazza|bambina|figlia|nipote|zia|cugina|moglie|sposa|vedova|monaca|vergine|dama|ancella|nutrice|balia|levatrice|sarta|lavandaia)\b/.test(corpus)) return 'female';
+        if (/\b(prince|principe|king|re|emperor|imperatore|man|uomo|male|maschio|padre|frate|prete|monsignor|vescovo|abate|don|signore|sir|lord|conte|duca|barone|dottore|knight|cavaliere|monk|monaco|blacksmith|fabbro|guardia|soldato|guerriero|mercenario|cacciatore|pescatore|contadino|servo|stalliere|scudiero|arciere|bandito|brigante|carceriere|boia| Nunzio|messo|araldo|notaio|giudice|magistrato|ciabattino|calzolaio|macellaio|fornaio|oste|locandiere|mercante|commerciante|artigiano|apprendista|maestro|maestro d'armi|precettore|tutore|precettore|chierico|chieraco|diacono|parroco|curato|eremita|pellegrino|crociato|templare|ospitaliere|teutonico|frate|frate mendicante|barbagianni|rapace)\b/.test(corpus)) return 'male';
         return 'any';
     }
 

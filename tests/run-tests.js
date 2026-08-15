@@ -25,6 +25,8 @@ const timeEnergyApi = require('../js/time-energy.js');
 const businessApi = require('../js/business-manager.js');
 const kingdomApi = require('../js/kingdom-manager.js');
 const storyGeneratorApi = require('../js/story-generator.js');
+const timelineEngineApi = require('../js/timeline-engine.js');
+const timelineBridgeApi = require('../js/timeline-bridge.js');
 const packageMetadata = require('../package.json');
 
 const tests = [];
@@ -4063,6 +4065,797 @@ test('integra il generatore nella schermata Crea storia', () => {
     assert.match(html, /id="btn-generate-story"/);
     assert.match(html, /function generateStoryFromEditor/);
     assert.match(html, /CronacheStoryGenerator\.completeStory/);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Test: Timeline Engine (Pax Historia style)
+// ═══════════════════════════════════════════════════════════════════
+
+// --- Helpers ---
+function makeManager(opts) {
+    return new timelineEngineApi.TimelineManager(opts || { maxEvents: 50 });
+}
+function makeEvent(overrides) {
+    return Object.assign({
+        timestamp: 1000,
+        actorId: 'elara',
+        type: 'decisione',
+        title: 'Il Consiglio si riunisce',
+        description: 'Elara convoca i membri',
+        payload: {},
+        importance: 'normal'
+    }, overrides || {});
+}
+function makeAction(overrides) {
+    return Object.assign({
+        timestamp: 1000,
+        actorId: 'varos',
+        type: 'militare',
+        title: 'Mobilita la Legione',
+        description: 'Varos ordina marcia verso la capitale',
+        payload: {},
+        consequences: []
+    }, overrides || {});
+}
+
+// --- Inserimento eventi ---
+test('TL: aggiunge un evento valido alla timeline', () => {
+    const tl = makeManager();
+    const ev = tl.addEvent(makeEvent());
+    assert.ok(ev.id, 'l\'evento deve avere un id');
+    assert.equal(ev.status, 'pending');
+    assert.equal(tl.getEvents().length, 1);
+});
+
+test('TL: assegna sequence auto-incrementale per tie-breaking', () => {
+    const tl = makeManager();
+    const a = tl.addEvent(makeEvent({ timestamp: 500 }));
+    const b = tl.addEvent(makeEvent({ timestamp: 500 }));
+    assert.notEqual(a.sequence, b.sequence, 'sequence deve essere diversa per stesso timestamp');
+});
+
+// --- Ordinamento cronologico ---
+test('TL: mantiene gli eventi in ordine cronologico per timestamp', () => {
+    const tl = makeManager();
+    tl.addEvent(makeEvent({ timestamp: 3000, title: 'Terzo' }));
+    tl.addEvent(makeEvent({ timestamp: 1000, title: 'Primo' }));
+    tl.addEvent(makeEvent({ timestamp: 2000, title: 'Secondo' }));
+    const events = tl.getEvents();
+    assert.equal(events[0].title, 'Primo');
+    assert.equal(events[1].title, 'Secondo');
+    assert.equal(events[2].title, 'Terzo');
+});
+
+test('TL: ordina deterministicamente per timestamp + sequence (tie-breaker stabile)', () => {
+    const tl = makeManager();
+    // Inseriamo prima l\'evento con timestamp più alto per verificare il sort
+    const a = tl.addEvent(makeEvent({ timestamp: 1000, title: 'A' }));
+    const b = tl.addEvent(makeEvent({ timestamp: 1000, title: 'B' }));
+    const events = tl.getEvents();
+    // A ha sequence minore perché inserito prima
+    assert.equal(events[0].title, 'A');
+    assert.equal(events[1].title, 'B');
+});
+
+// --- Gestione duplicati ---
+test('TL: rifiuta evento con id duplicato', () => {
+    const tl = makeManager();
+    tl.addEvent(makeEvent({ id: 'evt-001' }));
+    assert.throws(
+        () => tl.addEvent(makeEvent({ id: 'evt-001', title: 'Duplicato' })),
+        /duplicato/i
+    );
+    assert.equal(tl.getEvents().length, 1);
+});
+
+// --- Processamento ---
+test('TL: processNext processa il primo evento pendente in ordine cronologico', () => {
+    const tl = makeManager();
+    tl.addEvent(makeEvent({ timestamp: 3000, title: 'Tardo' }));
+    tl.addEvent(makeEvent({ timestamp: 1000, title: 'Presto' }));
+    const processed = tl.processNext();
+    assert.equal(processed.title, 'Presto');
+    assert.equal(processed.status, 'processed');
+    assert.ok(processed.processedAt);
+    assert.equal(tl.getPendingEvents().length, 1);
+});
+
+test('TL: processNext ritorna null se non ci sono eventi pendenti', () => {
+    const tl = makeManager();
+    assert.equal(tl.processNext(), null);
+});
+
+test('TL: processAll processa tutti gli eventi pendenti in ordine', () => {
+    const tl = makeManager();
+    tl.addEvent(makeEvent({ timestamp: 3000, title: 'C' }));
+    tl.addEvent(makeEvent({ timestamp: 1000, title: 'A' }));
+    tl.addEvent(makeEvent({ timestamp: 2000, title: 'B' }));
+    const processed = tl.processAll();
+    assert.equal(processed.length, 3);
+    assert.equal(processed[0].title, 'A');
+    assert.equal(processed[1].title, 'B');
+    assert.equal(processed[2].title, 'C');
+    assert.equal(tl.getPendingEvents().length, 0);
+});
+
+// --- Anti-paradosso temporale ---
+test('TL: rifiuta evento con timestamp precedente all\'ultimo processato (paradosso)', () => {
+    const tl = makeManager();
+    tl.addEvent(makeEvent({ timestamp: 2000 }));
+    tl.processAll();
+    assert.throws(
+        () => tl.addEvent(makeEvent({ timestamp: 1000, title: 'Nel passato' })),
+        timelineEngineApi.TemporalParadoxError
+    );
+});
+
+test('TL: removeEvent su evento processato solleva TemporalParadoxError', () => {
+    const tl = makeManager();
+    const ev = tl.addEvent(makeEvent({ timestamp: 1000 }));
+    tl.processAll();
+    assert.throws(
+        () => tl.removeEvent(ev.id),
+        timelineEngineApi.TemporalParadoxError
+    );
+});
+
+test('TL: removeEvent su evento pending lo rimuove correttamente', () => {
+    const tl = makeManager();
+    const ev = tl.addEvent(makeEvent({ timestamp: 1000 }));
+    assert.equal(tl.removeEvent(ev.id), true);
+    assert.equal(tl.getEvents().length, 0);
+});
+
+test('TL: removeEvent su id inesistente solleva TimelineError', () => {
+    const tl = makeManager();
+    assert.throws(
+        () => tl.removeEvent('non-esiste'),
+        timelineEngineApi.TimelineError
+    );
+});
+
+test('TL: advanceTo non permette di retrocedere il tick (paradosso)', () => {
+    const tl = makeManager();
+    tl.advanceTo(5000);
+    assert.throws(
+        () => tl.advanceTo(1000),
+        timelineEngineApi.TemporalParadoxError
+    );
+});
+
+// --- Validazione input ---
+test('TL: addEvent rifiuta tipo di evento non valido', () => {
+    const tl = makeManager();
+    assert.throws(
+        () => tl.addEvent(makeEvent({ type: 'inexistent_type' })),
+        timelineEngineApi.ValidationError
+    );
+});
+
+test('TL: addEvent rifiatta actorId vuoto', () => {
+    const tl = makeManager();
+    assert.throws(
+        () => tl.addEvent(makeEvent({ actorId: '' })),
+        timelineEngineApi.ValidationError
+    );
+});
+
+test('TL: addEvent rifiuta timestamp non intero', () => {
+    const tl = makeManager();
+    assert.throws(
+        () => tl.addEvent(makeEvent({ timestamp: 'abc' })),
+        timelineEngineApi.ValidationError
+    );
+});
+
+test('TL: addEvent rifiuta timestamp negativo', () => {
+    const tl = makeManager();
+    assert.throws(
+        () => tl.addEvent(makeEvent({ timestamp: -1 })),
+        timelineEngineApi.ValidationError
+    );
+});
+
+test('TL: addEvent rifiuta payload non oggetto', () => {
+    const tl = makeManager();
+    assert.throws(
+        () => tl.addEvent(makeEvent({ payload: [1, 2] })),
+        timelineEngineApi.ValidationError
+    );
+});
+
+test('TL: addEvent rifiuta importanza non valida', () => {
+    const tl = makeManager();
+    assert.throws(
+        () => tl.addEvent(makeEvent({ importance: 'super-high' })),
+        timelineEngineApi.ValidationError
+    );
+});
+
+test('TL: addEvent con null rifiuta', () => {
+    const tl = makeManager();
+    assert.throws(
+        () => tl.addEvent(null),
+        timelineEngineApi.ValidationError
+    );
+});
+
+// --- Azioni ---
+test('TL: addAction aggiunge un\'azione valida', () => {
+    const tl = makeManager();
+    const action = tl.addAction(makeAction());
+    assert.ok(action.id);
+    assert.equal(action.status, 'pending');
+    assert.equal(tl.getActions().length, 1);
+});
+
+test('TL: addAction rifiuta tipo non valido', () => {
+    const tl = makeManager();
+    assert.throws(
+        () => tl.addAction(makeAction({ type: 'non_existent' })),
+        timelineEngineApi.ValidationError
+    );
+});
+
+test('TL: addAction rifiuta id duplicato', () => {
+    const tl = makeManager();
+    tl.addAction(makeAction({ id: 'act-001' }));
+    assert.throws(
+        () => tl.addAction(makeAction({ id: 'act-001' })),
+        /duplicat[oa]/i
+    );
+});
+
+test('TL: processNextAction processa la prima azione pendente', () => {
+    const tl = makeManager();
+    tl.addAction(makeAction({ timestamp: 2000, title: 'Piu tardi' }));
+    tl.addAction(makeAction({ timestamp: 1000, title: 'Prima' }));
+    const processed = tl.processNextAction();
+    assert.equal(processed.title, 'Prima');
+    assert.equal(processed.status, 'processed');
+});
+
+test('TL: processAllActions processa tutte le azioni in ordine', () => {
+    const tl = makeManager();
+    tl.addAction(makeAction({ timestamp: 2000, title: 'B' }));
+    tl.addAction(makeAction({ timestamp: 1000, title: 'A' }));
+    const processed = tl.processAllActions();
+    assert.equal(processed.length, 2);
+    assert.equal(processed[0].title, 'A');
+    assert.equal(processed[1].title, 'B');
+});
+
+// --- Propagazione effetti (EventBus / Observer) ---
+test('TL: EventBus propaga eventi ai subscriber registrati', () => {
+    const bus = new timelineEngineApi.EventBus();
+    const calls = [];
+    bus.on('event:processed', (payload) => calls.push(payload.id));
+    bus.emit('event:processed', { id: 'evt-1' });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0], 'evt-1');
+});
+
+test('TL: EventBus multiple subscriber ricevono in ordine di registrazione', () => {
+    const bus = new timelineEngineApi.EventBus();
+    const order = [];
+    bus.on('test', () => order.push('first'));
+    bus.on('test', () => order.push('second'));
+    bus.on('test', () => order.push('third'));
+    bus.emit('test', {});
+    assert.deepEqual(order, ['first', 'second', 'third']);
+});
+
+test('TL: EventBus off rimuove il subscriber', () => {
+    const bus = new timelineEngineApi.EventBus();
+    let calls = 0;
+    const cb = () => calls++;
+    bus.on('topic', cb);
+    bus.emit('topic', {});
+    assert.equal(calls, 1);
+    bus.off('topic', cb);
+    bus.emit('topic', {});
+    assert.equal(calls, 1);
+});
+
+test('TL: EventBus emit su topic senza subscriber ritorna 0', () => {
+    const bus = new timelineEngineApi.EventBus();
+    assert.equal(bus.emit('nobody', {}), 0);
+});
+
+test('TL: EventBus un subscriber in errore non blocca gli altri', () => {
+    const bus = new timelineEngineApi.EventBus();
+    const received = [];
+    bus.on('topic', () => { throw new Error('boom'); });
+    bus.on('topic', () => received.push('ok'));
+    bus.emit('topic', {});
+    assert.equal(received.length, 1);
+});
+
+test('TL: processNext emette event:processed sull\'EventBus', () => {
+    const tl = makeManager();
+    let received = null;
+    tl.bus.on('event:processed', (payload) => { received = payload; });
+    tl.addEvent(makeEvent({ timestamp: 1000, title: 'Test emit' }));
+    tl.processNext();
+    assert.ok(received);
+    assert.equal(received.title, 'Test emit');
+});
+
+test('TL: addEvent emette event:added sull\'EventBus', () => {
+    const tl = makeManager();
+    let received = null;
+    tl.bus.on('event:added', (payload) => { received = payload; });
+    tl.addEvent(makeEvent({ title: 'Added test' }));
+    assert.ok(received);
+    assert.equal(received.title, 'Added test');
+});
+
+// --- Applicazione effetti sul worldState ---
+test('TL: processamento evento applica stateChanges al worldState', () => {
+    const tl = makeManager();
+    tl.setWorldState({ tensione: 50, pace: 100 });
+    tl.addEvent(makeEvent({
+        timestamp: 1000,
+        payload: { stateChanges: { tensione: +20, pace: -10 } }
+    }));
+    tl.processNext();
+    const state = tl.getWorldState();
+    assert.equal(state.tensione, 70);
+    assert.equal(state.pace, 90);
+});
+
+test('TL: conseguenza di azione applica stateChanges al worldState', () => {
+    const tl = makeManager();
+    tl.setWorldState({ potere_militare: 100 });
+    tl.addAction(makeAction({
+        timestamp: 1000,
+        consequences: [{
+            type: 'status_change',
+            targetId: 'legione',
+            changes: { stateChanges: { potere_militare: +50 } },
+            delayMs: 0
+        }]
+    }));
+    tl.processNextAction();
+    const state = tl.getWorldState();
+    assert.equal(state.potere_militare, 150);
+});
+
+test('TL: conseguenza event_trigger genera evento figlio nella timeline', () => {
+    const tl = makeManager();
+    tl.addAction(makeAction({
+        timestamp: 1000,
+        title: 'Dichiara guerra',
+        consequences: [{
+            type: 'event_trigger',
+            targetId: 'regno',
+            changes: {
+                eventType: 'conflitto',
+                eventTitle: 'Guerra dichiarata',
+                eventDescription: 'La Legione marcia',
+                importance: 'critical'
+            },
+            delayMs: 500
+        }]
+    }));
+    tl.processNextAction();
+    const events = tl.getEvents();
+    assert.equal(events.length, 1);
+    assert.equal(events[0].title, 'Guerra dichiarata');
+    assert.equal(events[0].parentId, tl.getActions()[0].id);
+    assert.equal(events[0].importance, 'critical');
+});
+
+test('TL: conseguenza emette consequence:applied sull\'EventBus', () => {
+    const tl = makeManager();
+    let received = null;
+    tl.bus.on('consequence:applied', (payload) => { received = payload; });
+    tl.addAction(makeAction({
+        timestamp: 1000,
+        consequences: [{
+            type: 'status_change',
+            targetId: 'consiglio',
+            changes: { stateChanges: {} }
+        }]
+    }));
+    tl.processNextAction();
+    assert.ok(received);
+    assert.equal(received.targetId, 'consiglio');
+});
+
+// --- Serializzazione ---
+test('TL: serialize/deserialize preserva eventi e stato', () => {
+    const tl = makeManager();
+    tl.setWorldState({ pace: 80 });
+    tl.addEvent(makeEvent({ timestamp: 1000, title: 'A' }));
+    tl.addEvent(makeEvent({ timestamp: 2000, title: 'B' }));
+    tl.processAll();
+
+    const data = tl.serialize();
+    const tl2 = makeManager();
+    tl2.deserialize(data);
+
+    assert.equal(tl2.getEvents().length, 2);
+    assert.equal(tl2.getEvents()[0].title, 'A');
+    assert.equal(tl2.getWorldState().pace, 80);
+});
+
+// --- Logger ---
+test('TL: Logger registra errori e warning', () => {
+    const logger = new timelineEngineApi.TimelineLogger();
+    logger.error('test error', { code: 1 });
+    logger.warn('test warn');
+    const entries = logger.getEntries();
+    assert.ok(entries.length >= 2);
+    assert.equal(entries[entries.length - 1].level, 'warn');
+});
+
+test('TL: Logger info non va su console error', () => {
+    const logger = new timelineEngineApi.TimelineLogger();
+    logger.info('just info');
+    const entries = logger.getEntries();
+    assert.equal(entries[0].level, 'info');
+});
+
+// --- Limite eventi ---
+test('TL: rispetta il limite massimo di eventi rimuovendo i più vecchi', () => {
+    const tl = makeManager({ maxEvents: 3 });
+    tl.addEvent(makeEvent({ timestamp: 1000, title: 'A' }));
+    tl.addEvent(makeEvent({ timestamp: 2000, title: 'B' }));
+    tl.addEvent(makeEvent({ timestamp: 3000, title: 'C' }));
+    tl.addEvent(makeEvent({ timestamp: 4000, title: 'D' }));
+    // maxEvents = 3, dovrebbe avere 3 eventi (rimosso il più vecchio pending)
+    const events = tl.getEvents();
+    assert.equal(events.length, 3);
+    // Il primo (timestamp 1000) dovrebbe essere stato rimosso
+    assert.equal(events[0].title, 'B');
+});
+
+// --- Reset ---
+test('TL: reset svuota timeline, azioni e stato', () => {
+    const tl = makeManager();
+    tl.setWorldState({ x: 1 });
+    tl.addEvent(makeEvent({ timestamp: 1000 }));
+    tl.addAction(makeAction({ timestamp: 1000 }));
+    tl.reset();
+    assert.equal(tl.getEvents().length, 0);
+    assert.equal(tl.getActions().length, 0);
+    assert.deepEqual(tl.getWorldState(), {});
+});
+
+// --- getCurrentTick ---
+test('TL: getCurrentTick avanza dopo il processamento', () => {
+    const tl = makeManager();
+    tl.addEvent(makeEvent({ timestamp: 5000 }));
+    tl.processNext();
+    assert.equal(tl.getCurrentTick(), 5000);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Test: Timeline Bridge — integrazione con moduli esistenti
+// ═══════════════════════════════════════════════════════════════════
+
+function makeCoordinator(opts) {
+    return new timelineBridgeApi.TimelineCoordinator({
+        eventManager: eventApi,
+        timelineSimulator: timelineSimulatorApi,
+        strategicAdvisor: strategicAdvisorApi,
+        gameDirector: directorApi
+    }, opts || { maxEvents: 50 });
+}
+
+// --- Adapter: fromEventManagerEvent ---
+test('BR: fromEventManagerEvent converte un evento dell\'event-manager', () => {
+    const emEvent = eventApi.normalizeEvent({
+        type: 'conflitto',
+        title: 'Battaglia di Khepra',
+        summary: 'La Legione attacca la capitale',
+        actors: ['Varos Kain'],
+        importance: 'critical',
+        turn: 3,
+        consequence: 'Il Consiglio è in crisi',
+        status: 'resolved'
+    });
+    const tlData = timelineBridgeApi.fromEventManagerEvent(emEvent, { turn: 3 });
+    assert.equal(tlData.type, 'conflitto');
+    assert.equal(tlData.actorId, 'Varos Kain');
+    assert.equal(tlData.importance, 'critical');
+    assert.equal(tlData.status, 'processed');
+    assert.equal(tlData.timestamp, 3000);
+    assert.equal(tlData.payload.consequence, 'Il Consiglio è in crisi');
+});
+
+test('BR: fromEventManagerEvent mappa tipi non riconosciuti su mondo', () => {
+    const tlData = timelineBridgeApi.fromEventManagerEvent({
+        type: 'unknown_type', title: 'T', summary: 'S', actors: ['A'], turn: 0
+    });
+    assert.equal(tlData.type, 'mondo');
+});
+
+// --- Adapter: toEventManagerEvent ---
+test('BR: toEventManagerEvent converte un evento del TimelineManager', () => {
+    const tl = makeManager();
+    const event = tl.addEvent(makeEvent({
+        timestamp: 1000,
+        type: 'decisione',
+        title: 'Decreto del Consiglio',
+        payload: { consequence: 'Nuova legge', actors: ['Elara'], turn: 1 }
+    }));
+    const emData = timelineBridgeApi.toEventManagerEvent(event);
+    assert.equal(emData.type, 'decisione');
+    assert.equal(emData.title, 'Decreto del Consiglio');
+    assert.equal(emData.consequence, 'Nuova legge');
+    assert.deepEqual(emData.actors, ['Elara']);
+});
+
+// --- Adapter: fromStrategicChoice ---
+test('BR: fromStrategicChoice converte una scelta strategica in azione', () => {
+    const choice = strategicAdvisorApi.toTimelineChoices(
+        strategicAdvisorApi.normalizeQueue([{
+            id: 'act-1', source: 'strategic', topic: 'Crisi di frontiera',
+            issueId: 'iss-1', issueTitle: 'Conflitto', category: 'militare',
+            actionTitle: 'Mobilita la Legione', command: 'Invia truppe',
+            actors: ['Varos'], turn: 2
+        }])
+    )[0];
+    const actionData = timelineBridgeApi.fromStrategicChoice(choice, { turn: 2 });
+    assert.equal(actionData.type, 'militare');
+    assert.equal(actionData.title, 'Mobilita la Legione');
+    assert.equal(actionData.actorId, 'Varos');
+    assert.equal(actionData.timestamp, 2000);
+});
+
+test('BR: mapActionType riconosce diplomazia', () => {
+    assert.equal(timelineBridgeApi.mapActionType('negozia trattativa'), 'diplomazia');
+});
+
+test('BR: mapActionType riconosce economia', () => {
+    assert.equal(timelineBridgeApi.mapActionType('investi florini'), 'economia');
+});
+
+test('BR: mapActionType riconosce spionaggio', () => {
+    assert.equal(timelineBridgeApi.mapActionType('infiltrazione segreta'), 'spionaggio');
+});
+
+test('BR: mapActionType fallback su personale', () => {
+    assert.equal(timelineBridgeApi.mapActionType('passeggiata'), 'personale');
+});
+
+// --- Adapter: fromTimelineSeed ---
+test('BR: fromTimelineSeed converte un event seed del simulator', () => {
+    const seed = timelineSimulatorApi.normalizeEventSeed({
+        kind: 'world_initiative',
+        title: 'Pressione della Legione',
+        cause: 'Varos avanza verso la capitale',
+        actors: ['Varos Kain'],
+        notBeforeMinutes: 120,
+        causalLane: 'world',
+        createdAtTurn: 3
+    });
+    const tlData = timelineBridgeApi.fromTimelineSeed(seed, { turn: 3 });
+    assert.equal(tlData.type, 'mondo');
+    assert.equal(tlData.status, 'pending');
+    assert.equal(tlData.title, 'Pressione della Legione');
+    assert.ok(tlData.timestamp > 3000, 'timestamp deve includere il delay');
+});
+
+// --- Adapter: fromWorldMove ---
+test('BR: fromWorldMove converte una mossa del game-director', () => {
+    const move = { actor: 'Consiglio di Daran', title: 'Decreta blocco',
+        summary: 'Il Consiglio chiude le frontiere', urgency: 75, turn: 4 };
+    const tlData = timelineBridgeApi.fromWorldMove(move, { turn: 4 });
+    assert.equal(tlData.type, 'mondo');
+    assert.equal(tlData.actorId, 'Consiglio di Daran');
+    assert.equal(tlData.importance, 'high');
+    assert.equal(tlData.timestamp, 4000);
+});
+
+// --- Adapter: fromPressure ---
+test('BR: fromPressure converte una pressione in conseguenza', () => {
+    const pressure = { actor: 'Legione', subject: 'frontiera', level: 80 };
+    const conseq = timelineBridgeApi.fromPressure(pressure);
+    assert.equal(conseq.type, 'status_change');
+    assert.equal(conseq.targetId, 'Legione');
+    assert.ok(conseq.changes.stateChanges.pressure_Legione !== undefined);
+});
+
+// --- TimelineCoordinator: integrazione completa ---
+test('BR: Coordinator crea con tutti i moduli collegati', () => {
+    const coord = makeCoordinator();
+    assert.ok(coord.manager);
+    assert.ok(coord.bus);
+    assert.equal(coord.turn, 0);
+    assert.equal(typeof coord.runStrategicAnalysis, 'function');
+    assert.equal(typeof coord.createEventSeeds, 'function');
+    assert.equal(typeof coord.recordNarrativeResponse, 'function');
+});
+
+test('BR: Coordinator initFromWorld imposta stato e importa eventi', () => {
+    const coord = makeCoordinator();
+    const world = worldBootstrapApi.migrateWorld({
+        name: 'Astaria', setting: 'Khepra', initialized: true,
+        centralConflict: 'Crisi di successione',
+        actors: [{ name: 'Elara', status: 'active', source: 'test' }],
+        factions: [], locations: [], relations: [], forces: []
+    });
+    coord.initFromWorld(world, { events: [] });
+    const state = coord.getWorldState();
+    assert.equal(state.centralConflict, 'Crisi di successione');
+});
+
+test('BR: Coordinator addAction registra azione nel TimelineManager', () => {
+    const coord = makeCoordinator();
+    coord.manager.addAction(timelineBridgeApi.fromStrategicChoice({
+        id: 'act-test', category: 'militare', command: 'Marcia',
+        topic: 'Guerra', actors: ['Varos'], turn: 1,
+        actionTitle: 'Avanza legione'
+    }, { turn: 1 }));
+    assert.equal(coord.manager.getActions().length, 1);
+});
+
+test('BR: Coordinator processSelectedActions processa le azioni selezionate', () => {
+    const coord = makeCoordinator();
+    const action = coord.manager.addAction(timelineBridgeApi.fromStrategicChoice({
+        id: 'act-sel', category: 'diplomazia', command: 'Negozi pace',
+        topic: 'Pace', actors: ['Elara'], turn: 1,
+        actionTitle: 'Trattativa di pace'
+    }, { turn: 1 }));
+    const processed = coord.processSelectedActions([action.id]);
+    assert.equal(processed.length, 1);
+    assert.equal(processed[0].status, 'processed');
+});
+
+test('BR: Coordinator processSelectedActions cancella le non selezionate', () => {
+    const coord = makeCoordinator();
+    const a1 = coord.manager.addAction(timelineBridgeApi.fromStrategicChoice({
+        id: 'act-a', category: 'militare', command: 'Attacca',
+        topic: 'G', actors: ['X'], turn: 1, actionTitle: 'A'
+    }, { turn: 1 }));
+    const a2 = coord.manager.addAction(timelineBridgeApi.fromStrategicChoice({
+        id: 'act-b', category: 'diplomazia', command: 'Negozi',
+        topic: 'P', actors: ['Y'], turn: 1, actionTitle: 'B'
+    }, { turn: 1 }));
+    coord.processSelectedActions([a1.id]);
+    assert.equal(coord.manager.getAction(a1.id).status, 'processed');
+    assert.equal(coord.manager.getAction(a2.id).status, 'cancelled');
+});
+
+test('BR: Coordinator createEventSeeds genera eventi pending nel TimelineManager', () => {
+    const coord = makeCoordinator();
+    const world = worldBootstrapApi.migrateWorld({
+        name: 'Astaria', setting: 'Khepra', initialized: true,
+        centralConflict: 'Guerra civile',
+        actors: [
+            { name: 'Elara Vey', goal: 'pace', strategy: 'diplomazia',
+              resources: 'rete', influence: 70, location: 'Khepra',
+              status: 'active', source: 'test' },
+            { name: 'Varos Kain', goal: 'potere', strategy: 'forza',
+              resources: 'soldati', influence: 90, location: 'Frontiera',
+              status: 'active', source: 'test' }
+        ],
+        factions: [], locations: [
+            { name: 'Khepra', description: 'Capitale', source: 'test' },
+            { name: 'Frontiera', description: 'Confine', source: 'test' }
+        ], relations: [], forces: [
+            { name: 'Crisi di successione', actor: 'Elara Vey',
+              objective: 'pace', progress: 20, urgency: 80,
+              status: 'active', source: 'test' }
+        ]
+    });
+    coord.initFromWorld(world, { events: [] });
+    const choices = strategicAdvisorApi.toTimelineChoices(
+        strategicAdvisorApi.normalizeQueue([{
+            id: 'c1', source: 'strategic', topic: 'Crisi',
+            issueId: 'i1', issueTitle: 'Guerra', category: 'diplomazia',
+            actionTitle: 'Negozi', command: 'Convoca il consiglio',
+            actors: ['Elara Vey'], turn: 0
+        }])
+    );
+    const seeds = coord.createEventSeeds(choices, world, { turn: 0 });
+    assert.ok(seeds.length > 0, 'deve generare almeno un seed');
+    assert.equal(coord.manager.getPendingEvents().length, seeds.length);
+});
+
+test('BR: Coordinator recordNarrativeResponse parsare eventi e mosse mondo', () => {
+    const coord = makeCoordinator();
+    const world = worldBootstrapApi.migrateWorld({
+        name: 'Astaria', setting: 'Khepra', initialized: true,
+        centralConflict: 'Guerra',
+        actors: [{ name: 'Elara', status: 'active', source: 'test' }],
+        factions: [], locations: [], relations: [], forces: []
+    });
+    coord.initFromWorld(world, { events: [] });
+    const response = '[EVENTO: conflitto|Battaglia|La Legione attacca|Khepra|Varos,Elara|Il Consiglio cade|critical|resolved|giorno 1|Crisi di successione|Guerra civile|Pace o guerra|nessuna|none|none]';
+    const result = coord.recordNarrativeResponse(response, { turn: 0, location: 'Khepra' });
+    assert.ok(result.events.length >= 1, 'deve parsare almeno 1 evento');
+    assert.ok(coord.manager.getEvents().length >= 1);
+});
+
+test('BR: Coordinator exportEventsForMemory produce formato event-manager', () => {
+    const coord = makeCoordinator();
+    coord.manager.addEvent(makeEvent({
+        timestamp: 1000, type: 'decisione', title: 'Test',
+        payload: { actors: ['A'], turn: 1 }
+    }));
+    const events = coord.exportEventsForMemory();
+    assert.ok(events.length >= 1);
+    assert.equal(events[0].title, 'Test');
+    assert.equal(events[0].type, 'decisione');
+});
+
+test('BR: Coordinator syncToMemory scrive timelineEngineState in memoria', () => {
+    const coord = makeCoordinator();
+    coord.manager.addEvent(makeEvent({ timestamp: 1000 }));
+    const memory = { events: [] };
+    coord.syncToMemory(memory);
+    assert.ok(memory.timelineEngineState);
+    assert.equal(memory.lastTimelineEngineTurn, 0);
+});
+
+test('BR: Coordinator restoreFromMemory ripristina lo stato', () => {
+    const coord = makeCoordinator();
+    coord.manager.addEvent(makeEvent({ timestamp: 1000, title: 'Original' }));
+    coord.turn = 3;
+    const memory = {};
+    coord.syncToMemory(memory);
+
+    const coord2 = makeCoordinator();
+    coord2.restoreFromMemory(memory);
+    assert.equal(coord2.turn, 3);
+    assert.ok(coord2.manager.getEvents().length >= 1);
+});
+
+test('BR: Coordinator advanceTurn incrementa il turno e il tick', () => {
+    const coord = makeCoordinator();
+    coord.turn = 0;
+    coord.manager.advanceTo(0);
+    const state = coord.advanceTurn();
+    assert.equal(state.turn, 1);
+    assert.equal(state.tick, 1000);
+});
+
+test('BR: Coordinator reset svuota tutto', () => {
+    const coord = makeCoordinator();
+    coord.manager.addEvent(makeEvent({ timestamp: 1000 }));
+    coord.turn = 5;
+    coord.reset();
+    assert.equal(coord.manager.getEvents().length, 0);
+    assert.equal(coord.turn, 0);
+});
+
+test('BR: Coordinator EventBus propaga coordinator:strategic-analysis', () => {
+    const coord = makeCoordinator();
+    let received = null;
+    coord.bus.on('coordinator:strategic-analysis', (payload) => { received = payload; });
+    coord.runStrategicAnalysis({ events: [] }, { world: {} });
+    assert.ok(received);
+    assert.ok('analysis' in received);
+});
+
+test('BR: Coordinator EventBus propaga coordinator:turn-advanced', () => {
+    const coord = makeCoordinator();
+    let received = null;
+    coord.bus.on('coordinator:turn-advanced', (payload) => { received = payload; });
+    coord.advanceTurn();
+    assert.ok(received);
+    assert.equal(received.turn, 1);
+});
+
+test('BR: round-trip evento da EM → TL → EM preserva i dati', () => {
+    const original = eventApi.normalizeEvent({
+        type: 'relazione', title: 'Alleanza', summary: 'Elara e Mira si alleano',
+        actors: ['Elara', 'Mira'], importance: 'high', turn: 2,
+        consequence: 'Patto commerciale', status: 'resolved',
+        location: 'Porto Rosso', cause: 'Necessità di difesa'
+    });
+    const tlData = timelineBridgeApi.fromEventManagerEvent(original, { turn: 2 });
+    const back = timelineBridgeApi.toEventManagerEvent(tlData);
+    assert.equal(back.type, original.type);
+    assert.equal(back.title, original.title);
+    assert.equal(back.summary, original.summary);
+    assert.deepEqual(back.actors, original.actors);
+    assert.equal(back.importance, original.importance);
+    assert.equal(back.consequence, original.consequence);
 });
 
 (async () => {
