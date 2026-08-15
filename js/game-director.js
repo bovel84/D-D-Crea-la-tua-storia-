@@ -175,11 +175,9 @@
     function derivePressure(memory, character, intent) {
         const health = character?.health;
         const stamina = character?.stamina;
-        const hunger = character?.hunger;
         const ratios = [
             health?.max ? 1 - Number(health.cur || 0) / Number(health.max) : 0,
-            stamina?.max ? 1 - Number(stamina.cur || 0) / Number(stamina.max) : 0,
-            hunger?.max ? 1 - Number(hunger.cur || 0) / Number(hunger.max) : 0
+            stamina?.max ? 1 - Number(stamina.cur || 0) / Number(stamina.max) : 0
         ];
         const physical = Math.max(0, ...ratios) * 70;
         const urgentQuests = Array.isArray(memory?.quests)

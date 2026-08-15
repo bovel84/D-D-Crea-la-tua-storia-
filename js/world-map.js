@@ -58,6 +58,50 @@
         return cleanText(value, 700).split(/[,;|]/).map(item => cleanText(item, 120)).filter(Boolean);
     }
 
+    function isGenericMapName(value) {
+        const label = keyOf(value);
+        return !label || /^(?:sconosciuto|unknown|luogo sconosciuto|posizione attuale|base di fazione|obiettivo strategico|proprieta|attivita|risorsa|territorio|area di presenza|mondo conosciuto|autorita|opposizione|fazione avversaria|fazione alleata|alleati|nemici)$/.test(label) ||
+            /(?:_setup\b|\bsetup\b|\bfazione setup\b|\bluogo setup\b)/.test(label);
+    }
+
+    function usefulMapLabel(value) {
+        const label = cleanText(value, 120);
+        if (!label) return '';
+        return /^(?:luogo|location|place|fazione|gruppo|territorio|proprietà|proprieta|attività|attivita|risorsa|base di fazione|obiettivo strategico|posizione attuale|generico|generica|altro)$/i.test(label)
+            ? ''
+            : label;
+    }
+
+    function inferLocationType(source = {}) {
+        const explicit = usefulMapLabel(source.type || source.category || source.territoryType);
+        if (explicit) return explicit;
+        const corpus = keyOf([source.name, source.description, source.notes].filter(Boolean).join(' '));
+        const patterns = [
+            [/granaio|magazzino|deposito|silo/, 'magazzino'],
+            [/mulino/, 'mulino'],
+            [/fattoria|tenuta|podere|vigna/, 'tenuta agricola'],
+            [/mercato|bottega|negozio|banco|emporio/, 'sede commerciale'],
+            [/caserma|guarnigione|accampamento/, 'presidio militare'],
+            [/cripta|tomba|catacomb|cimiter/, 'sito funerario'],
+            [/rovina|dungeon/, 'rovine'],
+            [/tempio|chiesa|abbazia|santuario|monaster/, 'luogo religioso'],
+            [/castell|fort|rocca|cittadella/, 'fortificazione'],
+            [/palazzo/, 'palazzo'],
+            [/foresta|bosco|selva|giungla/, 'area naturale'],
+            [/montagn|picco|passo|collina/, 'rilievo'],
+            [/porto|molo|baia/, 'porto'],
+            [/isola/, 'isola'],
+            [/mare|oceano|lago|fiume|palude/, 'acque'],
+            [/locanda|taverna|osteria/, 'locanda'],
+            [/villaggio|borgo|frazione|comunita/, 'insediamento'],
+            [/citta|capitale|metropoli|quartiere/, 'centro abitato'],
+            [/fabbrica|officina|miniera|stazione|cava/, 'sito produttivo'],
+            [/deserto|oasi|duna/, 'area naturale'],
+            [/grotta|caverna/, 'cavità naturale']
+        ];
+        return patterns.find(([pattern]) => pattern.test(corpus))?.[1] || '';
+    }
+
     function inferTheme(context = {}) {
         const story = context.story || {};
         const corpus = keyOf([context.genre, context.setting, story.genre, story.setting, story.title, story.desc].filter(Boolean).join(' '));
@@ -119,12 +163,12 @@
         sources.forEach((source, index) => {
             const name = cleanText(source?.name || source?.realm, 120);
             const key = keyOf(name);
-            if (!key) return;
+            if (!key || isGenericMapName(name)) return;
             const hostility = factionHostility(source);
             const faction = {
                 id: cleanText(source?.id, 140) || `map-faction-${hashNumber(name).toString(36)}`,
                 name,
-                type: cleanText(source?.type || source?.category || 'fazione', 80),
+                type: usefulMapLabel(source?.type || source?.category),
                 leader: cleanText(source?.leader, 120),
                 description: cleanText(source?.description, 360),
                 objective: cleanText(source?.goal || source?.objective, 260),
@@ -196,25 +240,33 @@
         (Array.isArray(memory?.properties) ? memory.properties : []).forEach(property => sources.push({
             ...property, type: property.type || property.category || 'proprietà',
             region: property.location || property.territory || property.region || context.currentLocation,
-            description: property.description || property.notes || 'Bene posseduto dal protagonista.',
+            description: property.description || property.notes || '',
             controller: context.protagonistName || 'Protagonista', connections: property.connections || property.location || property.territory,
             kind: 'property', owned: true
         }));
         (Array.isArray(memory?.management?.businesses) ? memory.management.businesses : []).forEach(business => sources.push({
             ...business, type: business.type || business.category || 'attività',
             region: business.location || business.territory || context.currentLocation,
-            description: business.description || `Attività del protagonista; reputazione ${Math.round(Number(business.reputation || 0))}/100.`,
+            description: business.description || (Number.isFinite(Number(business.reputation)) ? `Reputazione ${Math.round(Number(business.reputation))}/100.` : ''),
             controller: context.protagonistName || 'Protagonista', connections: business.location || business.territory,
             kind: 'business', owned: true
         }));
-        (Array.isArray(kingdom?.resources) ? kingdom.resources : []).forEach(resource => sources.push({
-            name: resource.name, type: resource.category || 'risorsa', region: resource.territoryName || kingdom.name,
-            description: `Produzione ${resource.production || 0}; scorte ${resource.stock || 0}.`,
-            resource: resource.name, connections: resource.territoryName, kind: 'resource'
-        }));
+        (Array.isArray(kingdom?.resources) ? kingdom.resources : []).forEach(resource => {
+            const physicalSite = /cava|miniera|pozzo|bosco|foresta|porto|salina|officina|fonderia|piantagione|vigna|mulino/i.test(
+                `${resource?.name || ''} ${resource?.category || ''}`
+            );
+            if (!physicalSite && !resource?.location) return;
+            sources.push({
+                name: resource.location || resource.name,
+                type: resource.category,
+                region: resource.territoryName || kingdom.name,
+                description: `Produzione ${resource.production || 0}; scorte ${resource.stock || 0}.`,
+                resource: resource.name, connections: resource.territoryName, kind: 'resource'
+            });
+        });
         factions.forEach(faction => {
             if (faction.location) sources.push({
-                name: faction.location, type: 'base di fazione', controller: faction.name,
+                name: faction.location, type: '', controller: faction.name,
                 description: `Area di presenza di ${faction.name}.`, danger: faction.stance === 'hostile' ? `presenza ostile: ${faction.name}` : '',
                 kind: 'faction-base'
             });
@@ -223,7 +275,7 @@
             if (!objective.location) return;
             sources.push({
                 name: objective.location,
-                type: 'obiettivo strategico',
+                type: '',
                 description: objective.summary || `Luogo collegato all'obiettivo: ${objective.title}.`,
                 objective: objective.title,
                 kind: 'objective'
@@ -237,17 +289,17 @@
         const byName = new Map();
         const sources = locationSources(world, memory, context, factions, objectives);
         const current = cleanText(context.currentLocation || context.location, 120);
-        if (current && !/sconosciut|unknown/i.test(current)) sources.push({ name: current, type: 'posizione attuale', description: 'Posizione confermata del protagonista.' });
+        if (current && !/sconosciut|unknown/i.test(current)) sources.push({ name: current, type: '', description: '' });
         sources.forEach((source, index) => {
             const name = cleanText(source?.name, 120);
             const key = keyOf(name);
-            if (!key) return;
+            if (!key || isGenericMapName(name)) return;
             const next = {
                 id: cleanText(source?.id, 140) || `map-location-${hashNumber(name).toString(36)}`,
                 name,
-                type: cleanText(source?.type || 'luogo', 80),
+                type: inferLocationType(source),
                 region: cleanText(source?.region || context.setting || context.story?.setting, 120),
-                description: cleanText(source?.description || source?.notes, 420),
+                description: cleanText(source?.description || source?.notes, 420).replace(/^(?:luogo|area|territorio|sito) (?:generico|generica)\.?$/i, ''),
                 controller: cleanText(source?.controller, 120),
                 resource: cleanText(source?.resource, 160),
                 danger: cleanText(source?.danger, 180),
@@ -428,6 +480,9 @@
         THEMES,
         cleanText,
         keyOf,
+        isGenericMapName,
+        usefulMapLabel,
+        inferLocationType,
         inferTheme,
         locationIcon,
         findCurrentLocation,

@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
     'use strict';
 
-    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 7;
+    const TIMELINE_SIMULATOR_SCHEMA_VERSION = 8;
     const EVENT_QUEUE_LIMIT = 40;
     const MIN_EVENT_DELAY_MINUTES = 5;
     const MAX_EVENT_DELAY_MINUTES = 5256000;
@@ -208,7 +208,7 @@
         return {
             id,
             kind,
-            title: cleanText(input.title || choice?.actionTitle || choice?.topic || 'Sviluppo in attesa', 160),
+            title: cleanText(input.title || choice?.actionTitle || choice?.topic || 'Azione da elaborare', 160),
             topic: cleanText(input.topic || choice?.topic, 140),
             cause,
             actors,
@@ -235,6 +235,9 @@
         const seen = new Set();
         return asArray(queue).map((item, index) => normalizeEventSeed(item, index, context)).filter(item => {
             if (!item || isPlaceholderSeed(item)) return false;
+            if (['action_reply', 'world_reply'].includes(item.kind) ||
+                Number(item.depth || 0) > 0 || item.parentSeedId ||
+                /timeline-ai-queue|causal-world-reply|strategic-follow-up|event-continuity/.test(item.source || '')) return false;
             const fingerprint = keyOf(`${item.sourceId}|${item.kind}|${item.cause}`);
             if (seen.has(item.id) || seen.has(fingerprint)) return false;
             seen.add(item.id);
@@ -397,7 +400,7 @@
             ? `Non superare ${Math.round(Number(context.maxAdvanceMinutes))} minuti prima dell'evento.`
             : 'Il tempo può essere di minuti, ore, giorni, mesi o anni: scegli il primo momento causalmente realistico, senza usare intervalli predefiniti.';
         const strategicInstruction = choice?.isStrategic
-            ? `Questa è l'unica azione strategica da risolvere ora. Emetti esattamente un ESITO_STRATEGICO con ID ${choice.id}. Se richiede altri passaggi usa in_corso e pianifica il seguito con CODA_EVENTO.`
+            ? `Questa è l'unica azione strategica da risolvere ora. Emetti esattamente un ESITO_STRATEGICO con ID ${choice.id}. Se richiede altri passaggi usa in_corso, ma non creare un altro evento: il seguito partirà soltanto da una nuova azione del giocatore.`
             : 'Non emettere ESITO_STRATEGICO in questa chiamata.';
         return `SIMULATORE DEL PROSSIMO EVENTO IMPORTANTE. Questa chiamata deve creare UN SOLO evento, non un arco completo e non un riepilogo.
 
@@ -451,22 +454,21 @@ REGOLE OBBLIGATORIE:
 - Se la causa è una scelta del giocatore, mostra il primo risultato osservabile di quella precisa azione. Se è una iniziativa del mondo, mostra una mossa autonoma concreta di un attore esterno.
 - Se l'azione del giocatore consiste nel chiedere, convocare, negoziare o parlare con qualcuno, l'EVENTO apre la scena ma la risposta dell'interlocutore deve essere una CHAT: usa obiettivo conversazione, required e dialogue. Non riassumere al posto suo ciò che dovrebbe dire.
 - Se non è necessario parlare per raggiungere lo scopo, non creare CHAT e usa none oppure action. Le semplici conseguenze politiche o la presenza di due attori non bastano ad aprire una conversazione.
-- Soltanto una chiamata successiva potrà sviluppare altre azioni o un seguito esplicitamente lasciato in CODA_EVENTO.
+- Questo evento chiude la causa consumata. Non emettere CODA_EVENTO e non trasformare la conseguenza in un altro evento automatico.
 - ${strategicInstruction}
 - Il fatto deve contenere 3-5 frasi complete, azione osservabile, strumento usato, risultato verificabile e conseguenza persistente. Un'intenzione non è un risultato.
 - La conseguenza deve contenere 1-2 frasi complete. Chiudi ogni frase e ogni campo prima del separatore |; non interrompere mai un testo a metà.
 - Usa soltanto nomi propri, cariche e istituzioni presenti nel contesto. Vietati segnaposto come Autorità, Opposizione, Mediatore o Comunità.
 - interaction è dialogue se il giocatore deve rispondere parlando, action se deve agire nella scena, either se può scegliere, none se il fatto si risolve senza intervento.
 - Se interaction è dialogue e la conversazione è required, devi emettere esattamente UNA CHAT di apertura pronunciata da un solo interlocutore. Mai parole inventate per il protagonista.
-- Le conseguenze future non vanno narrate ora: lasciale in attesa con massimo 3 CODA_EVENTO compatti. Una CODA_EVENTO descrive solo causa e attori del futuro sviluppo, non il suo esito.
+- Le conseguenze persistenti aggiornano lo stato del mondo, ma un nuovo evento nascerà soltanto da una nuova azione del giocatore o dal successivo comando esplicito «Vai avanti».
 - Per l'attore che agisce emetti al massimo un MONDO. Restituisci soltanto i tag seguenti.
 
 [ATTESA_EVENTO: minuti_interi|motivo del tempo necessario]
 [EVENTO: tipo|titolo|tre-cinque frasi complete su ciò che è realmente accaduto|luogo|attori separati da virgola|una-due frasi complete sulla conseguenza persistente|normal/high/critical|active/developing/resolved|momento relativo|causa precisa|ancoraggio storico|spostamento politico|posta in gioco|obiettivo conversazione|available/required/none|dialogue/action/either/none]
-[ESITO_STRATEGICO: ID esatto|completata/parziale/fallita/in_corso|risultato osservabile del tentativo|conseguenza persistente|reazione concreta del mondo ancora da sviluppare|attori separati da virgola]
+[ESITO_STRATEGICO: ID esatto|completata/parziale/fallita/in_corso|risultato osservabile del tentativo|conseguenza persistente|reazione concreta del mondo registrata in questo ciclo|attori separati da virgola]
 [MONDO: attore|mossa concreta compiuta|stato della mossa|visible/hidden]
-[CHAT: titolo esatto evento|un solo parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]
-[CODA_EVENTO: id o vuoto|player_action/world_reply/action_reply/dialogue_reply/world_initiative|causa già vera da sviluppare|attori separati da virgola|priorità 0-100|minuti minimi|dialogue/action/either/none|id sorgente o vuoto]`;
+[CHAT: titolo esatto evento|un solo parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]`;
     }
 
     function momentFor(index, total, passage = {}) {
@@ -801,28 +803,6 @@ REGOLE OBBLIGATORIE:
                     causalLane: 'world'
                 }, seeds.length, { turn, batchId });
                 if (worldSeed) seeds.push(worldSeed);
-            } else {
-                const previousEvent = [...asArray(context.recentEvents)].reverse().find(isMeaningfulEvent);
-                if (previousEvent && !containsPlaceholder(`${previousEvent.title || ''} ${previousEvent.summary || ''}`)) {
-                    const worldSeed = normalizeEventSeed({
-                        id: `pending-continuity-${hashText(`${batchId}|${previousEvent.id || previousEvent.title}`)}`,
-                        kind: 'world_reply',
-                        title: `Conseguenza di ${previousEvent.title || 'quanto è accaduto'}`,
-                        cause: previousEvent.consequence || previousEvent.summary,
-                        actors: asArray(previousEvent.actors),
-                        priority: previousEvent.importance === 'critical' ? 90 : 70,
-                        notBeforeMinutes: previousEvent.importance === 'critical' ? 60 : 1440,
-                        interactionMode: normalizeInteractionMode(previousEvent.interactionMode, 'either'),
-                        sourceId: previousEvent.id,
-                        source: 'event-continuity',
-                        batchId,
-                        createdAtTurn: turn,
-                        originTurn: turn,
-                        causalLane: 'world',
-                        parentEventId: previousEvent.id
-                    }, seeds.length, { turn, batchId });
-                    if (worldSeed) seeds.push(worldSeed);
-                }
             }
         }
         return normalizeEventQueue(seeds, { turn, batchId });
@@ -845,9 +825,7 @@ REGOLE OBBLIGATORIE:
     function selectNextEventSeed(queue) {
         const normalized = normalizeEventQueue(queue);
         const playerCausalQueue = normalized.filter(seed => seed.causalLane === 'player');
-        const continuingPlayerQueue = playerCausalQueue.filter(seed =>
-            ['action_reply', 'dialogue_reply'].includes(seed.kind) || Number(seed.sequence || 0) > 0
-        );
+        const continuingPlayerQueue = playerCausalQueue.filter(seed => seed.kind === 'dialogue_reply');
         const dueWorldQueue = normalized.filter(seed =>
             seed.causalLane === 'world' && Number(seed.notBeforeMinutes || 0) <= 0
         );
@@ -881,7 +859,13 @@ REGOLE OBBLIGATORIE:
 
     function advanceEventQueue(queue, consumedId, elapsedMinutes) {
         const elapsed = Math.max(0, Number(elapsedMinutes) || 0);
-        return normalizeEventQueue(queue).filter(seed => seed.id !== consumedId).map(seed => ({
+        return normalizeEventQueue(queue).filter(seed =>
+            seed.id !== consumedId &&
+            !['action_reply', 'world_reply'].includes(seed.kind) &&
+            Number(seed.depth || 0) === 0 &&
+            !seed.parentSeedId &&
+            !/timeline-ai-queue|causal-world-reply|strategic-follow-up|event-continuity/.test(seed.source || '')
+        ).map(seed => ({
             ...seed,
             notBeforeMinutes: Math.max(0, Number(seed.notBeforeMinutes || 0) - elapsed)
         })).slice(-EVENT_QUEUE_LIMIT);
@@ -903,26 +887,9 @@ REGOLE OBBLIGATORIE:
     }
 
     function parsePendingEventSeeds(response, context = {}) {
-        const seeds = [];
-        const regex = /\[CODA_EVENTO:\s*([^\]]+)\]/gi;
-        let match;
-        while ((match = regex.exec(String(response || ''))) !== null && seeds.length < 3) {
-            const parts = match[1].split('|').map(item => cleanText(item, 700));
-            const seed = normalizeEventSeed({
-                id: parts[0], kind: parts[1], cause: parts[2], actors: String(parts[3] || '').split(/[,;]/),
-                priority: parts[4], notBeforeMinutes: parts[5], interactionMode: parts[6], sourceId: parts[7],
-                title: parts[2], source: 'timeline-ai-queue', batchId: context.batchId,
-                createdAtTurn: context.turn, depth: Math.min(4, Number(context.parentSeed?.depth || 0) + 1),
-                causalLane: context.parentSeed?.causalLane,
-                causalRootId: context.parentSeed?.causalRootId || context.parentSeed?.id,
-                parentSeedId: context.parentSeed?.id,
-                parentEventId: context.parentEvent?.id || context.parentEventId,
-                originTurn: context.parentSeed?.originTurn ?? context.parentSeed?.createdAtTurn ?? context.turn,
-                sequence: Math.min(20, Number(context.parentSeed?.sequence || 0) + 1)
-            }, seeds.length, context);
-            if (seed) seeds.push(seed);
-        }
-        return normalizeEventQueue(seeds, context);
+        // Le vecchie risposte possono ancora contenere CODA_EVENTO. Vengono
+        // ignorate intenzionalmente: un evento non può generarne un altro.
+        return [];
     }
 
     function createFallbackEvent(context = {}) {
@@ -954,8 +921,8 @@ REGOLE OBBLIGATORIE:
             title: seed?.title || (strategic ? `${choice.topic}: il piano entra in azione` : 'La scelta produce un primo effetto'),
             summary: `Il protagonista ha avviato «${cleanText(choice?.command || seed?.cause, 300)}» usando le risorse realmente disponibili. ${actor.name}, interessato a ${actorGoal(actor)}, ha osservato il tentativo e ne ha condizionato il primo risultato.`,
             consequence: strategic
-                ? `L'azione su «${choice.topic || seed?.topic || 'la questione'}» produce un primo esito verificabile, mentre la risposta di ${actor.name} resta da sviluppare.`
-                : `La scelta del protagonista cambia le opzioni di ${actor.name} e prepara una risposta del mondo.`,
+                ? `L'azione su «${choice.topic || seed?.topic || 'la questione'}» produce un esito verificabile. ${actor.name} registra il nuovo equilibrio e il ciclo si chiude.`
+                : `La scelta del protagonista cambia le opzioni di ${actor.name}; la conseguenza viene registrata senza aprire automaticamente un altro evento.`,
             actors: [actor.name, target?.name].filter(Boolean),
             strategicTopic: choice?.topic,
             strategicActionIds: strategic ? [choice.id] : []
@@ -1002,68 +969,7 @@ REGOLE OBBLIGATORIE:
     }
 
     function buildFollowUpSeeds(event, outcome, context = {}) {
-        const parent = normalizeEventSeed(context.parentSeed, 0, context);
-        if (!parent || parent.depth >= 4) return [];
-        const nextDepth = parent.depth + 1;
-        const batchId = parent.batchId || context.batchId;
-        const turn = Math.max(0, Number(context.turn) || 0);
-        const actors = asArray(event?.actors).filter(Boolean);
-        const seeds = [];
-        if (parent.kind === 'strategic_action' && outcome?.status === 'in_corso') {
-            seeds.push({
-                id: `pending-follow-${hashText(`${parent.id}|${nextDepth}|action`)}`,
-                kind: 'action_reply',
-                title: `Seguito: ${parent.title}`,
-                topic: parent.topic,
-                cause: outcome.consequence || event?.consequence || `L'azione «${parent.title}» richiede un ulteriore passaggio`,
-                actors,
-                priority: Math.max(65, parent.priority - 5),
-                notBeforeMinutes: inferEventDelay({ duration: parent.choice?.duration, kind: 'action_reply' }),
-                interactionMode: parent.interactionMode,
-                sourceId: parent.sourceId,
-                source: 'strategic-follow-up',
-                choice: parent.choice,
-                batchId,
-                depth: nextDepth,
-                createdAtTurn: turn,
-                causalLane: parent.causalLane,
-                causalRootId: parent.causalRootId || parent.id,
-                parentSeedId: parent.id,
-                parentEventId: event?.id,
-                originTurn: parent.originTurn,
-                sequence: Math.min(20, Number(parent.sequence || 0) + 1)
-            });
-        }
-        // L'evento appena generato è già la risposta alla scelta che lo ha causato.
-        // Una seconda reazione automatica viene accodata solo per una vera iniziativa
-        // autonoma del mondo; le azioni del giocatore proseguono con una nuova scelta,
-        // una chat o una CODA_EVENTO esplicita emessa dal modello.
-        const needsWorldReply = parent.kind === 'world_initiative' && Boolean(outcome?.worldResponse || event?.consequence);
-        if (needsWorldReply) {
-            seeds.push({
-                id: `pending-reply-${hashText(`${parent.id}|${nextDepth}|world`)}`,
-                kind: 'world_reply',
-                title: `Reazione a ${parent.title}`,
-                topic: parent.topic,
-                cause: outcome?.worldResponse || `Gli attori coinvolti reagiscono a: ${event.consequence}`,
-                actors: outcome?.actors?.length ? outcome.actors : actors,
-                priority: Math.max(60, parent.priority - 8),
-                notBeforeMinutes: event?.importance === 'critical' ? 60 : 720,
-                interactionMode: 'either',
-                sourceId: parent.sourceId || event?.id,
-                source: 'causal-world-reply',
-                batchId,
-                depth: nextDepth,
-                createdAtTurn: turn,
-                causalLane: parent.causalLane,
-                causalRootId: parent.causalRootId || parent.id,
-                parentSeedId: parent.id,
-                parentEventId: event?.id,
-                originTurn: parent.originTurn,
-                sequence: Math.min(20, Number(parent.sequence || 0) + 1)
-            });
-        }
-        return normalizeEventQueue(seeds, { turn, batchId });
+        return [];
     }
 
     function normalizeOutcomeStatus(value) {
@@ -1149,19 +1055,19 @@ REGOLE OBBLIGATORIE:
                 : asArray(relatedEvent?.actors).filter(name => !/^(protagonista|giocatore|player)$/i.test(keyOf(name)));
             const reactingActor = actors.find(actor => relatedActors.some(name => keyOf(name) === keyOf(actor.name))) ||
                 actors[index % Math.max(1, actors.length)];
-            const status = provided?.status || (relatedEvent?.status === 'resolved' ? 'completata' : 'in_corso');
+            const status = provided?.status || (relatedEvent?.status === 'resolved' ? 'completata' : 'parziale');
             const result = provided?.result || cleanText(
-                relatedEvent?.summary || `L'azione «${choice.actionTitle || choice.command}» è stata avviata, ma il periodo non basta ancora a garantirne il risultato finale.`,
+                relatedEvent?.summary || `L'azione «${choice.actionTitle || choice.command}» produce un primo risultato osservabile nel ciclo corrente.`,
                 620
             );
             const consequence = provided?.consequence || cleanText(
-                relatedEvent?.consequence || `L'iniziativa resta aperta e impegna tempo, risorse e credibilità sul tema «${choice.topic || 'strategia generale'}».`,
+                relatedEvent?.consequence || `Il risultato modifica risorse e credibilità sul tema «${choice.topic || 'strategia generale'}» e resta parte dello stato del mondo.`,
                 520
             );
             const worldResponse = provided?.worldResponse || cleanText(
                 reactingActor
-                    ? `${reactingActor.name} reagisce perseguendo ${actorGoal(reactingActor)} tramite ${actorStrategy(reactingActor)}.`
-                    : 'Gli attori coinvolti ricalcolano interessi e contromosse senza attendere il protagonista.',
+                    ? `${reactingActor.name} prende posizione perseguendo ${actorGoal(reactingActor)} tramite ${actorStrategy(reactingActor)}.`
+                    : 'Gli attori coinvolti ricalcolano interessi e posizioni alla luce del risultato.',
                 520
             );
             return {
@@ -1209,7 +1115,7 @@ REGOLE OBBLIGATORIE:
         return `\n\nEsito del piano strategico:\n${groups.map(group =>
             `${group.topic}:\n${group.outcomes.map(outcome =>
                 `• ${cleanText(outcome.actionTitle, 140)} — ${cleanText(outcome.status, 40)}. ${cleanText(outcome.result, 420)} ` +
-                `Conseguenza: ${cleanText(outcome.consequence, 320)} Sviluppo del mondo in attesa: ${cleanText(outcome.worldResponse, 320)}`
+                `Conseguenza: ${cleanText(outcome.consequence, 320)} Reazione registrata: ${cleanText(outcome.worldResponse, 320)}`
             ).join('\n')}`
         ).join('\n\n')}`;
     }

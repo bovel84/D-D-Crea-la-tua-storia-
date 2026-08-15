@@ -296,7 +296,6 @@
 
         .mini-bar-fill.health { background: linear-gradient(90deg, #c62828, #ef5350); }
         .mini-bar-fill.stamina { background: linear-gradient(90deg, #1565c0, #42a5f5); }
-        .mini-bar-fill.hunger { background: linear-gradient(90deg, #f57c00, #ffb74d); }
 
         /* Info Panels (Finanze, Famiglia, Dipendenti) */
         .topbar-info-panels {
@@ -1536,7 +1535,6 @@
         .stat-bar-fill.health { background: linear-gradient(90deg, #c62828, #ef5350); }
         .stat-bar-fill.mana { background: linear-gradient(90deg, #6a1b9a, #ab47bc); }
         .stat-bar-fill.stamina { background: linear-gradient(90deg, #1565c0, #42a5f5); }
-        .stat-bar-fill.hunger { background: linear-gradient(90deg, #f57c00, #ffb74d); }
         .stat-bar-fill.exp { background: linear-gradient(90deg, #2e7d32, #66bb6a); }
         .stat-bar-fill.reputation { background: linear-gradient(90deg, #fdd835, #f57f17); }
         .stat-bar-fill.morale { background: linear-gradient(90deg, #00897b, #26a69a); }
@@ -2048,44 +2046,6 @@
             padding: 20px;
             background: rgba(0,0,0,0.05);
             border-radius: 10px;
-        }
-
-        /* Wait Modal */
-        .wait-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .wait-btn {
-            padding: 15px;
-            font-family: 'Cinzel', serif;
-            background: white;
-            border: 2px solid var(--ink-light);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .wait-btn:hover {
-            border-color: var(--gold);
-            background: rgba(201, 162, 39, 0.1);
-        }
-
-        .wait-custom {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .wait-custom input {
-            width: 80px;
-            padding: 10px;
-            font-size: 1.2em;
-            text-align: center;
-            border: 2px solid var(--ink-light);
-            border-radius: 8px;
         }
 
         /* Loading */
@@ -2979,9 +2939,6 @@
                     <div class="mini-bar" data-label="EN" data-value="--">
                         <div class="mini-bar-fill stamina" id="mini-stamina" style="width: 100%"></div>
                     </div>
-                    <div class="mini-bar" data-label="🍖" data-value="--">
-                        <div class="mini-bar-fill hunger" id="mini-hunger" style="width: 100%"></div>
-                    </div>
                     <div class="status-effects" id="status-effects"></div>
                 </div>
 
@@ -3103,11 +3060,6 @@
                         <span class="stat-label">⚡ Energia</span>
                         <div class="stat-bar"><div class="stat-bar-fill stamina" id="stat-stamina"></div></div>
                         <span class="stat-value" id="stat-stamina-text">0/0</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">🍖 Sazietà</span>
-                        <div class="stat-bar"><div class="stat-bar-fill hunger" id="stat-hunger"></div></div>
-                        <span class="stat-value" id="stat-hunger-text">0/0</span>
                     </div>
                     <div class="stat-row">
                         <span class="stat-label">⭐ Exp</span>
@@ -3295,9 +3247,8 @@
                 <div class="timeline-loading" id="timeline-loading">
                     <div class="timeline-loading-icon">⌛</div>
                     <strong>Raggiungo il prossimo evento importante…</strong>
-                    <div>Genero un solo evento; gli sviluppi successivi resteranno in attesa.</div>
+                    <div>Genero un solo evento e chiudo la causa corrente.</div>
                 </div>
-                <div class="timeline-routine-summary" id="timeline-routine-summary"></div>
                 <div class="timeline-strategic-results" id="timeline-strategic-results"></div>
                 <div class="timeline-list" id="timeline-events-list"></div>
             </div>
@@ -3467,35 +3418,6 @@
                     <button class="dice-btn" data-sides="20">D20</button>
                 </div>
                 <div class="dice-result" id="dice-result">🎲 Tira un dado!</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Wait Modal -->
-    <div class="modal-overlay" id="modal-wait">
-        <div class="modal">
-            <div class="modal-header">
-                ⏰ Aspetta
-                <button class="modal-close" data-close="modal-wait">✕</button>
-            </div>
-            <div class="modal-body">
-                <p style="margin-bottom: 15px; text-align: center;">
-                    Ora attuale: <strong id="wait-current-time">00:00</strong>
-                </p>
-                <div class="wait-grid">
-                    <button class="wait-btn" data-minutes="30">30 minuti</button>
-                    <button class="wait-btn" data-minutes="60">1 ora</button>
-                    <button class="wait-btn" data-minutes="180">3 ore</button>
-                    <button class="wait-btn" data-minutes="360">6 ore</button>
-                    <button class="wait-btn" data-minutes="720">12 ore</button>
-                    <button class="wait-btn" data-minutes="1440">1 giorno</button>
-                </div>
-                <div class="wait-custom">
-                    <span>Aspetta fino alle:</span>
-                    <input type="number" id="wait-until-hour" min="0" max="23" value="12">
-                    <span>:00</span>
-                    <button class="btn secondary" id="btn-wait-until">Vai</button>
-                </div>
             </div>
         </div>
     </div>
@@ -3791,16 +3713,16 @@
 
     <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
     <script src="js/world-bootstrap.js?v=20260814-portraits-1"></script>
-    <script src="js/world-map.js?v=20260814-map-factions-3"></script>
+    <script src="js/world-map.js?v=20260815-map-clean-4"></script>
     <script src="js/event-manager.js"></script>
     <script src="js/timeline-chat.js?v=20260814-dialogue-7"></script>
-    <script src="js/timeline-simulator.js?v=20260814-causal-8"></script>
+    <script src="js/timeline-simulator.js?v=20260815-pax-cycle-9"></script>
     <script src="js/strategic-advisor.js?v=20260814-strategy-6"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
     <script src="js/portrait-manager.js?v=20260814-portraits-4"></script>
-    <script src="js/time-energy.js"></script>
+    <script src="js/time-energy.js?v=20260815-no-metabolism-1"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
     <script src="js/story-generator.js?v=20260811-calendar-2"></script>
@@ -5137,88 +5059,8 @@
         function advanceTime(minutes, options = {}) {
             const elapsedMinutes = CronacheTimeEnergy.normalizeMinutes(minutes);
             if (!elapsedMinutes) return 0;
-            const passageStartDate = getFullTimeString();
-            const resting = options.resting === true;
-            const routine = CronacheTimeEnergy.simulateDailyRoutine(G.character, elapsedMinutes);
             G.time.minute += elapsedMinutes;
-            
-            const hoursElapsed = elapsedMinutes / 60;
-            if (G.character) {
-                if (routine) {
-                    G.character.stamina.cur = routine.stamina;
-                    G.character.hunger.cur = routine.hunger;
-                    G.character.health.cur = routine.health;
-                    G.character._metabolismCarry = { stamina: 0, hunger: 0 };
-                    addStoryEntry(
-                        `🌙 Vita quotidiana: ${routine.nights} notti di riposo e circa ${routine.meals} pasti durante ${CronacheTimeEnergy.describePassage(elapsedMinutes)}.` +
-                        (routine.healed > 0 ? ` Recupero: +${routine.healed} HP.` : ''),
-                        'system'
-                    );
-                } else {
-                // Consumo risorse BILANCIATO e realistico
-                // Una persona può stare sveglia ~16 ore e senza cibo ~24 ore prima di problemi seri
-                // Stamina: 100 in 16 ore = ~6.25/ora, usiamo 4/ora (più tollerante)
-                // Fame: 100 in 24 ore = ~4.2/ora, usiamo 3/ora (più tollerante)
-                // Importante: accumulo frazionario per evitare che 5 minuti consumino sempre 1 punto.
-                const metabolism = CronacheTimeEnergy.consumeMetabolism(G.character, elapsedMinutes, resting);
-                G.character._metabolismCarry = metabolism.carry;
-                const staminaLoss = metabolism.staminaLoss;
-                const hungerLoss = metabolism.hungerLoss;
-                
-                const oldStamina = G.character.stamina.cur;
-                const oldHunger = G.character.hunger.cur;
-                
-                G.character.stamina.cur = Math.max(0, G.character.stamina.cur - staminaLoss);
-                G.character.hunger.cur = Math.max(0, G.character.hunger.cur - hungerLoss);
-                
-                // Feedback dettagliato per tempo significativo (più di 15 minuti)
-                if (elapsedMinutes >= 15) {
-                    const staminaDelta = oldStamina - G.character.stamina.cur;
-                    const hungerDelta = oldHunger - G.character.hunger.cur;
-                    
-                    // Formatta il tempo passato
-                    let timeDesc = '';
-                    if (elapsedMinutes >= 1440) {
-                        timeDesc = `${Math.floor(elapsedMinutes/1440)} giorno/i`;
-                    } else if (elapsedMinutes >= 60) {
-                        const h = Math.floor(elapsedMinutes/60);
-                        const m = elapsedMinutes % 60;
-                        timeDesc = m > 0 ? `${h}h ${m}min` : `${h} ora/e`;
-                    } else {
-                        timeDesc = `${elapsedMinutes} minuti`;
-                    }
-                    
-                    let consumeMsg = `⏱️ ${timeDesc}`;
-                    if (staminaDelta > 0) consumeMsg += ` | -${staminaDelta}⚡`;
-                    if (hungerDelta > 0) consumeMsg += ` | -${hungerDelta}🍖`;
-                    addStoryEntry(consumeMsg, 'system');
-                }
-                
-                // Penalità per fame/stanchezza critica - RIDOTTE per realismo
-                // La morte per fame richiede giorni, non ore
-                if (G.character.hunger.cur <= 0) {
-                    // Perde HP solo se passa almeno 1 ora senza cibo E fame a zero
-                    if (hoursElapsed >= 1) {
-                        const hpLoss = Math.ceil(hoursElapsed * 0.5); // Ridotto da 3 a 0.5/ora
-                        if (hpLoss > 0) {
-                            G.character.health.cur = Math.max(1, G.character.health.cur - hpLoss);
-                            addStoryEntry(`⚠️ Stai morendo di fame! -${hpLoss} HP`, 'system');
-                        }
-                    }
-                }
-                if (!resting && G.character.stamina.cur <= 0) {
-                    // Esaurimento: rischio svenimento, non morte immediata
-                    if (hoursElapsed >= 1) {
-                        const hpLoss = Math.ceil(hoursElapsed * 0.3); // Ridotto da 2 a 0.3/ora
-                        if (hpLoss > 0) {
-                            G.character.health.cur = Math.max(1, G.character.health.cur - hpLoss);
-                            addStoryEntry(`⚠️ Sei completamente esausto! -${hpLoss} HP`, 'system');
-                        }
-                    }
-                }
-                }
-            }
-            
+
             while (G.time.minute >= 60) {
                 G.time.minute -= 60;
                 G.time.hour++;
@@ -5241,64 +5083,10 @@
                 }
             }
 
-            if (routine && G.worldMemory) {
-                const elapsedTurns = Math.max(1, Math.floor(elapsedMinutes / CronacheTimeEnergy.MINUTES_PER_DAY));
-                G.worldMemory.turnCount = Math.max(0, Number(G.worldMemory.turnCount) || 0) + elapsedTurns;
-                const businessResult = processBusinessTurn() || { deliveries: [], reports: [] };
-                const kingdomResult = processKingdomTurn() || { reports: [] };
-                const periodDetails = [
-                    businessResult.reports.length ? `${businessResult.reports.length} periodi delle attività elaborati` : '',
-                    kingdomResult.reports.length ? `${kingdomResult.reports.length} periodi del regno elaborati` : ''
-                ].filter(Boolean);
-                const description = CronacheTimeEnergy.describePassage(elapsedMinutes);
-                const summary = `${routine.nights} notti di sonno, circa ${routine.meals} pasti e normale vita quotidiana` +
-                    (periodDetails.length ? `; ${periodDetails.join('; ')}` : '');
-                G.pendingTimePassage = {
-                    elapsed: elapsedMinutes,
-                    days: routine.days,
-                    description,
-                    summary,
-                    startDate: passageStartDate,
-                    endDate: getFullTimeString(),
-                    startTurn: G.worldMemory.turnCount - elapsedTurns,
-                    endTurn: G.worldMemory.turnCount
-                };
-                const periodEvent = eventEngine.create({
-                    type: 'personale',
-                    title: `Vita durante ${description}`,
-                    summary: `Il protagonista ha vissuto normalmente per ${description}, dormendo, mangiando e portando avanti la propria quotidianità.`,
-                    location: G.currentLocation,
-                    consequence: summary,
-                    importance: 'normal',
-                    status: 'resolved',
-                    source: 'time-engine'
-                }, { turn: G.worldMemory.turnCount, location: G.currentLocation, occurredAt: getFullTimeString() });
-                const recorded = eventEngine.record(G.worldMemory.events, [periodEvent], {
-                    turn: G.worldMemory.turnCount,
-                    location: G.currentLocation
-                });
-                G.worldMemory.events = recorded.events;
-            }
-            
+            // La data ordina gli eventi, ma non crea metabolismo, penalità,
+            // turni supplementari o cronache tecniche di vita quotidiana.
             updateTimeDisplay();
-            updateCharacterUI();
-            checkStatusEffects();
             return elapsedMinutes;
-        }
-
-        function waitUntilHour(targetHour) {
-            let minutesToWait = 0;
-            let currentHour = G.time.hour;
-            let currentMinute = G.time.minute;
-            
-            if (targetHour <= currentHour) {
-                minutesToWait = (24 - currentHour + targetHour) * 60 - currentMinute;
-            } else {
-                minutesToWait = (targetHour - currentHour) * 60 - currentMinute;
-            }
-            
-            advanceTime(minutesToWait);
-            return minutesToWait;
         }
 
         function getTimePeriod() {
@@ -5328,9 +5116,6 @@
             $('time-text').textContent = `${getTimeString()}`;
             if ($('time-date')) {
                 $('time-date').textContent = `${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year} (${getCurrentSeason()})`;
-            }
-            if ($('wait-current-time')) {
-                $('wait-current-time').textContent = `${getTimeString()} - ${period.name}`;
             }
         }
 
@@ -5381,16 +5166,6 @@
                 c._debtWarning3 = false;
             }
             
-            // Avvisi fame critica
-            if (c.hunger.cur <= 10 && c.hunger.cur > 0) {
-                if (!c._hungerWarning) {
-                    addStoryEntry('🍖⚠️ Hai fame! Mangia qualcosa o perderai salute.', 'system');
-                    c._hungerWarning = true;
-                }
-            } else if (c.hunger.cur > 30) {
-                c._hungerWarning = false;
-            }
-            
             // Avvisi energia critica
             if (c.stamina.cur <= 10 && c.stamina.cur > 0) {
                 if (!c._staminaWarning) {
@@ -5409,105 +5184,6 @@
                 }
             } else if (c.health.cur > c.health.max * 0.3) {
                 c._healthWarning = false;
-            }
-        }
-
-        function doRest() {
-            if (!G.character) return;
-            if (G.isProcessing) { notify('Attendi...', 'error'); return; }
-            const c = G.character;
-            
-            // Riposo completo: 8 ore
-            const oldHunger = c.hunger.cur;
-            advanceTime(480, { resting: true });
-            const oldStam = c.stamina.cur;
-            const oldHp = c.health.cur;
-            c.stamina.cur = c.stamina.max;
-            
-            // Guarigione in base alla fame: se ben nutrito guarisci di più
-            let hpRegen = 15;
-            if (c.hunger.cur > 60) hpRegen = 30;
-            else if (c.hunger.cur > 30) hpRegen = 20;
-            else if (c.hunger.cur <= 10) hpRegen = 5;
-            c.health.cur = Math.min(c.health.max, c.health.cur + hpRegen);
-            
-            // Ricarica parziale risorsa secondaria
-            if (c.secondary && c.secondary.max > 0) {
-                const secRegen = Math.ceil(c.secondary.max * 0.3);
-                c.secondary.cur = Math.min(c.secondary.max, c.secondary.cur + secRegen);
-            }
-            
-            const stamGain = c.stamina.cur - oldStam;
-            const hpGain = c.health.cur - oldHp;
-            let msg = `😴 Hai riposato per 8 ore.`;
-            if (stamGain > 0) msg += ` ⚡+${stamGain} Energia.`;
-            if (hpGain > 0) msg += ` ❤️+${hpGain} HP.`;
-            const hungerLoss = oldHunger - c.hunger.cur;
-            if (hungerLoss > 0) msg += ` 🍖-${hungerLoss} Sazietà.`;
-            msg += ` Ora sono le ${getTimeString()}.`;
-            addStoryEntry(msg, 'mechanic');
-            updateCharacterUI();
-            
-            generateAI(`Il protagonista ha dormito per 8 ore. Ora è ${getFullTimeString()}. Si sveglia con ${c.health.cur}/${c.health.max} HP e stamina piena. Descrivi brevemente come si sveglia e cosa trova. Usa [POSIZIONE:] per la posizione.`);
-        }
-
-        function doEat() {
-            if (!G.character) return;
-            if (G.isProcessing) { notify('Attendi...', 'error'); return; }
-            const c = G.character;
-            const catalog = getItemCatalog({ genre: c.genre, story: G.currentStory });
-            const currencyLabel = c.currency?.short || 'soldi';
-            
-            // Cerca cibo nell'inventario (priorità: effetto fame più grande)
-            let bestFoodIdx = -1;
-            let bestHunger = 0;
-            c.inventory.forEach((item, idx) => {
-                if (!item) return;
-                const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
-                const data = catalog[normalizedId] || catalog[item.id] || {};
-                const hungerVal = data?.effect?.hunger || 0;
-                const isFood = hungerVal > 0 || (item.name && /cibo|pane|frutto|mela|carne|pesce|formaggio|pasto|razione/i.test(item.name));
-                if (isFood && hungerVal >= bestHunger) {
-                    bestFoodIdx = idx;
-                    bestHunger = hungerVal || 30;
-                }
-            });
-            
-            if (bestFoodIdx !== -1) {
-                const item = c.inventory[bestFoodIdx];
-                const normalizedId = typeof item.id === 'string' ? item.id.replace(/\s+/g, '_') : item.id;
-                const data = catalog[normalizedId] || catalog[item.id] || {};
-                const hungerGain = data?.effect?.hunger || 30;
-                const staminaGain = data?.effect?.stamina || 5;
-                
-                c.hunger.cur = Math.min(c.hunger.max, c.hunger.cur + hungerGain);
-                c.stamina.cur = Math.min(c.stamina.max, c.stamina.cur + staminaGain);
-                
-                item.count--;
-                if (item.count <= 0) c.inventory.splice(bestFoodIdx, 1);
-                
-                addStoryEntry(`🍖 Mangi ${item.name || data?.name || 'cibo'}. (+${hungerGain} sazietà, +${staminaGain} energia)`, 'mechanic');
-                advanceTime(15);
-                updateCharacterUI();
-            } else if (c.gold >= 5) {
-                // Compra un pasto
-                c.gold -= 5;
-                c.hunger.cur = Math.min(c.hunger.max, c.hunger.cur + 50);
-                c.stamina.cur = Math.min(c.stamina.max, c.stamina.cur + 10);
-                addStoryEntry(`🍖 Compri e mangi un pasto. (-5 ${currencyLabel}, +50 sazietà, +10 energia)`, 'mechanic');
-                advanceTime(30);
-                updateCharacterUI();
-                generateAI(`Il protagonista ha comprato e mangiato un pasto. Descrivi brevemente la scena.`);
-            } else {
-                // Cerca frutti/bacche (azione gratuita ma minore)
-                if (Math.random() < 0.6) {
-                    c.hunger.cur = Math.min(c.hunger.max, c.hunger.cur + 15);
-                    addStoryEntry(`🫐 Trovi qualcosa da mangiare nei dintorni. (+15 sazietà)`, 'mechanic');
-                    advanceTime(20);
-                    updateCharacterUI();
-                } else {
-                    notify('Non hai cibo, soldi, e non trovi nulla da mangiare qui!', 'error');
-                }
             }
         }
 
@@ -5568,35 +5244,6 @@
                     notify('Non hai medicine, soldi, né energia per auto-curarti!', 'error');
                 }
             }
-        }
-
-        function doTrain() {
-            if (!G.character) return;
-            if (G.isProcessing) { notify('Attendi...', 'error'); return; }
-            const c = G.character;
-            
-            if (c.stamina.cur < 30) {
-                notify('Troppo stanco per allenarti! Riposa prima.', 'error');
-                return;
-            }
-            if (c.hunger.cur < 20) {
-                notify('Troppo affamato per allenarti! Mangia prima.', 'error');
-                return;
-            }
-            
-            c.stamina.cur -= 25;
-            c.hunger.cur = Math.max(0, c.hunger.cur - 15);
-            
-            // Guadagna EXP dall'allenamento
-            const expGain = 5 + Math.floor(Math.random() * 8);
-            c.exp.cur += expGain;
-            
-            addStoryEntry(`💪 Ti alleni duramente. (-25 energia, -15 sazietà, +${expGain} EXP)`, 'mechanic');
-            advanceTime(90);
-            checkLevelUp();
-            updateCharacterUI();
-            
-            generateAI(`Il protagonista si è allenato per circa 1.5 ore. Ha guadagnato esperienza. Descrivi brevemente la sessione di allenamento in base al genere e all'archetipo.`);
         }
 
         function updateActionBar() {
@@ -5904,7 +5551,6 @@
                 health: { cur: archetypeData.hp + conMod, max: archetypeData.hp + conMod },
                 secondary: secondaryState,
                 stamina: { cur: 100, max: 100 },
-                hunger: { cur: 100, max: 100 },
                 exp: { cur: 0, need: 100 },
                 attrs,
                 skills: {},
@@ -5963,7 +5609,6 @@
 
             const miniHealth = $('mini-health');
             const miniStamina = $('mini-stamina');
-            const miniHunger = $('mini-hunger');
             if (miniHealth) {
                 const percent = c.health.max > 0 ? (c.health.cur / c.health.max) * 100 : 0;
                 miniHealth.style.width = `${Math.max(0, Math.min(100, percent))}%`;
@@ -5973,11 +5618,6 @@
                 const percent = c.stamina.max > 0 ? (c.stamina.cur / c.stamina.max) * 100 : 0;
                 miniStamina.style.width = `${Math.max(0, Math.min(100, percent))}%`;
                 if (miniStamina.parentElement) miniStamina.parentElement.setAttribute('data-value', `${c.stamina.cur}/${c.stamina.max}`);
-            }
-            if (miniHunger) {
-                const percent = c.hunger.max > 0 ? (c.hunger.cur / c.hunger.max) * 100 : 0;
-                miniHunger.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-                if (miniHunger.parentElement) miniHunger.parentElement.setAttribute('data-value', `${c.hunger.cur}/${c.hunger.max}`);
             }
 
             portraitEngine.assignPortrait(c, portraitContext({
@@ -6018,8 +5658,6 @@
             const statSecondaryText = $('stat-secondary-text');
             const statStamina = $('stat-stamina');
             const statStaminaText = $('stat-stamina-text');
-            const statHunger = $('stat-hunger');
-            const statHungerText = $('stat-hunger-text');
             const statExp = $('stat-exp');
             const statExpText = $('stat-exp-text');
 
@@ -6055,12 +5693,6 @@
                 statStamina.style.width = `${Math.max(0, Math.min(100, percent))}%`;
             }
             if (statStaminaText) statStaminaText.textContent = `${c.stamina.cur}/${c.stamina.max}`;
-
-            if (statHunger) {
-                const percent = c.hunger.max > 0 ? (c.hunger.cur / c.hunger.max) * 100 : 0;
-                statHunger.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-            }
-            if (statHungerText) statHungerText.textContent = `${c.hunger.cur}/${c.hunger.max}`;
 
             if (statExp) {
                 const percent = c.exp.need > 0 ? (c.exp.cur / c.exp.need) * 100 : 0;
@@ -6435,7 +6067,6 @@
                 const secState = G.character?.secondary;
                 let healthDelta = 0;
                 let staminaDelta = 0;
-                let hungerDelta = 0;
                 let secondaryDelta = 0;
                 let wealthDelta = 0;
                 const extraLines = [];
@@ -6448,7 +6079,7 @@
                     } else if (['stamina', 'energy', 'energia'].includes(key)) {
                         staminaDelta += amount;
                     } else if (['hunger', 'fame', 'sazieta', 'satiety'].includes(key)) {
-                        hungerDelta += amount;
+                        return;
                     } else if (['soldi', 'gold', 'money', 'denaro', 'cash', 'contanti', 'ricchezza', 'fiorini', 'fiorino'].includes(key)) {
                         wealthDelta += amount;
                     } else if (matchesSecondaryKey(key, secState)) {
@@ -6466,7 +6097,6 @@
                 const lines = [];
                 if (healthDelta) lines.push(formatLine('❤️', 'Salute', healthDelta));
                 if (staminaDelta) lines.push(formatLine('⚡', 'Energia', staminaDelta));
-                if (hungerDelta) lines.push(formatLine('🍖', 'Sazietà', hungerDelta));
                 if (wealthDelta) {
                     const currencyIcon = G.character?.currency?.symbol || '💰';
                     const currencyLabel = G.character?.currency?.short?.toUpperCase?.() || 'Denaro';
@@ -6541,8 +6171,8 @@
                         G.character.health.cur = Math.min(G.character.health.max, Math.max(0, G.character.health.cur + amount));
                     } else if (['stamina', 'energy', 'energia'].includes(key) && G.character.stamina) {
                         G.character.stamina.cur = Math.min(G.character.stamina.max, Math.max(0, G.character.stamina.cur + amount));
-                    } else if (['hunger', 'fame', 'sazieta', 'satiety'].includes(key) && G.character.hunger) {
-                        G.character.hunger.cur = Math.min(G.character.hunger.max, Math.max(0, G.character.hunger.cur + amount));
+                    } else if (['hunger', 'fame', 'sazieta', 'satiety'].includes(key)) {
+                        return;
                     } else if (['soldi', 'gold', 'money', 'denaro', 'cash', 'contanti', 'ricchezza', 'fiorini', 'fiorino'].includes(key)) {
                         const prevGold = G.character.gold;
                         G.character.gold = G.character.gold + amount;
@@ -7052,9 +6682,6 @@
             if (!el) return;
             
             const effects = [];
-            
-            if (c.hunger.cur <= 20) effects.push({ icon: '🍖', text: 'Affamato!', cls: 'danger' });
-            else if (c.hunger.cur <= 40) effects.push({ icon: '🍖', text: 'Fame', cls: 'warning' });
             
             if (c.stamina.cur <= 20) effects.push({ icon: '💤', text: 'Esausto!', cls: 'danger' });
             else if (c.stamina.cur <= 40) effects.push({ icon: '😴', text: 'Stanco', cls: 'warning' });
@@ -10559,21 +10186,13 @@
             input.value = '';
             addStoryEntry(`➤ ${action}`, 'player');
 
-            // Shortcut intelligenti per bisogni base: applicano subito recuperi reali
-            // (energia/sazietà) tramite le azioni dedicate.
-            if (options.skipBasicNeeds !== true && handleBasicNeedAction(action)) return;
-            
-            // Tempo base minimo: anche un breve scambio richiede tempo e non deve
-            // rigenerare energia gratuitamente. Il Master può aggiungere altro tempo.
+            // L'azione entra nel prossimo ciclo causale. Nessun costo di fame,
+            // energia o tempo viene applicato automaticamente.
             queueTimelineChoice(action, options.source || 'player-action');
-            advanceTime(10);
             G.worldMemory.turnCount++;
             
             // Auto-save ogni 5 turni
             if (G.worldMemory.turnCount % 5 === 0) autoSave();
-            
-            // Consumo automatico risorse per turno (simulazione bisogni)
-            applyTurnConsumption();
             
             // Simula usura, consegne e attività economiche
             simulateProperties();
@@ -10581,204 +10200,6 @@
             processKingdomTurn();
             
             generateAI(action);
-        }
-
-        function handleBasicNeedAction(actionText) {
-            if (!G.character) return false;
-            const txt = (actionText || '').toLowerCase();
-
-            const restIntent = /(\bripos|\bdorm|\bsonnell|\bsleep\b|\brest\b)/i.test(txt);
-            const eatIntent = /(\bmangi|\bcibo\b|\bpasto\b|\bfame\b|\beat\b|\bmeal\b)/i.test(txt);
-
-            if (restIntent) {
-                doRest();
-                G.worldMemory.turnCount++;
-                if (G.worldMemory.turnCount % 5 === 0) autoSave();
-                return true;
-            }
-
-            if (eatIntent) {
-                doEat();
-                G.worldMemory.turnCount++;
-                if (G.worldMemory.turnCount % 5 === 0) autoSave();
-                return true;
-            }
-
-            return false;
-        }
-        
-        function applyTurnConsumption() {
-            // Il consumo avviene esclusivamente in base al tempo trascorso o ai tag
-            // [MECCANICA]. Non rigenerare energia mentre il personaggio agisce.
-            const c = G.character;
-            if (!c) return;
-            
-            // Rigenera HP lentamente se ben nutrito e riposato
-            if (c.hunger.cur > 70 && c.stamina.cur > 50 && c.health.cur < c.health.max) {
-                if (Math.random() < 0.3) { // 30% chance di rigenerare 1 HP
-                    c.health.cur = Math.min(c.health.max, c.health.cur + 1);
-                }
-            }
-            
-            // Simula mondo vivo: aggiorna NPC in base all'ora
-            simulateWorldNPCs();
-            
-            updateCharacterUI();
-        }
-
-        // ==================== SIMULAZIONE MONDO VIVO ====================
-        function simulateWorldNPCs() {
-            if (!G.worldMemory.npcs.length) return;
-            
-            const period = getTimePeriod();
-            const hour = G.time.hour;
-            
-            // Aggiorna lo stato degli NPC in base all'ora del giorno
-            G.worldMemory.npcs.forEach(npc => {
-                const prevStatus = npc.status;
-                
-                // Logica base per stato NPC basata sull'ora
-                if (npc.status !== 'dead') {
-                    if (hour >= 23 || hour < 6) {
-                        // Notte: la maggior parte dorme
-                        if (Math.random() < 0.7) npc.status = 'sleeping';
-                    } else if (hour >= 6 && hour < 8) {
-                        // Alba: si svegliano
-                        if (npc.status === 'sleeping') npc.status = 'idle';
-                    } else if (hour >= 8 && hour < 12) {
-                        // Mattina: lavoro
-                        if (Math.random() < 0.6) npc.status = 'working';
-                    } else if (hour >= 12 && hour < 14) {
-                        // Pranzo
-                        if (Math.random() < 0.5) npc.status = 'eating';
-                    } else if (hour >= 14 && hour < 18) {
-                        // Pomeriggio: lavoro o attività
-                        if (Math.random() < 0.5) npc.status = 'working';
-                        else if (Math.random() < 0.3) npc.status = 'traveling';
-                    } else if (hour >= 18 && hour < 21) {
-                        // Sera: relax, socialità
-                        if (Math.random() < 0.4) npc.status = 'talking';
-                        else npc.status = 'idle';
-                    } else {
-                        // Tarda sera
-                        if (Math.random() < 0.5) npc.status = 'idle';
-                    }
-                }
-                
-                // Se l'NPC ha obiettivi specifici, può sovrascrivere lo stato
-                if (npc.goals && npc.goals.toLowerCase().includes('vendetta') && Math.random() < 0.1) {
-                    npc.status = 'hunting';
-                }
-                if (npc.goals && npc.goals.toLowerCase().includes('fuga') && Math.random() < 0.1) {
-                    npc.status = 'hiding';
-                }
-            });
-        }
-
-        // Genera eventi casuali del mondo e li mostra con stile distintivo
-        function generateWorldEvent() {
-            const hour = G.time.hour;
-            const events = [];
-            
-            // Eventi basati sugli NPC con obiettivi (se ce ne sono)
-            if (G.worldMemory.npcs?.length) {
-                G.worldMemory.npcs.forEach(npc => {
-                if (npc.status === 'dead') return;
-                
-                // NPC nemici possono fare mosse
-                if (npc.relationship?.toLowerCase().includes('nemico') || 
-                    npc.relationship?.toLowerCase().includes('ostile')) {
-                    if (Math.random() < 0.15) { // 15% chance
-                        const actions = [
-                            `Voci parlano di ${npc.name} che sta tramando qualcosa...`,
-                            `${npc.name} è stato avvistato in zona.`,
-                            `Qualcuno dice che ${npc.name} ti sta cercando.`,
-                            `Si mormora che ${npc.name} stia radunando alleati.`
-                        ];
-                        events.push({
-                            type: 'npc-action',
-                            npc: npc.name,
-                            text: actions[Math.floor(Math.random() * actions.length)]
-                        });
-                    }
-                }
-                
-                // NPC alleati possono mandare messaggi
-                if (npc.relationship?.toLowerCase().includes('amico') || 
-                    npc.relationship?.toLowerCase().includes('alleato')) {
-                    if (Math.random() < 0.12) { // 12% chance
-                        const actions = [
-                            `${npc.name} ti ha mandato un messaggio.`,
-                            `${npc.name} sta pensando a te.`,
-                            `Hai sentito che ${npc.name} ha chiesto tue notizie.`
-                        ];
-                        events.push({
-                            type: 'npc-action',
-                            npc: npc.name,
-                            text: actions[Math.floor(Math.random() * actions.length)]
-                        });
-                    }
-                }
-                
-                // NPC con obiettivi attivi
-                if (npc.goals && npc.status !== 'sleeping' && npc.status !== 'idle') {
-                    if (Math.random() < 0.1) { // 10% chance
-                        events.push({
-                            type: 'world-event',
-                            npc: npc.name,
-                            text: `${npc.name} è impegnato: ${npc.goals.substring(0, 50)}...`
-                        });
-                    }
-                }
-            });
-            } // Chiude il blocco if degli NPC
-            
-            // Eventi ambientali generici basati sull'ora - PIÙ FREQUENTI
-            if (hour >= 5 && hour < 7) {
-                if (Math.random() < 0.25) events.push({ type: 'world-event', text: '🌅 L\'alba illumina il cielo. La città inizia a svegliarsi.' });
-            } else if (hour >= 7 && hour < 9) {
-                if (Math.random() < 0.2) events.push({ type: 'world-event', text: '☀️ I mercanti aprono le botteghe, le strade si animano.' });
-            } else if (hour >= 12 && hour < 14) {
-                if (Math.random() < 0.2) events.push({ type: 'world-event', text: '🍽️ È ora di pranzo. Il profumo di cibo riempie l\'aria.' });
-            } else if (hour >= 17 && hour < 19) {
-                if (Math.random() < 0.2) events.push({ type: 'world-event', text: '🌆 Il sole inizia a calare. I lavoratori tornano a casa.' });
-            } else if (hour >= 19 && hour < 21) {
-                if (Math.random() < 0.2) events.push({ type: 'world-event', text: '🌙 La sera scende. Le taverne si riempiono di voci e risate.' });
-            } else if (hour >= 21 && hour < 23) {
-                if (Math.random() < 0.15) events.push({ type: 'world-event', text: '🌃 La notte avanza. Le strade si svuotano.' });
-            } else if (hour >= 23 || hour < 3) {
-                if (Math.random() < 0.1) events.push({ type: 'world-event', text: '🦉 Notte fonda. Solo le guardie e le ombre si muovono.' });
-            } else if (hour >= 3 && hour < 5) {
-                if (Math.random() < 0.1) events.push({ type: 'world-event', text: '⭐ Le ore più buie prima dell\'alba. Il mondo dorme.' });
-            }
-            
-            // Eventi casuali generici del mondo (sempre possibili)
-            if (Math.random() < 0.08) {
-                const genericEvents = [
-                    '🐦 Uccelli volano nel cielo, portando presagi.',
-                    '💨 Un vento freddo soffia tra le strade.',
-                    '🔔 In lontananza, campane suonano.',
-                    '👥 Un gruppo di viaggiatori passa di qui.',
-                    '🐕 Un cane randagio attraversa la strada.',
-                    '📯 Un banditore annuncia le ultime notizie.',
-                    '🎭 Artisti di strada intrattengono i passanti.',
-                    '⚔️ Si sentono voci di tensioni ai confini.',
-                    '📜 Nuovi editti sono stati affissi in piazza.',
-                    '🏇 Un messaggero a cavallo passa veloce.'
-                ];
-                events.push({ 
-                    type: 'world-event', 
-                    text: genericEvents[Math.floor(Math.random() * genericEvents.length)] 
-                });
-            }
-            
-            return events.length > 0 ? events[Math.floor(Math.random() * events.length)] : null;
-        }
-        
-        // Mostra un evento del mondo con stile distintivo
-        function showWorldEvent(event) {
-            if (!event) return;
-            addStoryEntry(event.text, event.type || 'world-event');
         }
 
         // Costruisce contesto NPC per l'IA
@@ -11411,7 +10832,7 @@
                                 <h5>${escapeTimelineHtml(outcome.actionTitle || 'Azione strategica')} · ${escapeTimelineHtml((outcome.status || 'in corso').replace('_', ' '))}</h5>
                                 <p>${escapeTimelineHtml(outcome.result || '')}</p>
                                 ${outcome.consequence ? `<p><strong>Conseguenza:</strong> ${escapeTimelineHtml(outcome.consequence)}</p>` : ''}
-                                ${outcome.worldResponse ? `<p><strong>Sviluppo del mondo in attesa:</strong> ${escapeTimelineHtml(outcome.worldResponse)}</p>` : ''}
+                                ${outcome.worldResponse ? `<p><strong>Reazione registrata:</strong> ${escapeTimelineHtml(outcome.worldResponse)}</p>` : ''}
                             </article>
                         `).join('')}
                     </section>
@@ -11444,7 +10865,7 @@
             const simulateButton = $('btn-simulate-timeline');
             if (simulateButton) {
                 simulateButton.textContent = pendingEvents.length
-                    ? `⏩ Evento successivo · ${pendingEvents.length} in attesa`
+                    ? `⏩ Elabora ${pendingEvents.length} ${pendingEvents.length === 1 ? 'azione' : 'azioni'}`
                     : strategicCount
                         ? `⏩ Avvia ${strategicCount} ${strategicCount === 1 ? 'azione' : 'azioni'} fino al primo evento`
                         : '⏩ Vai al prossimo evento importante';
@@ -11459,20 +10880,12 @@
             if (pendingSummary) {
                 pendingSummary.classList.toggle('visible', pendingEvents.length > 0);
                 pendingSummary.innerHTML = nextPendingEvent
-                    ? `📌 <strong>${pendingEvents.length} ${pendingEvents.length === 1 ? 'sviluppo in attesa' : 'sviluppi in attesa'}.</strong> ` +
+                    ? `📌 <strong>${pendingEvents.length} ${pendingEvents.length === 1 ? 'causa da elaborare' : 'cause da elaborare'}.</strong> ` +
                         `Il prossimo riguarda ${escapeTimelineHtml(nextPendingEvent.title || nextPendingEvent.topic || 'la trama attiva')}` +
                         `${nextPendingEvent.notBeforeMinutes > 0 ? `, non prima di circa ${escapeTimelineHtml(CronacheTimeEnergy.describePassage(nextPendingEvent.notBeforeMinutes))}` : ', ed è già disponibile'}.`
                     : '';
             }
             const allEvents = G.worldMemory.events || [];
-            const latestRoutine = [...allEvents].reverse().find(event => event.source === 'time-engine');
-            const routineSummary = $('timeline-routine-summary');
-            if (routineSummary) {
-                routineSummary.classList.toggle('visible', Boolean(latestRoutine));
-                routineSummary.innerHTML = latestRoutine
-                    ? `🛏️ <strong>Vita quotidiana garantita:</strong> ${escapeTimelineHtml(latestRoutine.consequence || latestRoutine.summary || '')}`
-                    : '';
-            }
             renderStrategicTimelineResults();
             const events = allEvents.filter(timelineSimulator.isMeaningfulEvent).slice(-40).reverse();
             $('timeline-events-list').innerHTML = events.length ? events.map((event, index) => {
@@ -11553,18 +10966,16 @@
                 });
                 const scheduledChoices = choices.length > 0;
                 if (scheduledChoices) {
-                    const newSeeds = timelineSimulator.createEventSeeds(choices, world, {
+                    // Come in Pax Historia, ogni invio apre un ciclo nuovo e finito:
+                    // le azioni correnti più una sola iniziativa autonoma del mondo.
+                    pendingEvents = timelineSimulator.createEventSeeds(choices, world, {
                         turn: previousTurn,
                         batchId,
                         currentDate: getFullTimeString(),
-                        includeWorld: !pendingEvents.length,
+                        includeWorld: true,
                         knownActors,
                         recentEvents,
                         protagonistName: G.character?.name
-                    });
-                    pendingEvents = timelineSimulator.scheduleEventSeeds(pendingEvents, newSeeds, {
-                        turn: previousTurn,
-                        batchId
                     });
                 }
                 if (!pendingEvents.length) {
@@ -11664,12 +11075,11 @@
                     G.worldMemory.turnCount = previousTurn + 1;
                 }
                 const endDate = getFullTimeString();
-                const routinePassage = G.pendingTimePassage;
                 const passage = {
                     elapsed: timing.minutes,
                     days: timing.minutes / CronacheTimeEnergy.MINUTES_PER_DAY,
                     description: CronacheTimeEnergy.describePassage(timing.minutes),
-                    summary: routinePassage?.summary || `Il protagonista ha continuato la propria vita per ${CronacheTimeEnergy.describePassage(timing.minutes)}, rispettando sonno, pasti e necessità compatibili con l'attesa.`,
+                    summary: `Sono trascorsi ${CronacheTimeEnergy.describePassage(timing.minutes)} fino al fatto importante; il tempo non ha applicato bisogni o penalità automatiche.`,
                     startDate,
                     endDate,
                     startTurn: previousTurn,
@@ -11795,24 +11205,11 @@
                     protagonistName: G.character?.name
                 });
 
-                let remainingEvents = timelineSimulator.advanceEventQueue(pendingEvents, seed.id, timing.minutes);
-                const explicitFollowUps = timelineSimulator.parsePendingEventSeeds(response, {
-                    parentSeed: seed,
-                    parentEvent: generatedEvent,
-                    turn: eventContext.turn,
-                    batchId: seed.batchId || batchId
-                });
-                const causalFollowUps = timelineSimulator.buildFollowUpSeeds(
-                    generatedEvent,
-                    strategicOutcomes[0] || null,
-                    { parentSeed: seed, turn: eventContext.turn, batchId: seed.batchId || batchId }
+                G.worldMemory.pendingTimelineEvents = timelineSimulator.advanceEventQueue(
+                    pendingEvents,
+                    seed.id,
+                    timing.minutes
                 );
-                remainingEvents = timelineSimulator.scheduleEventSeeds(
-                    remainingEvents,
-                    [...explicitFollowUps, ...causalFollowUps],
-                    { turn: eventContext.turn, batchId: seed.batchId || batchId }
-                );
-                G.worldMemory.pendingTimelineEvents = remainingEvents;
 
                 const chronicle = timelineSimulator.buildChronicle(generated, passage) +
                     timelineSimulator.buildStrategicOutcomeChronicle(strategicOutcomes);
@@ -11864,7 +11261,7 @@
                 } else {
                     showEventScreens(generated, 0);
                 }
-                if (aiError) notify('Evento generato con il simulatore causale locale; gli sviluppi restano in coda.', 'info');
+                if (aiError) notify('Evento generato con il simulatore causale locale; il ciclo terminerà dopo le azioni già inviate.', 'info');
             } catch (error) {
                 console.error('Errore generazione prossimo evento:', error);
                 notify(`Evento non completato: ${error.message}${timeAdvanced ? '. Puoi ripristinare il checkpoint precedente.' : '. Puoi riprovare.'}`, 'error');
@@ -12226,7 +11623,7 @@
             closeModal('modal-event-screen');
             input.focus();
             input.setSelectionRange(input.value.length, input.value.length);
-            notify('Completa l’azione e inviala: la risposta del mondo resterà nella coda degli eventi.', 'info');
+            notify('Completa l’azione e inviala: il Game Master ne elaborerà un solo esito nel prossimo ciclo.', 'info');
         }
 
         function getChatInviteCandidates() {
@@ -12986,7 +12383,7 @@ Solo se il protagonista acquisisce davvero un dominio sovrano emetti [REGNO: nom
             const eventTagDirective = deferActionEventToTimeline
                 ? `EVENTO DIFFERITO ALLA TIMELINE:
 - Rispondi narrativamente all'azione corrente, ma NON emettere EVENTO, CRONISTA o CODA_EVENTO in questo turno.
-- La conseguenza importante sarà generata una sola volta da «Vai avanti», rispettando prima tutte le risposte causali già in attesa.
+- La conseguenza importante sarà generata una sola volta da «Vai avanti» e chiuderà la causa corrente; non accodare reazioni automatiche.
 - Puoi aggiornare soltanto fatti immediati realmente avvenuti; non anticipare la reazione futura del mondo.`
                 : eventEngine.buildPrompt({
                     turn: G.worldMemory.turnCount || 0,
@@ -13020,9 +12417,6 @@ Solo se il protagonista acquisisce davvero un dominio sovrano emetti [REGNO: nom
             // Build critical conditions
             let criticalConditions = '';
             if (c.gold < 0) criticalConditions += `\n⚠️ IN DEBITO GRAVE: ${c.gold} ${c.currency?.short}! I creditori ti cercano.`;
-            if (c.hunger.cur <= 20) criticalConditions += '\n⚠️ AFFAMATO CRITICO! Il personaggio sta morendo di fame, non può compiere azioni fisiche impegnative.';
-            else if (c.hunger.cur <= 40) criticalConditions += '\n⚠️ AFFAMATO! Il personaggio ha molta fame, sente i crampi allo stomaco.';
-            else if (c.hunger.cur <= 60) criticalConditions += '\n📍 Fame moderata: il personaggio inizia ad avere appetito.';
             if (c.stamina.cur <= 20) criticalConditions += '\n⚠️ ESAUSTO CRITICO! Il personaggio barcolla, rischia di svenire.';
             else if (c.stamina.cur <= 40) criticalConditions += '\n⚠️ MOLTO STANCO! Movimenti lenti, difficoltà di concentrazione.';
             else if (c.stamina.cur <= 60) criticalConditions += '\n📍 Stanchezza lieve: il personaggio inizia a sentire la fatica.';
@@ -13292,13 +12686,10 @@ ${worldTimelineDirective}
 - Mostra conseguenze delle scelte passate.
 - NPC potenti (alto livello) sono più difficili da ingannare, combattere o convincere.
 
-🍽️ **BISOGNI FISICI AUTOMATICI**
-- Il sistema riduce automaticamente fame e energia col passare del tempo. Tu devi REAGIRE a questi valori nella narrazione.
-- Se la fame è bassa (≤30), descrivi i morsi della fame, la debolezza, la difficoltà a concentrarsi.
-- Se l'energia è bassa (≤30), descrivi la stanchezza, gli occhi pesanti, i movimenti lenti.
-- Se la salute è bassa (≤30%), descrivi ferite, dolore, difficoltà nei movimenti.
-- Suggerisci (senza forzare) che il personaggio mangi, riposi o si curi quando necessario.
-- Se il personaggio compie azioni fisiche intense con poca energia, applica [MECCANICA: stamina=-X] e descrivi la fatica crescente.
+❤️ **CONDIZIONI RILEVANTI**
+- Considera ferite e salute soltanto quando incidono davvero sulla scena.
+- Il passaggio del tempo non riduce automaticamente fame, energia o salute.
+- Pasti, sonno e routine restano dettagli narrativi e non generano penalità o eventi tecnici.
 
 🧠 MEMORIA MONDO:
 ${worldMemorySummary}
@@ -13316,14 +12707,6 @@ ${criticalConditions}
 
 SCRIVI ${lengths[s.length]} di narrazione.`;
 
-            // Controlla se c'è un evento del mondo da menzionare
-            const worldEvent = generateWorldEvent();
-            
-            // Mostra l'evento del mondo PRIMA della risposta (se presente)
-            if (worldEvent && !isStart) {
-                showWorldEvent(worldEvent);
-            }
-
             let userMsg;
             if (isStart) {
                 userMsg = `Inizia la storia. È ${G.time.dayName} ${G.time.day} ${MONTHS[G.time.month - 1].name} ${G.time.year}, ${period.name}.
@@ -13334,21 +12717,13 @@ Se la narrazione prevede un importo diverso (es. capitale ereditato, fondo cassa
 Ricorda: il denaro personale usa [MECCANICA: soldi], la cassa dell'attività usa [ATTIVITA_NEGOZIO] all'inizializzazione e [CASSA_NEGOZIO] dopo; non duplicare lo stesso importo.
 Se il protagonista eredita o rileva un'attività, chiudi la prima risposta con un VERBALE DI CONSEGNA: ogni bene del locale usa [LOOT_PROPRIETA], ogni articolo vendibile usa [CATALOGO_NEGOZIO], ogni fornitore usa [FORNITORE_NEGOZIO] e ogni accordo esistente usa [CONTRATTO_NEGOZIO]. Non limitarti a raccontarli in prosa: ciò che dichiari deve avere il suo tag e risultare nei registri.${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
             } else {
-                // Costruisci contesto stato fisico per l'IA
                 let physicalState = '';
-                if (c.hunger.cur <= 30) physicalState += ' [FAME CRITICA]';
-                else if (c.hunger.cur <= 50) physicalState += ' [fame]';
-                if (c.stamina.cur <= 30) physicalState += ' [STANCHEZZA CRITICA]';
-                else if (c.stamina.cur <= 50) physicalState += ' [stanco]';
                 if (c.health.cur <= c.health.max * 0.3) physicalState += ' [FERITO GRAVE]';
                 else if (c.health.cur <= c.health.max * 0.5) physicalState += ' [ferito]';
-                
-                // Aggiungi contesto evento mondo se presente
-                const worldEventContext = worldEvent ? `\n[EVENTO MONDO: ${worldEvent.text}]` : '';
-                
-                userMsg = `[Stato: HP ${c.health.cur}/${c.health.max} | Energia ${c.stamina.cur}/100 | Fame ${c.hunger.cur}/100 | Soldi ${formatCurrency(c.gold)}${physicalState}]
+
+                userMsg = `[Stato: HP ${c.health.cur}/${c.health.max} | Soldi ${formatCurrency(c.gold)}${physicalState}]
 [Ora: ${getTimeString()} - ${period.name}]
-[Posizione: ${G.currentLocation || 'Sconosciuto'}]${worldEventContext}
+[Posizione: ${G.currentLocation || 'Sconosciuto'}]
 Il giocatore dichiara: "${action}"
 
 ISTRUZIONI TURNO:
@@ -13358,11 +12733,11 @@ ISTRUZIONI TURNO:
    - Azioni sociali: usa CAR o SAG.
    - Azioni intellettuali: usa INT o SAG.
    - Ricorda: il livello aumenta il bonus competenza!
-3. Considera lo STATO FISICO: fame/energia basse = penalità -2 ai tiri; critiche = penalità -5.
-4. MONDO VIVO: Cosa fanno gli NPC? Mostra il mondo che si muove intorno al giocatore.
+3. Considera soltanto salute, ferite e condizioni esplicitamente stabilite nella storia; fame e tempo non applicano penalità automatiche.
+4. MONDO VIVO: mostra soltanto reazioni collegate all'azione. Le iniziative esterne indipendenti vengono generate dal ciclo eventi.
 5. Descrivi le conseguenze PROPORZIONATE al risultato del tiro (successo critico = bonus, fallimento critico = disastro).
-6. Usa i tag appropriati [MECCANICA/LOOT/NPC/TEMPO] e consuma energia per sforzi fisici.
-${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` : ''}${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
+6. Usa i tag appropriati [MECCANICA/LOOT/NPC/TEMPO] soltanto per cambiamenti espliciti e verificabili; non consumare fame o energia automaticamente.
+${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
             }
 
             const relevanceText = `${action || ''} ${story.title || ''} ${story.setting || ''}`;
@@ -13874,23 +13249,8 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 });
             G.worldMemory.events = eventResult.events;
             if (eventResult.changed) memoryChanged = true;
-            const responseQueueSeeds = deferActionEvents ? [] : timelineSimulator.parsePendingEventSeeds(response, {
-                turn: G.worldMemory.turnCount || 0,
-                batchId: `story-${G.worldMemory.turnCount || 0}`,
-                parentSeed: {
-                    kind: 'player_action',
-                    depth: 0,
-                    cause: eventResult.added[0]?.cause || eventResult.added[0]?.summary || 'Conseguenza del turno narrativo'
-                }
-            });
-            if (responseQueueSeeds.length) {
-                G.worldMemory.pendingTimelineEvents = timelineSimulator.scheduleEventSeeds(
-                    G.worldMemory.pendingTimelineEvents,
-                    responseQueueSeeds,
-                    { turn: G.worldMemory.turnCount || 0 }
-                );
-                memoryChanged = true;
-            }
+            // EVENTO descrive il risultato del turno ma non può accodare altri
+            // eventi. Il ciclo successivo nasce da una nuova azione o da Vai avanti.
 
             const ensuredChats = timelineChatEngine.ensureEventThreads(
                 G.worldMemory.chats,
@@ -14074,8 +13434,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                     addStoryEntry(`⚡ ${v >= 0 ? '+' : ''}${v} Energia`, 'mechanic');
                     break;
                 case 'fame': case 'hunger':
-                    c.hunger.cur = Math.max(0, Math.min(c.hunger.max, c.hunger.cur + v));
-                    addStoryEntry(`🍖 ${v >= 0 ? '+' : ''}${v} Sazietà`, 'mechanic');
+                    // Campo legacy ignorato: la fame non è più una meccanica.
                     break;
             }
             if (!suppressUiUpdate) {
@@ -14097,7 +13456,6 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
                 c.health.cur = c.health.max;
                 c.stamina.max += 10;
                 c.stamina.cur = c.stamina.max;
-                c.hunger.cur = c.hunger.max; // Sazietà piena al level up
                 
                 if (c.secondary) {
                     const bonus = c.secondary.levelUpBonus || 0;
@@ -14646,11 +14004,7 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             $('btn-top-game').onclick = () => showQuickModal('Partita', `<div class="btn-row"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-save-quick').click()">💾 Salvataggi</button><button class="btn danger" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-exit').click()">🚪 Esci</button></div>`);
 
             // ACTION BAR
-            if ($('btn-rest')) $('btn-rest').onclick = doRest;
-            if ($('btn-eat')) $('btn-eat').onclick = doEat;
             if ($('btn-heal')) $('btn-heal').onclick = doCure;
-            if ($('btn-wait')) $('btn-wait').onclick = () => openModal('modal-wait');
-            if ($('btn-train')) $('btn-train').onclick = doTrain;
             if ($('btn-business-manage')) $('btn-business-manage').onclick = openBusinessManager;
             if ($('btn-kingdom-manage')) $('btn-kingdom-manage').onclick = openKingdomManager;
             if ($('btn-strategic-actions')) $('btn-strategic-actions').onclick = openStrategicActions;
@@ -14687,28 +14041,6 @@ ${worldEvent ? `6. INTEGRA L'EVENTO MONDO nella narrazione: ${worldEvent.text}` 
             if ($('business-dashboard')) $('business-dashboard').onclick = handleBusinessAction;
             if ($('kingdom-dashboard')) $('kingdom-dashboard').onclick = handleKingdomAction;
             if ($('kingdom-dashboard')) $('kingdom-dashboard').onchange = handleKingdomFilter;
-
-            // WAIT MODAL HANDLERS
-            $$('.wait-btn').forEach(btn => {
-                btn.onclick = () => {
-                    const mins = parseInt(btn.dataset.minutes);
-                    advanceTime(mins);
-                    closeAllModals();
-                    const timeStr = mins >= 1440 ? `${Math.floor(mins/1440)} giorno/i` : 
-                                   mins >= 60 ? `${Math.floor(mins/60)} ora/e` : `${mins} minuti`;
-                    addStoryEntry(`⏰ Passano ${timeStr}... Ora sono le ${getTimeString()}, ${getTimePeriod().name}.`, 'system');
-                    generateAI(`È trascorso ${timeStr}. Narra in ordine cronologico cosa è successo durante l'intero periodo, includendo la normale vita quotidiana del protagonista e gli eventi significativi. Concludi alla data e ora attuali: ${getFullTimeString()}.`);
-                };
-            });
-            $('btn-wait-until').onclick = () => {
-                const targetHour = parseInt($('wait-until-hour').value);
-                const waited = waitUntilHour(targetHour);
-                closeAllModals();
-                if (waited > 0) {
-                    addStoryEntry(`⏰ Aspetti fino alle ${targetHour.toString().padStart(2,'0')}:00...`, 'system');
-                    generateAI(`È passato del tempo. Narra cosa è avvenuto durante l'attesa, compresa la normale routine del protagonista, e concludi a ${getFullTimeString()}.`);
-                }
-            };
 
             // INPUT
             $('btn-send').onclick = sendAction;

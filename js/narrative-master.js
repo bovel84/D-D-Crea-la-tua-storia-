@@ -86,7 +86,6 @@
 
         if (character.health?.max && character.health.cur / character.health.max <= 0.3) urgent.push('salute critica');
         if (character.stamina?.cur <= 25) urgent.push('energia critica');
-        if (character.hunger?.cur <= 25) urgent.push('fame critica');
         if (character.gold < 0) urgent.push('debito attivo');
 
         return {

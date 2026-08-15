@@ -357,7 +357,6 @@
         const kingdom = context.kingdom || memory.kingdom || {};
         const health = character.health || {};
         const stamina = character.stamina || {};
-        const hunger = character.hunger || {};
         const rememberedNames = [
             ...asArray(memory.events).slice(-12).flatMap(item => asArray(item?.actors)),
             ...asArray(memory.chats).filter(item => item?.status !== 'closed').flatMap(item => asArray(item?.participants))
@@ -425,7 +424,6 @@
                 level: Math.max(1, Math.trunc(number(character.level, 1))),
                 health: { current: number(health.cur), max: number(health.max, 100) },
                 energy: { current: number(stamina.cur), max: number(stamina.max, 100) },
-                hunger: { current: number(hunger.cur), max: number(hunger.max, 100) },
                 money: number(character.gold),
                 currency: cleanText(character.currency?.short || character.currency?.symbol || 'monete', 30),
                 inventory: asArray(character.inventory).slice(0, 14).map(item =>
@@ -679,13 +677,11 @@ ${cleanText(previousResponse, 2400)}`;
         const issues = [];
         const healthRatio = protagonist.health.max ? protagonist.health.current / protagonist.health.max : 1;
         const energyRatio = protagonist.energy.max ? protagonist.energy.current / protagonist.energy.max : 1;
-        const hungerRatio = protagonist.hunger.max ? protagonist.hunger.current / protagonist.hunger.max : 1;
 
-        if (healthRatio < 0.55 || energyRatio < 0.35 || hungerRatio < 0.35) {
+        if (healthRatio < 0.55 || energyRatio < 0.35) {
             const needs = [];
             if (healthRatio < 0.55) needs.push(`salute ${Math.round(protagonist.health.current)}/${Math.round(protagonist.health.max)}`);
             if (energyRatio < 0.35) needs.push(`energia ${Math.round(protagonist.energy.current)}/${Math.round(protagonist.energy.max)}`);
-            if (hungerRatio < 0.35) needs.push(`sazietà ${Math.round(protagonist.hunger.current)}/${Math.round(protagonist.hunger.max)}`);
             issues.push(issue(
                 `Tenuta fisica di ${protagonist.name}`,
                 'personale', healthRatio < 0.3 ? 'critica' : 'alta',
@@ -693,9 +689,9 @@ ${cleanText(previousResponse, 2400)}`;
                 'Recuperare efficienza senza perdere il controllo delle scadenze aperte.', [], [
                     action({
                         title: 'Mettersi in sicurezza',
-                        description: 'Raggiungere un luogo sicuro, mangiare e riposare prima di assumere altri rischi.',
+                        description: 'Raggiungere un luogo sicuro e curare le condizioni che incidono davvero sulla scena.',
                         command: `Mi metto al sicuro a ${snapshot.currentMoment.location || 'riparo'}, procuro un pasto adeguato e riposo il tempo necessario senza ignorare eventuali urgenze.`,
-                        objective: 'Ripristinare energia e sazietà', expectedOutcome: 'Tornare in condizioni utili ad agire',
+                        objective: 'Recuperare condizioni utili ad agire', expectedOutcome: 'Tornare in condizioni utili ad agire',
                         cost: `Denaro disponibile: ${protagonist.money} ${protagonist.currency}`, duration: 'Alcune ore', risk: 'basso',
                         tradeoff: 'Il mondo continua a muoversi durante il recupero'
                     }),
