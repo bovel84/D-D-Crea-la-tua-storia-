@@ -470,6 +470,8 @@ REGOLE OBBLIGATORIE:
 - Il fatto deve contenere 3-5 frasi complete, azione osservabile, strumento usato, risultato verificabile e conseguenza persistente. Un'intenzione non è un risultato.
 - La conseguenza deve contenere 1-2 frasi complete. Chiudi ogni frase e ogni campo prima del separatore |; non interrompere mai un testo a metà.
 - Usa soltanto nomi propri, cariche e istituzioni presenti nel contesto. Vietati segnaposto come Autorità, Opposizione, Mediatore o Comunità.
+- STILE NARRATIVO: il campo «fatto» deve essere scritto come prosa narrativa immersiva, come in un romanzo storico-fantasy. Mostra la scena con dettagli concreti, sensazioni e azioni visibili. NON usare linguaggio da game design o meta-discorsivo.
+- Sono vietate nel fatto e nella conseguenza le formule: «mossa concreta», «variazione di stato», «leva», «il fronte avanza», «deve fare i conti», «ambito», «impegnato [risorsa]», «prima di agire nello stesso ambito» e qualsiasi frase che sembri un'istruzione di gioco rather che narrazione.
 - interaction è dialogue se il giocatore deve rispondere parlando, action se deve agire nella scena, either se può scegliere, none se il fatto si risolve senza intervento.
 - Se interaction è dialogue e la conversazione è required, devi emettere esattamente UNA CHAT di apertura pronunciata da un solo interlocutore. Mai parole inventate per il protagonista.
 - Le conseguenze persistenti aggiornano lo stato del mondo, ma un nuovo evento nascerà soltanto da una nuova azione del giocatore o dal successivo comando esplicito «Vai avanti».
@@ -901,7 +903,9 @@ REGOLE DEL TURNO:
 - Per un'AZIONE DEL GIOCATORE mostra l'esito osservabile di quel comando: cosa riesce, cosa fallisce, quale costo viene realmente pagato e quale possibilità cambia. Non sostituire l'azione con una trama inventata.
 - Per il MONDO ESTERNO fai agire indipendentemente un attore già registrato: nomina obiettivo, luogo, leva impiegata e soggetto colpito. Non farlo reagire passivamente al giocatore se possiede una propria agenda.
 - Ogni fatto deve contenere 3-5 frasi complete con PRIMA → MOSSA → REAZIONE → DOPO. La conseguenza deve essere persistente e verificabile nel turno seguente.
-- Vietati esiti generici come “la situazione cambia”, “gli equilibri cambiano”, “rafforza la posizione”, “dovrà reagire”, e vietati attori generici come Autorità, Opposizione o Comunità.
+- Vietati esiti generici come "la situazione cambia", "gli equilibri cambiano", "rafforza la posizione", "dovrà reagire", e vietati attori generici come Autorità, Opposizione o Comunità.
+- STILE NARRATIVO: il fatto e la conseguenza devono essere scritti come prosa narrativa immersiva in stile romanzo storico-fantasy, con dettagli concreti, atmosfera e azioni visibili. NON usare linguaggio da game design o meta-discorsivo.
+- Sono vietate nel fatto e nella conseguenza le formule: «mossa concreta», «variazione di stato», «leva», «il fronte avanza», «deve fare i conti», «ambito», «impegnato [risorsa]», «prima di agire nello stesso ambito» e qualsiasi frase che sembri un'istruzione di gioco piuttosto che narrazione.
 - Usa soltanto nomi, ruoli, luoghi, istituzioni e risorse presenti nel contesto. Non confondere genere, titolo, funzione o epoca dei personaggi.
 - Apri una CHAT soltanto quando lo scopo dell'azione richiede davvero parole dell'interlocutore (negoziare, interrogare, convocare, chiedere). In tal caso interaction=dialogue, conversation=required ed emetti una sola battuta iniziale. Gli altri eventi non aprono chat.
 - Ogni azione strategica riceve esattamente un ESITO_STRATEGICO con il suo ID. Può essere completata, parziale, fallita o in_corso, ma non può creare una coda automatica.

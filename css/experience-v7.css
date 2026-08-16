@@ -706,6 +706,7 @@
 .world-map-route.explicit { stroke-width: 6; stroke-dasharray: none; opacity: .76; }
 .world-map-node { color: #39271b; cursor: pointer; outline: none; }
 .world-map-node.map-filtered { opacity: .12; pointer-events: none; }
+.world-map-node.fog-hidden.map-filtered { opacity: 0; }
 .world-map-node-ring {
     fill: #f4e5b1;
     stroke: #64441f;
@@ -740,6 +741,15 @@
 .world-map-node.current .world-map-node-icon { fill: #fff8d8; }
 .world-map-node.current .world-map-node-label { fill: #6c171d; font-size: 17px; }
 .world-map-danger { fill: #9b1d25; stroke: #f3d684; stroke-width: 2; }
+/* Fog of war — luoghi non scoperti */
+.world-map-node.fog-hidden { opacity: 0; pointer-events: none; }
+.world-map-node.fog-partial { opacity: 0.45; }
+.world-map-node.fog-partial .world-map-node-ring { stroke-dasharray: 4 4; opacity: 0.6; }
+.world-map-node.fog-partial .world-map-node-icon { opacity: 0.5; }
+.world-map-node.fog-partial .world-map-node-label { opacity: 0.55; }
+.world-map-node.fog-partial .world-map-danger { display: none; }
+.world-map-route.fog-hidden { opacity: 0; }
+.world-map-route.fog-partial { opacity: 0.25; stroke-dasharray: 3 6; }
 .world-map-objective-badge { fill: #6f268f; paint-order: stroke; stroke: #ffe78f; stroke-width: 4px; font: 700 18px Georgia, serif; }
 .world-map-compass circle { fill: rgba(255, 244, 204, .55); stroke: currentColor; stroke-width: 2; }
 .world-map-compass path { fill: #7f2529; stroke: currentColor; stroke-width: 1; }
@@ -830,26 +840,39 @@
         height: calc(100dvh - 70px);
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas: "status" "intel" "tools" "map" "detail";
-        grid-template-rows: auto auto auto minmax(330px, 58dvh) auto;
+        grid-template-rows: auto auto auto minmax(280px, 48dvh) auto;
         overflow-y: auto;
         padding: 9px;
+        gap: 8px;
     }
     .world-map-status { align-items: stretch; padding: 9px 10px; }
     .world-map-intel { grid-template-columns: repeat(4, minmax(68px, 1fr)); overflow-x: auto; }
     .world-map-position { max-width: 48%; align-self: center; }
-    .world-map-viewport { min-height: 330px; height: 58dvh; }
-    .world-map-side { max-height: none; overflow: visible; }
-    .world-map-detail { min-height: 210px; overflow: visible; }
+    .world-map-viewport { min-height: 280px; height: 48dvh; border-radius: 12px; }
+    .world-map-side { max-height: none; overflow: visible; padding-bottom: 20px; }
+    .world-map-detail { min-height: auto; overflow: visible; padding: 12px; border-radius: 12px; }
     .world-map-tool { min-height: 43px; }
+}
+@media (max-width: 430px) {
+    .portrait-topbar {
+        grid-template-columns: 38px 38px 72px 38px 38px 38px;
+        gap: 5px;
+        min-height: 84px;
+    }
+    .portrait-orbit { width: 38px; height: 38px; font-size: 1rem; }
+    .topbar-protagonist { width: 72px; height: 72px; }
+    .topbar-protagonist > span { font-size: 1.7rem; }
+    .world-map-intel { grid-template-columns: repeat(2, 1fr); }
+    .world-map-viewport { min-height: 240px; height: 42dvh; }
 }
 
 /* Portrait-driven cast and causal event presentation v10 */
 .portrait-topbar {
     display: grid;
-    grid-template-columns: 44px 44px 82px 44px 44px;
+    grid-template-columns: 44px 44px 82px 44px 44px 44px;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 7px;
     min-height: 92px;
 }
 .topbar-protagonist, .portrait-orbit { border: 0; cursor: pointer; color: #24160d; box-shadow: 0 5px 14px rgba(0,0,0,.35); }

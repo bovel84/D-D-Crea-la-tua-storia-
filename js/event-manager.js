@@ -272,6 +272,30 @@
         }, context);
     }
 
+    // Narrative fallback: when the LLM produces prose without [EVENTO:] or [CRONISTA:] tags,
+    // extract a meaningful event from the narrative text itself.
+    function narrativeFallback(response, context = {}) {
+        const raw = String(response || '').replace(/<[^>]+>/g, ' ').replace(/\[ANALISI\][\s\S]*?\[\/ANALISI\]/gi, '').replace(/\[\w+:\s*[^\]]*\]/gi, '').trim();
+        if (!raw || raw.length < 40) return null;
+
+        // Clean narrative text
+        const text = raw.replace(/\s+/g, ' ').trim();
+        // Try to find a meaningful title from first sentence
+        const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 15);
+        if (!sentences.length) return null;
+
+        const title = sentences[0].slice(0, 120).trim();
+        // Use first 2-3 sentences as summary
+        const summary = sentences.slice(0, 3).join(' ').slice(0, 500).trim();
+
+        return normalizeEvent({
+            title,
+            summary,
+            importance: 'minor',
+            source: 'narrative-fallback'
+        }, context);
+    }
+
     function parseNarrativeTags(response, context = {}) {
         const text = String(response == null ? '' : response);
         const events = [];
@@ -284,9 +308,15 @@
             seen.add(event.fingerprint);
             events.push(event);
         }
-        if (!events.length && context.includeChronicleFallback !== false) {
-            const fallback = chronicleFallback(text, context);
-            if (fallback) events.push(fallback);
+        if (!events.length) {
+            // Try chronicle fallback first ([CRONISTA:...]) — only if not disabled
+            if (context.includeChronicleFallback !== false) {
+                const chronicle = chronicleFallback(text, context);
+                if (chronicle) { events.push(chronicle); return events.slice(0, 1); }
+            }
+            // Last resort: always extract an event from narrative prose
+            const narrative = narrativeFallback(text, context);
+            if (narrative) events.push(narrative);
         }
         return events.slice(0, 1);
     }

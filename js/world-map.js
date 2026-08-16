@@ -348,6 +348,15 @@
     function assignCoordinates(locations, seed) {
         const occupied = new Set();
         const positioned = locations.map(location => {
+            // If location has LLM-generated coordinates, use them directly
+            if (Number.isFinite(Number(location.x)) && Number.isFinite(Number(location.y))) {
+                return {
+                    ...location,
+                    x: Math.max(40, Math.min(MAP_WIDTH - 40, Math.round(Number(location.x) * MAP_WIDTH / 1000))),
+                    y: Math.max(40, Math.min(MAP_HEIGHT - 40, Math.round(Number(location.y) * MAP_HEIGHT / 650)))
+                };
+            }
+            // Fallback: hash-based slot assignment
             let slot = hashNumber(`${seed}|${location.name}`) % MAP_POSITIONS.length;
             for (let attempt = 0; attempt < MAP_POSITIONS.length && occupied.has(slot); attempt++) slot = (slot + 7) % MAP_POSITIONS.length;
             occupied.add(slot);
@@ -436,6 +445,18 @@
         const factions = buildFactions(world, memory);
         const objectives = buildObjectives(memory);
         const baseLocations = mergeLocations(world, memory, context, factions, objectives);
+        // Pass through hierarchy metadata from generated worlds
+        const hierarchy = world?.hierarchy || null;
+        const startLocation = world?.startLocation || '';
+        // Determine discovered locations for fog of war
+        const currentTurn = Math.max(0, Number(context.turn) || 0);
+        const visitedKeys = new Set();
+        // Current location is always visible
+        const currentLocKey = keyOf(context.currentLocation || context.location);
+        if (currentLocKey) visitedKeys.add(currentLocKey);
+        // Locations with discoveredAtTurn > 0 are visible
+        // Start location is always visible
+        if (startLocation) visitedKeys.add(keyOf(startLocation));
         const locations = assignCoordinates(baseLocations, seed).map(location => {
             const controllerKey = keyOf(location.controller);
             const locationKey = keyOf(`${location.name} ${location.region}`);
@@ -450,13 +471,21 @@
                 return objectiveLocation && (locationKey.includes(objectiveLocation) || objectiveLocation.includes(keyOf(location.name)));
             }).map(objective => objective.id);
             const linkedObjectives = objectives.filter(objective => objectiveIds.includes(objective.id));
+            // Fog of war: determine visibility
+            const locKey = keyOf(location.name);
+            const isVisited = visitedKeys.has(locKey) || location.current || location.owned;
+            const isAdjacentToVisited = !isVisited && location.connections.some(conn => visitedKeys.has(keyOf(conn)));
+            const isWorldGenerated = location.source === 'world-generator' || location.worldSeed;
+            const discovered = isVisited || isAdjacentToVisited || currentTurn === 0 || isWorldGenerated; // Show all generated locations
             const mapped = {
                 ...location,
                 icon: locationIcon(location, theme.id),
                 factionIds: presentFactions.map(faction => faction.id),
                 hostileFactionIds: presentFactions.filter(faction => faction.stance === 'hostile').map(faction => faction.id),
                 objectiveIds,
-                dominantFactionId: presentFactions.sort((left, right) => right.hostility - left.hostility || right.power - left.power)[0]?.id || ''
+                dominantFactionId: presentFactions.sort((left, right) => right.hostility - left.hostility || right.power - left.power)[0]?.id || '',
+                discovered,
+                fogState: isVisited ? 'visible' : (isAdjacentToVisited ? 'partial' : 'hidden')
             };
             mapped.intel = buildLocationIntel(mapped, presentFactions, linkedObjectives);
             return mapped;
@@ -476,6 +505,8 @@
             edges: buildEdges(locations),
             factions,
             objectives,
+            hierarchy: hierarchy || null,
+            startLocation: startLocation || '',
             currentLocationId: current?.id || '',
             currentLocationName: current?.name || cleanText(context.currentLocation || context.location, 120) || 'Sconosciuto'
         };
@@ -509,17 +540,22 @@
             if (!from || !to) return '';
             const bend = Math.round((from.x + to.x) / 2);
             const lift = Math.round(Math.min(from.y, to.y) - Math.abs(from.x - to.x) * 0.08);
-            return `<path class="world-map-route${edge.explicit ? ' explicit' : ''}" d="M ${from.x} ${from.y} Q ${bend} ${lift} ${to.x} ${to.y}"/>`;
+            const fogFrom = from.fogState || 'visible';
+            const fogTo = to.fogState || 'visible';
+            const routeFog = fogFrom === 'hidden' && fogTo === 'hidden' ? ' fog-hidden'
+                : (fogFrom === 'hidden' || fogTo === 'hidden') ? ' fog-partial' : '';
+            return `<path class="world-map-route${edge.explicit ? ' explicit' : ''}${routeFog}" d="M ${from.x} ${from.y} Q ${bend} ${lift} ${to.x} ${to.y}"/>`;
         }).join('');
         const nodes = model.locations.map(location => {
             const lines = wrapLabel(location.name);
             const label = lines.map((line, index) => `<tspan x="0" dy="${index ? 17 : 0}">${escapeHtml(line)}</tspan>`).join('');
             const faction = factionsById.get(location.dominantFactionId);
             const isSite = /property|business|resource/.test(location.kind);
-            const factionZone = faction ? `<circle class="world-map-faction-zone ${faction.stance}" r="${isSite ? 29 : 40}" style="--map-faction-color:${faction.color}"/><text class="world-map-faction-flag" x="${isSite ? 17 : 22}" y="${isSite ? -19 : -25}" style="--map-faction-color:${faction.color}">⚑</text>` : '';
+            const fogClass = location.fogState === 'hidden' ? ' fog-hidden' : location.fogState === 'partial' ? ' fog-partial' : '';
+        const factionZone = faction ? `<circle class="world-map-faction-zone ${faction.stance}" r="${isSite ? 29 : 40}" style="--map-faction-color:${faction.color}"/><text class="world-map-faction-flag" x="${isSite ? 17 : 22}" y="${isSite ? -19 : -25}" style="--map-faction-color:${faction.color}">⚑</text>` : '';
             const owned = location.owned ? '<path class="world-map-owned" d="M-18 15 l7 7 14-18"/>' : '';
             const objective = location.objectiveIds?.length ? '<text class="world-map-objective-badge" x="-22" y="-20">◆</text>' : '';
-            return `<g class="world-map-node kind-${escapeHtml(location.kind)}${isSite ? ' site' : ''}${location.current ? ' current' : ''}${location.hostileFactionIds?.length ? ' hostile' : ''}" data-map-location-id="${escapeHtml(location.id)}" data-map-kind="${escapeHtml(location.kind)}" data-map-owned="${location.owned ? 'true' : 'false'}" data-map-hostile="${location.hostileFactionIds?.length ? 'true' : 'false'}" data-map-objective="${location.objectiveIds?.length ? 'true' : 'false'}" transform="translate(${location.x} ${location.y})" role="button" tabindex="0" aria-label="${escapeHtml(location.name)}${location.current ? ', posizione attuale' : ''}"><title>${escapeHtml(location.name)}${location.description ? ` — ${escapeHtml(location.description)}` : ''}${faction ? ` — ${escapeHtml(faction.name)}` : ''}</title>${factionZone}${location.current ? '<circle class="world-map-player-pulse" r="34"/><circle class="world-map-player-ring" r="25"/>' : `<circle class="world-map-node-ring" r="${isSite ? 17 : 22}"/>`}<text class="world-map-node-icon" text-anchor="middle" dominant-baseline="central">${escapeHtml(location.icon)}</text>${owned}${objective}<text class="world-map-node-label" text-anchor="middle" y="${isSite ? 31 : 37}">${label}</text>${location.danger ? '<path class="world-map-danger" d="M 17 -25 l 9 16 h -18 z"/>' : ''}</g>`;
+            return `<g class="world-map-node kind-${escapeHtml(location.kind)}${isSite ? ' site' : ''}${location.current ? ' current' : ''}${location.hostileFactionIds?.length ? ' hostile' : ''}${fogClass}" data-map-location-id="${escapeHtml(location.id)}" data-map-kind="${escapeHtml(location.kind)}" data-map-owned="${location.owned ? 'true' : 'false'}" data-map-hostile="${location.hostileFactionIds?.length ? 'true' : 'false'}" data-map-objective="${location.objectiveIds?.length ? 'true' : 'false'}" data-map-fog="${location.fogState || 'visible'}" transform="translate(${location.x} ${location.y})" role="button" tabindex="0" aria-label="${escapeHtml(location.name)}${location.current ? ', posizione attuale' : ''}"><title>${escapeHtml(location.name)}${location.description ? ` — ${escapeHtml(location.description)}` : ''}${faction ? ` — ${escapeHtml(faction.name)}` : ''}</title>${factionZone}${location.current ? '<circle class="world-map-player-pulse" r="34"/><circle class="world-map-player-ring" r="25"/>' : `<circle class="world-map-node-ring" r="${isSite ? 17 : 22}"/>`}<text class="world-map-node-icon" text-anchor="middle" dominant-baseline="central">${escapeHtml(location.icon)}</text>${owned}${objective}<text class="world-map-node-label" text-anchor="middle" y="${isSite ? 31 : 37}">${label}</text>${location.danger ? '<path class="world-map-danger" d="M 17 -25 l 9 16 h -18 z"/>' : ''}</g>`;
         }).join('');
         const p = model.theme;
         return `<svg class="world-map-svg theme-${escapeHtml(p.id)}" viewBox="0 0 ${model.width} ${model.height}" xmlns="http://www.w3.org/2000/svg" aria-label="Mappa di ${escapeHtml(model.name)}"><defs><linearGradient id="map-paper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p.background}"/><stop offset=".52" stop-color="${p.land}"/><stop offset="1" stop-color="${p.background}"/></linearGradient><filter id="map-shadow"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity=".35"/></filter></defs><rect width="100%" height="100%" rx="22" fill="url(#map-paper)"/><rect class="world-map-frame" x="18" y="18" width="${model.width - 36}" height="${model.height - 36}" rx="16"/>${terrainMarkup(model)}<g class="world-map-routes">${routes}</g><g class="world-map-nodes">${nodes}</g><g class="world-map-compass" transform="translate(885 82)"><circle r="39"/><path d="M0-31 L8-7 L0 0 L-8-7 Z M0 31 L8 7 L0 0 L-8 7 Z"/><text text-anchor="middle" y="-45">N</text></g><text class="world-map-signature" x="46" y="574">${escapeHtml(p.icon)} ${escapeHtml(model.name)}</text></svg>`;

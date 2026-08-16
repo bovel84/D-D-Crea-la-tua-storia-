@@ -1992,6 +1992,95 @@
         }
 
         .memory-card.npc { border-left-color: var(--sapphire); }
+
+        /* NPC Registry Cards */
+        .npc-registry-card {
+            background: var(--card-bg, rgba(30,25,20,0.9));
+            border: 1px solid rgba(180,150,100,0.15);
+            border-left: 3px solid var(--sapphire, #4a6fa5);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            transition: border-color 0.2s, opacity 0.3s;
+        }
+        .npc-registry-card.dead {
+            border-left-color: #8b0000;
+            opacity: 0.55;
+        }
+        .npc-registry-card.missing {
+            border-left-color: #666;
+            opacity: 0.7;
+        }
+        .npc-registry-card.injured {
+            border-left-color: #c97;
+        }
+        .npc-registry-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .npc-registry-name {
+            font-family: 'Cinzel', serif;
+            font-size: 1.05em;
+            color: var(--gold, #c9a04e);
+            flex: 1;
+        }
+        .npc-registry-status {
+            font-size: .8em;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.08);
+            white-space: nowrap;
+        }
+        .npc-registry-status.alive { color: #4ecca3; }
+        .npc-registry-status.dead { color: #c55; }
+        .npc-registry-status.missing { color: #aaa; }
+        .npc-registry-status.injured { color: #e8a87c; }
+        .npc-registry-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 12px;
+            font-size: .82em;
+            color: var(--text-muted, #a99);
+            margin-top: 6px;
+        }
+        .npc-registry-grid div { line-height: 1.5; }
+        .npc-registry-section {
+            margin-top: 8px;
+            font-size: .82em;
+            color: var(--text-muted, #a99);
+            line-height: 1.5;
+        }
+        .npc-registry-section strong { color: var(--text, #d4c4a8); }
+        .npc-registry-tags {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .npc-registry-tag {
+            font-size: .72em;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.06);
+            color: var(--text-muted, #a99);
+        }
+        .npc-registry-tag.faction { background: rgba(74,111,165,0.2); color: #8ab4f0; }
+        .npc-registry-tag.threat-low { color: #4ecca3; }
+        .npc-registry-tag.threat-medium { color: #e8a87c; }
+        .npc-registry-tag.threat-high { color: #e74c3c; }
+        .npc-registry-tag.threat-boss { color: #c0392b; font-weight: bold; }
+        .npc-filter-btn.active {
+            background: var(--gold, #c9a04e);
+            color: #1a1510;
+        }
+        .npc-registry-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted, #a99);
+            font-size: .9em;
+        }
         .memory-card.location { border-left-color: var(--emerald); }
         .memory-card.quest { border-left-color: var(--orange); }
         .memory-card.quest.completed { border-left-color: var(--emerald); opacity: 0.7; }
@@ -2967,7 +3056,7 @@
             100% { filter: brightness(1); }
         }
     </style>
-    <link rel="stylesheet" href="css/experience-v7.css?v=20260814-strategy-map-1">
+    <link rel="stylesheet" href="css/experience-v7.css?v=20260816-split-gen-2">
 </head>
 <body>
     <!-- HOME SCREEN -->
@@ -3003,9 +3092,9 @@
                 <p class="story-intro-setting" id="story-intro-setting">Il mondo si sta preparando.</p>
                 <p class="story-intro-hook" id="story-intro-hook"></p>
                 <div class="story-intro-progress" aria-label="Preparazione del primo capitolo">
-                    <div class="story-intro-step active" data-intro-stage="0"><i>✦</i><span>Accendo la scena</span></div>
-                    <div class="story-intro-step" data-intro-stage="1"><i>◈</i><span>Richiamo luoghi e protagonisti</span></div>
-                    <div class="story-intro-step" data-intro-stage="2"><i>⚑</i><span>Metto in moto il mondo</span></div>
+                    <div class="story-intro-step active" data-intro-stage="0"><i>✦</i><span>Creo luoghi e nazioni</span></div>
+                    <div class="story-intro-step" data-intro-stage="1"><i>◈</i><span>Diamo vita agli abitanti</span></div>
+                    <div class="story-intro-step" data-intro-stage="2"><i>⚑</i><span>Il mondo compie la sua prima mossa</span></div>
                 </div>
                 <p class="story-intro-status loading-dots" id="story-intro-status">Il narratore apre il primo capitolo</p>
             </div>
@@ -3019,6 +3108,7 @@
                 </button>
                 <button class="portrait-orbit orbit-life" id="btn-top-life" title="Vita e risorse">♥</button>
                 <button class="portrait-orbit orbit-game" id="btn-top-game" title="Salvataggio e partita">⚙</button>
+                <button class="portrait-orbit" id="btn-top-npc" title="Registro Personaggi" style="background:linear-gradient(145deg,#b887dd,#54247b);color:#fff;">👥</button>
             </div>
             <div class="topbar-row">
                 <div class="topbar-buttons">
@@ -3041,6 +3131,7 @@
                 <div class="topbar-buttons">
                     <button class="topbar-btn" id="btn-inventory" title="Inventario">🎒</button>
                     <button class="topbar-btn" id="btn-character" title="Personaggio">👤</button>
+                    <button class="topbar-btn" id="btn-npc-registry" title="Registro Personaggi">👥</button>
                     <button class="topbar-btn special" id="btn-memory" title="Memoria del Mondo">🧠</button>
                 </div>
             </div>
@@ -3428,6 +3519,27 @@
         </div>
     </div>
 
+    <!-- NPC Registry Modal -->
+    <div class="modal-overlay" id="modal-npc-registry">
+        <div class="modal" style="max-width:760px;">
+            <div class="modal-header">
+                <span style="font-size:1.3em;">👥 Registro Personaggi</span>
+                <button class="modal-close" data-close="modal-npc-registry">✕</button>
+            </div>
+            <div class="modal-body" style="max-height:80vh;overflow-y:auto;">
+                <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+                    <button class="btn secondary npc-filter-btn" data-npc-filter="all" style="font-size:.85em;">Tutti</button>
+                    <button class="btn secondary npc-filter-btn" data-npc-filter="alive" style="font-size:.85em;">💚 Vivi</button>
+                    <button class="btn secondary npc-filter-btn" data-npc-filter="dead" style="font-size:.85em;">💀 Morti</button>
+                    <button class="btn secondary npc-filter-btn" data-npc-filter="missing" style="font-size:.85em;">❓ Scomparsi</button>
+                    <div style="flex:1;"></div>
+                    <span id="npc-registry-count" style="font-size:.8em;color:var(--text-muted);"></span>
+                </div>
+                <div id="npc-registry-list"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- World Memory Modal -->
     <div class="modal-overlay" id="modal-memory">
         <div class="modal">
@@ -3775,11 +3887,12 @@
     </div>
 
     <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
-    <script src="js/world-bootstrap.js?v=20260815-map-genre-1"></script>
-    <script src="js/world-map.js?v=20260815-map-genre-1"></script>
+    <script src="js/world-bootstrap.js?v=20260816-fog-1"></script>
+    <script src="js/world-map.js?v=20260816-fog-2"></script>
+    <script src="js/world-generator.js?v=20260816-gen-2"></script>
     <script src="js/event-manager.js?v=20260815-event-delta-2"></script>
     <script src="js/timeline-chat.js?v=20260815-root-fix-1"></script>
-    <script src="js/timeline-simulator.js?v=20260815-root-fix-1"></script>
+    <script src="js/timeline-simulator.js?v=20260816-narrative-1"></script>
     <script src="js/strategic-advisor.js?v=20260815-root-fix-1"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
@@ -3857,6 +3970,7 @@
         });
         const worldBootstrapEngine = CronacheWorldBootstrap;
         const worldMapEngine = CronacheWorldMap;
+        const worldGeneratorEngine = CronacheWorldGenerator;
         let activeWorldMapModel = null;
         let selectedWorldMapLocationId = '';
         let worldMapZoom = 1;
@@ -5633,12 +5747,8 @@
             }
             overlay.hidden = false;
             overlay.classList.remove('is-leaving');
-            setStoryIntroStage(0, 'Il narratore apre il primo capitolo');
-            storyIntroTimers.push(setTimeout(() => setStoryIntroStage(1, 'Luoghi, legami e memorie trovano posto'), 550));
-            storyIntroTimers.push(setTimeout(() => setStoryIntroStage(2, 'Il mondo compie la sua prima mossa'), 1350));
-            storyIntroTimers.push(setTimeout(() => {
-                if (!overlay.hidden) $('story-intro-status').textContent = 'Il primo capitolo sta prendendo vita';
-            }, 2600));
+            setStoryIntroStage(0, 'Creo luoghi e nazioni...');
+            // Le fasi 1 e 2 vengono aggiornate da generateGameWorld() via setStoryIntroStage()
         }
 
         function finishStoryIntro(failed = false) {
@@ -7108,6 +7218,8 @@
             }
         }
 
+        let npcRegistryFilter = 'all';
+
         function addNPC(name, description, relationship = '', meta = {}) {
             const existing = G.worldMemory.npcs.find(n => n.name.toLowerCase() === name.toLowerCase());
             if (existing) {
@@ -7121,7 +7233,7 @@
                         to: relationship
                     });
                 }
-                existing.description = description;
+                existing.description = description || existing.description;
                 if (relationship) existing.relationship = relationship;
                 existing.lastSeen = G.worldMemory.turnCount;
                 existing.interactionCount = (existing.interactionCount || 0) + 1;
@@ -7133,6 +7245,9 @@
                 if (meta.level) existing.level = meta.level;
                 if (meta.stats) existing.stats = meta.stats;
                 if (meta.threat) existing.threat = meta.threat;
+                if (meta.faction) existing.faction = meta.faction;
+                if (meta.role) existing.role = meta.role;
+                if (meta.vitalStatus) existing.vitalStatus = meta.vitalStatus;
             } else {
                 G.worldMemory.npcs.push({
                     id: Date.now(),
@@ -7144,6 +7259,11 @@
                     status: meta.status || 'idle',
                     location: meta.location || '',
                     schedule: meta.schedule || '',
+                    role: meta.role || '',
+                    faction: meta.faction || '',
+                    vitalStatus: meta.vitalStatus || 'alive', // alive, injured, dead, missing
+                    deathCause: meta.deathCause || '',
+                    deathTurn: meta.deathTurn || null,
                     // Statistiche NPC per tiri contrapposti
                     level: meta.level || 1,
                     stats: meta.stats || { for: 10, des: 10, cos: 10, int: 10, sag: 10, car: 10 },
@@ -7154,6 +7274,125 @@
                     interactions: []
                 });
             }
+        }
+
+        // Segna un NPC come morto
+        function killNPC(name, cause = '') {
+            const npc = G.worldMemory.npcs.find(n => n.name.toLowerCase() === name.toLowerCase());
+            if (npc && npc.vitalStatus !== 'dead') {
+                npc.vitalStatus = 'dead';
+                npc.status = 'dead';
+                npc.deathCause = cause;
+                npc.deathTurn = G.worldMemory.turnCount;
+                if (!npc.interactions) npc.interactions = [];
+                npc.interactions.push({
+                    turn: G.worldMemory.turnCount,
+                    type: 'death',
+                    details: cause || 'Morto',
+                    time: getTimeString()
+                });
+                console.info(`[NPC] ${name} è morto: ${cause}`);
+                return true;
+            }
+            return false;
+        }
+
+        // Aggiorna lo stato vitale di un NPC
+        function updateNPCVitalStatus(name, status, cause = '') {
+            const npc = G.worldMemory.npcs.find(n => n.name.toLowerCase() === name.toLowerCase());
+            if (npc) {
+                if (status === 'dead') return killNPC(name, cause);
+                npc.vitalStatus = status;
+                if (status === 'injured') npc.status = 'injured';
+                if (status === 'missing') npc.status = 'missing';
+                if (status === 'alive' && npc.status === 'injured') npc.status = 'idle';
+                return true;
+            }
+            return false;
+        }
+
+        // Renderizza il registro NPC nel modal dedicato
+        function renderNPCRegistry() {
+            const npcs = [...(G.worldMemory?.npcs || []), ...((G.worldMemory?.world?.actors || []).map(a => ({
+                ...a,
+                vitalStatus: a.vitalStatus || (a.status === 'dead' ? 'dead' : 'alive'),
+                goals: a.goal || a.goals || '',
+                threat: a.threat || 'low'
+            })))];
+            // Deduplica per nome
+            const seen = new Set();
+            const unique = npcs.filter(n => {
+                const key = (n.name || '').toLowerCase();
+                if (seen.has(key) || !key) return false;
+                seen.add(key);
+                return true;
+            });
+
+            const filtered = unique.filter(n => {
+                const vs = n.vitalStatus || (n.status === 'dead' ? 'dead' : 'alive');
+                if (npcRegistryFilter === 'all') return true;
+                if (npcRegistryFilter === 'alive') return vs === 'alive';
+                if (npcRegistryFilter === 'dead') return vs === 'dead';
+                if (npcRegistryFilter === 'missing') return vs === 'missing';
+                return true;
+            });
+
+            $('npc-registry-count').textContent = `${filtered.length} personaggi`;
+
+            if (!filtered.length) {
+                $('npc-registry-list').innerHTML = '<div class="npc-registry-empty">Nessun personaggio registrato. Il mondo sarà popolato all\'avvio della partita.</div>';
+                return;
+            }
+
+            // Ordina: vivi prima, poi feriti, poi scomparsi, poi morti
+            const sortOrder = { alive: 0, injured: 1, missing: 2, dead: 3 };
+            filtered.sort((a, b) => {
+                const va = a.vitalStatus || (a.status === 'dead' ? 'dead' : 'alive');
+                const vb = b.vitalStatus || (b.status === 'dead' ? 'dead' : 'alive');
+                return (sortOrder[va] ?? 9) - (sortOrder[vb] ?? 9);
+            });
+
+            $('npc-registry-list').innerHTML = filtered.map(npc => {
+                const vs = npc.vitalStatus || (npc.status === 'dead' ? 'dead' : 'alive');
+                const statusIcon = { alive: '💚', dead: '💀', injured: '🩹', missing: '❓' }[vs] || '👤';
+                const statusLabel = { alive: 'Vivo', dead: 'Morto', injured: 'Ferito', missing: 'Scomparso' }[vs] || vs;
+                const cardClass = vs === 'dead' ? 'dead' : vs === 'missing' ? 'missing' : vs === 'injured' ? 'injured' : '';
+                const relColor = {
+                    'amico': '#4ecca3', 'alleato': '#4ecca3', 'nemico': '#c55', 'ostile': '#c55',
+                    'neutrale': '#a99', 'sconosciuto': '#888'
+                }[npc.relationship?.toLowerCase()] || '#a99';
+
+                const statsLine = npc.stats ? `STR ${npc.stats.for||10} DES ${npc.stats.des||10} COS ${npc.stats.cos||10} INT ${npc.stats.int||10} SAG ${npc.stats.sag||10} CAR ${npc.stats.car||10}` : '';
+
+                return `<div class="npc-registry-card ${cardClass}">
+                    <div class="npc-registry-header">
+                        <span style="font-size:1.1em;">${statusIcon}</span>
+                        <span class="npc-registry-name">${npc.name}</span>
+                        <span class="npc-registry-status ${vs}">${statusLabel}</span>
+                    </div>
+                    ${npc.role ? `<div style="font-size:.85em;color:var(--text-muted);margin-bottom:4px;">${npc.role}</div>` : ''}
+                    ${npc.description ? `<div style="font-size:.85em;color:var(--text-muted);margin-bottom:6px;line-height:1.5;">${npc.description}</div>` : ''}
+                    <div class="npc-registry-grid">
+                        ${npc.location ? `<div>📍 ${npc.location}</div>` : ''}
+                        ${npc.faction ? `<div>🏳️ ${npc.faction}</div>` : ''}
+                        ${npc.relationship ? `<div style="color:${relColor}">🤝 ${npc.relationship}</div>` : ''}
+                        ${npc.level ? `<div>⭐ Liv ${npc.level}</div>` : ''}
+                    </div>
+                    ${(npc.personality || npc.goals || npc.goal) ? `<div class="npc-registry-section">
+                        ${npc.personality ? `<div>🎭 <strong>Personalità:</strong> ${npc.personality}</div>` : ''}
+                        ${(npc.goals || npc.goal) ? `<div>🎯 <strong>Obiettivo:</strong> ${npc.goals || npc.goal}</div>` : ''}
+                    </div>` : ''}
+                    ${(npc.knowledge || npc.agenda || npc.strategy) ? `<div class="npc-registry-section">
+                        ${npc.knowledge ? `<div>📚 <strong>Conosce:</strong> ${npc.knowledge}</div>` : ''}
+                        ${npc.agenda ? `<div>📋 <strong>Agenda:</strong> ${npc.agenda}</div>` : ''}
+                        ${npc.strategy ? `<div>♟️ <strong>Strategia:</strong> ${npc.strategy}</div>` : ''}
+                    </div>` : ''}
+                    ${statsLine ? `<div class="npc-registry-section"><div>🎲 ${statsLine}</div></div>` : ''}
+                    ${npc.threat ? `<div class="npc-registry-tags"><span class="npc-registry-tag threat-${npc.threat}">minaccia: ${npc.threat}</span></div>` : ''}
+                    ${vs === 'dead' && npc.deathCause ? `<div class="npc-registry-section" style="color:#c55;"><div>☠️ <strong>Causa morte:</strong> ${npc.deathCause}${npc.deathTurn ? ` (turno ${npc.deathTurn})` : ''}</div></div>` : ''}
+                    ${npc.interactionCount > 0 ? `<div class="npc-registry-section"><div>💬 Interazioni: ${npc.interactionCount}${npc.metAt != null ? ` · Incontrato al turno ${npc.metAt}` : ''}</div></div>` : ''}
+                </div>`;
+            }).join('');
         }
         
         // Registra un'interazione significativa con un NPC
@@ -10177,10 +10416,94 @@
                 // Evita una cronaca vuota o un lungo prompt statico: mentre il primo
                 // turno viene generato, il giocatore vede il mondo prendere forma.
                 showStoryIntro();
-                window.setTimeout(() => generateAI('L\'avventura inizia...', true), 60);
+                window.setTimeout(() => generateGameWorld().then(() =>
+                    generateAI('L\'avventura inizia...', true)
+                ).catch(err => {
+                    console.warn('World generation fallita, fallback bootstrap:', err);
+                    generateAI('L\'avventura inizia...', true);
+                }), 60);
             }
 
             updateHome();
+        }
+
+        // ─── World Generation (LLM-driven) ─────────────────────
+        // Generates a complete world (geography, factions, NPCs) via LLM
+        // before the first narrative turn. Falls back to tag-based bootstrap
+        // if generation fails.
+        async function generateGameWorld() {
+            const story = G.currentStory;
+            if (!story) return;
+            const worldCtx = {
+                story,
+                turn: G.worldMemory.turnCount || 0,
+                currentDate: getFullTimeString(),
+                setting: story.setting || '',
+                protagonistName: G.character?.name || '',
+                idea: story.desc || ''
+            };
+
+            // ── Phase 1: Locations, Factions, Relations, Forces ──
+            setStoryIntroStage(0, 'Disegno continenti, nazioni e luoghi...');
+            const locPrompt = worldGeneratorEngine.buildLocationsPrompt(story, worldCtx);
+            const locMessages = [
+                { role: 'system', content: 'Sei un world-builder esperto per giochi di ruolo narrativi. Restituisci sempre JSON valido e completo.' },
+                { role: 'user', content: locPrompt }
+            ];
+            console.info('[WorldGenerator] Fase 1: generazione luoghi e fazioni...');
+            const locResponse = await requestConfiguredAI(locMessages, {
+                task: 'world-generation',
+                maxTokens: 4096,
+                timeoutMs: 60000,
+                temperature: 0.8
+            });
+            const locGenerated = worldGeneratorEngine.extractWorldJson(locResponse);
+            const locValidation = worldGeneratorEngine.validateHierarchy(locGenerated);
+            if (locValidation.errors.length) console.warn('[WorldGenerator] Errori validazione fase 1:', locValidation.errors);
+            if (locValidation.warnings.length) console.info('[WorldGenerator] Avvisi fase 1:', locValidation.warnings);
+            const locFixed = worldGeneratorEngine.autoFix(locGenerated);
+            const normalized = worldGeneratorEngine.normalizeGeneratedWorld(locFixed, worldCtx);
+
+            // Inject partial world (locations + factions, no NPCs yet)
+            G.worldMemory.world = normalized;
+            if (normalized.startLocation) {
+                G.currentLocation = normalized.startLocation;
+                updateLocationDisplay();
+            }
+            G.worldMemory = worldBootstrapEngine.projectToMemory(normalized, G.worldMemory, worldCtx);
+            console.info(`[WorldGenerator] Fase 1 completata: ${normalized.locations.length} luoghi, ${normalized.factions.length} fazioni, ${normalized.actors.length} NPC (parziali).`);
+            updateMemoryUI();
+
+            // ── Phase 2: NPCs ──
+            setStoryIntroStage(1, 'Diamo vita agli abitanti del mondo...');
+            const npcPrompt = worldGeneratorEngine.buildNpcPrompt(normalized, story, worldCtx);
+            const npcMessages = [
+                { role: 'system', content: 'Sei un world-builder esperto per giochi di ruolo narrativi. Restituisci sempre JSON valido e completo con array npcs e relations.' },
+                { role: 'user', content: npcPrompt }
+            ];
+            console.info('[WorldGenerator] Fase 2: generazione NPC...');
+            let npcCount = 0;
+            try {
+                const npcResponse = await requestConfiguredAI(npcMessages, {
+                    task: 'world-npcs',
+                    maxTokens: 3000,
+                    timeoutMs: 55000,
+                    temperature: 0.85
+                });
+                worldGeneratorEngine.mergeNpcIntoWorld(normalized, npcResponse, worldCtx);
+                npcCount = (normalized.actors || []).length;
+                console.info(`[WorldGenerator] Fase 2 completata: ${npcCount} NPC totali, ${normalized.relations.length} relazioni totali.`);
+                // Re-sync world memory with NPCs
+                G.worldMemory = worldBootstrapEngine.projectToMemory(normalized, G.worldMemory, worldCtx);
+            } catch (npcErr) {
+                console.warn('[WorldGenerator] Fase 2 NPC fallita, proseguo con NPC parziali:', npcErr.message || npcErr);
+            }
+
+            setStoryIntroStage(2, 'Il mondo compie la sua prima mossa...');
+            console.info(`[WorldGenerator] Mondo completo: ${normalized.locations.length} luoghi, ${npcCount} NPC, ${normalized.factions.length} fazioni, ${normalized.relations.length} relazioni, ${normalized.forces.length} forze.`);
+            updateMemoryUI();
+            updateInfoPanels();
+            renderNPCRegistry();
         }
 
         function exitGame() {
@@ -10206,6 +10529,9 @@
         function stripNarrativeProtocol(value) {
             return stripHiddenWorkBlocks(value)
                 .replace(/\[(?:MONDO|LUOGO|PERSONAGGIO|FAZIONE|RELAZIONE|FORZA|CONTESTO_STORICO)_SETUP\s*:[^\]]*(?:\]|$)/gi, '')
+                .replace(/\[NPC_MORTE:[^\]]*\]/gi, '')
+                .replace(/\[NPC_NUOVO:[^\]]*\]/gi, '')
+                .replace(/\[NPC_STATO:[^\]]*\]/gi, '')
                 .replace(/(^|\n)\s*\[[A-ZÀ-Ü][A-ZÀ-Ü0-9_]{2,}\s*:[^\n]*(?=\n|$)/g, '$1')
                 .replace(/\n{3,}/g, '\n\n')
                 .trim();
@@ -13263,6 +13589,9 @@ ${worldTimelineDirective}
 - I PNG ricordano le interazioni passate e cambiano atteggiamento.
 - Usa [NPC: nome|descrizione|relazione|personalità|obiettivo|stato|posizione] per aggiornare i PNG.
 - Usa [INTERAZIONE: nome_npc|tipo|dettagli] per interazioni significative.
+- Usa [NPC_MORTE: nome|causa] quando un NPC muore (in combattimento, malattia, tradimento, ecc.).
+- Usa [NPC_NUOVO: nome|ruolo|fazione|descrizione|posizione] quando appare un nuovo personaggio significativo.
+- Usa [NPC_STATO: nome|stato|dettagli] quando un NPC cambia stato vitale (injured=ferito, missing=scomparso, alive=guarito/ritrovato).
 - Mostra conseguenze delle scelte passate.
 - NPC potenti (alto livello) sono più difficili da ingannare, combattere o convincere.
 
@@ -13512,6 +13841,48 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 const details = (m[3] || '').trim();
                 recordNPCInteraction(npcName, interactionType, details);
                 memoryChanged = true;
+            }
+
+            // Extract NPC Deaths
+            // Formato: [NPC_MORTE: nome|causa]
+            const npcDeathRe = /\[NPC_MORTE:\s*([^|\]]+)(?:\|([^\]]+))?\]/gi;
+            while ((m = npcDeathRe.exec(response)) !== null) {
+                const npcName = (m[1] || '').trim();
+                const cause = (m[2] || '').trim();
+                if (killNPC(npcName, cause)) {
+                    addStoryEntry(`💀 ${npcName} è morto${cause ? ': ' + cause : ''}`, 'system');
+                    memoryChanged = true;
+                }
+            }
+
+            // Extract NPC New (nuovi personaggi che appaiono durante il gioco)
+            // Formato: [NPC_NUOVO: nome|ruolo|fazione|desc|posizione]
+            const npcNewRe = /\[NPC_NUOVO:\s*([^|\]]+)(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?(?:\|([^|\]]+))?\]/gi;
+            while ((m = npcNewRe.exec(response)) !== null) {
+                const name = (m[1] || '').trim();
+                const role = (m[2] || '').trim();
+                const faction = (m[3] || '').trim();
+                const desc = (m[4] || '').trim();
+                const location = (m[5] || '').trim();
+                if (name) {
+                    addNPC(name, desc, '', { role, faction, location, vitalStatus: 'alive' });
+                    addStoryEntry(`👥 Nuovo personaggio: ${name}${role ? ' (' + role + ')' : ''}`, 'memory-update');
+                    memoryChanged = true;
+                }
+            }
+
+            // Extract NPC Status Change (ferito, scomparso, ritrovato)
+            // Formato: [NPC_STATO: nome|stato|dettagli]
+            const npcStatusRe = /\[NPC_STATO:\s*([^|\]]+)\|([^|\]]+)(?:\|([^\]]+))?\]/gi;
+            while ((m = npcStatusRe.exec(response)) !== null) {
+                const npcName = (m[1] || '').trim();
+                const newStatus = (m[2] || '').trim().toLowerCase();
+                const details = (m[3] || '').trim();
+                if (updateNPCVitalStatus(npcName, newStatus, details)) {
+                    const icons = { injured: '🩹', missing: '❓', alive: '💚' };
+                    addStoryEntry(`${icons[newStatus] || '🔄'} ${npcName}: ${newStatus}${details ? ' - ' + details : ''}`, 'system');
+                    memoryChanged = true;
+                }
             }
 
             // Extract Locations
@@ -14557,6 +14928,17 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
             $('btn-inventory').onclick = () => { updateCharacterUI(); openModal('modal-inventory'); };
             $('btn-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
             $('btn-memory').onclick = () => { updateMemoryUI(); openModal('modal-memory'); };
+            $('btn-npc-registry').onclick = () => { renderNPCRegistry(); openModal('modal-npc-registry'); };
+            const btnTopNpc = $('btn-top-npc');
+            if (btnTopNpc) btnTopNpc.onclick = () => { renderNPCRegistry(); openModal('modal-npc-registry'); };
+            document.querySelectorAll('.npc-filter-btn').forEach(btn => {
+                btn.onclick = () => {
+                    npcRegistryFilter = btn.dataset.npcFilter;
+                    document.querySelectorAll('.npc-filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderNPCRegistry();
+                };
+            });
             $('btn-top-character').onclick = () => { updateCharacterUI(); openModal('modal-character'); };
             $('btn-top-story').onclick = openWorldMap;
             $('btn-top-world').onclick = () => showQuickModal('Memoria del mondo', `<div class="btn-row top-popup-grid"><button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-memory').click()">📜 Memoria</button>${$('btn-reopen-last-event')?.hidden ? '' : `<button class="btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('btn-reopen-last-event').click()">📖 Ultimo evento</button>`}</div>`);
