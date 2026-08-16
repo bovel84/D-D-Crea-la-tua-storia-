@@ -12667,8 +12667,13 @@
             $('btn-invite-world-chat').disabled = !thread || thread.status === 'closed' || G.isProcessing;
             $('btn-close-world-chat').disabled = !thread || thread.status === 'closed' || G.isProcessing;
             if (!thread) {
-                $('chat-conversation-head').innerHTML = '<strong>Nessuna conversazione selezionata</strong>';
-                $('chat-messages').innerHTML = '<div class="timeline-empty">Seleziona una chat collegata a un evento.</div>';
+                const convocationOpen = $('chat-convocation-panel') && $('chat-convocation-panel').classList.contains('visible');
+                $('chat-conversation-head').innerHTML = convocationOpen
+                    ? '<strong>Nuova riunione</strong>'
+                    : '<strong>Nessuna conversazione selezionata</strong>';
+                $('chat-messages').innerHTML = convocationOpen
+                    ? '<div class="timeline-empty">Seleziona i partecipanti e conferma per avviare la conversazione.</div>'
+                    : '<div class="timeline-empty">Seleziona una chat collegata a un evento.</div>';
                 $('chat-input').disabled = true;
                 $('btn-send-chat').disabled = true;
                 return;
