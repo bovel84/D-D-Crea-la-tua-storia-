@@ -3889,7 +3889,7 @@
     <script src="js/memory-manager.js?v=20260811-continuity-3"></script>
     <script src="js/world-bootstrap.js?v=20260816-fog-1"></script>
     <script src="js/world-map.js?v=20260816-fog-2"></script>
-    <script src="js/world-generator.js?v=20260816-gen-2"></script>
+    <script src="js/world-generator.js?v=20260816-fallback-npc-1"></script>
     <script src="js/event-manager.js?v=20260815-event-delta-2"></script>
     <script src="js/timeline-chat.js?v=20260815-root-fix-1"></script>
     <script src="js/timeline-simulator.js?v=20260816-narrative-1"></script>
@@ -10496,7 +10496,17 @@
                 // Re-sync world memory with NPCs
                 G.worldMemory = worldBootstrapEngine.projectToMemory(normalized, G.worldMemory, worldCtx);
             } catch (npcErr) {
-                console.warn('[WorldGenerator] Fase 2 NPC fallita, proseguo con NPC parziali:', npcErr.message || npcErr);
+                console.warn('[WorldGenerator] Fase 2 NPC fallita, genero NPC di fallback:', npcErr.message || npcErr);
+                worldGeneratorEngine.generateFallbackNpcs(normalized, worldCtx);
+                npcCount = (normalized.actors || []).length;
+                G.worldMemory = worldBootstrapEngine.projectToMemory(normalized, G.worldMemory, worldCtx);
+            }
+            // Se l'LLM ha risposto ma con 0 NPC, usa comunque il fallback
+            if (npcCount === 0) {
+                console.warn('[WorldGenerator] Fase 2 ha prodotto 0 NPC, genero NPC di fallback.');
+                worldGeneratorEngine.generateFallbackNpcs(normalized, worldCtx);
+                npcCount = (normalized.actors || []).length;
+                G.worldMemory = worldBootstrapEngine.projectToMemory(normalized, G.worldMemory, worldCtx);
             }
 
             setStoryIntroStage(2, 'Il mondo compie la sua prima mossa...');

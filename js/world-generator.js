@@ -935,6 +935,173 @@
         return worldData;
     }
 
+    // ─── Fallback NPC generation (when LLM fails) ─────────
+
+    function generateFallbackNpcs(worldData, context) {
+        const ctx = context || {};
+        const turn = Math.max(0, Number(ctx.turn) || 0);
+        const protagonistName = clean(ctx.protagonistName, 100);
+        const factions = asArray(worldData.factions);
+        const locations = asArray(worldData.locations);
+        const existingNpcNames = new Set(asArray(worldData.actors).map(a => keyOf(a.name)));
+        if (protagonistName) existingNpcNames.add(keyOf(protagonistName));
+
+        const npcTemplates = [
+            { role: 'Nobile', suffix: 'conte di', desc: 'Un nobile di antico lignaggio', goal: 'consolidare il potere della propria casata', personality: 'ambizioso e calcolatore', strategy: 'alleanze strategiche e matrimoni politici', resources: 'terre, vassalli e titoli nobiliari' },
+            { role: 'Comandante', suffix: 'capitano', desc: 'Un veterano di molte battaglie', goal: 'proteggere i confini e mantenere l\'ordine', personality: 'disciplinato e leale', strategy: 'presenza militare e pattugliamenti', resources: 'soldati e fortezze' },
+            { role: 'Mercante', suffix: 'maestro', desc: 'Un mercante astuto e ben collegato', goal: 'espandere le rotte commerciali', personality: 'pragmatico e persuasivo', strategy: 'reti di scambio e favori reciproci', resources: 'capitali, magazzini e contatti' },
+            { role: 'Sacerdote', suffix: 'padre', desc: 'Una guida spirituale rispettata', goal: 'preservare la fede e la morale pubblica', personality: 'pio e determinato', strategy: 'influenza dottrinale e apoyo popolare', resources: 'seguaci e autorità morale' },
+            { role: 'Spiaccico', suffix: 'maestro', desc: 'Esperto di informazioni e segreti', goal: 'controllare il flusso di informazioni', personality: 'circospetto e paziente', strategy: 'spie e ricatto', resources: 'reti di informatori' }
+        ];
+
+        const npcs = [];
+        const relations = [];
+
+        // Genera 1 NPC per ogni fazione (leader)
+        factions.forEach((faction, idx) => {
+            const factionName = clean(faction.name, 120);
+            const base = clean(faction.base || faction.territory, 120);
+            const loc = locations.find(l => keyOf(l.name) === keyOf(base)) || locations[idx % Math.max(1, locations.length)] || {};
+            const tmpl = npcTemplates[idx % npcTemplates.length];
+            const name = generateFallbackName(idx, genreHint(worldData));
+            if (existingNpcNames.has(keyOf(name))) return;
+            existingNpcNames.add(keyOf(name));
+            npcs.push({
+                id: `fb-npc-${idx}-${hashStr(name).toString(36)}`,
+                kind: 'npc',
+                name,
+                role: clean(faction.leader || tmpl.role, 120),
+                faction: factionName,
+                description: `${tmpl.desc}, legato alla fazione ${factionName}.`,
+                personality: tmpl.personality,
+                goal: tmpl.goal,
+                strategy: tmpl.strategy,
+                resources: tmpl.resources,
+                publicGoal: tmpl.goal,
+                privateGoal: `Rafforzare ${factionName} a scapito dei rivali`,
+                leverage: tmpl.resources,
+                constraints: `Risponde a ${factionName}; opera principalmente a ${clean(loc.name, 100) || base}.`,
+                knowledge: `Conosce la politica locale di ${base}.`,
+                agenda: tmpl.strategy,
+                gender: idx % 2 === 0 ? 'M' : 'F',
+                influence: clampNum(faction.influence || faction.power || 50, 0, 100, 50),
+                relationship: 'neutrale',
+                location: clean(loc.name, 120) || base,
+                status: 'active',
+                vitalStatus: 'alive',
+                deathCause: '',
+                deathTurn: null,
+                lastMove: '',
+                lastMoveTurn: 0,
+                lastInteractionTurn: 0,
+                createdAtTurn: turn,
+                source: 'fallback-npc'
+            });
+        });
+
+        // Genera NPC aggiuntivi dai luoghi (se pochi NPC)
+        if (npcs.length < 4 && locations.length > 0) {
+            locations.slice(0, 4).forEach((loc, idx) => {
+                const tmpl = npcTemplates[(npcs.length + idx) % npcTemplates.length];
+                const name = generateFallbackName(npcs.length + idx + 10, genreHint(worldData));
+                if (existingNpcNames.has(keyOf(name))) return;
+                existingNpcNames.add(keyOf(name));
+                npcs.push({
+                    id: `fb-npc-loc-${idx}-${hashStr(name).toString(36)}`,
+                    kind: 'npc',
+                    name,
+                    role: tmpl.role,
+                    faction: '',
+                    description: `${tmpl.desc}, risiede a ${clean(loc.name, 100)}.`,
+                    personality: tmpl.personality,
+                    goal: tmpl.goal,
+                    strategy: tmpl.strategy,
+                    resources: tmpl.resources,
+                    publicGoal: tmpl.goal,
+                    privateGoal: `Prosperare a ${clean(loc.name, 100)}`,
+                    leverage: tmpl.resources,
+                    constraints: `Opera a ${clean(loc.name, 100)}.`,
+                    knowledge: `Conosce bene ${clean(loc.name, 100)} e dintorni.`,
+                    agenda: tmpl.strategy,
+                    gender: idx % 2 === 0 ? 'M' : 'F',
+                    influence: 35 + (idx * 10),
+                    relationship: 'neutrale',
+                    location: clean(loc.name, 120),
+                    status: 'active',
+                    vitalStatus: 'alive',
+                    deathCause: '',
+                    deathTurn: null,
+                    lastMove: '',
+                    lastMoveTurn: 0,
+                    lastInteractionTurn: 0,
+                    createdAtTurn: turn,
+                    source: 'fallback-npc'
+                });
+            });
+        }
+
+        // Relazioni tra NPC e fazioni
+        npcs.forEach((npc, idx) => {
+            if (npc.faction) {
+                const targetFaction = factions.find(f => keyOf(f.name) === keyOf(npc.faction));
+                if (targetFaction) {
+                    relations.push({
+                        id: `fb-rel-${idx}-${hashStr(npc.name + '|' + targetFaction.name).toString(36)}`,
+                        from: npc.name,
+                        to: targetFaction.name,
+                        type: 'servitore',
+                        trust: 60,
+                        tension: 15,
+                        description: `${npc.name} serve ${targetFaction.name} come ${clean(npc.role, 60)}.`,
+                        status: 'active',
+                        updatedAtTurn: turn,
+                        source: 'fallback-npc'
+                    });
+                }
+            }
+            // Rivalità tra NPC di fazioni diverse
+            if (idx > 0 && npcs[idx - 1].faction && npc.faction && npcs[idx - 1].faction !== npc.faction) {
+                relations.push({
+                    id: `fb-rel-rival-${idx}-${hashStr(npc.name + '|' + npcs[idx - 1].name).toString(36)}`,
+                    from: npc.name,
+                    to: npcs[idx - 1].name,
+                    type: 'rivalità',
+                    trust: 25,
+                    tension: 60,
+                    description: `Tensione tra ${npc.name} e ${npcs[idx - 1].name} per questioni di influenza.`,
+                    status: 'active',
+                    updatedAtTurn: turn,
+                    source: 'fallback-npc'
+                });
+            }
+        });
+
+        worldData.actors = [...(worldData.actors || []), ...npcs];
+        worldData.relations = [...(worldData.relations || []), ...relations];
+        worldData.updatedAtTurn = turn;
+        console.info(`[WorldGenerator] Fallback: generati ${npcs.length} NPC e ${relations.length} relazioni deterministici.`);
+        return worldData;
+    }
+
+    function genreHint(worldData) {
+        const setting = clean(worldData.setting, 40).toLowerCase();
+        if (/fantasy|epico|draghi|magia/.test(setting)) return 'fantasy';
+        if (/steampunk|vittoriano|industriale/.test(setting)) return 'steampunk';
+        if (/horror|gotico|cimitero|nebbia/.test(setting)) return 'gothic';
+        return 'medieval';
+    }
+
+    function generateFallbackName(seed, hint) {
+        const fantasyFirst = ['Aldric','Elara','Morven','Sera','Kael','Bran','Lyra','Cedric','Isolde','Roderick','Marcella','Gareth','Yvaine','Theron','Callista'];
+        const medievalFirst = ['Tommaso','Beatrice\u00e8','Ugo','Aldo','Matilde','Rinaldo','Ginevra','Lorenzo','Bianca','Ercole','Costanza','Ottaviano','Lucrezia','Alessio'];
+        const gothicFirst = ['Victor','Elisabeth','Edgar','Lenore','Abraham','Cordelia','Mortimer','Serena','Ambrose','Rosalind'];
+        const first = hint === 'fantasy' ? fantasyFirst : hint === 'gothic' ? gothicFirst : medievalFirst;
+        const lastParts = ['di Valdoria','di Morvane','di Ravenhollow','di Castelnuovo','dellaMarca','di Belmonte','di Serravalle','di Roccaforte','dell\'Altavalle','di Selvalunga'];
+        const f = first[seed % first.length];
+        const l = lastParts[(seed * 7 + 3) % lastParts.length];
+        return `${f} ${l}`;
+    }
+
     // ─── Public API ────────────────────────────────────────
 
     return {
@@ -949,6 +1116,7 @@
         autoFix,
         normalizeGeneratedWorld,
         mergeNpcIntoWorld,
+        generateFallbackNpcs,
         collectLocationNames,
         collectFactionNames,
         collectNpcNames
