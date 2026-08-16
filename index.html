@@ -12571,53 +12571,59 @@
         }
 
         function confirmWorldConvocation() {
-            const selected = $$('#chat-invite-candidates input[type="checkbox"]:checked')
-                .map(input => input.dataset.candidateName)
-                .filter(Boolean);
-            if (!selected.length) {
-                notify('Seleziona almeno un personaggio o una fazione.', 'error');
-                return;
-            }
-            if (G.chatConvocationMode === 'invite') {
-                const result = timelineChatEngine.inviteParticipants(G.worldMemory.chats, G.activeChatId, selected, {
-                    events: G.worldMemory.events,
-                    turn: G.worldMemory.turnCount || 0
-                });
-                G.worldMemory.chats = result.chats;
-                if (!result.invited.length) return;
-                queueTimelineChoice(`Ho convocato ${result.invited.join(', ')} nella conversazione «${result.thread.title}»`, 'world-chat-invite');
-                notify(`${result.invited.join(', ')} ${result.invited.length === 1 ? 'è stato invitato' : 'sono stati invitati'}.`, 'info');
-            } else {
-                const title = $('chat-new-title').value.trim();
-                const agenda = $('chat-new-agenda').value.trim();
-                if (!title || !agenda) {
-                    notify('Indica titolo e problema o proposta da discutere.', 'error');
+            try {
+                const selected = $$('#chat-invite-candidates input[type="checkbox"]:checked')
+                    .map(input => input.dataset.candidateName)
+                    .filter(Boolean);
+                if (!selected.length) {
+                    notify('Seleziona almeno un personaggio o una fazione.', 'error');
                     return;
                 }
-                const result = timelineChatEngine.createThread(G.worldMemory.chats, {
-                    title,
-                    agenda,
-                    purpose: $('chat-new-purpose').value,
-                    participants: selected,
-                    origin: 'player',
-                    occurredAt: getFullTimeString()
-                }, {
-                    events: G.worldMemory.events,
-                    protagonistName: G.character?.name || 'Protagonista',
-                    turn: G.worldMemory.turnCount || 0,
-                    occurredAt: getFullTimeString()
-                });
-                if (!result.created || !result.thread) {
-                    notify('Non è stato possibile creare la conversazione.', 'error');
-                    return;
+                if (G.chatConvocationMode === 'invite') {
+                    const result = timelineChatEngine.inviteParticipants(G.worldMemory.chats, G.activeChatId, selected, {
+                        events: G.worldMemory.events,
+                        turn: G.worldMemory.turnCount || 0
+                    });
+                    G.worldMemory.chats = result.chats;
+                    if (!result.invited.length) return;
+                    queueTimelineChoice(`Ho convocato ${result.invited.join(', ')} nella conversazione «${result.thread.title}»`, 'world-chat-invite');
+                    notify(`${result.invited.join(', ')} ${result.invited.length === 1 ? 'è stato invitato' : 'sono stati invitati'}.`, 'info');
+                } else {
+                    const title = $('chat-new-title').value.trim();
+                    const agenda = $('chat-new-agenda').value.trim();
+                    if (!title || !agenda) {
+                        notify('Indica titolo e problema o proposta da discutere.', 'error');
+                        return;
+                    }
+                    const result = timelineChatEngine.createThread(G.worldMemory.chats, {
+                        title,
+                        agenda,
+                        purpose: $('chat-new-purpose').value,
+                        participants: selected,
+                        origin: 'player',
+                        occurredAt: getFullTimeString()
+                    }, {
+                        events: G.worldMemory.events,
+                        protagonistName: G.character?.name || 'Protagonista',
+                        turn: G.worldMemory.turnCount || 0,
+                        occurredAt: getFullTimeString()
+                    });
+                    if (!result.created || !result.thread) {
+                        notify('Non è stato possibile creare la conversazione.', 'error');
+                        return;
+                    }
+                    G.worldMemory.chats = result.chats;
+                    G.activeChatId = result.thread.id;
+                    queueTimelineChoice(`Ho convocato «${title}» con ${selected.join(', ')} per ${agenda}`, 'world-chat-convocation');
+                    notify('Conversazione creata con successo.', 'success');
                 }
-                G.worldMemory.chats = result.chats;
-                G.activeChatId = result.thread.id;
-                queueTimelineChoice(`Ho convocato «${title}» con ${selected.join(', ')} per ${agenda}`, 'world-chat-convocation');
+                closeChatConvocation();
+                renderWorldChats();
+                autoSave();
+            } catch (err) {
+                console.error('[confirmWorldConvocation] Errore:', err);
+                notify('Errore durante la creazione della conversazione: ' + (err.message || err), 'error');
             }
-            closeChatConvocation();
-            renderWorldChats();
-            autoSave();
         }
 
         function openWorldChats(preferredThreadId) {
