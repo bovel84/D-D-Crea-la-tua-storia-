@@ -3908,7 +3908,7 @@
     <script src="js/timeline-engine.js?v=20260815-root-fix-1"></script>
     <script src="js/timeline-bridge.js?v=20260815-root-fix-1"></script>
     <script src="js/campaign-vault.js"></script>
-    <script src="js/ai-efficiency.js?v=20260814-llm-efficiency-4"></script>
+    <script src="js/ai-efficiency.js?v=20260816-timeout-1"></script>
     <script src="js/ollama-cloud.js?v=20260814-ollama-content-3"></script>
     <script src="js/experience-v7.js?v=20260814-mobile-dock-2"></script>
     <script>
@@ -10454,7 +10454,7 @@
             const locResponse = await requestConfiguredAI(locMessages, {
                 task: 'world-generation',
                 maxTokens: 4096,
-                timeoutMs: 60000,
+                timeoutMs: 120000,
                 temperature: 0.8
             });
             const locGenerated = worldGeneratorEngine.extractWorldJson(locResponse);
@@ -10487,7 +10487,7 @@
                 const npcResponse = await requestConfiguredAI(npcMessages, {
                     task: 'world-npcs',
                     maxTokens: 3000,
-                    timeoutMs: 55000,
+                    timeoutMs: 120000,
                     temperature: 0.85
                 });
                 worldGeneratorEngine.mergeNpcIntoWorld(normalized, npcResponse, worldCtx);

@@ -13,7 +13,7 @@
         start: Object.freeze({ maxInputTokens: 22000, maxOutputTokens: 3600, timeoutMs: 80000, maxAttempts: 2, temperature: 0.66 }),
         narrative: Object.freeze({ maxInputTokens: 16000, maxOutputTokens: 2200, timeoutMs: 60000, maxAttempts: 2, temperature: 0.62 }),
         'world-generation': Object.freeze({ maxInputTokens: 12000, maxOutputTokens: 4096, timeoutMs: 90000, maxAttempts: 3, temperature: 0.8 }),
-        'world-npcs': Object.freeze({ maxInputTokens: 10000, maxOutputTokens: 2500, timeoutMs: 70000, maxAttempts: 3, temperature: 0.75 }),
+        'world-npcs': Object.freeze({ maxInputTokens: 10000, maxOutputTokens: 3000, timeoutMs: 120000, maxAttempts: 3, temperature: 0.75 }),
         summary: Object.freeze({ maxInputTokens: 7000, maxOutputTokens: 1000, timeoutMs: 40000, maxAttempts: 1, temperature: 0.2 })
     });
     const RETRYABLE_STATUSES = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
