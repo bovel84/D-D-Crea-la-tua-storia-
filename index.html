@@ -3644,7 +3644,7 @@
                     <button class="dice-btn" data-sides="12">D12</button>
                     <button class="dice-btn" data-sides="20">D20</button>
                 </div>
-                <div class="dice-result" id="dice-result">🎲 Tira un dado!</div>
+                <div class="dice-result" id="dice-result">🎲 Tocca un dado per lanciarlo!</div>
             </div>
         </div>
     </div>
@@ -3892,7 +3892,7 @@
     <script src="js/world-generator.js?v=20260816-fallback-npc-1"></script>
     <script src="js/event-manager.js?v=20260815-event-delta-2"></script>
     <script src="js/timeline-chat.js?v=20260815-root-fix-1"></script>
-    <script src="js/timeline-simulator.js?v=20260816-narrative-1"></script>
+    <script src="js/timeline-simulator.js?v=20260816-qa-fix-1"></script>
     <script src="js/strategic-advisor.js?v=20260815-root-fix-1"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
@@ -4539,7 +4539,7 @@
         };
 // ==================== UTILITIES ====================
         const $ = id => document.getElementById(id);
-        const $$ = sel => document.querySelectorAll(sel);
+        const $$ = sel => Array.from(document.querySelectorAll(sel));
 
         function resolveGenreKey(story) {
             return CronacheCharacter.resolveGenreKey(story || {}, GENRES);
@@ -10420,11 +10420,60 @@
                     generateAI('L\'avventura inizia...', true)
                 ).catch(err => {
                     console.warn('World generation fallita, fallback bootstrap:', err);
+                    generateFallbackWorld(G.currentStory, G);
                     generateAI('L\'avventura inizia...', true);
                 }), 60);
             }
 
             updateHome();
+        }
+
+        // ─── Fallback world generation (when LLM is unavailable) ────
+        function generateFallbackWorld(story, g) {
+            if (!story || !g) return;
+            const setting = story.setting || 'Fantasy Gotico';
+            const isGothic = /gotico|horror|cimiter|nebbia/i.test(setting);
+            const isFantasy = /fantasy|epico|draghi|magia/i.test(setting);
+            const genre = isGothic ? 'gothic' : isFantasy ? 'fantasy' : 'medieval';
+            const seed = (g.character?.name || 'eroe').slice(0, 20);
+            const townName = isGothic ? 'Ravenhollow' : isFantasy ? 'Valdoria' : 'Castelnuovo';
+            const tavernName = isGothic ? 'Il Corvo Stanco' : isFantasy ? 'Il Drago d\'Oro' : 'La Pergola';
+            const world = {
+                schemaVersion: 1,
+                setting,
+                startLocation: townName,
+                locations: [
+                    { id: 'loc-1', kind: 'location', name: townName, type: 'villaggio', description: `Un villaggio avvolto dalla bruma, cuore delle terre di ${setting}.`, x: 500, y: 325, discovered: true, icon: '🏠' },
+                    { id: 'loc-2', kind: 'location', name: tavernName, type: 'locanda', description: 'Una locanda frequentata da avventurieri e mercanti.', x: 520, y: 340, discovered: true, icon: '🍺' },
+                    { id: 'loc-3', kind: 'location', name: isGothic ? 'Cimitero Vecchio' : isFantasy ? 'Bosco Ombroso' : 'Foresta Reale', type: 'luogo', description: 'Un luogo misterioso ai margini del villaggio.', x: 420, y: 250, discovered: false, icon: '🌲' },
+                    { id: 'loc-4', kind: 'location', name: isGothic ? 'Cripta dei Sussurri' : isFantasy ? 'Torre del Mago' : 'Rocca del Barone', type: 'landmark', description: 'Una struttura antica e misteriosa.', x: 650, y: 200, discovered: false, icon: '🏰' },
+                    { id: 'loc-5', kind: 'location', name: isGothic ? 'Abbazia di Pietra' : isFantasy ? 'Tempio del Sole' : 'Cattedrale', type: 'religioso', description: 'Un luogo di culto e devozione.', x: 350, y: 400, discovered: false, icon: '⛪' }
+                ],
+                factions: [
+                    { id: 'fac-1', kind: 'faction', name: 'Sacro Romano Impero', type: 'impero', description: 'L\'impero che governa queste terre.', influence: 80, power: 75, base: townName, status: 'active' },
+                    { id: 'fac-2', kind: 'faction', name: 'Famiglia Malaspina', type: 'nobiltà', description: 'Una nobile famiglia rivale.', influence: 60, power: 50, base: isGothic ? 'Cripta dei Sussurri' : 'Rocca del Barone', status: 'active' },
+                    { id: 'fac-3', kind: 'faction', name: 'Gilda dei Mercanti', type: 'gilda', description: 'Potente gilda commerciale.', influence: 45, power: 30, base: tavernName, status: 'active' }
+                ],
+                forces: [
+                    { id: 'force-1', kind: 'force', name: 'Guardia ducale', faction: 'Sacro Romano Impero', strength: 50, disposition: townName, status: 'active' },
+                    { id: 'force-2', kind: 'force', name: 'Spie Malaspina', faction: 'Famiglia Malaspina', strength: 20, disposition: isGothic ? 'Cripta dei Sussurri' : 'Rocca del Barone', status: 'active' }
+                ],
+                actors: [],
+                relations: []
+            };
+            // Genera NPC di fallback
+            const ctx = { turn: 0, protagonistName: seed };
+            worldGeneratorEngine.generateFallbackNpcs(world, ctx);
+            g.worldMemory.world = world;
+            g.worldMemory = worldBootstrapEngine.projectToMemory(world, g.worldMemory, { story, turn: 0, protagonistName: seed, setting });
+            if (world.startLocation) {
+                g.currentLocation = world.startLocation;
+                updateLocationDisplay();
+            }
+            updateMemoryUI();
+            updateInfoPanels();
+            renderNPCRegistry();
+            console.info(`[WorldGenerator] Fallback world creato: ${world.locations.length} luoghi, ${world.factions.length} fazioni, ${world.actors.length} NPC.`);
         }
 
         // ─── World Generation (LLM-driven) ─────────────────────
@@ -11912,6 +11961,7 @@
                 } catch (error) {
                     aiError = error;
                     console.warn('Game Master del turno non disponibile, completo il ciclo con il simulatore locale:', error.message);
+                    notify('Game Master non disponibile — uso il simulatore locale. Qualità narrativa ridotta.', 'warning');
                 }
 
                 const previewContext = {

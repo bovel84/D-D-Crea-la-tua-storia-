@@ -1087,7 +1087,7 @@ FORMATO RIPETUTO PER OGNI CAUSA:
             const genericEvent = worldLed ? {
                 type: 'mondo',
                 title: seed?.title || 'Sviluppi inattesi',
-                summary: `A ${place}, gli eventi seguono il loro corso. ${cause}. Le forze in campo si ridispiegano senza preavviso.`,
+                summary: `A ${place}, ${cause}. Le forze in campo si ridispiegano senza preavviso.`,
                 consequence: `La situazione a ${place} e' cambiata; nuove opportunita' e nuovi rischi emergono per ${protagonistName || 'il protagonista'}.`,
                 actors: protagonistName ? [protagonistName] : []
             } : {
