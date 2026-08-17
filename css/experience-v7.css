@@ -679,6 +679,32 @@
     min-width: 100%;
     min-height: 100%;
     padding: 7px;
+    position: relative;
+}
+.world-map-bg-img {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.22;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: 14px;
+}
+.world-map-canvas > .world-map-svg { position: relative; z-index: 1; }
+.world-map-detail-img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(126,79,20,.3);
+}
+.world-map-tool.img-active {
+    color: #fff8da;
+    border-color: #9b272b;
+    background: linear-gradient(180deg,#a73138,#71191f);
 }
 .world-map-svg {
     display: block;

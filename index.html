@@ -3129,7 +3129,7 @@
             100% { filter: brightness(1); }
         }
     </style>
-    <link rel="stylesheet" href="css/experience-v7.css?v=20260816-split-gen-2">
+    <link rel="stylesheet" href="css/experience-v7.css?v=20260817-map-img-1">
 </head>
 <body>
     <!-- HOME SCREEN -->
@@ -3456,6 +3456,7 @@
                     <button class="world-map-tool" id="btn-map-zoom-in" type="button" aria-label="Ingrandisci mappa">＋</button>
                     <button class="world-map-tool" id="btn-map-refresh" type="button">↻ Aggiorna</button>
                     <button class="world-map-tool" id="btn-map-dice" type="button">🎲 Dadi</button>
+                    <button class="world-map-tool" id="btn-map-images" type="button" title="Mostra/Nascondi immagini mappa">🖼️</button>
                 </div>
                 <div class="world-map-viewport" id="world-map-viewport">
                     <div class="world-map-canvas" id="world-map-canvas"></div>
@@ -3997,7 +3998,7 @@
     <script src="js/world-generator.js?v=20260816-fallback-npc-1"></script>
     <script src="js/event-manager.js?v=20260815-event-delta-2"></script>
     <script src="js/timeline-chat.js?v=20260815-root-fix-1"></script>
-    <script src="js/timeline-simulator.js?v=20260817-scene-llm-1"></script>
+    <script src="js/timeline-simulator.js?v=20260817-scene-llm-2"></script>
     <script src="js/strategic-advisor.js?v=20260815-root-fix-1"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
@@ -6860,7 +6861,13 @@
             const factions = (location.factionIds || []).map(id => activeWorldMapModel.factions.find(item => item.id === id)).filter(Boolean);
             const objectives = (location.objectiveIds || []).map(id => activeWorldMapModel.objectives.find(item => item.id === id)).filter(Boolean);
             const detail = $('world-map-detail');
+            const areaImgHtml = mapImagesEnabled() ? (() => {
+                const p = buildAreaMapPrompt(location);
+                const u = buildMapImageUrl(p, 280, 120);
+                return `<img class="world-map-detail-img" src="${u}" alt="Mappa di ${escapeTimelineHtml(location.name)}" loading="lazy" onerror="this.style.display='none'"/>`;
+            })() : '';
             detail.innerHTML = `
+                ${areaImgHtml}
                 <header>
                     <span class="world-map-detail-icon">${escapeTimelineHtml(location.icon)}</span>
                     <div>
@@ -6991,7 +6998,11 @@
                 $('world-map-detail').innerHTML = '<div class="world-map-detail-empty">Nessun luogo ancora conosciuto.</div>';
                 return;
             }
-            canvas.innerHTML = worldMapEngine.svgMarkup(activeWorldMapModel);
+            canvas.innerHTML = (mapImagesEnabled() ? (() => {
+                const p = buildWorldMapPrompt();
+                const u = buildMapImageUrl(p, 960, 600);
+                return `<img class="world-map-bg-img" src="${u}" alt="" loading="lazy" onerror="this.style.display='none'"/>`;
+            })() : '') + worldMapEngine.svgMarkup(activeWorldMapModel);
             applyWorldMapZoom();
             applyWorldMapFilter(worldMapFilter);
             canvas.querySelectorAll('[data-map-location-id]').forEach(node => {
@@ -13103,6 +13114,74 @@
             try { localStorage.setItem('cdd-scene-images', off ? 'off' : 'on'); } catch {}
             renderEventScreen();
         }
+        // ── Map images (Pollinations.ai) ──
+        function mapImagesEnabled() {
+            try { return localStorage.getItem('cdd-map-images') !== 'off'; } catch { return true; }
+        }
+        function toggleMapImages() {
+            const off = !mapImagesEnabled();
+            try { localStorage.setItem('cdd-map-images', off ? 'off' : 'on'); } catch {}
+            renderWorldMap();
+            const btn = $('btn-map-images');
+            if (btn) btn.classList.toggle('img-active', !off);
+        }
+        function buildWorldMapPrompt() {
+            const world = G.worldMemory?.world || {};
+            const setting = (G.currentStory?.setting || world.setting || 'medieval fantasy').slice(0, 80);
+            const genre = (G.currentStory?.genre || 'fantasy').slice(0, 30);
+            const locs = (world.locations || []).filter(l => l.discovered).map(l => l.name).slice(0, 8);
+            const current = G.currentLocation || world.startLocation || '';
+            const parts = [
+                'hand drawn fantasy world map, parchment style cartography',
+                setting.toLowerCase().includes('gotico') || genre.toLowerCase().includes('horror') ? 'dark gothic tones, ominous atmosphere' : 'warm parchment tones, detailed aesthetic',
+                locs.length ? `labeled locations: ${locs.join(', ')}` : 'villages, forests, mountains, rivers',
+                current ? `current location highlighted: ${current}` : '',
+                'compass rose in corner, trade routes as dotted lines, mountains as triangular icons, forests as tree clusters, rivers as blue lines',
+                'medieval cartography style, highly detailed, fantasy art'
+            ].filter(Boolean);
+            return parts.join(', ');
+        }
+        function buildAreaMapPrompt(location) {
+            if (!location) return '';
+            const world = G.worldMemory?.world || {};
+            const setting = (G.currentStory?.setting || world.setting || 'medieval fantasy').slice(0, 60);
+            const name = (location.name || '').slice(0, 60);
+            const desc = (location.description || '').slice(0, 150);
+            const type = location.type || 'location';
+            const isGothic = /gotico|horror|cimiter|nebbia|cripta/i.test(setting);
+            const typeMap = {
+                'villaggio': 'small village with cottages, dirt roads, central square',
+                'citt': 'city with tall buildings, narrow streets, cathedral',
+                'locanda': 'tavern building with sign, warm light from windows',
+                'castello': 'castle with towers and walls, hilltop',
+                'fortezza': 'fortress with battlements, stone walls',
+                'bosco': 'dense forest with ancient trees, misty path',
+                'foresta': 'dark forest with ancient trees, mossy ground',
+                'tempio': 'ancient temple with stone pillars, altar',
+                'chiesa': 'church with bell tower, stained glass',
+                'cripta': 'underground crypt with torches, stone sarcophagi',
+                'torre': 'tall stone tower, narrow windows',
+                'palazzo': 'ornate palace with gardens, marble columns',
+                'mercato': 'bustling market square with stalls and goods',
+                'porto': 'harbor with ships, docks, warehouses',
+                'monastero': 'monastery with cloister, stone arches'
+            };
+            const typeDesc = typeMap[type] || 'medieval location with stone buildings';
+            const parts = [
+                `top-down map view of ${name || 'a medieval location'}`,
+                typeDesc,
+                isGothic ? 'dark gothic atmosphere, fog, cold tones' : 'warm medieval atmosphere, sunlight',
+                'hand drawn cartography style, parchment texture, detailed buildings, streets, landmarks',
+                'fantasy art style, highly detailed'
+            ];
+            return parts.join(', ');
+        }
+        function buildMapImageUrl(prompt, w, h) {
+            if (!prompt) return '';
+            const encoded = encodeURIComponent(prompt.slice(0, 500));
+            const seed = Math.floor(Math.random() * 1000000);
+            return `https://image.pollinations.ai/prompt/${encoded}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
+        }
         const SCENE_IT_EN = {
             'taverna': 'tavern interior, wooden tables, candlelight',
             'osteria': 'tavern interior, dim lighting',
@@ -15928,6 +16007,7 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
             if ($('btn-map-zoom-in')) $('btn-map-zoom-in').onclick = () => { worldMapZoom = Math.min(1.5, worldMapZoom + 0.15); applyWorldMapZoom(); };
             if ($('btn-map-zoom-out')) $('btn-map-zoom-out').onclick = () => { worldMapZoom = Math.max(0.7, worldMapZoom - 0.15); applyWorldMapZoom(); };
             if ($('btn-map-dice')) $('btn-map-dice').onclick = () => { closeModal('modal-world-map'); openModal('modal-dice'); };
+            if ($('btn-map-images')) { $('btn-map-images').classList.toggle('img-active', mapImagesEnabled()); $('btn-map-images').onclick = toggleMapImages; }
             if ($('btn-simulate-timeline')) $('btn-simulate-timeline').onclick = simulateTimelineEventsSequentialLegacy;
             if ($('btn-send-chat')) $('btn-send-chat').onclick = sendWorldChatMessage;
             if ($('btn-new-world-chat')) $('btn-new-world-chat').onclick = () => openChatConvocation('new');
