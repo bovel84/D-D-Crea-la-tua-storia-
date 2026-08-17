@@ -479,6 +479,7 @@ REGOLE OBBLIGATORIE:
 
 [ATTESA_EVENTO: minuti_interi|motivo del tempo necessario]
 [EVENTO: tipo|titolo|tre-cinque frasi complete su ciò che è realmente accaduto|luogo|attori separati da virgola|una-due frasi complete sulla conseguenza persistente|normal/high/critical|active/developing/resolved|momento relativo|causa precisa|ancoraggio storico|spostamento politico|posta in gioco|obiettivo conversazione|available/required/none|dialogue/action/either/none]
+[SCENE: breve descrizione visiva in inglese della scena — environment, lighting, mood, key visual elements, camera angle — come prompt per generatore immagini (es: "dimly lit medieval tavern interior, candle on wooden table, raven on beam overhead, shadowy figure in corner, warm amber lighting, cinematic composition")]
 [ESITO_STRATEGICO: ID esatto|completata/parziale/fallita/in_corso|risultato osservabile del tentativo|conseguenza persistente|reazione concreta del mondo registrata in questo ciclo|attori separati da virgola]
 [MONDO: attore|mossa concreta compiuta|stato della mossa|visible/hidden]
 [CHAT: titolo esatto evento|un solo parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]`;
@@ -914,6 +915,7 @@ REGOLE DEL TURNO:
 FORMATO RIPETUTO PER OGNI CAUSA:
 [RISOLUZIONE: ID_esatto|minuti_dall_inizio|motivo_concreto]
 [EVENTO: tipo|titolo|tre-cinque frasi complete sul fatto accaduto|luogo|attori separati da virgola|una-due frasi sulla conseguenza persistente|normal/high/critical|active/developing/resolved|momento relativo|causa precisa|ancoraggio storico|spostamento politico|posta in gioco|obiettivo conversazione|available/required/none|dialogue/action/either/none]
+[SCENE: breve descrizione visiva in inglese della scena — environment, lighting, mood, key visual elements, camera angle — come prompt per generatore immagini (es: "dimly lit medieval tavern interior, candle on wooden table, raven on beam overhead, shadowy figure in corner, warm amber lighting, cinematic composition")]
 [ESITO_STRATEGICO: ID_esatto|completata/parziale/fallita/in_corso|risultato osservabile|conseguenza persistente|reazione concreta del mondo|attori separati da virgola]
 [MONDO: attore|mossa concreta compiuta|stato|visible/hidden]
 [CHAT: titolo esatto evento|un solo parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]`;
@@ -1107,6 +1109,12 @@ Genera esattamente ${batch.length || 1} eventi, uno per ogni SVILUPPO DA CONSUMA
         const normalizedSeeds = normalizeEventQueue(seeds, { turn: context.turn, batchId: context.batchId });
         const text = String(response || '');
         const rawEvents = [];
+        const scenePrompts = [];
+        const sceneRegex = /\[SCENE:\s*([^\]]+)\]/gi;
+        let sceneMatch;
+        while ((sceneMatch = sceneRegex.exec(text)) !== null) {
+            scenePrompts.push(cleanText(sceneMatch[1], 500));
+        }
         const regex = /\[EVENTO:\s*([^\]]+)\]/gi;
         const seen = new Set();
         let match;
@@ -1118,6 +1126,10 @@ Genera esattamente ${batch.length || 1} eventi, uno per ogni SVILUPPO DA CONSUMA
             seen.add(fp);
             rawEvents.push(event);
         }
+        // Associa i prompt visivi [SCENE] agli eventi in ordine
+        rawEvents.forEach((event, idx) => {
+            if (scenePrompts[idx]) event.scenePrompt = scenePrompts[idx];
+        });
         if (!rawEvents.length) {
             return ensureTurnBatch([], normalizedSeeds, { ...context, response });
         }
@@ -1283,6 +1295,18 @@ Genera esattamente ${batch.length || 1} eventi, uno per ogni SVILUPPO DA CONSUMA
         // Le vecchie risposte possono ancora contenere CODA_EVENTO. Vengono
         // ignorate intenzionalmente: un evento non può generarne un altro.
         return [];
+    }
+
+    function extractScenePrompt(response, index) {
+        const text = String(response || '');
+        const regex = /\[SCENE:\s*([^\]]+)\]/gi;
+        const prompts = [];
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            prompts.push(cleanText(match[1], 500));
+        }
+        if (typeof index === 'number') return prompts[index] || '';
+        return prompts;
     }
 
     function createFallbackEvent(context = {}) {
@@ -1669,6 +1693,7 @@ Genera esattamente ${batch.length || 1} eventi, uno per ogni SVILUPPO DA CONSUMA
         advanceEventQueue,
         parseEventTiming,
         parsePendingEventSeeds,
+        extractScenePrompt,
         strategicChoiceGroups,
         desiredEventCount,
         isMeaningfulEvent,

@@ -3997,7 +3997,7 @@
     <script src="js/world-generator.js?v=20260816-fallback-npc-1"></script>
     <script src="js/event-manager.js?v=20260815-event-delta-2"></script>
     <script src="js/timeline-chat.js?v=20260815-root-fix-1"></script>
-    <script src="js/timeline-simulator.js?v=20260817-scene-img-2"></script>
+    <script src="js/timeline-simulator.js?v=20260817-scene-llm-1"></script>
     <script src="js/strategic-advisor.js?v=20260815-root-fix-1"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
@@ -11942,7 +11942,9 @@
                         source: 'timeline-ai',
                         includeChronicleFallback: false
                     };
+                    const _scenePrompts = timelineSimulator.extractScenePrompt(response);
                     const parsedEvents = eventEngine.parse(response, previewEventContext);
+                    if (_scenePrompts.length) parsedEvents.forEach((e, i) => { if (!e.scenePrompt && _scenePrompts[i]) e.scenePrompt = _scenePrompts[i]; });
                     const single = timelineSimulator.ensureSingleEvent(parsedEvents, {
                         story: G.currentStory,
                         world,
@@ -12569,7 +12571,9 @@
                     batchId,
                     response
                 };
+                const _scenePrompts = timelineSimulator.extractScenePrompt(response);
                 const parsedEvents = eventEngine.parse(response, previewContext);
+                if (_scenePrompts.length) parsedEvents.forEach((e, i) => { if (!e.scenePrompt && _scenePrompts[i]) e.scenePrompt = _scenePrompts[i]; });
                 const turnBatch = timelineSimulator.ensureTurnBatch(parsedEvents, seeds, previewContext);
                 if (!turnBatch.events.length) throw new Error('Il Game Master non ha prodotto esiti utilizzabili');
 
@@ -12874,7 +12878,9 @@
                     source: 'timeline-ai',
                     includeChronicleFallback: false
                 };
+                const _scenePrompts = timelineSimulator.extractScenePrompt(response);
                 const parsedEvents = eventEngine.parse(response, eventContext);
+                if (_scenePrompts.length) parsedEvents.forEach((e, i) => { if (!e.scenePrompt && _scenePrompts[i]) e.scenePrompt = _scenePrompts[i]; });
                 const arc = timelineSimulator.ensureEventArc(parsedEvents, {
                     story: G.currentStory,
                     world,
@@ -13182,6 +13188,11 @@
             return found;
         }
         function buildSceneImagePrompt(event) {
+            // Se l'LLM ha generato un prompt visivo [SCENE], usalo direttamente
+            if (event?.scenePrompt && event.scenePrompt.length > 10) {
+                return event.scenePrompt + ', fantasy art style, digital painting, atmospheric lighting, cinematic composition, highly detailed';
+            }
+            // Fallback: dizionario IT→EN
             const setting = (G.currentStory?.setting || G.worldMemory?.setting || '').slice(0, 120);
             const genre = (G.currentStory?.genre || G.character?.genre || 'fantasy').slice(0, 30);
             const title = (event?.title || '').slice(0, 120);
@@ -13238,7 +13249,7 @@
             const h = height || 200;
             const encoded = encodeURIComponent(prompt.slice(0, 400));
             const seed = Math.floor(Math.random() * 1000000);
-            return `https://image.pollinations.ai/prompt/${encoded}?width=${w}&height=${h}&nologo=true&seed=${seed}`;
+            return `https://image.pollinations.ai/prompt/${encoded}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
         }
         function renderEventScreen() {
             const events = G.timelineEventQueue || [];
@@ -14218,7 +14229,28 @@ Controllo se hai i soldi... si li hai. Il fabbro ti da la spada.
 ⚠️ **OUTPUT OBBLIGATORIO**
 1. Inizia SEMPRE con [ANALISI]...ragionamento nascosto + eventuali tiri...[/ANALISI]
 2. Poi scrivi la NARRAZIONE.
-3. Se il giocatore trova oggetti, usa UN TAG PER OGNI OGGETTO nel formato:
+3. Se il giocatore trova oggetti, usa UN TAG PER OGGETTO nel formato:
+   [LOOT: Nome Oggetto|Quantità|Descrizione opzionale|Valore opzionale|Icona opzionale]
+   
+   Esempio Multiplo:
+   [LOOT: Registri clienti|1] [LOOT: Scatole prodotti|2] [LOOT: Chiave arrugginita|1||0|🗝️]
+
+   NON usare liste uniche come [LOOT] A|1|B|2 [/LOOT]. Usa tag separati.
+   NON scrivere "Hai ottenuto..." nel testo narrativo, il sistema lo farà in automatico leggendo i tag.
+
+🎨 **IMMAGINE DI SCENA (OBBLIGATORIO)**
+Dopo la narrazione, genera SEMPRE un tag [SCENE] con un prompt visivo in INGLESE per l'immagine atmosferica della scena corrente.
+Formato: [SCENE: brief visual description in English — environment, lighting, mood, key visual elements, camera angle]
+Esempi:
+[SCENE: dimly lit medieval tavern interior, candle on wooden table, raven on beam overhead, shadowy figure in corner, warm amber lighting, cinematic composition]
+[SCENE: foggy cobblestone street at dawn, tall narrow buildings, distant cathedral silhouette, cold blue grey palette, wide establishing shot]
+[SCENE: throne room with tall stone columns, shafts of light through stained glass windows, dust motes in air, ornate carved throne, dramatic low angle shot]
+Regole:
+- SEMPRE in inglese (è un prompt per un generatore di immagini AI)
+- Sii specifico e visivo: environment, lighting, mood, composition, key objects/characters
+- 15-30 parole idealmente
+- Adatta lo stile al genre (fantasy/horror/sci-fi/realistic)
+- Non descrivere il protagonista: l'immagine è atmosfera, non ritratto
    [LOOT: Nome Oggetto|Quantità|Descrizione opzionale|Valore opzionale|Icona opzionale]
    
    Esempio Multiplo:
@@ -15002,6 +15034,7 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
             // CRONISTA, il ledger recupera comunque il fatto principale del turno.
             const deferActionEvents = !isStart && !G.pendingTimePassage &&
                 (G.worldMemory.pendingTimelineChoices || []).length > 0;
+            const _scenePrompts = timelineSimulator.extractScenePrompt(response);
             const parsedEvents = eventEngine.parse(response, {
                 turn: G.worldMemory.turnCount,
                 location: G.currentLocation,
@@ -15011,6 +15044,7 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 choice: G.pendingTimePassage?.choice || '',
                 includeChronicleFallback: true
             });
+            if (_scenePrompts.length) parsedEvents.forEach((e, i) => { if (!e.scenePrompt && _scenePrompts[i]) e.scenePrompt = _scenePrompts[i]; });
             const eventResult = deferActionEvents
                 ? { events: G.worldMemory.events || [], added: [], changed: false }
                 : eventEngine.record(G.worldMemory.events, parsedEvents, {
@@ -15102,6 +15136,7 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 .replace(/\[LICENZIA:[^\]]*\]/gi, '')
                 .replace(/\[MORTE_FAMILIARE:[^\]]*\]/gi, '')
                 .replace(/\[EVENTO:[^\]]*\]/gi, '')
+                .replace(/\[SCENE:[^\]]*\]/gi, '')
                 .replace(/\[(?:ATTESA_EVENTO|CODA_EVENTO|ESITO_STRATEGICO):[^\]]*\]/gi, '')
                 .replace(/\[CHAT:[^\]]*\]/gi, '')
                 .replace(/\[(?:ESITO_CHAT|ACCORDO_CHAT):[^\]]*\]/gi, '')
