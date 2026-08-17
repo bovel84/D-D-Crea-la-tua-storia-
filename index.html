@@ -3997,7 +3997,7 @@
     <script src="js/world-generator.js?v=20260816-fallback-npc-1"></script>
     <script src="js/event-manager.js?v=20260815-event-delta-2"></script>
     <script src="js/timeline-chat.js?v=20260815-root-fix-1"></script>
-    <script src="js/timeline-simulator.js?v=20260817-scene-img-1"></script>
+    <script src="js/timeline-simulator.js?v=20260817-scene-img-2"></script>
     <script src="js/strategic-advisor.js?v=20260815-root-fix-1"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
@@ -13097,29 +13097,139 @@
             try { localStorage.setItem('cdd-scene-images', off ? 'off' : 'on'); } catch {}
             renderEventScreen();
         }
+        const SCENE_IT_EN = {
+            'taverna': 'tavern interior, wooden tables, candlelight',
+            'osteria': 'tavern interior, dim lighting',
+            'locanda': 'inn room, rustic medieval',
+            'castello': 'castle stone walls, medieval fortress',
+            'fortezza': 'fortress, stone battlements',
+            'rocca': 'hilltop fortress, stone walls',
+            'foresta': 'dark forest, ancient trees, moss',
+            'bosco': 'woodland, trees, shadows',
+            'montagna': 'mountain landscape, rocky cliffs',
+            'fiume': 'river flowing through countryside',
+            'lago': 'lake, calm waters, misty',
+            'mare': 'sea, ocean coast, waves',
+            'spiaggia': 'beach, sand, dunes',
+            'città': 'city streets, medieval buildings',
+            'citta': 'city streets, medieval buildings',
+            'villaggio': 'village, cottages, dirt road',
+            'chiesa': 'church interior, stained glass',
+            'tempio': 'ancient temple, stone pillars',
+            'cripta': 'crypt, underground, torches',
+            'grotta': 'cave, underground, stalactites',
+            'campo': 'open field, grassland',
+            'piazza': 'town square, marketplace',
+            'mercato': 'market stalls, goods, crowd',
+            'porta': 'city gates, stone arch',
+            'strada': 'dirt road, countryside path',
+            'notte': 'nighttime, moonlight, dark sky',
+            'alba': 'dawn, golden light, sunrise',
+            'tramonto': 'sunset, orange sky, twilight',
+            'pioggia': 'rainy weather, wet surfaces',
+            'neve': 'snow covered landscape, winter',
+            'nebbia': 'foggy, misty atmosphere',
+            'ombra': 'shadows, dark figure, mysterious',
+            'fuoco': 'fire, flames, glowing embers',
+            'batosta': 'battle aftermath, fallen soldiers',
+            'spada': 'sword, blade, weapon close-up',
+            'daga': 'dagger, knife, hidden blade',
+            'scudo': 'shield, armor, knight',
+            'corvo': 'raven, dark bird, omen',
+            'drago': 'dragon, scales, wings',
+            'cavallo': 'horse, mounted knight',
+            'nave': 'ship, vessel, sailing',
+            'carro': 'cart, wagon, trade goods',
+            'trono': 'throne room, royal hall',
+            'prigione': 'dungeon, prison cell, chains',
+            'biblioteca': 'library, ancient books, scrolls',
+            'giardino': 'garden, flowers, stone fountain',
+            'muro': 'stone wall, castle rampart',
+            'torre': 'tower, high vantage point',
+            'corridoio': 'corridor, stone passage, torches',
+            'stanza': 'room, chamber, medieval furnishing',
+            'tenda': 'tent, military camp',
+            'accampamento': 'military camp, tents, campfire',
+            'sala': 'great hall, banquet table',
+            'cucina': 'kitchen, hearth, cooking',
+            'cantina': 'cellar, barrels, storage',
+            'cimitero': 'graveyard, tombstones, mist',
+            'roccaforte': 'stronghold, fortified walls',
+            'palazzo': 'palace, noble house, ornate',
+            'cattedrale': 'cathedral, gothic arches',
+            'monastero': 'monastery, cloister, monks',
+            'maniero': 'manor house, estate',
+            'battaglia': 'battlefield, armies clashing',
+            'assedio': 'siege, catapults, war machines',
+            'duello': 'duel, two fighters, swords crossed',
+            'inseguimento': 'chase scene, running figures',
+            'riunione': 'council meeting, figures around table',
+            'delegazione': 'diplomatic meeting, envoys, formal hall',
+            'negoziazione': 'negotiation, tense meeting',
+            'piano': 'strategic planning, maps on table',
+            'esito': 'aftermath, consequences visible',
+            'viaggio': 'journey, travelers on road',
+            'esplorazione': 'exploration, discovering new land',
+            'ritorno': 'homecoming, return journey'
+        };
+        function extractVisualKeywords(text) {
+            if (!text) return [];
+            const lower = text.toLowerCase();
+            const found = [];
+            for (const [it, en] of Object.entries(SCENE_IT_EN)) {
+                if (lower.includes(it)) found.push(en);
+            }
+            return found;
+        }
         function buildSceneImagePrompt(event) {
-            const setting = (G.currentStory?.setting || G.worldMemory?.setting || '').slice(0, 80);
+            const setting = (G.currentStory?.setting || G.worldMemory?.setting || '').slice(0, 120);
             const genre = (G.currentStory?.genre || G.character?.genre || 'fantasy').slice(0, 30);
-            const title = (event?.title || '').slice(0, 80);
-            const summary = (event?.summary || '').slice(0, 120);
+            const title = (event?.title || '').slice(0, 120);
+            const summary = (event?.summary || '').slice(0, 200);
+            const consequence = (event?.consequence || '').slice(0, 150);
             const type = event?.type || '';
-            const location = (event?.location || G.worldMemory?.location || '').slice(0, 60);
+            const location = (event?.location || G.worldMemory?.location || '').slice(0, 80);
+            const combined = `${title} ${summary} ${consequence} ${location} ${setting}`;
+            const visualKeys = extractVisualKeywords(combined);
+            const genreStyle = genre.includes('horror') || genre.includes('orrore')
+                ? 'dark fantasy horror art, gloomy, unsettling'
+                : genre.includes('sci') || genre.includes('cyber')
+                ? 'science fiction concept art, futuristic'
+                : 'fantasy art style, digital painting, medieval';
             const moodMap = {
-                'mondo': 'epic landscape, wide shot',
-                'dialogue': 'two characters talking, intimate scene',
-                'combattimento': 'dramatic battle scene, action shot',
-                'missione': 'adventure scene, dynamic composition',
-                'decisione': 'strategic scene, maps and planning'
+                'mondo': 'epic wide shot landscape, world events unfolding',
+                'dialogue': 'two figures in conversation, intimate close scene',
+                'combattimento': 'dramatic battle scene, clashing swords, action shot',
+                'missione': 'adventure scene, hero on a quest, dynamic composition',
+                'decisione': 'strategic planning scene, maps spread on table, figures deliberating'
             };
-            const mood = moodMap[type] || 'atmospheric scene';
+            const mood = moodMap[type] || 'atmospheric scene, dramatic mood';
+            const timeMatch = (event?.occurredAt || '').match(/(notte|alba|tramonto|mattino|pomeriggio|sera)/i);
+            const timeHint = timeMatch ? {
+                'notte': 'night scene, moonlight, darkness',
+                'alba': 'dawn light, golden sunrise',
+                'tramonto': 'sunset, orange and purple sky',
+                'mattino': 'morning light, fresh atmosphere',
+                'pomeriggio': 'afternoon, bright daylight',
+                'sera': 'evening, dimming light, candles'
+            }[timeMatch[1].toLowerCase()] : '';
+            const seasonMatch = (event?.occurredAt || '').match(/(primavera|estate|autunno|inverno)/i);
+            const seasonHint = seasonMatch ? {
+                'primavera': 'spring season, blooming flowers',
+                'estate': 'summer, warm sunlight',
+                'autunno': 'autumn, fallen leaves, warm colors',
+                'inverno': 'winter, snow, cold atmosphere'
+            }[seasonMatch[1].toLowerCase()] : '';
+            const actors = (event?.actors || []).slice(0, 3);
+            const actorHint = actors.length ? `${actors.length} character${actors.length > 1 ? 's' : ''} in scene, medieval clothing` : '';
             const parts = [
-                'fantasy art style, digital painting',
+                genreStyle,
                 mood,
-                setting ? `setting: ${setting}` : '',
-                location ? `location: ${location}` : '',
-                title ? `scene: ${title}` : '',
-                summary ? `context: ${summary}` : '',
-                'atmospheric lighting, cinematic, highly detailed'
+                ...visualKeys.slice(0, 5),
+                timeHint,
+                seasonHint,
+                actorHint,
+                'atmospheric lighting, cinematic composition, highly detailed, painterly'
             ].filter(Boolean);
             return parts.join(', ');
         }
