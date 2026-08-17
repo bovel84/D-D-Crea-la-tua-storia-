@@ -3129,7 +3129,7 @@
             100% { filter: brightness(1); }
         }
     </style>
-    <link rel="stylesheet" href="css/experience-v7.css?v=20260817-map-img-4">
+    <link rel="stylesheet" href="css/experience-v7.css?v=20260817-map-img-5">
 </head>
 <body>
     <!-- HOME SCREEN -->
@@ -13112,11 +13112,11 @@
         }
         // ── Map images (Pollinations.ai) ──
         function mapImagesEnabled() {
-            try { return localStorage.getItem('cdd-map-images') !== 'off'; } catch { return true; }
+            try { return localStorage.getItem('cdd-area-images') !== 'off'; } catch { return true; }
         }
         function toggleMapImages() {
             const off = !mapImagesEnabled();
-            try { localStorage.setItem('cdd-map-images', off ? 'off' : 'on'); } catch {}
+            try { localStorage.setItem('cdd-area-images', off ? 'off' : 'on'); } catch {}
             renderWorldMap();
             const btn = $('btn-map-images');
             if (btn) btn.classList.toggle('img-active', !off);
@@ -13280,7 +13280,27 @@
             'esito': 'aftermath, consequences visible',
             'viaggio': 'journey, travelers on road',
             'esplorazione': 'exploration, discovering new land',
-            'ritorno': 'homecoming, return journey'
+            'ritorno': 'homecoming, return journey',
+            'mulino': 'water mill by stream, wooden wheel',
+            'ponte': 'stone bridge over river',
+            'acqua': 'flowing water, stream, splash',
+            'grano': 'wheat field, golden grain',
+            'macinare': 'grinding stones, flour dust',
+            'fattoria': 'farmhouse with barn, fields',
+            'cervo': 'stag, deer, forest animal',
+            'bruma': 'mist, fog, haze over landscape',
+            'valle': 'valley between hills, green slopes',
+            'colle': 'hill, rolling green hills',
+            'radura': 'clearing in forest, sunlight',
+            'sentiero': 'dirt path through countryside',
+            'mercante': 'merchant cart, trade goods',
+            'pescatore': 'fisherman by river, nets',
+            'fabbro': 'blacksmith forge, anvil, sparks',
+            'erborista': 'herbalist shop, dried herbs, bottles',
+            'rovine': 'ancient ruins, broken stone walls',
+            'altare': 'stone altar, candles, ritual',
+            'passaggio': 'narrow passage, stone corridor',
+            'sotterraneo': 'underground chamber, dark'
         };
         function extractVisualKeywords(text) {
             if (!text) return [];
