@@ -1294,6 +1294,8 @@ Genera esattamente ${batch.length || 1} eventi, uno per ogni SVILUPPO DA CONSUMA
         const named = seed?.actors?.map(name => actors.find(actor => keyOf(actor.name) === keyOf(name))).filter(Boolean) || [];
         const actor = named[0] || actors[0];
         const worldLed = /^world/.test(seed?.kind || '');
+        const choice = seed?.choice;
+        const strategic = choice?.isStrategic;
         if (!actor) {
             // Nessun attore disponibile: crea un evento mondiale minimo
             const protagonistName = cleanText(context.protagonistName, 100);
@@ -1335,8 +1337,6 @@ Genera esattamente ${batch.length || 1} eventi, uno per ogni SVILUPPO DA CONSUMA
             : null;
         const target = named[1] || actors.find(item => keyOf(item.name) !== keyOf(actor.name)) || protagonist;
         const place = actorPlace(actor, context);
-        const choice = seed?.choice;
-        const strategic = choice?.isStrategic;
         const force = asArray(context.world?.forces).find(item =>
             item?.status !== 'resolved' && (
                 keyOf(item.actor) === keyOf(actor.name) ||
