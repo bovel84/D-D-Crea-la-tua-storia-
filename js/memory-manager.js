@@ -96,6 +96,7 @@
             agreements: [],
             pendingTimelineChoices: [],
             pendingTimelineEvents: [],
+            pendingParallelDecisions: [],
             pendingStrategicActions: [],
             strategicActionHistory: [],
             continuityLog: [],

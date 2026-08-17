@@ -919,6 +919,17 @@ FORMATO RIPETUTO PER OGNI CAUSA:
 [CHAT: titolo esatto evento|un solo parlante|npc/fazione/regno/gruppo|messaggio in prima persona|destinatario|emozione]`;
     }
 
+    function buildBatchPrompt(context = {}) {
+        const batch = normalizeEventQueue(context.batch || context.seeds || context.pendingEvents, {
+            turn: context.turn,
+            batchId: context.batchId
+        });
+        const base = buildTurnPrompt({ ...context, seeds: batch });
+        return `SIMULAZIONE PARALLELA DEL TURNO — RISOLVI FINO A ${batch.length} SVILUPPI INDIPENDENTI IN UN SOLO CICLO.
+
+Genera esattamente ${batch.length || 1} eventi, uno per ogni SVILUPPO DA CONSUMARE elencato; non produrne di più e non concatenarli automaticamente.\n\n${base}`;
+    }
+
     function parseTurnTimings(response, seeds) {
         const normalizedSeeds = normalizeEventQueue(seeds);
         const byId = new Map(normalizedSeeds.map(seed => [seed.id, seed]));
@@ -986,6 +997,153 @@ FORMATO RIPETUTO PER OGNI CAUSA:
         };
     }
 
+    function parseEventTagBody(body, context = {}) {
+        const limits = [80, 140, 1600, 140, 500, 1000, 40, 40, 140, 800, 800, 900, 700, 700, 40, 40];
+        const parts = String(body == null ? '' : body).split('|').map((part, index) => cleanText(part, limits[index] || 700));
+        if (!parts[0]) return null;
+        const isConversationModeToken = value => /^(available|required|none|open|aperta|possibile|obbligatoria|nessuna)$/i.test(keyOf(value));
+        const isInteractionModeToken = value => /^(dialogue|dialogo|action|azione|either|entrambi|none|nessuna)$/i.test(keyOf(value));
+        const classifyEvent = value => {
+            const key = keyOf(value);
+            const aliases = {
+                combattimento: 'conflitto', battaglia: 'conflitto', combat: 'conflitto', conflict: 'conflitto',
+                rivelazione: 'scoperta', discovery: 'scoperta', esplorazione: 'scoperta',
+                incontro: 'relazione', sociale: 'relazione', relationship: 'relazione',
+                scelta: 'decisione', choice: 'decisione', morale: 'decisione',
+                quest: 'missione', obiettivo: 'missione', mission: 'missione',
+                commercio: 'economia', business: 'economia', economic: 'economia',
+                regno: 'politica', diplomazia: 'politica', political: 'politica',
+                minaccia: 'pericolo', tragedia: 'pericolo', danger: 'pericolo',
+                viaggio: 'viaggio', travel: 'viaggio',
+                crescita: 'personale', personal: 'personale',
+                ambientale: 'mondo', world: 'mondo'
+            };
+            const types = new Set(['conflitto', 'scoperta', 'relazione', 'decisione', 'missione', 'economia', 'politica', 'pericolo', 'viaggio', 'personale', 'mondo']);
+            if (types.has(key)) return key;
+            if (aliases[key]) return aliases[key];
+            if (/combatt|battaglia|duello|attacc|sconfitt|vittoria|ferit|uccis/.test(key)) return 'conflitto';
+            if (/scopert|trov|rivel|indizio|segreto|esplorat/.test(key)) return 'scoperta';
+            if (/allean|incontr|amic|relazion|promess|negozia|fiducia/.test(key)) return 'relazione';
+            if (/decis|scelt|risparmi|rifiut|accett|sacrific/.test(key)) return 'decisione';
+            if (/quest|mission|obiettiv|incaric|completat|fallita/.test(key)) return 'missione';
+            if (/vend|compr|guadagn|perdit|negozio|contratt|debito|denaro/.test(key)) return 'economia';
+            if (/regno|legge|fazione|diplom|sovran|rivolta|decreto/.test(key)) return 'politica';
+            if (/pericol|minacc|incend|tempesta|epidemi|rapiment|traged/.test(key)) return 'pericolo';
+            if (/viaggi|partit|arrivat|raggiunt|trasferit/.test(key)) return 'viaggio';
+            if (/livello|abilit|crescita|guarit|ferita personale/.test(key)) return 'personale';
+            return 'mondo';
+        };
+        const deriveTitle = summary => {
+            const text = cleanText(summary, 240).replace(/^(il|la|lo|i|gli|le|un|una)\s+/i, '').replace(/[.!?]+$/g, '');
+            if (!text) return 'Evento senza titolo';
+            const words = text.split(' ');
+            const title = words.slice(0, 8).join(' ');
+            return title.charAt(0).toLocaleUpperCase('it-IT') + title.slice(1);
+        };
+        const parseActors = value => {
+            const seen = new Set();
+            return cleanText(value, 320).split(/[,;]/).map(item => cleanText(item, 100)).filter(item => {
+                const key = keyOf(item);
+                if (!key || key === 'nessuno' || key === 'nessuna' || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            }).slice(0, 8);
+        };
+        const inferActors = (summary, knownActors) => {
+            const corpus = keyOf(summary);
+            return asArray(knownActors).map(actor => cleanText(typeof actor === 'string' ? actor : actor?.name, 100)).filter(Boolean).filter(name => corpus.includes(keyOf(name))).slice(0, 8);
+        };
+        const normalizeImportance = (value, text) => {
+            const key = keyOf(value);
+            if (/critical|critico|cruciale|epocale/.test(key)) return 'critical';
+            if (/high|alto|importante|grave/.test(key)) return 'high';
+            if (/morte|uccis|guerra|assedio|tradimento|catastrofe|regno cadut|missione fallita/.test(keyOf(text))) return 'critical';
+            if (/alleanza|vittoria|sconfitta|segreto|scoperta|incendio|rapimento|missione completata/.test(keyOf(text))) return 'high';
+            return 'normal';
+        };
+        const normalizeStatus = value => {
+            const key = keyOf(value);
+            if (/unresolved|irrisolto|active|attivo|aperto/.test(key)) return 'active';
+            if (/resolved|risolto|concluso|completed|completato|closed|chiuso/.test(key)) return 'resolved';
+            if (/developing|evolving|sviluppo|evoluzione|pending|in corso/.test(key)) return 'developing';
+            return 'resolved';
+        };
+        if (parts.length === 1) {
+            return {
+                type: 'mondo', title: deriveTitle(parts[0]), summary: parts[0],
+                actors: inferActors(parts[0], context.knownActors), source: 'llm-legacy'
+            };
+        }
+        let interactionIndex = -1;
+        let conversationIndex = -1;
+        for (let index = parts.length - 1; index >= 12; index--) {
+            if (interactionIndex < 0 && isInteractionModeToken(parts[index])) interactionIndex = index;
+            if (conversationIndex < 0 && isConversationModeToken(parts[index])) conversationIndex = index;
+        }
+        const type = classifyEvent(parts[0]);
+        const title = parts[1] || deriveTitle(parts[2]);
+        const summary = parts[2] || '';
+        const location = parts[3] || cleanText(context.location, 100);
+        const actors = parseActors(parts[4]).length ? parseActors(parts[4]) : inferActors(`${title} ${summary}`, context.knownActors);
+        const consequence = parts[5] || '';
+        const importance = normalizeImportance(parts[6], `${title} ${summary} ${consequence}`);
+        const status = normalizeStatus(parts[7]);
+        const occurredAt = parts[8] || cleanText(context.occurredAt, 100);
+        const cause = parts[9] || cleanText(context.choice, 600);
+        const historicalAnchor = parts[10] || '';
+        const politicalShift = parts[11] || '';
+        const stakes = conversationIndex === 12 ? '' : parts[12];
+        const conversationGoal = conversationIndex === 13 ? '' : parts[13];
+        const conversationMode = conversationIndex >= 0 ? parts[conversationIndex] : (conversationGoal ? 'available' : 'none');
+        const interactionMode = interactionIndex >= 0 ? parts[interactionIndex] : (conversationMode === 'required' ? 'dialogue' : 'none');
+        return {
+            type, title, summary, location, actors, consequence, importance, status,
+            occurredAt, cause, historicalAnchor, politicalShift, stakes, conversationGoal,
+            conversationMode, interactionMode
+        };
+    }
+
+    function parseBatchEventBody(response, seeds, context = {}) {
+        const normalizedSeeds = normalizeEventQueue(seeds, { turn: context.turn, batchId: context.batchId });
+        const text = String(response || '');
+        const rawEvents = [];
+        const regex = /\[EVENTO:\s*([^\]]+)\]/gi;
+        const seen = new Set();
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            const event = parseEventTagBody(match[1], context);
+            if (!event || !isMeaningfulEvent(event)) continue;
+            const fp = keyOf(`${event.type}|${event.title}|${event.summary}|${event.location}`);
+            if (seen.has(fp)) continue;
+            seen.add(fp);
+            rawEvents.push(event);
+        }
+        if (!rawEvents.length) {
+            return ensureTurnBatch([], normalizedSeeds, { ...context, response });
+        }
+        if (rawEvents.length === 1 && normalizedSeeds.length > 1) {
+            const best = normalizedSeeds.map(seed => ({ seed, score: causalAlignmentScore(rawEvents[0], seed) }))
+                .sort((left, right) => right.score - left.score)[0] || { seed: normalizedSeeds[0] };
+            const seed = best.seed;
+            const timings = parseTurnTimings(response, [seed]);
+            const timing = timings[0] || parseTurnTimings('', [seed])[0];
+            const event = enrichEvent({
+                ...rawEvents[0], seedId: seed.id, queueKind: seed.kind,
+                waitMinutes: timing.minutes, timingReason: timing.reason
+            }, { ...context, seed }, 0, null);
+            return {
+                events: [event],
+                assignments: [{ seed, event, timing, usedFallback: false }],
+                timings,
+                elapsedMinutes: timing.minutes,
+                fallbackAdded: 0,
+                qualityRejected: 0,
+                usedFallback: false
+            };
+        }
+        return ensureTurnBatch(rawEvents, normalizedSeeds, { ...context, response });
+    }
+
     function scheduleEventSeeds(queue, incoming, context = {}) {
         const merged = normalizeEventQueue(queue, context);
         const ids = new Set(merged.map(item => item.id));
@@ -1035,10 +1193,67 @@ FORMATO RIPETUTO PER OGNI CAUSA:
         })[0] || null;
     }
 
-    function advanceEventQueue(queue, consumedId, elapsedMinutes) {
+    function isParallelEligible(seed) {
+        if (!seed) return false;
+        if (seed.parentSeedId) return false;
+        if (seed.kind === 'dialogue_reply') return false;
+        if (seed.interactionMode === 'dialogue') return false;
+        if (seed.kind === 'strategic_action') return true;
+        if (seed.kind === 'player_action' && seed.interactionMode !== 'dialogue') return true;
+        if (seed.kind === 'world_initiative') {
+            const urgent = Number(seed.priority || 0) >= 80 && Number(seed.notBeforeMinutes || 0) <= 0;
+            return !urgent;
+        }
+        return false;
+    }
+
+    function selectBatchEventSeeds(queue, maxBatch = MAX_PLAYER_ACTIONS_PER_TURN) {
+        const normalized = normalizeEventQueue(queue);
+        const eligible = normalized.filter(isParallelEligible);
+        if (!eligible.length) {
+            const next = selectNextEventSeed(normalized);
+            return next ? [next] : [];
+        }
+        const sorted = eligible.slice().sort((left, right) =>
+            Number(right.priority || 0) - Number(left.priority || 0) ||
+            Number(left.notBeforeMinutes || 0) - Number(right.notBeforeMinutes || 0) ||
+            Number(left.createdAtTurn || 0) - Number(right.createdAtTurn || 0)
+        );
+        const limit = Math.max(1, Math.min(Number(maxBatch) || MAX_PLAYER_ACTIONS_PER_TURN, MAX_PLAYER_ACTIONS_PER_TURN));
+        return sorted.slice(0, limit);
+    }
+
+    function createManualParallelSeeds(decisions, context = {}) {
+        const turn = Math.max(0, Number(context.turn) || 0);
+        const batchId = cleanText(context.batchId || `event-batch-${turn}`, 180);
+        return normalizeTimelineChoices(asArray(decisions)).map((choice, index) => normalizeEventSeed({
+            id: `pending-parallel-${choice.id}`,
+            kind: 'player_action',
+            title: choice.actionTitle || choice.topic || 'Decisione parallela',
+            topic: choice.topic,
+            cause: choice.command || choice.summary,
+            actors: choice.actors,
+            priority: 80,
+            interactionMode: inferInteractionMode(choice.command || choice.summary),
+            sourceId: choice.id,
+            source: 'manual-parallel',
+            choice,
+            batchId,
+            createdAtTurn: turn,
+            originTurn: turn,
+            causalLane: 'player',
+            sequence: 0
+        }, index, { turn, batchId })).filter(Boolean);
+    }
+
+    function advanceEventQueue(queue, consumedIds, elapsedMinutes) {
+        const consumed = Array.isArray(consumedIds)
+            ? consumedIds
+            : (consumedIds != null ? [consumedIds] : []);
+        const consumedSet = new Set(consumed.map(id => String(id)));
         const elapsed = Math.max(0, Number(elapsedMinutes) || 0);
         return normalizeEventQueue(queue).filter(seed =>
-            seed.id !== consumedId &&
+            !consumedSet.has(seed.id) &&
             !['action_reply', 'world_reply'].includes(seed.kind) &&
             Number(seed.depth || 0) === 0 &&
             !seed.parentSeedId &&
@@ -1441,11 +1656,16 @@ FORMATO RIPETUTO PER OGNI CAUSA:
         normalizeEventSeed,
         normalizeEventQueue,
         createEventSeeds,
+        createManualParallelSeeds,
+        buildBatchPrompt,
         buildTurnPrompt,
+        parseBatchEventBody,
         parseTurnTimings,
         ensureTurnBatch,
         scheduleEventSeeds,
         selectNextEventSeed,
+        isParallelEligible,
+        selectBatchEventSeeds,
         advanceEventQueue,
         parseEventTiming,
         parsePendingEventSeeds,
