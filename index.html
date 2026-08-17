@@ -11101,7 +11101,7 @@
             );
             const queuedActions = getPendingStrategicActions();
             const queuedIds = new Set(queuedActions.map(item => item.id));
-            const activeTopic = queuedActions.length ? queuedActions[0].issueTitle : null;
+            const activeTopics = new Set(queuedActions.map(item => item.issueTitle));
             const sourceLabels = {
                 ai: 'Analisi IA',
                 'ai+local': 'IA verificata',
@@ -11121,10 +11121,10 @@
                     <section class="strategic-signal"><strong>⚠️ Rischio</strong><span>${escapeTimelineHtml(analysis.risks?.[0] || 'Nessun allarme immediato')}</span></section>
                     <section class="strategic-signal"><strong>💡 Occasione</strong><span>${escapeTimelineHtml(analysis.opportunities?.[0] || 'Esplora le alternative')}</span></section>
                 </div>
-                <h3 class="strategic-topics-title">Argomenti strategici${activeTopic ? ` <span class="strategic-active-topic">Piano attivo: ${escapeTimelineHtml(activeTopic)}</span>` : ''}</h3>
+                <h3 class="strategic-topics-title">Argomenti strategici${activeTopics.size ? ` <span class="strategic-active-topic">Piani attivi: ${escapeTimelineHtml([...activeTopics].join(' · '))}</span>` : ''}</h3>
                 <div class="strategic-issue-list">
                     ${analysis.issues.map((issue, issueIndex) => {
-                        const isLocked = activeTopic && issue.title !== activeTopic;
+                        const isLocked = false;
                         return `
                         <details class="strategic-issue urgency-${escapeTimelineHtml(issue.urgency || 'media')}${isLocked ? ' locked' : ''}" data-issue-id="${escapeTimelineHtml(issue.id)}" ${openedIssueIds.has(issue.id) ? 'open' : ''}>
                             <summary>
@@ -11273,14 +11273,6 @@
                 return;
             }
             const currentQueue = getPendingStrategicActions();
-            const activeTopic = activeStrategicTopic();
-            if (activeTopic && queuedAction.issueTitle !== activeTopic) {
-                const isRemoving = currentQueue.some(item => item.id === queuedAction.id);
-                if (!isRemoving) {
-                    notify(`Il piano attuale è su «${activeTopic}». Rimuovi le azioni selezionate per cambiare argomento.`, 'error');
-                    return;
-                }
-            }
             const result = strategicAdvisor.toggleQueuedAction(currentQueue, queuedAction);
             if (result.full) {
                 notify(`Puoi selezionare fino a ${strategicAdvisor.MAX_QUEUED_ACTIONS} azioni strategiche.`, 'error');
