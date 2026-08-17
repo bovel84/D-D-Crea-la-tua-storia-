@@ -20,7 +20,32 @@
         {
             id: 'deepseek-v4-flash', displayName: 'DeepSeek V4 Flash · Cloud', apiId: 'deepseek-v4-flash', localCloudId: 'deepseek-v4-flash-cloud', contextSize: 131072,
             temperature: 0.65, topP: 0.9, topK: 40,
-            notes: 'Modello analitico aggiornato; indicato per investigazioni, enigmi e conseguenze strategiche.'
+            notes: 'Rapido e analitico, indicato per investigazioni ed enigmi.'
+        },
+        {
+            id: 'deepseek-v4-pro', displayName: 'DeepSeek V4 Pro · Cloud', apiId: 'deepseek-v4-pro', localCloudId: 'deepseek-v4-pro-cloud', contextSize: 131072,
+            temperature: 0.65, topP: 0.9, topK: 40,
+            notes: 'Ottimo per narrazione ricca e coerenza delle scene complesse.'
+        },
+        {
+            id: 'glm-5.2', displayName: 'GLM 5.2 · Cloud', apiId: 'glm-5.2', localCloudId: 'glm-5.2-cloud', contextSize: 131072,
+            temperature: 0.65, topP: 0.9, topK: 40,
+            notes: 'Equilibrato per dialoghi, pianificazione e analisi del mondo.'
+        },
+        {
+            id: 'kimi-k2.7', displayName: 'Kimi K2.7 · Cloud', apiId: 'kimi-k2.7', localCloudId: 'kimi-k2.7-cloud', contextSize: 131072,
+            temperature: 0.7, topP: 0.9, topK: 40,
+            notes: 'Adatto a contesti lunghi e ragionamenti multi-passaggio.'
+        },
+        {
+            id: 'minimax-m3', displayName: 'MiniMax M3 · Cloud', apiId: 'minimax-m3', localCloudId: 'minimax-m3-cloud', contextSize: 131072,
+            temperature: 0.7, topP: 0.9, topK: 40,
+            notes: 'Versatile per scene rapide e dialoghi naturali.'
+        },
+        {
+            id: 'gemma4:31b', displayName: 'Gemma 4 31B · Cloud', apiId: 'gemma4:31b', localCloudId: 'gemma4:31b-cloud', contextSize: 131072,
+            temperature: 0.7, topP: 0.9, topK: 40,
+            notes: 'Alternativa compatta per riassunti e risposte veloci.'
         },
         {
             id: 'qwen3.5:397b', displayName: 'Qwen 3.5 397B · Cloud', apiId: 'qwen3.5:397b', localCloudId: 'qwen3.5:397b-cloud', contextSize: 131072,

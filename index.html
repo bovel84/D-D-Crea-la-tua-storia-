@@ -1452,6 +1452,23 @@
             padding: 20px;
         }
 
+        .task-models-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.94em;
+        }
+
+        .task-models-table th, .task-models-table td {
+            padding: 7px 4px;
+            border-bottom: 1px solid rgba(91, 58, 32, 0.2);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .task-models-table th { color: var(--ink-light); font-family: 'Cinzel', serif; }
+        .task-models-table .form-select, .task-models-table .form-input { padding: 7px 8px; font-size: 1em; }
+        .task-model-override { margin-top: 5px; }
+
         /* Forms */
         .form-group {
             margin-bottom: 15px;
@@ -3818,37 +3835,49 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">🔑 API Key Groq</label>
-                    <input type="password" class="form-input" id="set-groq-key" placeholder="Inserisci la tua API key Groq...">
-                    <input type="url" class="form-input" id="set-groq-url" style="margin-top:7px;" placeholder="URL API Groq (opzionale)">
-                    <input type="text" class="form-input" id="set-groq-model" style="margin-top:7px;" placeholder="Modello Groq (es. llama-3.3-70b-versatile)">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">🔑 API Key OpenRouter</label>
-                    <input type="password" class="form-input" id="set-openrouter-key" placeholder="Inserisci la tua API key OpenRouter...">
-                    <input type="url" class="form-input" id="set-openrouter-url" style="margin-top:7px;" placeholder="URL API OpenRouter (opzionale)">
-                    <input type="text" class="form-input" id="set-openrouter-model" style="margin-top:7px;" placeholder="Modello OpenRouter (es. openrouter/free)">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">🔑 API Key Kimera (DeepSeek)</label>
-                    <input type="password" class="form-input" id="set-kimera-key" placeholder="Inserisci la tua API key Kimera...">
-                    <input type="url" class="form-input" id="set-kimera-url" style="margin-top:7px;" placeholder="URL API Kimera compatibile OpenAI (opzionale)">
-                    <input type="text" class="form-input" id="set-kimera-model" style="margin-top:7px;" placeholder="Modello Kimera (es. tngtech/deepseek-r1t2-chimera:free)">
-                    <small style="display:block; margin-top:4px; color:var(--ink-light);">Per Groq, OpenRouter e Kimera l'URL deve rispondere a <code>/chat/completions</code> e consentire CORS.</small>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">🤖 Modello AI</label>
+                    <label class="form-label">🤖 Provider AI</label>
                     <select class="form-select" id="set-model">
-                        <option value="groq">Groq (Llama 3.1 - Veloce)</option>
-                        <option value="openrouter">OpenRouter (Gemma 3 27B it Free)</option>
-                        <option value="deepseek">OpenRouter (mimo-v2-flash:free)</option>
-                        <option value="openrouter-free">OpenRouter (openrouter/free)</option>
-                        <option value="ollama-cloud">Ollama Cloud (solo remoto)</option>
+                        <option value="groq">Groq</option>
+                        <option value="openrouter">OpenRouter</option>
+                        <option value="deepseek">Kimera / DeepSeek</option>
+                        <option value="openrouter-free">OpenRouter Free</option>
+                        <option value="ollama-cloud">Ollama Cloud</option>
                     </select>
                 </div>
-                <div id="ollama-settings" style="display:none; padding: 12px; margin-bottom: 14px; border: 1px solid var(--gold-dark); border-radius: 8px; background: rgba(201,162,39,0.08);">
+                <div class="provider-settings" id="groq-settings">
                     <div class="form-group">
-                        <label class="form-label">☁️ Modello Ollama Cloud</label>
+                        <label class="form-label">🔑 API Key Groq</label>
+                        <input type="password" class="form-input" id="set-groq-key" placeholder="Inserisci la tua API key Groq...">
+                        <input type="url" class="form-input" id="set-groq-url" style="margin-top:7px;" placeholder="URL API Groq (opzionale)">
+                        <input type="text" class="form-input" id="set-groq-model" style="margin-top:7px;" placeholder="Modello Groq (es. llama-3.3-70b-versatile)">
+                    </div>
+                </div>
+                <div class="provider-settings" id="openrouter-settings">
+                    <div class="form-group">
+                        <label class="form-label">🔑 API Key OpenRouter</label>
+                        <input type="password" class="form-input" id="set-openrouter-key" placeholder="Inserisci la tua API key OpenRouter...">
+                        <input type="url" class="form-input" id="set-openrouter-url" style="margin-top:7px;" placeholder="URL API OpenRouter (opzionale)">
+                        <input type="text" class="form-input" id="set-openrouter-model" style="margin-top:7px;" placeholder="Modello OpenRouter (es. openrouter/free)">
+                    </div>
+                </div>
+                <div class="provider-settings" id="deepseek-settings">
+                    <div class="form-group">
+                        <label class="form-label">🔑 API Key Kimera / DeepSeek</label>
+                        <input type="password" class="form-input" id="set-kimera-key" placeholder="Inserisci la tua API key Kimera...">
+                        <input type="url" class="form-input" id="set-kimera-url" style="margin-top:7px;" placeholder="URL API Kimera compatibile OpenAI (opzionale)">
+                        <input type="text" class="form-input" id="set-kimera-model" style="margin-top:7px;" placeholder="Modello Kimera (es. tngtech/deepseek-r1t2-chimera:free)">
+                        <small style="display:block; margin-top:4px; color:var(--ink-light);">L'URL deve rispondere a <code>/chat/completions</code> e consentire CORS.</small>
+                    </div>
+                </div>
+                <div class="provider-settings" id="openrouter-free-settings">
+                    <div class="form-group">
+                        <label class="form-label">🔑 API Key OpenRouter Free</label>
+                        <small style="display:block; margin-top:4px; color:var(--ink-light);">Usa i campi OpenRouter mostrati sopra; il modello predefinito è <code>openrouter/free</code>.</small>
+                    </div>
+                </div>
+                <div class="provider-settings" id="ollama-settings" style="display:none; padding: 12px; margin-bottom: 14px; border: 1px solid var(--gold-dark); border-radius: 8px; background: rgba(201,162,39,0.08);">
+                    <div class="form-group">
+                        <label class="form-label">☁️ Modello Ollama Cloud principale</label>
                         <input type="text" class="form-input" id="set-ollama-model" list="ollama-model-list" placeholder="Scegli o scrivi un ID modello">
                         <datalist id="ollama-model-list"></datalist>
                         <div id="ollama-model-info" style="margin-top:6px; color:var(--ink-light); font-size:0.9em;"></div>
@@ -3866,6 +3895,14 @@
                         <button class="btn secondary" id="btn-refresh-ollama-models" type="button" style="width:100%;">☁️ Aggiorna modelli Ollama Cloud</button>
                         <small id="ollama-catalog-status" style="display:block; margin-top:4px; color:var(--ink-light);">Mostra i modelli Cloud abilitati per il tuo account.</small>
                     </div>
+                </div>
+                <div class="form-group" id="task-model-settings">
+                    <label class="form-label">🧠 Modelli per compito</label>
+                    <table class="task-models-table">
+                        <thead><tr><th>Compito</th><th>Modello</th></tr></thead>
+                        <tbody id="task-model-rows"></tbody>
+                    </table>
+                    <button class="btn secondary" id="btn-reset-task-models" type="button" style="width:100%; margin-top:9px;">↺ Reset ai default</button>
                 </div>
                 <div class="form-group">
                     <label class="form-label">📏 Lunghezza Risposte</label>
@@ -3908,11 +3945,29 @@
     <script src="js/timeline-engine.js?v=20260815-root-fix-1"></script>
     <script src="js/timeline-bridge.js?v=20260815-root-fix-1"></script>
     <script src="js/campaign-vault.js"></script>
-    <script src="js/ai-efficiency.js?v=20260816-timeout-1"></script>
-    <script src="js/ollama-cloud.js?v=20260814-ollama-content-3"></script>
+    <script src="js/ai-efficiency.js?v=20260817-models-1"></script>
+    <script src="js/ollama-cloud.js?v=20260817-models-1"></script>
     <script src="js/experience-v7.js?v=20260814-mobile-dock-2"></script>
     <script>
         // ==================== GAME STATE ====================
+        const TASK_MODEL_LABELS = Object.freeze({
+            'world-generation': 'Generazione mondo',
+            'world-npcs': 'Generazione NPC',
+            narrative: 'Narrazione',
+            timeline: 'Timeline',
+            strategic: 'Strategia',
+            summary: 'Riassunti'
+        });
+        const DEFAULT_OLLAMA_TASK_MODELS = Object.freeze({
+            'world-generation': 'qwen3.5:397b',
+            'world-npcs': 'qwen3.5:397b',
+            narrative: 'deepseek-v4-pro',
+            timeline: 'gpt-oss:120b',
+            strategic: 'gpt-oss:120b',
+            summary: 'gpt-oss:20b'
+        });
+        const EMPTY_TASK_MODELS = Object.freeze(Object.fromEntries(Object.keys(TASK_MODEL_LABELS).map(task => [task, ''])));
+
         const G = {
             currentStory: null,
             character: null,
@@ -3930,9 +3985,11 @@
             worldMemory: CronacheMemory.createDefaultMemory(),
             settings: {
                 groqKey: '', groqUrl: '', groqModel: '', openrouterKey: '', openrouterUrl: '', openrouterModel: '', kimeraKey: '', kimeraUrl: '', kimeraModel: '', model: 'groq', length: 'medium', autoRoll: true,
+                taskModels: { ...EMPTY_TASK_MODELS }, taskModelsProvider: '',
                 ollama: {
                     endpoint: CronacheOllama.OLLAMA_CLOUD_ENDPOINT, apiKey: '',
-                    primaryModel: 'gpt-oss:120b', fallbackOrder: CronacheOllama.DEFAULT_FALLBACK_ORDER
+                    primaryModel: 'gpt-oss:120b', fallbackOrder: CronacheOllama.DEFAULT_FALLBACK_ORDER,
+                    discoveredModels: [], taskModels: { ...DEFAULT_OLLAMA_TASK_MODELS }
                 }
             },
             stories: [],
@@ -4977,6 +5034,18 @@
 
         // I vecchi salvataggi potevano indicare modelli locali: vengono convertiti
         // al catalogo Cloud ufficiale senza toccare le altre impostazioni.
+        function normalizeTaskModels(taskModels, defaults = EMPTY_TASK_MODELS) {
+            const source = taskModels && typeof taskModels === 'object' && !Array.isArray(taskModels) ? taskModels : {};
+            return Object.fromEntries(Object.keys(TASK_MODEL_LABELS).map(task => [
+                task,
+                typeof source[task] === 'string' ? source[task].trim() : (defaults[task] || '')
+            ]));
+        }
+
+        function normalizeTaskModelsProvider(provider) {
+            return ['groq', 'openrouter', 'deepseek'].includes(provider) ? provider : '';
+        }
+
         function normalizeOllamaCloudSettings(config) {
             const source = config || {};
             const knownIds = new Set(CronacheOllama.OLLAMA_MODELS.map(model => model.id));
@@ -4992,7 +5061,8 @@
                 nativeProxy: String(source.nativeProxy || '').trim(),
                 primaryModel,
                 fallbackOrder: fallbackOrder.length ? fallbackOrder : CronacheOllama.DEFAULT_FALLBACK_ORDER.filter(id => id !== primaryModel),
-                discoveredModels
+                discoveredModels,
+                taskModels: normalizeTaskModels(source.taskModels, DEFAULT_OLLAMA_TASK_MODELS)
             };
         }
 
@@ -5580,6 +5650,8 @@
                 G.settings = {
                     ...G.settings,
                     ...storedSettings,
+                    taskModels: normalizeTaskModels(storedSettings.taskModels, EMPTY_TASK_MODELS),
+                    taskModelsProvider: normalizeTaskModelsProvider(storedSettings.taskModelsProvider),
                     ollama: normalizeOllamaCloudSettings({ ...G.settings.ollama, ...(storedSettings.ollama || {}) })
                 };
             }
@@ -9960,37 +10032,63 @@
             ).join('\n');
         }
 
-        function resolveConfiguredAIProvider(settings = G.settings) {
+        function configuredTaskKey(task) {
+            return Object.prototype.hasOwnProperty.call(TASK_MODEL_LABELS, task)
+                ? task
+                : (['story', 'start', 'chat'].includes(task) ? 'narrative' : null);
+        }
+
+        function configuredTaskModel(taskModels, task) {
+            const key = configuredTaskKey(task);
+            return key ? String(taskModels?.[key] || '').trim() : '';
+        }
+
+        function nonOllamaProviderKey(provider) {
+            return provider === 'openrouter-free' ? 'openrouter' : provider;
+        }
+
+        function getNonOllamaTaskModels(settings, provider) {
+            const configuredFor = normalizeTaskModelsProvider(settings.taskModelsProvider);
+            return configuredFor && configuredFor !== nonOllamaProviderKey(provider)
+                ? EMPTY_TASK_MODELS
+                : normalizeTaskModels(settings.taskModels, EMPTY_TASK_MODELS);
+        }
+
+        function resolveConfiguredAIProvider(settings = G.settings, task = null) {
             if (settings.model === 'ollama-cloud') {
                 const config = normalizeOllamaCloudSettings(settings.ollama);
                 if (!config.apiKey) throw new Error('API key Ollama Cloud non configurata');
+                const primaryModel = config.primaryModel || 'gpt-oss:120b';
                 return {
-                    type: 'ollama-cloud', model: config.primaryModel || 'gpt-oss:120b', apiKey: config.apiKey,
-                    config
+                    type: 'ollama-cloud', model: configuredTaskModel(config.taskModels, task) || primaryModel,
+                    primaryModel, apiKey: config.apiKey, config
                 };
             }
             if (settings.model === 'openrouter' || settings.model === 'openrouter-free') {
                 if (!settings.openrouterKey) throw new Error('API key OpenRouter non configurata');
+                const primaryModel = settings.openrouterModel || (settings.model === 'openrouter-free' ? 'openrouter/free' : 'google/gemma-3-27b-it:free');
                 return {
                     type: 'openai-compatible', provider: 'openrouter', apiKey: settings.openrouterKey,
                     endpoint: settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions',
-                    model: settings.openrouterModel || (settings.model === 'openrouter-free' ? 'openrouter/free' : 'google/gemma-3-27b-it:free')
+                    model: configuredTaskModel(getNonOllamaTaskModels(settings, 'openrouter'), task) || primaryModel, primaryModel
                 };
             }
             if (settings.model === 'deepseek') {
                 const apiKey = settings.kimeraKey || settings.openrouterKey;
                 if (!apiKey) throw new Error('Configura la Kimera (o OpenRouter) API key per usare DeepSeek.');
+                const primaryModel = settings.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free';
                 return {
                     type: 'openai-compatible', provider: 'deepseek', apiKey,
                     endpoint: settings.kimeraUrl || settings.openrouterUrl || 'https://openrouter.ai/api/v1/chat/completions',
-                    model: settings.kimeraModel || 'tngtech/deepseek-r1t2-chimera:free'
+                    model: configuredTaskModel(getNonOllamaTaskModels(settings, 'deepseek'), task) || primaryModel, primaryModel
                 };
             }
             if (!settings.groqKey) throw new Error('Configura una API key nelle Impostazioni');
+            const primaryModel = settings.groqModel || 'llama-3.1-8b-instant';
             return {
                 type: 'openai-compatible', provider: 'groq', apiKey: settings.groqKey,
                 endpoint: settings.groqUrl || 'https://api.groq.com/openai/v1/chat/completions',
-                model: settings.groqModel || 'llama-3.1-8b-instant'
+                model: configuredTaskModel(getNonOllamaTaskModels(settings, 'groq'), task) || primaryModel, primaryModel
             };
         }
 
@@ -10008,9 +10106,9 @@
                 aiRequestManager.markTrimmed();
                 console.info(`Contesto ${task} ridotto da ~${compacted.originalInputTokens} a ~${compacted.estimatedInputTokens} token.`);
             }
-            const provider = resolveConfiguredAIProvider();
+            const provider = resolveConfiguredAIProvider(G.settings, task);
             const key = options.requestKey || CronacheAI.requestKey(task, provider.provider || provider.type, provider.model, compacted.messages);
-            return aiRequestManager.run(key, async () => {
+            return aiRequestManager.run(key, async (attempt) => {
                 if (provider.type === 'ollama-cloud') {
                     const config = provider.config;
                     const result = await ollamaClient.generate(compacted.messages, {
@@ -10018,11 +10116,12 @@
                         nativeProxy: config.nativeProxy,
                         preferredModels: [
                             provider.model,
-                            ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : [])
+                            ...(Array.isArray(config.fallbackOrder) ? config.fallbackOrder : []),
+                            provider.primaryModel
                         ],
                         discoveredModels: config.discoveredModels,
                         maxTokens: profile.maxOutputTokens,
-                        maxAttempts: profile.maxAttempts,
+                        maxAttempts: Math.max(profile.maxAttempts, 2 + (Array.isArray(config.fallbackOrder) ? config.fallbackOrder.length : 0)),
                         timeoutMs: profile.timeoutMs,
                         temperature: profile.temperature,
                         format: options.format
@@ -10032,18 +10131,31 @@
                     }
                     return result.content;
                 }
-                const result = await CronacheAI.requestOpenAI({
+                const requestOpenAIModel = model => CronacheAI.requestOpenAI({
                     endpoint: provider.endpoint,
                     apiKey: provider.apiKey,
-                    model: provider.model,
+                    model,
                     messages: compacted.messages,
                     temperature: profile.temperature,
                     maxTokens: profile.maxOutputTokens,
                     timeoutMs: profile.timeoutMs
                 });
-                return result.content;
+                const model = attempt > 1 ? provider.primaryModel : provider.model;
+                try {
+                    return (await requestOpenAIModel(model)).content;
+                } catch (error) {
+                    // 400/404 non sono retryable nel request manager, ma sono proprio
+                    // gli errori tipici di un override non disponibile per il provider.
+                    if (attempt === 1 && model !== provider.primaryModel && [400, 404].includes(Number(error?.status))) {
+                        console.warn(`Il modello ${model} non è disponibile; ripiego su ${provider.primaryModel}.`);
+                        return (await requestOpenAIModel(provider.primaryModel)).content;
+                    }
+                    throw error;
+                }
             }, {
-                maxAttempts: provider.type === 'ollama-cloud' ? 1 : profile.maxAttempts,
+                maxAttempts: provider.type === 'ollama-cloud'
+                    ? 1
+                    : Math.max(profile.maxAttempts, provider.model !== provider.primaryModel ? 2 : 1),
                 cacheTtlMs: Math.max(0, Number(options.cacheTtlMs) || 0)
             });
         }
@@ -10249,10 +10361,12 @@
                 G.settings = {
                     ...G.settings,
                     ...backup.settings,
-                    ollama: {
+                    taskModels: normalizeTaskModels(backup.settings.taskModels, EMPTY_TASK_MODELS),
+                    taskModelsProvider: normalizeTaskModelsProvider(backup.settings.taskModelsProvider),
+                    ollama: normalizeOllamaCloudSettings({
                         ...G.settings.ollama,
                         ...(backup.settings.ollama || {})
-                    }
+                    })
                 };
                 campaignVault.clear();
                 save();
@@ -14801,9 +14915,115 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 : '';
         }
 
+        function getActiveProviderPrimaryModel(provider = $('set-model')?.value || G.settings.model) {
+            if (provider === 'ollama-cloud') return $('set-ollama-model')?.value.trim() || G.settings.ollama?.primaryModel || 'gpt-oss:120b';
+            if (provider === 'openrouter' || provider === 'openrouter-free') {
+                return $('set-openrouter-model')?.value.trim() || (provider === 'openrouter-free' ? 'openrouter/free' : 'google/gemma-3-27b-it:free');
+            }
+            if (provider === 'deepseek') return $('set-kimera-model')?.value.trim() || 'tngtech/deepseek-r1t2-chimera:free';
+            return $('set-groq-model')?.value.trim() || 'llama-3.1-8b-instant';
+        }
+
+        function getActiveTaskModels(provider = $('set-model')?.value || G.settings.model) {
+            return provider === 'ollama-cloud'
+                ? normalizeOllamaCloudSettings(G.settings.ollama).taskModels
+                : getNonOllamaTaskModels(G.settings, provider);
+        }
+
+        function addTaskModelOption(select, value, label) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            select.appendChild(option);
+        }
+
+        function renderTaskModelSettings() {
+            const root = $('task-model-rows');
+            const provider = $('set-model')?.value || G.settings.model;
+            if (!root || !provider) return;
+            const isOllama = provider === 'ollama-cloud';
+            const primaryModel = getActiveProviderPrimaryModel(provider);
+            const taskModels = getActiveTaskModels(provider);
+            const catalog = isOllama ? getOllamaCloudCatalog(G.settings.ollama) : [];
+            root.replaceChildren(...Object.entries(TASK_MODEL_LABELS).map(([task, label]) => {
+                const row = document.createElement('tr');
+                const taskCell = document.createElement('td');
+                taskCell.textContent = label;
+                const modelCell = document.createElement('td');
+                const select = document.createElement('select');
+                select.className = 'form-select';
+                select.dataset.taskModel = task;
+                const selectedModel = taskModels[task] || '';
+                addTaskModelOption(select, '', `Modello principale · ${primaryModel}`);
+                if (isOllama) {
+                    catalog.forEach(model => addTaskModelOption(select, model.id, model.displayName));
+                } else if (selectedModel && selectedModel !== primaryModel) {
+                    addTaskModelOption(select, selectedModel, `${selectedModel} · override`);
+                }
+                if (selectedModel && ![...select.options].some(option => option.value === selectedModel)) {
+                    addTaskModelOption(select, selectedModel, `${selectedModel} · ID personalizzato`);
+                }
+                select.value = selectedModel;
+                if (!isOllama) {
+                    const override = document.createElement('input');
+                    override.type = 'text';
+                    override.className = 'form-input task-model-override';
+                    override.dataset.taskModelOverride = task;
+                    override.placeholder = 'Override modello (opzionale)';
+                    override.value = selectedModel;
+                    select.onchange = () => { override.value = select.value; };
+                    override.oninput = () => {
+                        const value = override.value.trim();
+                        if (value && ![...select.options].some(option => option.value === value)) {
+                            addTaskModelOption(select, value, `${value} · override`);
+                        }
+                        select.value = value;
+                    };
+                    modelCell.append(select, override);
+                } else {
+                    modelCell.appendChild(select);
+                }
+                row.append(taskCell, modelCell);
+                return row;
+            }));
+        }
+
+        function collectTaskModels(provider = $('set-model')?.value || G.settings.model) {
+            const result = { ...EMPTY_TASK_MODELS };
+            const selector = provider === 'ollama-cloud' ? '[data-task-model]' : '[data-task-model-override]';
+            $$(selector).forEach(input => {
+                const task = input.dataset.taskModel || input.dataset.taskModelOverride;
+                if (Object.prototype.hasOwnProperty.call(result, task)) result[task] = input.value.trim();
+            });
+            return result;
+        }
+
+        function resetTaskModelsToDefaults() {
+            const provider = $('set-model')?.value || G.settings.model;
+            if (provider === 'ollama-cloud') {
+                G.settings.ollama = normalizeOllamaCloudSettings({
+                    ...G.settings.ollama,
+                    taskModels: { ...DEFAULT_OLLAMA_TASK_MODELS }
+                });
+            } else {
+                G.settings.taskModels = { ...EMPTY_TASK_MODELS };
+                G.settings.taskModelsProvider = nonOllamaProviderKey(provider);
+            }
+            renderTaskModelSettings();
+        }
+
+        function updateProviderSettingsVisibility() {
+            const provider = $('set-model')?.value;
+            const visiblePanels = provider === 'openrouter-free'
+                ? new Set(['openrouter-settings', 'openrouter-free-settings'])
+                : new Set([`${provider}-settings`]);
+            $$('.provider-settings').forEach(panel => { panel.style.display = visiblePanels.has(panel.id) ? 'block' : 'none'; });
+            renderTaskModelSettings();
+        }
+
+        // Compatibilità con i punti di inizializzazione precedenti.
         function updateOllamaSettingsVisibility() {
-            const panel = $('ollama-settings');
-            if (panel) panel.style.display = $('set-model')?.value === 'ollama-cloud' ? 'block' : 'none';
+            updateProviderSettingsVisibility();
         }
 
         function getOllamaCloudCatalog(config = G.settings.ollama) {
@@ -14842,6 +15062,7 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                     discoveredModels
                 });
                 renderOllamaModelOptions(G.settings.ollama);
+                renderTaskModelSettings();
                 updateOllamaModelInfo();
                 if (status) status.textContent = `Catalogo aggiornato: ${discoveredModels.length} modelli restituiti da Ollama Cloud.`;
                 notify('Modelli Ollama Cloud aggiornati.', 'success');
@@ -14859,10 +15080,11 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
             renderOllamaModelOptions(config);
             $('set-ollama-key').value = config.apiKey || '';
             $('set-ollama-model').oninput = updateOllamaModelInfo;
-            $('set-model').onchange = updateOllamaSettingsVisibility;
+            $('set-model').onchange = updateProviderSettingsVisibility;
             $('btn-refresh-ollama-models').onclick = refreshOllamaCloudModels;
+            $('btn-reset-task-models').onclick = resetTaskModelsToDefaults;
             updateOllamaModelInfo();
-            updateOllamaSettingsVisibility();
+            updateProviderSettingsVisibility();
         }
 
         function escapeCreationText(value) {
@@ -15154,6 +15376,15 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 G.settings.kimeraUrl = $('set-kimera-url').value.trim();
                 G.settings.kimeraModel = $('set-kimera-model').value.trim();
                 G.settings.model = $('set-model').value;
+                if (G.settings.model === 'ollama-cloud') {
+                    G.settings.ollama = normalizeOllamaCloudSettings({
+                        ...G.settings.ollama,
+                        taskModels: collectTaskModels('ollama-cloud')
+                    });
+                } else {
+                    G.settings.taskModels = normalizeTaskModels(collectTaskModels(G.settings.model), EMPTY_TASK_MODELS);
+                    G.settings.taskModelsProvider = nonOllamaProviderKey(G.settings.model);
+                }
                 G.settings.length = $('set-length').value;
                 G.settings.autoRoll = $('set-autoroll').checked;
                 const primaryModel = $('set-ollama-model').value.trim() || 'gpt-oss:120b';
@@ -15163,7 +15394,8 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                     apiKey: $('set-ollama-key').value.trim(),
                     primaryModel,
                     customModel: '',
-                    fallbackOrder: CronacheOllama.DEFAULT_FALLBACK_ORDER.filter(id => id !== primaryModel)
+                    fallbackOrder: CronacheOllama.DEFAULT_FALLBACK_ORDER.filter(id => id !== primaryModel),
+                    taskModels: G.settings.ollama.taskModels
                 });
                 save();
                 notify('Impostazioni salvate!', 'success');
