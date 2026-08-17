@@ -687,12 +687,16 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0.22;
+    opacity: 0.35;
     z-index: 0;
     pointer-events: none;
     border-radius: 14px;
 }
 .world-map-canvas > .world-map-svg { position: relative; z-index: 1; }
+.world-map-canvas:has(.world-map-bg-img) .world-map-svg > rect:first-of-type { opacity: 0.4; }
+.world-map-canvas:has(.world-map-bg-img) .world-map-svg > rect.world-map-frame { opacity: 0.5; }
+.world-map-canvas.has-map-bg .world-map-svg > rect:first-of-type { opacity: 0.4; }
+.world-map-canvas.has-map-bg .world-map-svg > rect.world-map-frame { opacity: 0.5; }
 .world-map-detail-img {
     width: 100%;
     height: 120px;

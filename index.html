@@ -3129,7 +3129,7 @@
             100% { filter: brightness(1); }
         }
     </style>
-    <link rel="stylesheet" href="css/experience-v7.css?v=20260817-map-img-1">
+    <link rel="stylesheet" href="css/experience-v7.css?v=20260817-map-img-3">
 </head>
 <body>
     <!-- HOME SCREEN -->
@@ -6864,7 +6864,7 @@
             const areaImgHtml = mapImagesEnabled() ? (() => {
                 const p = buildAreaMapPrompt(location);
                 const u = buildMapImageUrl(p, 280, 120);
-                return `<img class="world-map-detail-img" src="${u}" alt="Mappa di ${escapeTimelineHtml(location.name)}" loading="lazy" onerror="this.style.display='none'"/>`;
+                return `<img class="world-map-detail-img" src="${u}" alt="Mappa di ${escapeTimelineHtml(location.name)}" loading="eager" onerror="this.style.display='none'"/>`
             })() : '';
             detail.innerHTML = `
                 ${areaImgHtml}
@@ -6998,10 +6998,12 @@
                 $('world-map-detail').innerHTML = '<div class="world-map-detail-empty">Nessun luogo ancora conosciuto.</div>';
                 return;
             }
-            canvas.innerHTML = (mapImagesEnabled() ? (() => {
+            const hasBg = mapImagesEnabled();
+            canvas.classList.toggle('has-map-bg', hasBg);
+            canvas.innerHTML = (hasBg ? (() => {
                 const p = buildWorldMapPrompt();
                 const u = buildMapImageUrl(p, 960, 600);
-                return `<img class="world-map-bg-img" src="${u}" alt="" loading="lazy" onerror="this.style.display='none'"/>`;
+                return `<img class="world-map-bg-img" src="${u}" alt="" loading="eager" onerror="this.style.display='none'"/>`;
             })() : '') + worldMapEngine.svgMarkup(activeWorldMapModel);
             applyWorldMapZoom();
             applyWorldMapFilter(worldMapFilter);
