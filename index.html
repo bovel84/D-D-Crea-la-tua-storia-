@@ -3129,7 +3129,7 @@
             100% { filter: brightness(1); }
         }
     </style>
-    <link rel="stylesheet" href="css/experience-v7.css?v=20260817-map-img-3">
+    <link rel="stylesheet" href="css/experience-v7.css?v=20260817-map-img-4">
 </head>
 <body>
     <!-- HOME SCREEN -->
@@ -6998,13 +6998,7 @@
                 $('world-map-detail').innerHTML = '<div class="world-map-detail-empty">Nessun luogo ancora conosciuto.</div>';
                 return;
             }
-            const hasBg = mapImagesEnabled();
-            canvas.classList.toggle('has-map-bg', hasBg);
-            canvas.innerHTML = (hasBg ? (() => {
-                const p = buildWorldMapPrompt();
-                const u = buildMapImageUrl(p, 960, 600);
-                return `<img class="world-map-bg-img" src="${u}" alt="" loading="eager" onerror="this.style.display='none'"/>`;
-            })() : '') + worldMapEngine.svgMarkup(activeWorldMapModel);
+            canvas.innerHTML = worldMapEngine.svgMarkup(activeWorldMapModel);
             applyWorldMapZoom();
             applyWorldMapFilter(worldMapFilter);
             canvas.querySelectorAll('[data-map-location-id]').forEach(node => {
@@ -13128,54 +13122,83 @@
             if (btn) btn.classList.toggle('img-active', !off);
         }
         function buildWorldMapPrompt() {
+            // Kept for compatibility but no longer used for bg image
             const world = G.worldMemory?.world || {};
             const setting = (G.currentStory?.setting || world.setting || 'medieval fantasy').slice(0, 80);
-            const genre = (G.currentStory?.genre || 'fantasy').slice(0, 30);
-            const locs = (world.locations || []).filter(l => l.discovered).map(l => l.name).slice(0, 8);
-            const current = G.currentLocation || world.startLocation || '';
-            const parts = [
-                'hand drawn fantasy world map, parchment style cartography',
-                setting.toLowerCase().includes('gotico') || genre.toLowerCase().includes('horror') ? 'dark gothic tones, ominous atmosphere' : 'warm parchment tones, detailed aesthetic',
-                locs.length ? `labeled locations: ${locs.join(', ')}` : 'villages, forests, mountains, rivers',
-                current ? `current location highlighted: ${current}` : '',
-                'compass rose in corner, trade routes as dotted lines, mountains as triangular icons, forests as tree clusters, rivers as blue lines',
-                'medieval cartography style, highly detailed, fantasy art'
-            ].filter(Boolean);
-            return parts.join(', ');
+            return `hand drawn fantasy map, ${setting}, parchment style`;
         }
         function buildAreaMapPrompt(location) {
             if (!location) return '';
             const world = G.worldMemory?.world || {};
-            const setting = (G.currentStory?.setting || world.setting || 'medieval fantasy').slice(0, 60);
+            const setting = (G.currentStory?.setting || world.setting || 'medieval fantasy').slice(0, 80);
+            const theme = activeWorldMapModel?.theme;
+            const themeId = theme?.id || 'fantasy';
             const name = (location.name || '').slice(0, 60);
-            const desc = (location.description || '').slice(0, 150);
-            const type = location.type || 'location';
-            const isGothic = /gotico|horror|cimiter|nebbia|cripta/i.test(setting);
-            const typeMap = {
-                'villaggio': 'small village with cottages, dirt roads, central square',
-                'citt': 'city with tall buildings, narrow streets, cathedral',
-                'locanda': 'tavern building with sign, warm light from windows',
-                'castello': 'castle with towers and walls, hilltop',
-                'fortezza': 'fortress with battlements, stone walls',
-                'bosco': 'dense forest with ancient trees, misty path',
-                'foresta': 'dark forest with ancient trees, mossy ground',
-                'tempio': 'ancient temple with stone pillars, altar',
-                'chiesa': 'church with bell tower, stained glass',
-                'cripta': 'underground crypt with torches, stone sarcophagi',
-                'torre': 'tall stone tower, narrow windows',
-                'palazzo': 'ornate palace with gardens, marble columns',
-                'mercato': 'bustling market square with stalls and goods',
-                'porto': 'harbor with ships, docks, warehouses',
-                'monastero': 'monastery with cloister, stone arches'
+            const desc = (location.description || '').slice(0, 200);
+            const kind = (location.kind || location.type || 'location').toLowerCase();
+            // Extract visual keywords from Italian description using SCENE_IT_EN
+            const keywords = extractVisualKeywords(desc);
+            const keywordsStr = keywords.length ? keywords.join(', ') : '';
+            // Theme-based atmosphere
+            const themeAtmosphere = {
+                fantasy: 'warm medieval atmosphere, golden light, detailed fantasy art',
+                maritime: 'coastal atmosphere, sea breeze, sunlight on water',
+                ancient: 'ancient world atmosphere, warm mediterranean light, classical architecture',
+                industrial: 'industrial era atmosphere, overcast sky, brick and steel',
+                modern: 'contemporary atmosphere, clean light, urban landscape',
+                rural: 'peaceful countryside, warm sunlight, green fields'
             };
-            const typeDesc = typeMap[type] || 'medieval location with stone buildings';
+            const atmosphere = themeAtmosphere[themeId] || themeAtmosphere.fantasy;
+            // Kind-based subject
+            const kindVisual = {
+                'village': 'village with cottages, dirt roads, central square',
+                'town': 'town with narrow streets, market square, stone buildings',
+                'city': 'city with tall buildings, cathedral spire, busy streets',
+                'castle': 'castle with towers, stone walls, flag on battlement',
+                'fortress': 'fortress with battlements, guarded gates',
+                'tavern': 'tavern with warm light from windows, wooden sign',
+                'inn': 'inn with stable, warm glow from doorway',
+                'temple': 'temple with stone pillars, altar, sacred atmosphere',
+                'church': 'church with bell tower, stained glass windows',
+                'crypt': 'underground crypt with torches, stone arches',
+                'tower': 'tall stone tower, narrow windows, vantage point',
+                'palace': 'palace with ornate facade, gardens, marble columns',
+                'market': 'market square with colorful stalls, goods, crowd',
+                'harbor': 'harbor with ships at dock, warehouses, seagulls',
+                'monastery': 'monastery with cloister, stone arches, quiet courtyard',
+                'forest': 'dense forest with ancient trees, dappled light',
+                'woods': 'woodland with tall trees, shadows, misty path',
+                'mountain': 'mountain landscape with rocky cliffs, snow peaks',
+                'river': 'river flowing through countryside, stone bridge',
+                'lake': 'calm lake with misty shore, reflections',
+                'cave': 'cave entrance with stalactites, torch light',
+                'ruins': 'ancient ruins with broken columns, overgrown with vines',
+                'cemetery': 'cemetery with tombstones, mist, ravens',
+                'bridge': 'stone bridge over river, medieval architecture',
+                'gate': 'city gates with stone arch, guards',
+                'farm': 'farmhouse with barn, fields, fence',
+                'mill': 'water mill by stream, wooden wheel',
+                'lighthouse': 'lighthouse on cliff, ocean below',
+                'docks': 'docks with ships, crates, sailors',
+                'warehouse': 'warehouse district with brick buildings',
+                'estate': 'noble estate with manicured gardens, fountain',
+                'manor': 'manor house with stone walls, ivy',
+                'property': 'property with stone building, courtyard',
+                'business': 'shop front with sign, goods displayed',
+                'resource': 'resource site with workers, tools',
+                'camp': 'military camp with tents, campfire, banners'
+            };
+            const subjectVisual = kindVisual[kind] || 'medieval location with stone buildings';
+            // Gothic check on setting + name + description
+            const isGothic = /gotico|horror|cimiter|nebbia|cripta|ombra|bruma|raven|dark/i.test(setting + name + desc);
             const parts = [
-                `top-down map view of ${name || 'a medieval location'}`,
-                typeDesc,
-                isGothic ? 'dark gothic atmosphere, fog, cold tones' : 'warm medieval atmosphere, sunlight',
-                'hand drawn cartography style, parchment texture, detailed buildings, streets, landmarks',
-                'fantasy art style, highly detailed'
-            ];
+                `atmospheric illustration of ${name || 'a medieval location'}`,
+                subjectVisual,
+                keywordsStr ? `contextual details: ${keywordsStr}` : '',
+                isGothic ? 'dark gothic atmosphere, fog, cold tones, ominous mood' : atmosphere,
+                'digital painting, concept art style, rich colors, dramatic lighting',
+                'no people, no characters, no text, landscape only'
+            ].filter(Boolean);
             return parts.join(', ');
         }
         function buildMapImageUrl(prompt, w, h) {
