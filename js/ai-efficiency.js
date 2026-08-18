@@ -290,3 +290,30 @@
         requestOpenAI
     };
 });
+
+// Runtime loader: guarantees that a successful world build is followed by a visible opening scene.
+(function loadOpeningNarrativeGuard(root) {
+    'use strict';
+    if (!root || typeof document === 'undefined' || root.__cronacheOpeningNarrativeLoaderVersion >= 1) return;
+    root.__cronacheOpeningNarrativeLoaderVersion = 1;
+    const load = () => {
+        if (root.CronacheOpeningNarrativeGuard?.install) {
+            root.CronacheOpeningNarrativeGuard.install();
+            return;
+        }
+        if (document.querySelector('script[data-opening-narrative-guard]')) return;
+        const script = document.createElement('script');
+        script.src = 'js/opening-narrative-guard.js?v=20260818-opening-scene-1';
+        script.async = false;
+        script.dataset.openingNarrativeGuard = '1';
+        script.onload = () => root.CronacheOpeningNarrativeGuard?.install?.();
+        script.onerror = error => console.error('[OpeningNarrative] Impossibile caricare il guard della prima scena:', error);
+        document.head.appendChild(script);
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', load, { once: true });
+        setTimeout(load, 0);
+    } else {
+        load();
+    }
+})(typeof globalThis !== 'undefined' ? globalThis : this);
