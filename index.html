@@ -1320,6 +1320,7 @@
         .scene-toggle-btn:active { transform: scale(0.92); }
         .event-screen-icon { font-size: 3.1em; }
         .event-screen-date { margin-top: 5px; opacity: 0.82; font-family: 'Cinzel', serif; }
+        .event-screen-date-inline { margin-bottom: 8px; opacity: 0.7; font-family: 'Cinzel', serif; font-size: 0.9em; }
         .event-screen-content { padding: 20px; }
         .event-screen-content h2 { font-family: 'Cinzel', serif; margin-bottom: 10px; }
         .event-screen-hero.world-initiative {
@@ -3992,31 +3993,31 @@
         </div>
     </div>
 
-    <script src="js/memory-manager.js?v=20260818-npc-fix-4"></script>
-    <script src="js/world-bootstrap.js?v=20260818-npc-fix-4"></script>
-    <script src="js/world-map.js?v=20260818-npc-fix-4"></script>
-    <script src="js/world-generator.js?v=20260818-npc-fix-4"></script>
-    <script src="js/event-manager.js?v=20260818-npc-fix-4"></script>
-    <script src="js/timeline-chat.js?v=20260818-npc-fix-4"></script>
-    <script src="js/timeline-simulator.js?v=20260818-npc-fix-4"></script>
-    <script src="js/strategic-advisor.js?v=20260818-npc-fix-4"></script>
+    <script src="js/memory-manager.js?v=20260818-ui-clean-1"></script>
+    <script src="js/world-bootstrap.js?v=20260818-ui-clean-1"></script>
+    <script src="js/world-map.js?v=20260818-ui-clean-1"></script>
+    <script src="js/world-generator.js?v=20260818-ui-clean-1"></script>
+    <script src="js/event-manager.js?v=20260818-ui-clean-1"></script>
+    <script src="js/timeline-chat.js?v=20260818-ui-clean-1"></script>
+    <script src="js/timeline-simulator.js?v=20260818-ui-clean-1"></script>
+    <script src="js/strategic-advisor.js?v=20260818-ui-clean-1"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
-    <script src="js/portrait-manager.js?v=20260818-npc-fix-4"></script>
-    <script src="js/portrait-svg.js?v=20260818-npc-fix-4"></script>
-    <script src="js/time-energy.js?v=20260818-npc-fix-4"></script>
+    <script src="js/portrait-manager.js?v=20260818-ui-clean-1"></script>
+    <script src="js/portrait-svg.js?v=20260818-ui-clean-1"></script>
+    <script src="js/time-energy.js?v=20260818-ui-clean-1"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
-    <script src="js/story-generator.js?v=20260818-npc-fix-4"></script>
+    <script src="js/story-generator.js?v=20260818-ui-clean-1"></script>
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
-    <script src="js/timeline-engine.js?v=20260818-npc-fix-4"></script>
-    <script src="js/timeline-bridge.js?v=20260818-npc-fix-4"></script>
+    <script src="js/timeline-engine.js?v=20260818-ui-clean-1"></script>
+    <script src="js/timeline-bridge.js?v=20260818-ui-clean-1"></script>
     <script src="js/campaign-vault.js"></script>
-    <script src="js/ai-efficiency.js?v=20260818-npc-fix-4"></script>
-    <script src="js/ollama-cloud.js?v=20260818-npc-fix-4"></script>
-    <script src="js/experience-v7.js?v=20260818-npc-fix-4"></script>
+    <script src="js/ai-efficiency.js?v=20260818-ui-clean-1"></script>
+    <script src="js/ollama-cloud.js?v=20260818-ui-clean-1"></script>
+    <script src="js/experience-v7.js?v=20260818-ui-clean-1"></script>
     <script>
         // ==================== GAME STATE ====================
         const TASK_MODEL_LABELS = Object.freeze({
@@ -13440,12 +13441,10 @@
                 <div class="event-screen-hero${isWorldInit ? ' world-initiative' : ''}">
                     ${sceneImgHtml}
                     ${toggleBtn}
-                    <div class="event-screen-icon">${timelineChatEngine.iconForEvent(event.type)}${isWorldInit ? ' 🌐' : ''}</div>
-                    ${portraitActorsMarkup(event.actors, 'event-screen-cast')}
-                    <div class="event-screen-date">${escapeTimelineHtml(event.occurredAt || `Turno ${event.turn || 0}`)}</div>
                 </div>
                 <div class="event-screen-content${isWorldInit ? ' world-initiative' : ''}">
                     ${causalLabel ? `<div class="event-causal-pill event-causal-pill-large${isWorldInit ? ' world-initiative' : ''}">${escapeTimelineHtml(causalLabel)}</div>` : ''}
+                    <div class="event-screen-date-inline">${escapeTimelineHtml(event.occurredAt || `Turno ${event.turn || 0}`)}</div>
                     <h2>${escapeTimelineHtml(event.title || 'Evento')}</h2>
                     <div class="event-screen-fact">${eventNarrativeMarkup(event)}</div>
                     ${activeChat ? '<div class="event-chat-active">💬 Conversazione attiva per questo evento</div>' : ''}
