@@ -36,15 +36,12 @@
         return normalizeMinutes(total);
     }
 
-    // Compatibilità con i vecchi salvataggi: il tempo resta una coordinata
-    // narrativa, ma non consuma più automaticamente energia, sazietà o salute.
+    // Il tempo resta una coordinata narrativa: nessun metabolismo automatico.
     function consumeMetabolism(character, minutes, resting) {
         const elapsed = normalizeMinutes(minutes);
         return { elapsed, carry: {}, staminaLoss: 0, hungerLoss: 0 };
     }
 
-    // Conservata come API legacy. Pasti, sonno e routine non sono più statistiche
-    // da simulare: entrano nella storia soltanto se sono rilevanti per una scena.
     function simulateDailyRoutine(character, minutes) {
         return null;
     }
@@ -116,8 +113,8 @@
     };
 });
 
-// Nuova partita = mondo realmente nuovo. Questo patch viene caricato dopo
-// world-generator/world-bootstrap e prima dello script principale del gioco.
+// Nuova partita = mondo realmente nuovo.
+// Il fallback non espone più nomi/preset predefiniti: genera nomi proceduralmente dal seed.
 (function installFreshWorldPerGamePatch(root) {
     'use strict';
 
@@ -145,8 +142,112 @@
         return hash >>> 0;
     }
 
+    function rngFor(seedValue) {
+        let state = hashText(seedValue) || 0x9e3779b9;
+        return function next() {
+            state ^= state << 13;
+            state ^= state >>> 17;
+            state ^= state << 5;
+            state >>>= 0;
+            return state / 0x100000000;
+        };
+    }
+
+    function pick(rng, values) {
+        return values[Math.floor(rng() * values.length) % values.length];
+    }
+
+    function capitalize(value) {
+        const text = String(value || '');
+        return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+    }
+
+    const soundBanks = {
+        romance: {
+            onset: ['al','ar','bel','ca','cor','del','el','fal','ga','lor','mar','ner','or','ra','sel','tor','val','ver'],
+            middle: ['a','e','i','o','ia','io','en','er','el','on','or','an','ar','in'],
+            ending: ['a','ia','io','ano','ara','era','eri','one','ora','ello','etti','ini','ano']
+        },
+        germanic: {
+            onset: ['ald','ber','brand','dorn','eber','falk','ger','hart','karl','lind','rag','stein','wald','wer','wolf'],
+            middle: ['a','e','i','o','en','er','ing','heim','ar','un'],
+            ending: ['en','er','heim','berg','wald','mark','rich','mund','hardt','ingen']
+        },
+        slavic: {
+            onset: ['bor','dar','drag','ivan','kaz','mil','nov','rad','stan','vel','vlad','yar','zor','mir'],
+            middle: ['a','e','i','o','ova','ev','in','ar','or'],
+            ending: ['ov','ova','ev','eva','ić','in','sky','ska','mir','grad']
+        },
+        desert: {
+            onset: ['az','bar','dar','far','hal','kar','mal','nar','qas','ram','sar','tal','zar'],
+            middle: ['a','i','u','al','ir','ar','im','un'],
+            ending: ['an','ir','im','ar','un','ad','ah','iya','esh','ani']
+        },
+        fantasy: {
+            onset: ['ae','ash','cae','drael','ely','fae','gal','ith','kae','lyr','mor','nyr','ory','ryn','syl','tha','vey','wyr'],
+            middle: ['a','e','i','o','ae','ia','el','ir','or','yn','ara','eri'],
+            ending: ['a','en','iel','ion','ira','is','or','os','yn','eth','ara','iel']
+        }
+    };
+
+    function bankFor(world, context) {
+        const text = keyOf(`${world?.setting || ''} ${context?.setting || ''} ${context?.story?.setting || ''} ${context?.story?.genre || ''}`);
+        if (/arab|pers|desert|sahar|medio oriente|oriental/.test(text)) return soundBanks.desert;
+        if (/slav|rus|polon|balcan|est europ|kiev/.test(text)) return soundBanks.slavic;
+        if (/german|nord|viking|sasson|teuton|scandinav/.test(text)) return soundBanks.germanic;
+        if (/ital|roman|mediterr|rinasc|latin|storico|medieval/.test(text)) return soundBanks.romance;
+        return soundBanks.fantasy;
+    }
+
+    function proceduralWord(seed, index, bank, extra = '') {
+        const rng = rngFor(`${seed}|${extra}|${index}`);
+        const syllables = 2 + (rng() > 0.64 ? 1 : 0);
+        let word = pick(rng, bank.onset);
+        for (let step = 1; step < syllables; step++) word += pick(rng, bank.middle);
+        word += pick(rng, bank.ending);
+        return capitalize(word.replace(/(.)\1\1+/g, '$1$1'));
+    }
+
+    function uniqueProceduralWords(seed, count, bank, extra) {
+        const result = [];
+        const seen = new Set();
+        let cursor = 0;
+        while (result.length < count && cursor < count * 20) {
+            const word = proceduralWord(seed, cursor++, bank, extra);
+            const key = keyOf(word);
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            result.push(word);
+        }
+        return result;
+    }
+
+    function replaceNamesInText(value, map) {
+        if (typeof value !== 'string' || !value || !map.size) return value;
+        let text = value;
+        [...map.entries()]
+            .sort((a, b) => String(b[0]).length - String(a[0]).length)
+            .forEach(([before, after]) => {
+                if (!before || before === after) return;
+                text = text.split(before).join(after);
+            });
+        return text;
+    }
+
     function remap(value, map) {
         return map.get(String(value || '')) || value;
+    }
+
+    function rewriteObjectText(target, map, excluded = new Set()) {
+        if (!target || typeof target !== 'object') return;
+        Object.keys(target).forEach(key => {
+            if (excluded.has(key)) return;
+            const value = target[key];
+            if (typeof value === 'string') target[key] = replaceNamesInText(value, map);
+            else if (Array.isArray(value)) {
+                target[key] = value.map(item => typeof item === 'string' ? replaceNamesInText(item, map) : item);
+            }
+        });
     }
 
     function variationDirective(context, phase) {
@@ -154,57 +255,14 @@
         return `\n\n=== IDENTITÀ UNICA DELLA NUOVA PARTITA ===\n` +
             `Seed di generazione: ${seed}\n` +
             `Fase: ${phase}. Questo seed identifica una NUOVA campagna indipendente.\n` +
-            `- Non riciclare automaticamente nomi, composizione, gerarchie o luoghi tipici di una risposta precedente.\n` +
-            `- Mantieni genere, epoca e premessa, ma varia concretamente nomi propri, fazioni, distribuzione geografica, relazioni e obiettivi.\n` +
-            `- Per seed diversi, il mondo deve risultare riconoscibilmente diverso pur restando coerente.\n` +
+            `- Genera nomi propri nuovi per questa partita; non usare nomi di esempio, preset o segnaposto ricorrenti.\n` +
+            `- Mantieni genere, epoca e premessa, ma varia concretamente geografia, fazioni, persone, relazioni e obiettivi.\n` +
+            `- Non riutilizzare automaticamente nomi visti in altre campagne o nelle istruzioni.\n` +
+            `- Per seed diversi il mondo deve essere riconoscibilmente diverso.\n` +
             `- Non citare il seed nel JSON o nella narrazione.`;
     }
 
-    const fallbackVariants = [
-        {
-            locations: ['Vallebruma', "La Lanterna d'Argento", 'Bosco delle Querce Nere', 'Torre Spezzata', 'Santuario delle Sette Campane'],
-            factions: ['Corona di Vallebruma', 'Casata Serani', 'Lega delle Vie Mercantili']
-        },
-        {
-            locations: ['Rocca Fosca', 'Il Viandante Rosso', 'Selva di Corvombra', 'Fortezza di Vetro', 'Abbazia della Luna'],
-            factions: ['Marca di Rocca Fosca', 'Casata Vardeni', 'Compagnia dei Mercanti Liberi']
-        },
-        {
-            locations: ['Borgo delle Ceneri', 'La Volpe Bianca', 'Foresta di Pietranera', 'Rocca del Falco', 'Monastero delle Acque'],
-            factions: ['Dominio delle Ceneri', 'Casata Altavilla', 'Confraternita delle Bilance']
-        },
-        {
-            locations: ['Neravalle', 'Il Cervo Dorato', 'Bosco di Selvalunga', 'Mastio delle Nebbie', 'Tempio della Stella'],
-            factions: ['Signoria di Neravalle', 'Casata Orseni', 'Gilda delle Tre Strade']
-        },
-        {
-            locations: ['Castelvento', 'La Campana Blu', 'Foresta del Confine', 'Torre delle Rondini', 'Abbazia di San Lume'],
-            factions: ['Ducato di Castelvento', 'Casata Bellori', 'Lega dei Carovanieri']
-        },
-        {
-            locations: ['Pietralba', 'Il Grifone Verde', 'Selva dei Sussurri', 'Rocca delle Lance', 'Santuario del Fiume'],
-            factions: ['Principato di Pietralba', 'Casata Neroni', 'Compagnia del Sale']
-        },
-        {
-            locations: ['Vespera', 'La Chiave di Rame', 'Bosco delle Lanterne', 'Forte del Corvo', 'Monastero del Vespro'],
-            factions: ['Consiglio di Vespera', 'Casata Malverdi', 'Corporazione delle Rotte']
-        },
-        {
-            locations: ['Altacosta', "L'Ancora d'Oro", 'Selva delle Colline', 'Castello di Levante', 'Santuario delle Maree'],
-            factions: ['Corona di Altacosta', 'Casata Doria Nova', 'Lega dei Porti Interni']
-        }
-    ];
-
-    const fallbackFirstNames = [
-        'Aldren', 'Mirella', 'Corvin', 'Serena', 'Leandro', 'Ysabet', 'Ruggero', 'Livia',
-        'Taddeo', 'Aurelia', 'Nereo', 'Viola', 'Cassian', 'Ginevra', 'Dario', 'Elowen'
-    ];
-    const fallbackSurnames = [
-        'Valeri', 'Rocchi', 'Vesperi', 'Montelupo', 'Corvini', 'Bellafonte', 'Neretti', 'Altieri',
-        'Serrani', 'Dalmoro', 'Venturi', 'Lunardi', 'Ferretti', 'Selvani', 'Maraldi', 'Pietranera'
-    ];
-
-    function diversifyStaticFallbackWorld(world, seed) {
+    function diversifyStaticFallbackWorld(world, seed, context = {}) {
         if (!world || typeof world !== 'object') return world;
         const locations = asArray(world.locations);
         const factions = asArray(world.factions);
@@ -213,64 +271,112 @@
             !locations.some(item => /world-generator/i.test(String(item?.source || '')));
         if (!isStaticFallback) return world;
 
-        const variant = fallbackVariants[hashText(seed) % fallbackVariants.length];
+        const bank = bankFor(world, context);
+        const roots = uniqueProceduralWords(seed, Math.max(12, locations.length + factions.length + 4), bank, 'world');
         const locationMap = new Map();
+        const locationFormats = [
+            root => root,
+            root => `Locanda di ${root}`,
+            root => `Bosco di ${root}`,
+            root => `Rocca di ${root}`,
+            root => `Santuario di ${root}`
+        ];
+
         locations.forEach((location, index) => {
-            if (!location?.name || !variant.locations[index]) return;
-            locationMap.set(location.name, variant.locations[index]);
+            if (!location?.name) return;
+            const rootName = roots[index] || proceduralWord(seed, index, bank, 'location');
+            const formatter = locationFormats[index] || (name => `Distretto di ${name}`);
+            locationMap.set(location.name, formatter(rootName));
         });
+
         world.startLocation = remap(world.startLocation, locationMap);
         locations.forEach(location => {
+            const oldName = location.name;
             location.name = remap(location.name, locationMap);
-            if (Array.isArray(location.connections)) {
-                location.connections = location.connections.map(name => remap(name, locationMap));
-            }
+            location.id = `fresh-loc-${hashText(`${seed}|${location.name}`).toString(36)}`;
+            if (Array.isArray(location.connections)) location.connections = location.connections.map(name => remap(name, locationMap));
+            rewriteObjectText(location, locationMap, new Set(['name', 'id', 'connections']));
+            if (oldName && world.name === oldName) world.name = location.name;
         });
 
         const factionMap = new Map();
+        const factionFormats = [
+            root => `Dominio di ${root}`,
+            root => `Casata ${root}`,
+            root => `Lega di ${root}`
+        ];
         factions.forEach((faction, index) => {
-            if (!faction?.name || !variant.factions[index]) return;
-            factionMap.set(faction.name, variant.factions[index]);
+            if (!faction?.name) return;
+            const rootName = roots[locations.length + index] || proceduralWord(seed, index, bank, 'faction');
+            const formatter = factionFormats[index] || (name => `Consiglio di ${name}`);
+            factionMap.set(faction.name, formatter(rootName));
             faction.base = remap(faction.base, locationMap);
+            faction.location = remap(faction.location, locationMap);
         });
-        factions.forEach(faction => { faction.name = remap(faction.name, factionMap); });
-        asArray(world.forces).forEach(force => {
+        factions.forEach(faction => {
+            faction.name = remap(faction.name, factionMap);
+            faction.id = `fresh-fac-${hashText(`${seed}|${faction.name}`).toString(36)}`;
+            rewriteObjectText(faction, locationMap, new Set(['name', 'id', 'base', 'location']));
+            rewriteObjectText(faction, factionMap, new Set(['name', 'id']));
+        });
+
+        const allNamesMap = new Map([...locationMap, ...factionMap]);
+        asArray(world.forces).forEach((force, index) => {
             force.faction = remap(force.faction, factionMap);
             force.actor = remap(force.actor, factionMap);
             force.disposition = remap(force.disposition, locationMap);
             force.location = remap(force.location, locationMap);
+            const forceRoot = roots[locations.length + factions.length + index] || proceduralWord(seed, index, bank, 'force');
+            if (force.name) force.name = `Forza di ${forceRoot}`;
+            force.id = `fresh-force-${hashText(`${seed}|${force.name || index}`).toString(36)}`;
+            rewriteObjectText(force, allNamesMap, new Set(['id', 'name', 'faction', 'actor', 'disposition', 'location']));
         });
         asArray(world.relations).forEach(relation => {
             relation.from = remap(remap(relation.from, locationMap), factionMap);
             relation.to = remap(remap(relation.to, locationMap), factionMap);
+            rewriteObjectText(relation, allNamesMap, new Set(['from', 'to']));
         });
+
         world.generationSeed = seed;
         return world;
     }
 
-    function diversifyFallbackNpcNames(world, seed) {
+    function diversifyFallbackNpcNames(world, seed, context = {}) {
         if (!world || typeof world !== 'object') return world;
         const actors = asArray(world.actors).filter(actor => keyOf(actor?.source) === 'fallback-npc');
         if (!actors.length) return world;
-        const offset = hashText(`${seed}|npc`) % fallbackFirstNames.length;
+
+        const bank = bankFor(world, context);
+        const firstNames = uniqueProceduralWords(seed, actors.length + 4, bank, 'npc-first');
+        const surnames = uniqueProceduralWords(seed, actors.length + 4, bank, 'npc-last');
         const nameMap = new Map();
+
         actors.forEach((actor, index) => {
             const oldName = actor.name;
-            const first = fallbackFirstNames[(offset + index * 3) % fallbackFirstNames.length];
-            const surname = fallbackSurnames[(offset * 3 + index * 5) % fallbackSurnames.length];
+            const first = firstNames[index] || proceduralWord(seed, index, bank, 'npc-first');
+            let surname = surnames[index] || proceduralWord(seed, index, bank, 'npc-last');
+            if (keyOf(first) === keyOf(surname)) surname = proceduralWord(seed, index + 97, bank, 'npc-last-alt');
             const nextName = `${first} ${surname}`;
             if (oldName) nameMap.set(oldName, nextName);
             actor.name = nextName;
             actor.id = `fresh-npc-${hashText(`${seed}|${nextName}`).toString(36)}`;
         });
+
+        const allMaps = new Map(nameMap);
+        actors.forEach(actor => rewriteObjectText(actor, nameMap, new Set(['name', 'id'])));
         asArray(world.relations).forEach(relation => {
             relation.from = remap(relation.from, nameMap);
             relation.to = remap(relation.to, nameMap);
+            rewriteObjectText(relation, allMaps, new Set(['from', 'to']));
+        });
+        asArray(world.forces).forEach(force => {
+            force.actor = remap(force.actor, nameMap);
+            rewriteObjectText(force, allMaps, new Set(['actor']));
         });
         return world;
     }
 
-    if (generator && !(generator.__freshWorldPerGamePatchVersion >= 1)) {
+    if (generator && !(generator.__freshWorldPerGamePatchVersion >= 2)) {
         if (typeof generator.buildGenerationPrompt === 'function') {
             const original = generator.buildGenerationPrompt.bind(generator);
             generator.buildGenerationPrompt = function freshGenerationPrompt(story, context = {}) {
@@ -302,18 +408,18 @@
             const original = generator.generateFallbackNpcs.bind(generator);
             generator.generateFallbackNpcs = function freshFallbackNpcs(world, context = {}) {
                 const seed = timeApi.ensureWorldGenerationSeed(context);
-                diversifyStaticFallbackWorld(world, seed);
+                diversifyStaticFallbackWorld(world, seed, context);
                 const result = original(world, context);
                 const target = result && typeof result === 'object' ? result : world;
-                diversifyFallbackNpcNames(target, seed);
+                diversifyFallbackNpcNames(target, seed, context);
                 if (target && typeof target === 'object') target.generationSeed = seed;
                 return target;
             };
         }
-        generator.__freshWorldPerGamePatchVersion = 1;
+        generator.__freshWorldPerGamePatchVersion = 2;
     }
 
-    if (bootstrap && !(bootstrap.__freshWorldPerGamePatchVersion >= 1) && typeof bootstrap.projectToMemory === 'function') {
+    if (bootstrap && !(bootstrap.__freshWorldPerGamePatchVersion >= 2) && typeof bootstrap.projectToMemory === 'function') {
         const originalProjectToMemory = bootstrap.projectToMemory.bind(bootstrap);
         bootstrap.projectToMemory = function freshWorldProjection(worldValue, memory, context = {}) {
             const turn = Math.max(0, Number(context.turn) || 0);
@@ -336,13 +442,13 @@
             if (isFreshGeneratedWorld && state) state.worldGenerationSeed = seed;
             return state;
         };
-        bootstrap.__freshWorldPerGamePatchVersion = 1;
+        bootstrap.__freshWorldPerGamePatchVersion = 2;
     }
 
     function installNewGameResetHook() {
         if (typeof document === 'undefined') return;
         const button = document.getElementById('btn-start-game');
-        if (!button || button.dataset.freshWorldReset === '1' || typeof button.onclick !== 'function') return;
+        if (!button || button.dataset.freshWorldReset === '2' || typeof button.onclick !== 'function') return;
         const originalStart = button.onclick;
         const wrappedStart = function freshWorldStart(...args) {
             try {
@@ -359,7 +465,7 @@
             return result;
         };
         button.onclick = wrappedStart;
-        button.dataset.freshWorldReset = '1';
+        button.dataset.freshWorldReset = '2';
         try {
             if (root && typeof root.startNewGame === 'function') root.startNewGame = wrappedStart;
         } catch (error) {
