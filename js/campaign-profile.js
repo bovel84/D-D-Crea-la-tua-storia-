@@ -320,3 +320,227 @@ Queste preferenze persistono per tutta la campagna. Non citarle direttamente nel
 
     api.__npcStateSyncPatchVersion = 1;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
+
+// Story alignment patch: the generated world must be causally derived from the
+// campaign sheet instead of treating genre labels as the main source of truth.
+(function installStoryAlignedWorldBuilderPatch(root) {
+    'use strict';
+
+    const generator = root && root.CronacheWorldGenerator;
+    const campaign = root && root.CronacheCampaign;
+    if (!generator || generator.__storyAlignmentPatchVersion >= 1) return;
+
+    const asArray = value => Array.isArray(value) ? value : [];
+    const text = (value, limit = 900) => String(value == null ? '' : value)
+        .replace(/[\u0000-\u001f\u007f]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, limit);
+    const genreKey = value => text(value, 50).toLowerCase();
+
+    function storyDossier(story = {}, context = {}) {
+        const start = story.startTime && typeof story.startTime === 'object' ? story.startTime : {};
+        const date = [start.day, start.month, start.year].filter(value => value != null && value !== '').join('/');
+        const starterProperties = asArray(story.starterProperties)
+            .map(item => `${text(item?.name, 100)}${item?.type ? ` (${text(item.type, 50)})` : ''}`)
+            .filter(Boolean)
+            .join(', ');
+        return [
+            `Titolo: ${text(story.title, 120) || 'non definito'}`,
+            `Genere: ${text(story.genre, 50) || 'non definito'}`,
+            `Ambientazione dichiarata: ${text(story.setting, 220) || 'non definita'}`,
+            date ? `Data/epoca iniziale: ${date}` : '',
+            `Premessa e conflitto: ${text(story.desc || context.idea, 1200) || 'non definiti'}`,
+            `Tono e stile: ${text(story.personality, 700) || 'non definiti'}`,
+            `Regole di profondità: ${text(story.depth, 1000) || 'non definite'}`,
+            `Prologo/scena iniziale: ${text(story.prologue, 1300) || 'non definito'}`,
+            starterProperties ? `Proprietà/attività iniziali del protagonista: ${starterProperties}` : '',
+            context.protagonistName ? `Protagonista: ${text(context.protagonistName, 100)}` : ''
+        ].filter(Boolean).join('\n');
+    }
+
+    function scopeDirective(story = {}) {
+        const genre = genreKey(story.genre);
+        if (['business', 'sport', 'contemporary', 'crime', 'rural'].includes(genre)) {
+            return [
+                'SCALA LOCALE/REGIONALE: la storia viene prima della mappa.',
+                '- Le precedenti quantità obbligatorie di continenti/nazioni NON devono forzare una geopolitica artificiale.',
+                '- Mantieni continents/nations/regions solo come contenitori tecnici richiesti dallo schema JSON: usa 1 macro-area, 1 paese/territorio e 1-3 regioni/quartieri se la premessa non richiede di più.',
+                '- Genera soprattutto 8-14 luoghi realmente utilizzabili nella storia: casa, lavoro/attività, istituzioni, concorrenti, clienti, infrastrutture, quartieri e luoghi sociali pertinenti.',
+                '- Non inventare regni, castelli, culti o guerre se la premessa non li contiene.'
+            ].join('\n');
+        }
+        if (['spy', 'diplomatic', 'military', 'pirate'].includes(genre)) {
+            return [
+                'SCALA MULTI-AREA MIRATA: usa solo territori necessari al conflitto.',
+                '- Più nazioni/regioni sono appropriate soltanto se servono a missioni, alleanze, rotte, fronti o crisi presenti nella premessa.',
+                '- Evita continenti riempitivi: ogni area deve creare una possibilità narrativa concreta.'
+            ].join('\n');
+        }
+        if (genre === 'historical') {
+            return [
+                'SCALA STORICA COERENTE:',
+                '- La geografia, le istituzioni, i titoli, le tecnologie e i rapporti di potere devono essere plausibili per data e luogo dichiarati.',
+                '- Non trasformare automaticamente una storia locale in una guerra continentale.',
+                '- Se usi entità inventate, rendile compatibili con il contesto storico e non presentarle come fatti reali certi.'
+            ].join('\n');
+        }
+        return [
+            'SCALA FANTASY/AVVENTURA COERENTE:',
+            '- Espandi la geografia solo quanto richiesto dal conflitto centrale e dal prologo.',
+            '- Se la storia è locale, resta locale; se la premessa è geopolitica, allora crea nazioni e potenze realmente rilevanti.',
+            '- Nessun luogo deve esistere soltanto per riempire una quota numerica.'
+        ].join('\n');
+    }
+
+    function factionDirective(story = {}) {
+        const genre = genreKey(story.genre);
+        const map = {
+            business: 'Fazioni appropriate: imprese concorrenti, clienti chiave, fornitori, banche/finanziatori, associazioni, sindacati, enti pubblici o regolatori. NON regni o ribellioni salvo esplicita premessa.',
+            sport: 'Fazioni appropriate: club, proprietà/dirigenza, staff, tifoserie organizzate, lega/federazione, agenti, sponsor e rivali sportivi.',
+            contemporary: 'Fazioni appropriate: famiglia/reti sociali, datore di lavoro, aziende, istituzioni, associazioni, gruppi locali o politici pertinenti alla premessa.',
+            crime: 'Fazioni appropriate: gruppi criminali, forze dell’ordine, attività legali di copertura, istituzioni, quartieri e reti di informatori. Ogni gruppo deve avere interessi concreti e distinti.',
+            rural: 'Fazioni appropriate: famiglie, cooperative, proprietari terrieri, fornitori, commercianti, istituzioni locali, banche e gruppi della comunità.',
+            historical: 'Fazioni appropriate all’epoca: casate, corporazioni, istituzioni civiche/religiose, eserciti, corti, comuni o potenze realmente plausibili per il contesto.',
+            military: 'Fazioni appropriate: reparti, comandi, alleati/avversari, intelligence, popolazione civile e autorità politiche collegate al fronte.',
+            diplomatic: 'Fazioni appropriate: governi, ministeri, ambasciate, partiti, blocchi economici, intelligence e gruppi di pressione.',
+            spy: 'Fazioni appropriate: servizi segreti, governi, cellule, reti clandestine, intermediari e organizzazioni coperte.',
+            pirate: 'Fazioni appropriate: equipaggi, marine, compagnie commerciali, governatori, porti, contrabbandieri e potenze coloniali.'
+        };
+        return map[genre] || 'Le fazioni devono essere organizzazioni e poteri che emergono naturalmente dalla premessa, non archetipi generici aggiunti per completare il numero.';
+    }
+
+    function locationAlignmentDirective(story, context) {
+        return [
+            '',
+            '=== ALLINEAMENTO AUTORITATIVO CON LA STORIA ===',
+            'QUESTE REGOLE HANNO PRECEDENZA sulle quantità e sugli esempi generici indicati prima.',
+            storyDossier(story, context),
+            '',
+            scopeDirective(story),
+            '',
+            'LUOGHI:',
+            '- Il luogo di partenza deve essere quello implicato o esplicitato dal prologo; non scegliere automaticamente la zona più stabile.',
+            '- Almeno il 60% dei luoghi deve avere una funzione immediata rispetto a conflitto, vita quotidiana, proprietà, lavoro, relazioni, indagini o opportunità della premessa.',
+            '- Ogni descrizione di luogo deve spiegare perché quel luogo conta in QUESTA storia, non limitarsi a descrivere atmosfera o architettura.',
+            '- Se il protagonista possiede un’attività/proprietà iniziale, crea il quartiere/mercato/istituzioni/concorrenti/fornitori necessari a renderla credibile.',
+            '',
+            'FAZIONI:',
+            factionDirective(story),
+            '- Ogni fazione deve incarnare una tensione, opportunità o vincolo riconoscibile nella premessa/prologo/depth.',
+            '- Ogni fazione deve avere almeno un interesse che può entrare in conflitto con un’altra fazione senza dipendere dal protagonista.',
+            '- La precedente regola "la fazione più potente controlla la nazione iniziale" NON è obbligatoria: il potere dominante deve derivare dal contesto narrativo.',
+            '- Non creare fazioni solo per raggiungere una quota; meglio 3-5 gruppi fortemente pertinenti che 8 gruppi decorativi.',
+            '',
+            'FORZE IN MOVIMENTO:',
+            '- Le forze storiche devono essere sviluppi già attivi al momento del prologo: crisi, trattative, concorrenza, indagini, guerre, successioni, debiti, campagne sportive o pressioni sociali coerenti con la storia.',
+            '- Almeno una forza deve poter evolvere senza intervento del protagonista e produrre conseguenze visibili nella timeline.',
+            '',
+            'CONTROLLO FINALE PRIMA DEL JSON:',
+            '- Per ogni luogo/fazione/forza chiediti: "se lo elimino, la premessa perde qualcosa?". Se la risposta è no, sostituiscilo con qualcosa di più pertinente.',
+            '- Non cambiare epoca, tecnologia, sistema economico o scala sociale rispetto alla scheda della storia.'
+        ].join('\n');
+    }
+
+    function formatLocation(item) {
+        return [
+            text(item?.name, 120),
+            item?.type ? `tipo=${text(item.type, 60)}` : '',
+            item?.region ? `regione=${text(item.region, 100)}` : '',
+            item?.description ? `funzione/descrizione=${text(item.description, 260)}` : '',
+            item?.controller ? `controllo=${text(item.controller, 100)}` : '',
+            item?.resource ? `risorsa=${text(item.resource, 120)}` : '',
+            item?.danger ? `pressione/pericolo=${text(item.danger, 120)}` : ''
+        ].filter(Boolean).join(' | ');
+    }
+
+    function formatFaction(item) {
+        return [
+            text(item?.name, 120),
+            item?.type ? `tipo=${text(item.type, 60)}` : '',
+            item?.leader ? `leader=${text(item.leader, 100)}` : '',
+            item?.description ? `descrizione=${text(item.description, 220)}` : '',
+            item?.goal ? `obiettivo=${text(item.goal, 180)}` : '',
+            item?.ideology ? `ideologia=${text(item.ideology, 160)}` : '',
+            item?.strategy ? `strategia=${text(item.strategy, 160)}` : '',
+            item?.resources ? `risorse=${text(item.resources, 160)}` : '',
+            item?.base ? `base=${text(item.base, 100)}` : ''
+        ].filter(Boolean).join(' | ');
+    }
+
+    function worldDossier(world = {}) {
+        const locations = asArray(world.locations).slice(0, 20).map(formatLocation).filter(Boolean);
+        const factions = asArray(world.factions).slice(0, 16).map(formatFaction).filter(Boolean);
+        const forces = asArray(world.forces).slice(0, 12).map(item => [
+            text(item?.name, 120),
+            item?.actor ? `attore=${text(item.actor, 100)}` : '',
+            item?.objective ? `obiettivo=${text(item.objective, 180)}` : '',
+            item?.cause ? `causa=${text(item.cause, 180)}` : '',
+            item?.consequenceAt100 ? `esito=${text(item.consequenceAt100, 180)}` : ''
+        ].filter(Boolean).join(' | ')).filter(Boolean);
+        return [
+            `Mondo: ${text(world.name, 120) || 'non nominato'}`,
+            `Premessa del mondo: ${text(world.premise, 500) || 'non definita'}`,
+            `Conflitto centrale: ${text(world.centralConflict, 420) || 'non definito'}`,
+            `Posta in gioco: ${text(world.stakes, 320) || 'non definita'}`,
+            locations.length ? `LUOGHI CON FUNZIONE:\n${locations.map((value, index) => `${index + 1}. ${value}`).join('\n')}` : '',
+            factions.length ? `FAZIONI CON MOTIVAZIONI:\n${factions.map((value, index) => `${index + 1}. ${value}`).join('\n')}` : '',
+            forces.length ? `FORZE GIÀ IN MOVIMENTO:\n${forces.map((value, index) => `${index + 1}. ${value}`).join('\n')}` : ''
+        ].filter(Boolean).join('\n\n');
+    }
+
+    function npcAlignmentDirective(world, story, context) {
+        return [
+            '',
+            '=== ALLINEAMENTO AUTORITATIVO DEI PERSONAGGI ===',
+            'QUESTE REGOLE HANNO PRECEDENZA sugli archetipi generici indicati prima.',
+            storyDossier(story, context),
+            '',
+            worldDossier(world),
+            '',
+            'REGOLE DI CAST:',
+            '- Ogni NPC deve avere una ragione concreta per esistere nella premessa: collega esplicitamente ruolo, fazione, luogo, conoscenze e obiettivi a una tensione del mondo.',
+            '- Non creare un cast standard di nobile/comandante/mercante/sacerdote se tali ruoli non sono naturali per questa storia.',
+            '- Almeno 4 NPC devono essere ancore causali del conflitto iniziale: possono aprire opportunità, ostacolare, negoziare, investigare, competere o modificare una forza già in movimento.',
+            '- Almeno 2 NPC devono avere obiettivi importanti che NON riguardano il protagonista e devono poter agire autonomamente nella timeline.',
+            '- Gli NPC della stessa fazione non devono essere cloni: assegna interessi, metodi, informazioni e rischi personali differenti.',
+            '- Le relazioni iniziali devono derivare da interessi concreti (denaro, potere, famiglia, contratti, ideologia, rivalità, debiti, informazioni, territorio, carriera), non da etichette casuali "alleato/nemico".',
+            '- relationship verso il protagonista deve essere conseguenza della situazione iniziale; se non si sono mai incontrati usa neutrale/diffidente/interessato invece di amicizia automatica.',
+            '- Distribuisci gli NPC nei luoghi che hanno funzione narrativa. Non popolare uniformemente la mappa soltanto per copertura.',
+            '- Se esistono proprietà/attività iniziali del protagonista, includi persone necessarie al loro ecosistema (es. dipendente, cliente, fornitore, concorrente, creditore, funzionario) SOLO quando coerenti con la premessa.',
+            '',
+            'CONTROLLO FINALE:',
+            '- Ogni NPC deve poter generare almeno un evento plausibile nei primi turni.',
+            '- Se un personaggio potrebbe essere trasferito senza modifiche in una campagna diversa, è troppo generico: riscrivilo.'
+        ].join('\n');
+    }
+
+    if (typeof generator.buildGenerationPrompt === 'function') {
+        const original = generator.buildGenerationPrompt.bind(generator);
+        generator.buildGenerationPrompt = function storyAlignedGenerationPrompt(story, context = {}) {
+            return `${original(story, context)}${locationAlignmentDirective(story || {}, context)}`;
+        };
+    }
+
+    if (typeof generator.buildLocationsPrompt === 'function') {
+        const original = generator.buildLocationsPrompt.bind(generator);
+        generator.buildLocationsPrompt = function storyAlignedLocationsPrompt(story, context = {}) {
+            return `${original(story, context)}${locationAlignmentDirective(story || {}, context)}`;
+        };
+    }
+
+    if (typeof generator.buildNpcPrompt === 'function') {
+        const original = generator.buildNpcPrompt.bind(generator);
+        generator.buildNpcPrompt = function storyAlignedNpcPrompt(world, story, context = {}) {
+            return `${original(world, story, context)}${npcAlignmentDirective(world || {}, story || {}, context)}`;
+        };
+    }
+
+    if (campaign) {
+        campaign.buildWorldStoryDossier = storyDossier;
+        campaign.buildGeneratedWorldDossier = worldDossier;
+        campaign.buildLocationAlignmentDirective = locationAlignmentDirective;
+        campaign.buildNpcAlignmentDirective = npcAlignmentDirective;
+    }
+    generator.__storyAlignmentPatchVersion = 1;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
