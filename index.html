@@ -10585,6 +10585,11 @@
             updateLastEventButton();
             updateVaultControls();
 
+            // Pulisci DOM da eventuali residui della partita precedente
+            renderWorldMap();
+            renderNPCRegistry();
+            updateMemoryUI();
+
             $('story-scroll').innerHTML = '';
             G.storyLog.forEach(e => addStoryEntry(e.text, e.type, false));
             // Calcolato prima dei messaggi di servizio: l'annuncio della gestione attività
