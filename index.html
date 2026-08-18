@@ -10615,10 +10615,17 @@
                 // Evita una cronaca vuota o un lungo prompt statico: mentre il primo
                 // turno viene generato, il giocatore vede il mondo prendere forma.
                 showStoryIntro();
-                window.setTimeout(() => generateGameWorld().then(() =>
-                    generateAI('L\'avventura inizia...', true)
-                ).catch(err => {
+                window.setTimeout(() => generateGameWorld().then(() => {
+                    console.info('[WorldGenerator] Completato con successo. NPC nel mondo:', G.worldMemory?.npcs?.length || 0);
+                    generateAI('L\'avventura inizia...', true);
+                }).catch(err => {
                     console.warn('World generation fallita, fallback bootstrap:', err);
+                    const reason = err?.message || String(err);
+                    if (/API key/i.test(reason)) {
+                        notify('⚠️ API key non configurata. Vai su Impostazioni e inserisci la chiave Ollama Cloud. Uso mondo predefinito.', 'error');
+                    } else {
+                        notify('⚠️ Generazione mondo LLM fallita, uso mondo predefinito: ' + reason.slice(0, 120), 'error');
+                    }
                     generateFallbackWorld(G.currentStory, G);
                     generateAI('L\'avventura inizia...', true);
                 }), 60);
@@ -10682,6 +10689,7 @@
         async function generateGameWorld() {
             const story = G.currentStory;
             if (!story) return;
+            console.info('[WorldGenerator] Avvio. Provider:', G.settings.model, 'API key presente:', !!(G.settings.ollama?.apiKey), 'Modello:', G.settings.ollama?.primaryModel);
             const worldCtx = {
                 story,
                 turn: G.worldMemory.turnCount || 0,
