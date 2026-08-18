@@ -224,9 +224,7 @@
 });
 
 // Runtime guard for the two interaction surfaces that depend most heavily on
-// coordinated module versions: world chat and timeline. The HTML entry point has
-// historically reused the same cache-buster while these modules evolved; a stale
-// cached API can therefore make a click fail before the modal is opened.
+// coordinated module versions: world chat and timeline.
 (function installInteractionUiRecovery(root) {
     'use strict';
 
@@ -250,7 +248,6 @@
 
     function getGameState() {
         try {
-            // G is a global lexical binding declared by the main classic script.
             if (typeof G !== 'undefined') return G;
         } catch (_error) {
             // The inline game script may not have run yet.
@@ -281,8 +278,6 @@
                     reject(new Error(`${globalName} non disponibile dopo il reload`));
                     return;
                 }
-                // The inline script keeps const aliases to the original API object.
-                // Mutating that object updates those aliases without reloading the page.
                 if (previousApi && previousApi !== freshApi && typeof previousApi === 'object') {
                     Object.assign(previousApi, freshApi);
                     root[globalName] = previousApi;
@@ -415,5 +410,29 @@
         document.addEventListener('DOMContentLoaded', () => setTimeout(install, 0), { once: true });
     } else {
         setTimeout(install, 0);
+    }
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+// Load the real-world fidelity layer after all world/story generator patches.
+(function loadRealWorldWorldBuilder(root) {
+    'use strict';
+    if (!root || typeof document === 'undefined' || root.__cronacheRealWorldLoaderVersion >= 1) return;
+    root.__cronacheRealWorldLoaderVersion = 1;
+    const install = () => {
+        if (root.CronacheRealWorldBuilder?.install) {
+            root.CronacheRealWorldBuilder.install();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'js/real-world-worldbuilder.js?v=20260818-real-world-1';
+        script.async = false;
+        script.onload = () => root.CronacheRealWorldBuilder?.install?.();
+        script.onerror = error => console.error('[RealWorld] Impossibile caricare il layer di fedeltà geografica:', error);
+        document.head.appendChild(script);
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', install, { once: true });
+    } else {
+        install();
     }
 })(typeof globalThis !== 'undefined' ? globalThis : this);
