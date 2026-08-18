@@ -1,8 +1,30 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+
+global.CronacheAI = {
+    getTaskProfile(task, overrides = {}) {
+        return {
+            maxInputTokens: 9000,
+            maxOutputTokens: Number(overrides.maxOutputTokens) || 1800,
+            timeoutMs: 55000,
+            maxAttempts: 2,
+            temperature: 0.72
+        };
+    }
+};
+global.openStoryEditor = function openStoryEditor(story) { global.__openedStory = story; };
+global.renderGeneratedStory = function renderGeneratedStory(story) { global.__renderedStory = story; };
+
 const worldGenerator = require('../js/world-generator.js');
 const storyGenerator = require('../js/story-generator.js');
+
+{
+    const profile = global.CronacheAI.getTaskProfile('story', { maxOutputTokens: 1800 });
+    assert.ok(profile.maxInputTokens >= 12000);
+    assert.ok(profile.maxOutputTokens >= 4600);
+    assert.ok(profile.timeoutMs >= 80000);
+}
 
 {
     const prompt = storyGenerator.buildGenerationPrompt({
@@ -104,6 +126,23 @@ const storyGenerator = require('../js/story-generator.js');
     assert.equal(story.openThreads.length, 3);
     assert.equal(story.starterProperties[0].name, 'Banco dei pegni Via Roma');
 
+    global.renderGeneratedStory(story);
+    const savedAfterEditor = storyGenerator.completeStory({
+        title: story.title,
+        setting: story.setting,
+        genre: story.genre,
+        difficulty: story.difficulty,
+        starterGold: story.starterGold,
+        desc: `${story.desc} Testo modificato nell’editor.`,
+        personality: story.personality,
+        depth: story.depth,
+        prologue: story.prologue,
+        starterProperties: story.starterProperties
+    });
+    assert.equal(savedAfterEditor.worldBlueprint.centralConflict, generated.worldBlueprint.centralConflict);
+    assert.equal(savedAfterEditor.worldBlueprint.factionNeeds[0].nameHint, 'Banco Sardo');
+    assert.equal(savedAfterEditor.canonFacts[0], generated.canonFacts[0]);
+
     const worldPrompt = worldGenerator.buildLocationsPrompt(story, { protagonistName: 'Marco Serra' });
     assert.match(worldPrompt, /BLUEPRINT STRUTTURATO DELLA STORIA \(CANONE\)/);
     assert.match(worldPrompt, /Salvare il banco dei pegni/);
@@ -115,6 +154,7 @@ const storyGenerator = require('../js/story-generator.js');
 }
 
 {
+    global.openStoryEditor(null);
     const legacyStory = storyGenerator.completeStory({
         title: 'Vecchia campagna',
         genre: 'historical',
