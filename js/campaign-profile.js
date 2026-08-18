@@ -185,3 +185,138 @@ Queste preferenze persistono per tutta la campagna. Non citarle direttamente nel
         listOptions
     };
 });
+
+// Runtime compatibility patch: world.actors is authoritative when it contains
+// a newer autonomous NPC move than the projected worldMemory.npcs copy.
+// Kept here because this module loads after world-bootstrap and before game setup.
+(function installNpcStateSyncPatch(root) {
+    'use strict';
+
+    const api = root && root.CronacheWorldBootstrap;
+    if (!api || api.__npcStateSyncPatchVersion >= 1) return;
+
+    const asArray = value => Array.isArray(value) ? value : [];
+    const keyOf = typeof api.keyOf === 'function'
+        ? value => api.keyOf(value)
+        : value => String(value || '').trim().toLowerCase();
+    const cloneEntity = entity => entity && typeof entity === 'object' ? { ...entity } : entity;
+    const entitiesOf = world => [
+        ...asArray(world && world.actors),
+        ...asArray(world && world.factions)
+    ];
+    const memoryEntities = memory => [
+        ...asArray(memory && memory.npcs),
+        ...asArray(memory && memory.factions)
+    ];
+    const byName = items => new Map(asArray(items)
+        .filter(item => item && item.name)
+        .map(item => [keyOf(item.name), cloneEntity(item)]));
+
+    function restoreActivity(targetWorld, sourceWorld) {
+        if (!targetWorld || !sourceWorld) return targetWorld;
+        const sourceByName = byName(entitiesOf(sourceWorld));
+        entitiesOf(targetWorld).forEach(target => {
+            const source = sourceByName.get(keyOf(target.name));
+            if (!source) return;
+            if (Object.prototype.hasOwnProperty.call(source, 'activity')) {
+                target.activity = String(source.activity || '').trim().slice(0, 80);
+            }
+        });
+        return targetWorld;
+    }
+
+    const originalMigrateWorld = api.migrateWorld.bind(api);
+    const originalSyncFromMemory = api.syncFromMemory.bind(api);
+    const originalProjectToMemory = api.projectToMemory.bind(api);
+    const originalApplyWorldMoves = api.applyWorldMoves.bind(api);
+
+    api.migrateWorld = function patchedMigrateWorld(worldValue, context = {}) {
+        return restoreActivity(originalMigrateWorld(worldValue, context), worldValue);
+    };
+
+    api.syncFromMemory = function patchedSyncFromMemory(worldValue, memory, context = {}) {
+        const runtimeByName = byName(entitiesOf(worldValue));
+        const storedByName = byName(memoryEntities(memory));
+        const synced = originalSyncFromMemory(worldValue, memory, context);
+
+        entitiesOf(synced).forEach(target => {
+            const key = keyOf(target.name);
+            const runtime = runtimeByName.get(key);
+            const stored = storedByName.get(key);
+            if (!runtime) return;
+
+            const runtimeMoveTurn = Math.max(0, Number(runtime.lastMoveTurn) || 0);
+            const storedMoveTurn = Math.max(0, Number(stored && stored.lastMoveTurn) || 0);
+            const runtimeInteractionTurn = Math.max(0, Number(runtime.lastInteractionTurn) || 0);
+            const storedInteractionTurn = Math.max(0, Number(stored && stored.lastInteractionTurn) || 0);
+
+            // Never let a stale projection roll back a newer autonomous move.
+            if (runtimeMoveTurn > storedMoveTurn) {
+                target.lastMove = runtime.lastMove || target.lastMove;
+                target.lastMoveTurn = runtimeMoveTurn;
+                target.status = runtime.status || target.status;
+            }
+            if (runtimeInteractionTurn > storedInteractionTurn) {
+                target.lastInteractionTurn = runtimeInteractionTurn;
+            }
+
+            if (Object.prototype.hasOwnProperty.call(runtime, 'activity')) {
+                target.activity = String(runtime.activity || '').trim().slice(0, 80);
+            } else if (stored && Object.prototype.hasOwnProperty.call(stored, 'activity')) {
+                target.activity = String(stored.activity || '').trim().slice(0, 80);
+            }
+        });
+        return synced;
+    };
+
+    api.projectToMemory = function patchedProjectToMemory(worldValue, memory, context = {}) {
+        const sourceByName = byName(entitiesOf(worldValue));
+        const state = originalProjectToMemory(worldValue, memory, context);
+        restoreActivity(state && state.world, worldValue);
+
+        [
+            ...asArray(state && state.npcs),
+            ...asArray(state && state.factions)
+        ].forEach(target => {
+            const source = sourceByName.get(keyOf(target.name));
+            if (!source || !Object.prototype.hasOwnProperty.call(source, 'activity')) return;
+            target.activity = String(source.activity || '').trim().slice(0, 80);
+        });
+        return state;
+    };
+
+    api.applyWorldMoves = function patchedApplyWorldMoves(worldValue, moves, turn, context = {}) {
+        const world = restoreActivity(originalApplyWorldMoves(worldValue, moves, turn, context), worldValue);
+        asArray(moves).forEach(move => {
+            const actor = entitiesOf(world).find(item => keyOf(item.name) === keyOf(move && move.actor));
+            if (!actor) return;
+            const status = String(move && move.status || '').trim();
+            if (status && !/in.?progress|in corso/i.test(status)) {
+                actor.activity = status.slice(0, 80);
+                const statusKey = keyOf(status);
+                if (/dead|morto|destroyed|distrutt|removed|eliminat/.test(statusKey)) actor.status = 'dead';
+                else if (/dormant|dormiente|inactive|inattiv/.test(statusKey)) actor.status = 'dormant';
+            }
+        });
+        return world;
+    };
+
+    ['applyTimelineEvents', 'markInteraction', 'applyConversationOutcomes'].forEach(method => {
+        if (typeof api[method] !== 'function') return;
+        const original = api[method].bind(api);
+        api[method] = function preserveNpcActivity(worldValue, ...args) {
+            return restoreActivity(original(worldValue, ...args), worldValue);
+        };
+    });
+
+    if (typeof api.ingestResponse === 'function') {
+        const originalIngestResponse = api.ingestResponse.bind(api);
+        api.ingestResponse = function patchedIngestResponse(response, currentWorld, context = {}) {
+            const result = originalIngestResponse(response, currentWorld, context);
+            if (result && result.world) restoreActivity(result.world, currentWorld);
+            return result;
+        };
+    }
+
+    api.__npcStateSyncPatchVersion = 1;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
