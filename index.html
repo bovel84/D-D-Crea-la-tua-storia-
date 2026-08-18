@@ -10552,6 +10552,10 @@
             
             // Reset world memory
             G.worldMemory = migrateSavedWorldMemory(memoryManager.createDefault());
+            // Reset location e mappa dalla storia precedente
+            G.currentLocation = null;
+            activeWorldMapModel = null;
+            selectedWorldMapLocationId = '';
 
             // Applica proprietà iniziali definite dalla storia
             applyStarterProperties(G.currentStory);
