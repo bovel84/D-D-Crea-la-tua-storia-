@@ -52,34 +52,124 @@
             characterRoles: ['autorità locale', 'intermediario', 'rivale', 'alleato potenziale', 'testimone o informatore', 'agente autonomo']
         },
         contemporary: {
-            scale: 'locale o regionale', politics: 'istituzioni civiche e amministrative reali o plausibili', economy: 'lavoro, reddito, imprese, credito e costo della vita', law: 'diritto e procedure contemporanee pertinenti', society: 'famiglia, lavoro, reti sociali e comunità', technology: 'tecnologia contemporanea coerente con data e luogo', culture: 'abitudini, media, identità e tensioni sociali', locationTypes: ['casa o base personale', 'luogo di lavoro', 'istituzione rilevante', 'luogo sociale', 'infrastruttura', 'luogo del conflitto'], factionTypes: ['datore di lavoro o impresa', 'istituzione', 'rete familiare o sociale', 'gruppo d’interesse'], characterRoles: ['familiare o persona vicina', 'collega o superiore', 'funzionario o professionista', 'rivale', 'contatto sociale', 'soggetto con agenda autonoma']
+            scale: 'locale o regionale',
+            politics: 'istituzioni civiche e amministrative reali o plausibili',
+            economy: 'lavoro, reddito, imprese, credito e costo della vita',
+            law: 'diritto e procedure contemporanee pertinenti',
+            society: 'famiglia, lavoro, reti sociali e comunità',
+            technology: 'tecnologia contemporanea coerente con data e luogo',
+            culture: 'abitudini, media, identità e tensioni sociali',
+            locationTypes: ['casa o base personale', 'luogo di lavoro', 'istituzione rilevante', 'luogo sociale', 'infrastruttura', 'luogo del conflitto'],
+            factionTypes: ['datore di lavoro o impresa', 'istituzione', 'rete familiare o sociale', 'gruppo d’interesse'],
+            characterRoles: ['familiare o persona vicina', 'collega o superiore', 'funzionario o professionista', 'rivale', 'contatto sociale', 'soggetto con agenda autonoma']
         },
         sport: {
-            scale: 'club, città e circuito sportivo pertinente', politics: 'dirigenza, lega, federazione e proprietà', economy: 'stipendi, contratti, sponsor, premi e budget', law: 'regolamenti sportivi e contrattuali', society: 'squadra, staff, tifoseria, media e vita privata', technology: 'strumenti e metodi di allenamento coerenti con l’epoca', culture: 'identità del club, rivalità e pressione dei tifosi', locationTypes: ['impianto sportivo', 'centro allenamento', 'spogliatoio o area squadra', 'sede dirigenziale', 'luogo media', 'luogo della vita privata'], factionTypes: ['dirigenza/proprietà', 'staff e squadra', 'club rivale', 'lega/federazione o sponsor'], characterRoles: ['allenatore o dirigente', 'compagno', 'rivale', 'agente', 'giornalista', 'persona della vita privata']
+            scale: 'club, città e circuito sportivo pertinente',
+            politics: 'dirigenza, lega, federazione e proprietà',
+            economy: 'stipendi, contratti, sponsor, premi e budget',
+            law: 'regolamenti sportivi e contrattuali',
+            society: 'squadra, staff, tifoseria, media e vita privata',
+            technology: 'strumenti e metodi di allenamento coerenti con l’epoca',
+            culture: 'identità del club, rivalità e pressione dei tifosi',
+            locationTypes: ['impianto sportivo', 'centro allenamento', 'spogliatoio o area squadra', 'sede dirigenziale', 'luogo media', 'luogo della vita privata'],
+            factionTypes: ['dirigenza/proprietà', 'staff e squadra', 'club rivale', 'lega/federazione o sponsor'],
+            characterRoles: ['allenatore o dirigente', 'compagno', 'rivale', 'agente', 'giornalista', 'persona della vita privata']
         },
         business: {
-            scale: 'locale o regionale salvo espansione richiesta', politics: 'enti locali, regolatori e associazioni pertinenti', economy: 'cassa, credito, prezzi, domanda, fornitori, concorrenti e fiscalità', law: 'licenze, contratti, obblighi e procedure pertinenti', society: 'clienti, lavoratori, proprietari, reti professionali e comunità', technology: 'strumenti e processi coerenti con settore ed epoca', culture: 'abitudini di consumo, reputazione e pratiche commerciali', locationTypes: ['attività del protagonista', 'concorrente', 'fornitore o magazzino', 'banca o finanziatore', 'istituzione o regolatore', 'mercato/clientela', 'luogo sociale'], factionTypes: ['concorrente', 'finanziatore', 'fornitore o rete commerciale', 'ente/regolatore', 'gruppo di clienti o lavoratori'], characterRoles: ['cliente chiave', 'fornitore', 'concorrente', 'creditore o bancario', 'dipendente o collaboratore', 'funzionario o professionista']
+            scale: 'locale o regionale salvo espansione richiesta',
+            politics: 'enti locali, regolatori e associazioni pertinenti',
+            economy: 'cassa, credito, prezzi, domanda, fornitori, concorrenti e fiscalità',
+            law: 'licenze, contratti, obblighi e procedure pertinenti',
+            society: 'clienti, lavoratori, proprietari, reti professionali e comunità',
+            technology: 'strumenti e processi coerenti con settore ed epoca',
+            culture: 'abitudini di consumo, reputazione e pratiche commerciali',
+            locationTypes: ['attività del protagonista', 'concorrente', 'fornitore o magazzino', 'banca o finanziatore', 'istituzione o regolatore', 'mercato/clientela', 'luogo sociale'],
+            factionTypes: ['concorrente', 'finanziatore', 'fornitore o rete commerciale', 'ente/regolatore', 'gruppo di clienti o lavoratori'],
+            characterRoles: ['cliente chiave', 'fornitore', 'concorrente', 'creditore o bancario', 'dipendente o collaboratore', 'funzionario o professionista']
         },
         crime: {
-            scale: 'quartieri, città e reti collegate', politics: 'forze dell’ordine, istituzioni e poteri locali', economy: 'denaro legale/illecito, debiti, attività di copertura e mercati', law: 'indagini, prove, procedura e rischio giudiziario', society: 'famiglie, quartieri, reti di fiducia e reputazione', technology: 'sorveglianza e comunicazioni coerenti con l’epoca', culture: 'codici informali, lealtà, paura e reputazione', locationTypes: ['base del protagonista', 'luogo criminale', 'istituzione legale', 'attività di copertura', 'quartiere conteso', 'snodo informativo'], factionTypes: ['gruppo criminale', 'forze dell’ordine', 'rete economica legale', 'gruppo locale o istituzionale'], characterRoles: ['intermediario', 'investigatore', 'rivale', 'informatore', 'persona legata a un debito o segreto', 'agente autonomo']
+            scale: 'quartieri, città e reti collegate',
+            politics: 'forze dell’ordine, istituzioni e poteri locali',
+            economy: 'denaro legale/illecito, debiti, attività di copertura e mercati',
+            law: 'indagini, prove, procedura e rischio giudiziario',
+            society: 'famiglie, quartieri, reti di fiducia e reputazione',
+            technology: 'sorveglianza e comunicazioni coerenti con l’epoca',
+            culture: 'codici informali, lealtà, paura e reputazione',
+            locationTypes: ['base del protagonista', 'luogo criminale', 'istituzione legale', 'attività di copertura', 'quartiere conteso', 'snodo informativo'],
+            factionTypes: ['gruppo criminale', 'forze dell’ordine', 'rete economica legale', 'gruppo locale o istituzionale'],
+            characterRoles: ['intermediario', 'investigatore', 'rivale', 'informatore', 'persona legata a un debito o segreto', 'agente autonomo']
         },
         historical: {
-            scale: 'coerente con luogo, anno e conflitto', politics: 'istituzioni, cariche e poteri plausibili per l’epoca', economy: 'moneta, credito, mestieri, proprietà e commerci dell’epoca', law: 'diritto, consuetudini e giurisdizioni storicamente plausibili', society: 'ceti, corporazioni, famiglie, comunità e dipendenze sociali', technology: 'solo tecnologie disponibili nell’epoca indicata', culture: 'religione, costumi, alfabetizzazione e mentalità coerenti', locationTypes: ['luogo iniziale storicamente plausibile', 'sede istituzionale', 'mercato o centro produttivo', 'luogo religioso', 'quartiere o territorio sociale', 'snodo militare/commerciale se pertinente'], factionTypes: ['istituzione civica', 'casata o gruppo patrizio', 'corporazione o gruppo economico', 'potere religioso o militare'], characterRoles: ['magistrato o autorità', 'mercante/artigiano o professionista', 'membro di una casata o corporazione', 'religioso o funzionario', 'rivale politico/economico', 'persona comune con interessi propri']
+            scale: 'coerente con luogo, anno e conflitto',
+            politics: 'istituzioni, cariche e poteri plausibili per l’epoca',
+            economy: 'moneta, credito, mestieri, proprietà e commerci dell’epoca',
+            law: 'diritto, consuetudini e giurisdizioni storicamente plausibili',
+            society: 'ceti, corporazioni, famiglie, comunità e dipendenze sociali',
+            technology: 'solo tecnologie disponibili nell’epoca indicata',
+            culture: 'religione, costumi, alfabetizzazione e mentalità coerenti',
+            locationTypes: ['luogo iniziale storicamente plausibile', 'sede istituzionale', 'mercato o centro produttivo', 'luogo religioso', 'quartiere o territorio sociale', 'snodo militare/commerciale se pertinente'],
+            factionTypes: ['istituzione civica', 'casata o gruppo patrizio', 'corporazione o gruppo economico', 'potere religioso o militare'],
+            characterRoles: ['magistrato o autorità', 'mercante/artigiano o professionista', 'membro di una casata o corporazione', 'religioso o funzionario', 'rivale politico/economico', 'persona comune con interessi propri']
         },
         military: {
-            scale: 'fronte e retrovie necessarie', politics: 'catena di comando e autorità politiche', economy: 'logistica, rifornimenti, trasporti e produzione', law: 'ordini, disciplina e diritto di guerra pertinente', society: 'reparti, civili, alleati e popolazioni locali', technology: 'armi, comunicazioni e mezzi coerenti con data e teatro', culture: 'morale, dottrina, identità e tensioni tra reparti', locationTypes: ['posizione iniziale', 'comando', 'linea del fronte', 'snodo logistico', 'centro civile', 'obiettivo strategico'], factionTypes: ['comando alleato', 'forza avversaria', 'intelligence', 'autorità civile o gruppo locale'], characterRoles: ['comandante', 'subordinato', 'specialista', 'civile', 'agente intelligence', 'rivale o alleato autonomo']
+            scale: 'fronte e retrovie necessarie',
+            politics: 'catena di comando e autorità politiche',
+            economy: 'logistica, rifornimenti, trasporti e produzione',
+            law: 'ordini, disciplina e diritto di guerra pertinente',
+            society: 'reparti, civili, alleati e popolazioni locali',
+            technology: 'armi, comunicazioni e mezzi coerenti con data e teatro',
+            culture: 'morale, dottrina, identità e tensioni tra reparti',
+            locationTypes: ['posizione iniziale', 'comando', 'linea del fronte', 'snodo logistico', 'centro civile', 'obiettivo strategico'],
+            factionTypes: ['comando alleato', 'forza avversaria', 'intelligence', 'autorità civile o gruppo locale'],
+            characterRoles: ['comandante', 'subordinato', 'specialista', 'civile', 'agente intelligence', 'rivale o alleato autonomo']
         },
         diplomatic: {
-            scale: 'capitale e paesi direttamente coinvolti', politics: 'governi, ministeri, ambasciate, partiti e blocchi', economy: 'commercio, sanzioni, energia, finanza e interessi industriali pertinenti', law: 'trattati, diritto internazionale e procedure diplomatiche', society: 'opinione pubblica, lobby, media ed élite', technology: 'comunicazioni e intelligence coerenti con l’epoca', culture: 'protocolli, identità nazionali e sensibilità politiche', locationTypes: ['ministero o sede di governo', 'ambasciata', 'luogo negoziale', 'centro media', 'sede economica', 'luogo informale di contatto'], factionTypes: ['governo', 'potenza rivale/alleata', 'servizio intelligence', 'gruppo economico o politico'], characterRoles: ['diplomatico', 'ministro o consigliere', 'agente intelligence', 'lobbista o imprenditore', 'giornalista', 'delegato con agenda autonoma']
+            scale: 'capitale e paesi direttamente coinvolti',
+            politics: 'governi, ministeri, ambasciate, partiti e blocchi',
+            economy: 'commercio, sanzioni, energia, finanza e interessi industriali pertinenti',
+            law: 'trattati, diritto internazionale e procedure diplomatiche',
+            society: 'opinione pubblica, lobby, media ed élite',
+            technology: 'comunicazioni e intelligence coerenti con l’epoca',
+            culture: 'protocolli, identità nazionali e sensibilità politiche',
+            locationTypes: ['ministero o sede di governo', 'ambasciata', 'luogo negoziale', 'centro media', 'sede economica', 'luogo informale di contatto'],
+            factionTypes: ['governo', 'potenza rivale/alleata', 'servizio intelligence', 'gruppo economico o politico'],
+            characterRoles: ['diplomatico', 'ministro o consigliere', 'agente intelligence', 'lobbista o imprenditore', 'giornalista', 'delegato con agenda autonoma']
         },
         rural: {
-            scale: 'comunità rurale e mercato regionale', politics: 'comune, consorzi, enti agricoli e proprietari', economy: 'raccolti, bestiame, debiti, forniture, manodopera e prezzi', law: 'proprietà, contratti, acqua, lavoro e norme agricole pertinenti', society: 'famiglie, lavoratori, vicini, cooperative e commercianti', technology: 'attrezzature e tecniche coerenti con l’epoca', culture: 'stagioni, tradizioni e legami comunitari', locationTypes: ['proprietà agricola', 'mercato', 'fornitore', 'cooperativa o istituzione', 'proprietà rivale', 'luogo comunitario'], factionTypes: ['famiglia/proprietario', 'cooperativa', 'commerciante o fornitore', 'banca/ente locale'], characterRoles: ['lavoratore', 'vicino', 'fornitore', 'compratore', 'funzionario', 'rivale o alleato autonomo']
+            scale: 'comunità rurale e mercato regionale',
+            politics: 'comune, consorzi, enti agricoli e proprietari',
+            economy: 'raccolti, bestiame, debiti, forniture, manodopera e prezzi',
+            law: 'proprietà, contratti, acqua, lavoro e norme agricole pertinenti',
+            society: 'famiglie, lavoratori, vicini, cooperative e commercianti',
+            technology: 'attrezzature e tecniche coerenti con l’epoca',
+            culture: 'stagioni, tradizioni e legami comunitari',
+            locationTypes: ['proprietà agricola', 'mercato', 'fornitore', 'cooperativa o istituzione', 'proprietà rivale', 'luogo comunitario'],
+            factionTypes: ['famiglia/proprietario', 'cooperativa', 'commerciante o fornitore', 'banca/ente locale'],
+            characterRoles: ['lavoratore', 'vicino', 'fornitore', 'compratore', 'funzionario', 'rivale o alleato autonomo']
         },
         pirate: {
-            scale: 'arcipelago, rotte e potenze direttamente collegate', politics: 'governatori, marine, compagnie e porti', economy: 'carichi, prezzi, bottino, rifornimenti e commercio', law: 'giurisdizioni marittime, lettere di corsa e contrabbando', society: 'equipaggi, porti, mercanti, schiavi/liberi secondo epoca e contesto', technology: 'navi, armi e navigazione coerenti con l’epoca', culture: 'disciplina di bordo, reputazione, usanze portuali e identità imperiali', locationTypes: ['porto iniziale', 'rotta commerciale', 'isola o approdo', 'forte/naval base', 'mercato', 'luogo di rifornimento'], factionTypes: ['equipaggio', 'marina o governatore', 'compagnia commerciale', 'pirati/contrabbandieri rivali'], characterRoles: ['capitano o ufficiale', 'marinaio specialista', 'mercante', 'governatore/ufficiale', 'rivale', 'informatore o contatto portuale']
+            scale: 'arcipelago, rotte e potenze direttamente collegate',
+            politics: 'governatori, marine, compagnie e porti',
+            economy: 'carichi, prezzi, bottino, rifornimenti e commercio',
+            law: 'giurisdizioni marittime, lettere di corsa e contrabbando',
+            society: 'equipaggi, porti, mercanti, schiavi/liberi secondo epoca e contesto',
+            technology: 'navi, armi e navigazione coerenti con l’epoca',
+            culture: 'disciplina di bordo, reputazione, usanze portuali e identità imperiali',
+            locationTypes: ['porto iniziale', 'rotta commerciale', 'isola o approdo', 'forte/naval base', 'mercato', 'luogo di rifornimento'],
+            factionTypes: ['equipaggio', 'marina o governatore', 'compagnia commerciale', 'pirati/contrabbandieri rivali'],
+            characterRoles: ['capitano o ufficiale', 'marinaio specialista', 'mercante', 'governatore/ufficiale', 'rivale', 'informatore o contatto portuale']
         },
         spy: {
-            scale: 'rete di città e paesi indispensabili alla missione', politics: 'governi, servizi, ambasciate e apparati di sicurezza', economy: 'finanziamenti, coperture economiche e interessi strategici', law: 'sicurezza, arresti, immunità e procedure coerenti con l’epoca', society: 'reti clandestine, contatti, famiglie e istituzioni', technology: 'sorveglianza, cifratura e comunicazioni coerenti con l’epoca', culture: 'coperture, linguaggi, ideologie e sospetti', locationTypes: ['safe house o base', 'sede istituzionale', 'luogo di scambio', 'copertura civile', 'frontiera/snodo di viaggio', 'luogo sorvegliato'], factionTypes: ['servizio alleato', 'servizio rivale', 'governo/istituzione', 'rete clandestina o intermediaria'], characterRoles: ['case officer', 'agente sul campo', 'fonte', 'doppio agente o sospetto', 'funzionario', 'contatto civile con agenda propria']
+            scale: 'rete di città e paesi indispensabili alla missione',
+            politics: 'governi, servizi, ambasciate e apparati di sicurezza',
+            economy: 'finanziamenti, coperture economiche e interessi strategici',
+            law: 'sicurezza, arresti, immunità e procedure coerenti con l’epoca',
+            society: 'reti clandestine, contatti, famiglie e istituzioni',
+            technology: 'sorveglianza, cifratura e comunicazioni coerenti con l’epoca',
+            culture: 'coperture, linguaggi, ideologie e sospetti',
+            locationTypes: ['safe house o base', 'sede istituzionale', 'luogo di scambio', 'copertura civile', 'frontiera/snodo di viaggio', 'luogo sorvegliato'],
+            factionTypes: ['servizio alleato', 'servizio rivale', 'governo/istituzione', 'rete clandestina o intermediaria'],
+            characterRoles: ['case officer', 'agente sul campo', 'fonte', 'doppio agente o sospetto', 'funzionario', 'contatto civile con agenda propria']
         }
     };
 
@@ -200,7 +290,8 @@
         const characterNeeds = details.characterRoles.map(role => ({
             nameHint: '', role,
             storyFunction: `collegare il protagonista a una conseguenza o opportunità di: ${premise}`,
-            factionHint: '', locationHint: '',
+            factionHint: '',
+            locationHint: '',
             publicGoal: 'ottenere un risultato concreto nel mondo',
             privateGoal: 'proteggere un interesse personale non completamente coincidente con quello pubblico',
             autonomy: 'può prendere iniziative e cambiare situazione senza attendere il protagonista'
@@ -504,5 +595,76 @@
             document.addEventListener('DOMContentLoaded', patchWorldGenerator, { once: true });
         }
         setTimeout(patchWorldGenerator, 0);
+    }
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+// Integrazione con l'editor e con il budget IA della creazione storia.
+// Conserva i campi strutturati non visibili nell'editor e impedisce che il JSON
+// ricco venga troncato dal vecchio limite di 1800 token.
+(function installRichStoryEditorIntegration(root) {
+    'use strict';
+    const storyApi = root && root.CronacheStoryGenerator;
+    if (!storyApi || storyApi.__richStoryEditorIntegrationVersion >= 1) return;
+
+    const originalCompleteStory = storyApi.completeStory.bind(storyApi);
+    storyApi.completeStory = function preserveGeneratedBlueprint(input = {}, seed = {}) {
+        const draft = root && root.__cronacheGeneratedStoryDraft;
+        const sameGenre = !draft?.genre || !input?.genre || String(draft.genre) === String(input.genre);
+        const enriched = draft && typeof draft === 'object' && !input.worldBlueprint && sameGenre
+            ? {
+                ...input,
+                worldBlueprint: draft.worldBlueprint,
+                canonFacts: input.canonFacts || draft.canonFacts,
+                openThreads: input.openThreads || draft.openThreads
+            }
+            : input;
+        return originalCompleteStory(enriched, seed);
+    };
+
+    function patchAiBudget() {
+        const ai = root && root.CronacheAI;
+        if (!ai || ai.__richStoryBudgetVersion >= 1 || typeof ai.getTaskProfile !== 'function') return;
+        const originalGetTaskProfile = ai.getTaskProfile.bind(ai);
+        ai.getTaskProfile = function richStoryTaskProfile(task, overrides = {}) {
+            const profile = originalGetTaskProfile(task, overrides);
+            if (task !== 'story') return profile;
+            return {
+                ...profile,
+                maxInputTokens: Math.max(12000, Number(profile.maxInputTokens) || 0),
+                maxOutputTokens: Math.max(4600, Number(profile.maxOutputTokens) || 0),
+                timeoutMs: Math.max(80000, Number(profile.timeoutMs) || 0),
+                maxAttempts: Math.max(2, Number(profile.maxAttempts) || 0)
+            };
+        };
+        ai.__richStoryBudgetVersion = 1;
+    }
+
+    function patchEditorFunctions() {
+        patchAiBudget();
+        if (!root || root.__richStoryEditorFunctionsPatched) return;
+        const originalOpen = typeof root.openStoryEditor === 'function' ? root.openStoryEditor : null;
+        const originalRender = typeof root.renderGeneratedStory === 'function' ? root.renderGeneratedStory : null;
+        if (!originalOpen || !originalRender) return;
+
+        root.openStoryEditor = function richOpenStoryEditor(story = null, ...args) {
+            root.__cronacheGeneratedStoryDraft = story && typeof story === 'object' ? story : null;
+            return originalOpen.call(this, story, ...args);
+        };
+
+        root.renderGeneratedStory = function richRenderGeneratedStory(story, ...args) {
+            if (story && typeof story === 'object') root.__cronacheGeneratedStoryDraft = story;
+            return originalRender.call(this, story, ...args);
+        };
+        root.__richStoryEditorFunctionsPatched = true;
+    }
+
+    storyApi.__richStoryEditorIntegrationVersion = 1;
+    patchAiBudget();
+    patchEditorFunctions();
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', patchEditorFunctions, { once: true });
+        }
+        setTimeout(patchEditorFunctions, 0);
     }
 })(typeof globalThis !== 'undefined' ? globalThis : this);
