@@ -270,7 +270,7 @@
         return world;
     }
 
-    if (generator && generator.__freshWorldPerGamePatchVersion < 1) {
+    if (generator && !(generator.__freshWorldPerGamePatchVersion >= 1)) {
         if (typeof generator.buildGenerationPrompt === 'function') {
             const original = generator.buildGenerationPrompt.bind(generator);
             generator.buildGenerationPrompt = function freshGenerationPrompt(story, context = {}) {
@@ -313,7 +313,7 @@
         generator.__freshWorldPerGamePatchVersion = 1;
     }
 
-    if (bootstrap && bootstrap.__freshWorldPerGamePatchVersion < 1 && typeof bootstrap.projectToMemory === 'function') {
+    if (bootstrap && !(bootstrap.__freshWorldPerGamePatchVersion >= 1) && typeof bootstrap.projectToMemory === 'function') {
         const originalProjectToMemory = bootstrap.projectToMemory.bind(bootstrap);
         bootstrap.projectToMemory = function freshWorldProjection(worldValue, memory, context = {}) {
             const turn = Math.max(0, Number(context.turn) || 0);
