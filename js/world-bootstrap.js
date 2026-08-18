@@ -278,7 +278,7 @@
     function isConcreteEntity(item, kind = 'actor') {
         if (!item || isProvisionalSource(item.source)) return false;
         if (kind === 'force') return !isGenericForceName(item.name);
-        return !isGenericActorName(item.name);
+        return true;
     }
 
     function mergeByName(current, incoming, normalize, limit, context) {
