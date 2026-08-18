@@ -13201,11 +13201,22 @@
             ].filter(Boolean);
             return parts.join(', ');
         }
+        // ── Image caching: deterministic seed + in-memory cache ──
+        const _imgUrlCache = new Map();
+        function hashString(str) {
+            let h = 5381;
+            for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+            return Math.abs(h) % 1000000;
+        }
         function buildMapImageUrl(prompt, w, h) {
             if (!prompt) return '';
+            const key = `map:${prompt}:${w}x${h}`;
+            if (_imgUrlCache.has(key)) return _imgUrlCache.get(key);
             const encoded = encodeURIComponent(prompt.slice(0, 500));
-            const seed = Math.floor(Math.random() * 1000000);
-            return `https://image.pollinations.ai/prompt/${encoded}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
+            const seed = hashString(prompt);
+            const url = `https://image.pollinations.ai/prompt/${encoded}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
+            _imgUrlCache.set(key, url);
+            return url;
         }
         const SCENE_IT_EN = {
             'taverna': 'tavern interior, wooden tables, candlelight',
@@ -13371,9 +13382,13 @@
         function buildSceneImageUrl(prompt, width, height) {
             const w = width || 610;
             const h = height || 200;
+            const key = `scene:${prompt}:${w}x${h}`;
+            if (_imgUrlCache.has(key)) return _imgUrlCache.get(key);
             const encoded = encodeURIComponent(prompt.slice(0, 400));
-            const seed = Math.floor(Math.random() * 1000000);
-            return `https://image.pollinations.ai/prompt/${encoded}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
+            const seed = hashString(prompt);
+            const url = `https://image.pollinations.ai/prompt/${encoded}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
+            _imgUrlCache.set(key, url);
+            return url;
         }
         function renderEventScreen() {
             const events = G.timelineEventQueue || [];
