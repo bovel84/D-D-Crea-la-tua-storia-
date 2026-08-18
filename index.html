@@ -1292,15 +1292,19 @@
         .event-screen-modal { max-width: 610px !important; overflow: hidden; }
         .event-screen-body { padding: 0; }
         .event-screen-hero {
-            padding: 24px 20px 18px;
+            padding: 0;
             text-align: center;
             color: white;
             background: linear-gradient(145deg, #2f1647, #6b2e9b 55%, #1e3a5f);
             position: relative;
+            min-height: 280px;
+            display: flex;
+            align-items: flex-end;
+            overflow: hidden;
         }
         .event-screen-scene-img {
             position: absolute; inset: 0; width: 100%; height: 100%;
-            object-fit: cover; opacity: 0.45; z-index: 0;
+            object-fit: cover; opacity: 0.85; z-index: 0;
         }
         .event-screen-hero > *:not(.event-screen-scene-img) {
             position: relative; z-index: 1;
@@ -3993,31 +3997,31 @@
         </div>
     </div>
 
-    <script src="js/memory-manager.js?v=20260818-ui-clean-1"></script>
-    <script src="js/world-bootstrap.js?v=20260818-ui-clean-1"></script>
-    <script src="js/world-map.js?v=20260818-ui-clean-1"></script>
-    <script src="js/world-generator.js?v=20260818-ui-clean-1"></script>
-    <script src="js/event-manager.js?v=20260818-ui-clean-1"></script>
-    <script src="js/timeline-chat.js?v=20260818-ui-clean-1"></script>
-    <script src="js/timeline-simulator.js?v=20260818-ui-clean-1"></script>
-    <script src="js/strategic-advisor.js?v=20260818-ui-clean-1"></script>
+    <script src="js/memory-manager.js?v=20260818-ui-clean-2"></script>
+    <script src="js/world-bootstrap.js?v=20260818-ui-clean-2"></script>
+    <script src="js/world-map.js?v=20260818-ui-clean-2"></script>
+    <script src="js/world-generator.js?v=20260818-ui-clean-2"></script>
+    <script src="js/event-manager.js?v=20260818-ui-clean-2"></script>
+    <script src="js/timeline-chat.js?v=20260818-ui-clean-2"></script>
+    <script src="js/timeline-simulator.js?v=20260818-ui-clean-2"></script>
+    <script src="js/strategic-advisor.js?v=20260818-ui-clean-2"></script>
     <script src="js/narrative-master.js"></script>
     <script src="js/campaign-profile.js"></script>
     <script src="js/character-options.js"></script>
-    <script src="js/portrait-manager.js?v=20260818-ui-clean-1"></script>
-    <script src="js/portrait-svg.js?v=20260818-ui-clean-1"></script>
-    <script src="js/time-energy.js?v=20260818-ui-clean-1"></script>
+    <script src="js/portrait-manager.js?v=20260818-ui-clean-2"></script>
+    <script src="js/portrait-svg.js?v=20260818-ui-clean-2"></script>
+    <script src="js/time-energy.js?v=20260818-ui-clean-2"></script>
     <script src="js/business-manager.js"></script>
     <script src="js/kingdom-manager.js"></script>
-    <script src="js/story-generator.js?v=20260818-ui-clean-1"></script>
+    <script src="js/story-generator.js?v=20260818-ui-clean-2"></script>
     <script src="js/life-legacy.js"></script>
     <script src="js/game-director.js"></script>
-    <script src="js/timeline-engine.js?v=20260818-ui-clean-1"></script>
-    <script src="js/timeline-bridge.js?v=20260818-ui-clean-1"></script>
+    <script src="js/timeline-engine.js?v=20260818-ui-clean-2"></script>
+    <script src="js/timeline-bridge.js?v=20260818-ui-clean-2"></script>
     <script src="js/campaign-vault.js"></script>
-    <script src="js/ai-efficiency.js?v=20260818-ui-clean-1"></script>
-    <script src="js/ollama-cloud.js?v=20260818-ui-clean-1"></script>
-    <script src="js/experience-v7.js?v=20260818-ui-clean-1"></script>
+    <script src="js/ai-efficiency.js?v=20260818-ui-clean-2"></script>
+    <script src="js/ollama-cloud.js?v=20260818-ui-clean-2"></script>
+    <script src="js/experience-v7.js?v=20260818-ui-clean-2"></script>
     <script>
         // ==================== GAME STATE ====================
         const TASK_MODEL_LABELS = Object.freeze({
@@ -13433,7 +13437,7 @@
             const imagesOn = sceneImagesEnabled();
             const sceneImgHtml = imagesOn ? (() => {
                 const prompt = buildSceneImagePrompt(event);
-                const url = buildSceneImageUrl(prompt, 610, 220);
+                const url = buildSceneImageUrl(prompt, 610, 340);
                 return `<img class="event-screen-scene-img" src="${url}" alt="Scene atmosfera" loading="lazy" onerror="this.style.display='none'"/>`;
             })() : '';
             const toggleBtn = `<button class="scene-toggle-btn" onclick="toggleSceneImages()" title="${imagesOn ? 'Nascondi' : 'Mostra'} immagini di scena">${imagesOn ? '🖼️' : '🚫'}</button>`;
