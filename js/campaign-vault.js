@@ -154,14 +154,13 @@
                 this.storage.setItem(this.key, JSON.stringify(this.memory));
                 return true;
             } catch (_error) {
-                // If the browser quota is full, progressively keep fewer checkpoints.
                 while (this.memory.length > 1) {
                     this.memory.shift();
                     try {
                         this.storage.setItem(this.key, JSON.stringify(this.memory));
                         return true;
                     } catch (_retryError) {
-                        // Keep pruning until one checkpoint remains.
+                        // Continua a ridurre i checkpoint finché il salvataggio riesce.
                     }
                 }
                 return false;
@@ -223,3 +222,198 @@
         parsePortableBackup
     };
 });
+
+// Runtime guard for the two interaction surfaces that depend most heavily on
+// coordinated module versions: world chat and timeline. The HTML entry point has
+// historically reused the same cache-buster while these modules evolved; a stale
+// cached API can therefore make a click fail before the modal is opened.
+(function installInteractionUiRecovery(root) {
+    'use strict';
+
+    if (!root || typeof document === 'undefined' || root.__cronacheInteractionUiRecoveryVersion >= 1) return;
+
+    const BUILD_ID = '20260818-chat-timeline-fix-1';
+    const CHAT_SCHEMA = 6;
+    const TIMELINE_SCHEMA = 10;
+    const REQUIRED_CHAT_METHODS = [
+        'migrateChats', 'normalizeThread', 'createThread', 'recordMessages',
+        'chooseNextSpeaker', 'chooseSpeakerRound', 'buildChatPrompt', 'closeConversation'
+    ];
+    const REQUIRED_TIMELINE_METHODS = [
+        'normalizeEventQueue', 'createEventSeeds', 'createManualParallelSeeds',
+        'scheduleEventSeeds', 'selectBatchEventSeeds', 'advanceEventQueue',
+        'causalLabelFor', 'isMeaningfulEvent', 'buildBatchPrompt', 'parseBatchEventBody'
+    ];
+
+    let refreshPromise = null;
+    let wrapped = false;
+
+    function getGameState() {
+        try {
+            // G is a global lexical binding declared by the main classic script.
+            if (typeof G !== 'undefined') return G;
+        } catch (_error) {
+            // The inline game script may not have run yet.
+        }
+        return root.G || null;
+    }
+
+    function hasMethods(api, names) {
+        return Boolean(api) && names.every(name => typeof api[name] === 'function');
+    }
+
+    function needsFreshChat(api) {
+        return !hasMethods(api, REQUIRED_CHAT_METHODS) || Number(api?.CHAT_SCHEMA_VERSION || 0) < CHAT_SCHEMA;
+    }
+
+    function needsFreshTimeline(api) {
+        return !hasMethods(api, REQUIRED_TIMELINE_METHODS) || Number(api?.TIMELINE_SIMULATOR_SCHEMA_VERSION || 0) < TIMELINE_SCHEMA;
+    }
+
+    function reloadAndMerge(src, globalName, previousApi) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.async = true;
+            script.src = `${src}?v=${BUILD_ID}`;
+            script.onload = () => {
+                const freshApi = root[globalName];
+                if (!freshApi) {
+                    reject(new Error(`${globalName} non disponibile dopo il reload`));
+                    return;
+                }
+                // The inline script keeps const aliases to the original API object.
+                // Mutating that object updates those aliases without reloading the page.
+                if (previousApi && previousApi !== freshApi && typeof previousApi === 'object') {
+                    Object.assign(previousApi, freshApi);
+                    root[globalName] = previousApi;
+                    resolve(previousApi);
+                    return;
+                }
+                resolve(freshApi);
+            };
+            script.onerror = () => reject(new Error(`Impossibile ricaricare ${src}`));
+            document.head.appendChild(script);
+        });
+    }
+
+    function ensureFreshInteractionApis() {
+        if (refreshPromise) return refreshPromise;
+        const chatApi = root.CronacheTimelineChat;
+        const timelineApi = root.CronacheTimelineSimulator;
+        const jobs = [];
+        if (needsFreshChat(chatApi)) {
+            jobs.push(reloadAndMerge('js/timeline-chat.js', 'CronacheTimelineChat', chatApi));
+        }
+        if (needsFreshTimeline(timelineApi)) {
+            jobs.push(reloadAndMerge('js/timeline-simulator.js', 'CronacheTimelineSimulator', timelineApi));
+        }
+        refreshPromise = Promise.all(jobs).catch(error => {
+            console.error('[InteractionUI] Aggiornamento moduli fallito:', error);
+            return [];
+        });
+        return refreshPromise;
+    }
+
+    function normalizeChatState() {
+        const state = getGameState();
+        const api = root.CronacheTimelineChat;
+        if (!state?.worldMemory || typeof api?.migrateChats !== 'function') return;
+        state.worldMemory.chats = api.migrateChats(state.worldMemory.chats, {
+            events: Array.isArray(state.worldMemory.events) ? state.worldMemory.events : [],
+            turn: Math.max(0, Number(state.worldMemory.turnCount) || 0),
+            protagonistName: state.character?.name || '',
+            occurredAt: ''
+        });
+    }
+
+    function normalizeTimelineState() {
+        const state = getGameState();
+        const api = root.CronacheTimelineSimulator;
+        if (!state?.worldMemory) return;
+        const memory = state.worldMemory;
+        [
+            'events', 'pendingTimelineChoices', 'pendingStrategicActions',
+            'pendingParallelDecisions', 'strategicActionHistory', 'playerDecisions'
+        ].forEach(field => {
+            if (!Array.isArray(memory[field])) memory[field] = [];
+        });
+        if (typeof api?.normalizeEventQueue === 'function') {
+            memory.pendingTimelineEvents = api.normalizeEventQueue(memory.pendingTimelineEvents, {
+                turn: Math.max(0, Number(memory.turnCount) || 0)
+            });
+        } else if (!Array.isArray(memory.pendingTimelineEvents)) {
+            memory.pendingTimelineEvents = [];
+        }
+    }
+
+    function forceOpenModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) modal.classList.add('active');
+    }
+
+    function showRecoveryMessage(containerId, message) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = `<div class="timeline-empty">${String(message || 'Interfaccia ripristinata. Riprova il comando.')}</div>`;
+    }
+
+    function wrapUiFunctions() {
+        if (wrapped) return true;
+        const originalOpenChats = typeof root.openWorldChats === 'function' ? root.openWorldChats : null;
+        const originalOpenTimeline = typeof root.openTimeline === 'function' ? root.openTimeline : null;
+        if (!originalOpenChats || !originalOpenTimeline) return false;
+
+        root.openWorldChats = function recoveredOpenWorldChats(...args) {
+            normalizeChatState();
+            try {
+                return originalOpenChats.apply(this, args);
+            } catch (error) {
+                console.error('[InteractionUI] Apertura chat recuperata dopo errore:', error);
+                forceOpenModal('modal-world-chat');
+                showRecoveryMessage('chat-messages', 'La chat salvata è stata riallineata. Chiudi e riapri la chat oppure convoca una nuova riunione.');
+                normalizeChatState();
+                return null;
+            }
+        };
+
+        root.openTimeline = function recoveredOpenTimeline(...args) {
+            normalizeTimelineState();
+            try {
+                return originalOpenTimeline.apply(this, args);
+            } catch (error) {
+                console.error('[InteractionUI] Apertura timeline recuperata dopo errore:', error);
+                forceOpenModal('modal-timeline');
+                showRecoveryMessage('timeline-events-list', 'La timeline è stata riallineata. Puoi riprovare ad avanzare il turno.');
+                const button = document.getElementById('btn-simulate-timeline');
+                if (button) button.disabled = false;
+                return null;
+            }
+        };
+
+        const chatButton = document.getElementById('btn-world-chats');
+        if (chatButton) chatButton.onclick = () => root.openWorldChats();
+        const timelineButton = document.getElementById('btn-advance-world');
+        if (timelineButton) timelineButton.onclick = () => root.openTimeline();
+
+        wrapped = true;
+        root.__cronacheInteractionUiWrapped = true;
+        return true;
+    }
+
+    async function install() {
+        await ensureFreshInteractionApis();
+        normalizeChatState();
+        normalizeTimelineState();
+        if (!wrapUiFunctions()) {
+            setTimeout(wrapUiFunctions, 50);
+            setTimeout(wrapUiFunctions, 250);
+        }
+    }
+
+    root.__cronacheInteractionUiRecoveryVersion = 1;
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => setTimeout(install, 0), { once: true });
+    } else {
+        setTimeout(install, 0);
+    }
+})(typeof globalThis !== 'undefined' ? globalThis : this);
