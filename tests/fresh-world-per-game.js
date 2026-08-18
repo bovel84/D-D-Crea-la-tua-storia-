@@ -11,7 +11,7 @@ function makeStaticFallbackWorld() {
         setting: 'Fantasy medievale',
         startLocation: 'Valdoria',
         locations: [
-            { id: 'loc-1', name: 'Valdoria', type: 'villaggio' },
+            { id: 'loc-1', name: 'Valdoria', type: 'villaggio', description: 'Valdoria è il centro del mondo.' },
             { id: 'loc-2', name: "Il Drago d'Oro", type: 'locanda' },
             { id: 'loc-3', name: 'Bosco Ombroso', type: 'luogo' },
             { id: 'loc-4', name: 'Torre del Mago', type: 'landmark' },
@@ -58,6 +58,7 @@ function makeStaticFallbackWorld() {
     const seed = context.worldGenerationSeed;
     assert.match(seed, /^world-/);
     assert.match(locationPrompt, new RegExp(seed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(locationPrompt, /non usare nomi di esempio, preset o segnaposto ricorrenti/i);
 
     const npcPrompt = worldGeneratorApi.buildNpcPrompt({
         name: 'Mondo Test',
@@ -77,11 +78,13 @@ function makeStaticFallbackWorld() {
     worldGeneratorApi.generateFallbackNpcs(first, {
         turn: 0,
         protagonistName: 'Eroe',
+        setting: 'Fantasy medievale',
         worldGenerationSeed: 'world-test-a'
     });
     worldGeneratorApi.generateFallbackNpcs(second, {
         turn: 0,
         protagonistName: 'Eroe',
+        setting: 'Fantasy medievale',
         worldGenerationSeed: 'world-test-b'
     });
 
@@ -90,6 +93,24 @@ function makeStaticFallbackWorld() {
     assert.notDeepEqual(first.actors.map(item => item.name), second.actors.map(item => item.name));
     assert.equal(first.generationSeed, 'world-test-a');
     assert.equal(second.generationSeed, 'world-test-b');
+
+    const bannedDefaults = [
+        'Valdoria', 'Il Drago d\'Oro', 'Bosco Ombroso', 'Torre del Mago', 'Tempio del Sole',
+        'Sacro Romano Impero', 'Famiglia Malaspina', 'Gilda dei Mercanti', 'Guardia ducale',
+        'Aldric', 'Elara', 'Morven', 'Ravenhollow', 'Castelnuovo',
+        'Vallebruma', 'Casata Serani', 'Lega delle Vie Mercantili'
+    ];
+    const serialized = JSON.stringify(first);
+    bannedDefaults.forEach(name => {
+        assert.equal(serialized.includes(name), false, `Il nome di default non deve sopravvivere: ${name}`);
+    });
+
+    first.actors.forEach(actor => {
+        assert.ok(actor.name && !/^NPC\b|^Personaggio\b/i.test(actor.name));
+    });
+    first.locations.forEach(location => {
+        assert.ok(location.name && !/^(Luogo|Centro|Margini)\b/i.test(location.name));
+    });
 }
 
 {
