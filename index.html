@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>🐉 Cronache del Destino v2.0</title>
+    <title>🐉 Cronache del Destino v3.0</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=MedievalSharp&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -3142,7 +3142,7 @@
         <div class="home-container">
             <div class="home-logo">🐉</div>
             <h1 class="home-title">Cronache del Destino</h1>
-            <p class="home-subtitle">Un'avventura narrata dall'IA • v2.0</p>
+            <p class="home-subtitle">Un'avventura narrata dall'IA • v3.0</p>
 
             <div class="home-menu">
                 <button class="home-btn primary" id="btn-continue" disabled>▶️ Continua</button>
@@ -4015,6 +4015,12 @@
     <script src="js/kingdom-manager.js"></script>
     <script src="js/story-generator.js?v=20260818-ui-clean-2"></script>
     <script src="js/life-legacy.js"></script>
+    <script src="js/status-effects.js?v=20260819-combat-1"></script>
+    <script src="js/combat-engine.js?v=20260819-combat-1"></script>
+    <script src="js/random-tables.js?v=20260819-combat-1"></script>
+    <script src="js/secrets-manager.js?v=20260819-combat-1"></script>
+    <script src="js/session-timeline.js?v=20260819-timeline-1"></script>
+    <script src="js/npc-drives.js?v=20260819-drives-1"></script>
     <script src="js/game-director.js"></script>
     <script src="js/timeline-engine.js?v=20260818-ui-clean-2"></script>
     <script src="js/timeline-bridge.js?v=20260818-ui-clean-2"></script>
@@ -7097,6 +7103,27 @@
             else if (c.health.cur <= c.health.max * 0.5) effects.push({ icon: '🩹', text: 'Ferito', cls: 'warning' });
             
             if (c.gold < 0) effects.push({ icon: '💸', text: 'Debito', cls: 'danger' });
+
+            // Effetti attivi dal modulo CronacheStatus
+            try {
+                if (typeof CronacheStatus !== 'undefined') {
+                    const active = CronacheStatus.getActive();
+                    active.forEach(function (eff) {
+                        const icon = eff.type === 'debuff' ? '🔻' : (eff.type === 'buff' ? '🔺' : '✨');
+                        effects.push({ icon: icon, text: eff.name + (eff.description ? ': ' + eff.description : ''), cls: eff.type === 'debuff' ? 'danger' : 'warning' });
+                    });
+                }
+            } catch (_) {}
+
+            // NPC sotto pressione (CronacheDrives)
+            try {
+                if (typeof CronacheDrives !== 'undefined') {
+                    const highPressure = CronacheDrives.getHighPressureNPCs();
+                    highPressure.slice(0, 3).forEach(function (npc) {
+                        effects.push({ icon: '😤', text: npc.name + ' sotto pressione (' + npc.pressure + ')', cls: 'warning' });
+                    });
+                }
+            } catch (_) {}
             
             el.innerHTML = effects.map(e => 
                 `<span class="status-effect ${e.cls}" title="${e.text}">${e.icon}</span>`
@@ -10929,6 +10956,11 @@
             queueTimelineChoice(action, options.source || 'player-action');
             G.worldMemory.turnCount++;
             
+            // Tick moduli nuovi: NPC drives pressure + timeline events
+            try { if (typeof CronacheDrives !== 'undefined') CronacheDrives.tickAll(); } catch (_) {}
+            try { if (typeof CronacheTimeline !== 'undefined') CronacheTimeline.checkAutoSummary(G.worldMemory.turnCount); } catch (_) {}
+            try { if (typeof CronacheStatus !== 'undefined') CronacheStatus.tick(); } catch (_) {}
+            
             // Auto-save ogni 5 turni
             if (G.worldMemory.turnCount % 5 === 0) autoSave();
             
@@ -14331,6 +14363,64 @@ Solo se il protagonista acquisisce davvero un dominio sovrano emetti [REGNO: nom
                 else if (secPercent <= 40) criticalConditions += `\n📍 ${c.secondary.label} basso: ${c.secondary.cur}/${c.secondary.max}.`;
             }
 
+            // === INTEGRAZIONE MODULI CORE ===
+            let combatContextDirective = '';
+            let statusEffectsDirective = '';
+            let secretsDirective = '';
+            let tablesDirective = '';
+            try {
+                if (typeof CronacheCombat !== 'undefined') {
+                    const combatState = CronacheCombat.load();
+                    if (combatState && combatState.activeEncounter) {
+                        combatContextDirective = `\n⚔️ **COMBATTIMENTO ATTIVO**\n${CronacheCombat.summary()}\nUsa [COMBATTO: azione|bersaglio|danno|esito] per registrare azioni di combattimento. Usa [INIZIATIVA: nome|valore] per stabilire l'ordine. Usa [FINE_COMBATTO: esito] per concludere lo scontro.`;
+                    }
+                }
+            } catch (_) {}
+            try {
+                if (typeof CronacheStatus !== 'undefined') {
+                    const statusSummary = CronacheStatus.summary();
+                    if (statusSummary) {
+                        statusEffectsDirective = `\n🩹 **EFFETTI DI STATO ATTIVI**\n${statusSummary}\nUsa [STATO: nome|tipo|durata|potenza|descrizione] per applicare nuovi effetti. Usa [RISOLVI_STATO: nome] per rimuovere un effetto. Gli effetti attivi influenzano tiri, azioni e narrazione.`;
+                    }
+                }
+            } catch (_) {}
+            try {
+                if (typeof CronacheSecrets !== 'undefined') {
+                    const secretsSummary = CronacheSecrets.summary();
+                    if (secretsSummary) {
+                        secretsDirective = `\n🤫 **SEGRETI E CONOSCENZA**\n${secretsSummary}\nUsa [SEGRETO_SCOPERTO: nome|descrizione|importanza|tipo] quando il giocatore scopre un segreto. Usa [INDIZIO: nome|descrizione|peso] per fornire indizi verso segreti non ancora rivelati.`;
+                    }
+                }
+            } catch (_) {}
+            try {
+                if (typeof CronacheTables !== 'undefined') {
+                    const tablesSummary = CronacheTables.summary();
+                    if (tablesSummary) {
+                        tablesDirective = `\n🎲 **TABELLE CASUALI**\n${tablesSummary}\nUsa [TABELLA: nome|risultato] per forzare un tiro su una tabella specifica. Le tabelle disponibili arricchiscono il mondo con eventi casuali coerenti.`;
+                    }
+                }
+            } catch (_) {}
+            // Timeline auto-summary
+            let timelineDirective = '';
+            try {
+                if (typeof CronacheTimeline !== 'undefined') {
+                    const tlSummary = CronacheTimeline.summary();
+                    if (tlSummary) {
+                        timelineDirective = `\n📖 **CRONOLOGIA STORIA**\n${tlSummary}`;
+                    }
+                }
+            } catch (_) {}
+            // NPC Drives & Pressure
+            let drivesDirective = '';
+            try {
+                if (typeof CronacheDrives !== 'undefined') {
+                    const drSummary = CronacheDrives.summary();
+                    if (drSummary) {
+                        drivesDirective = `\n😤 **DRIVES & PRESSIONE PNG**\n${drSummary}\nUsa [DRIVE_NPC: nome|drive|priorita_1_10] per assegnare un drive a un PNG. Usa [PRESSIONE_NPC: nome|+/-importo] per modificare la pressione. Usa [RISOLVI_DRIVE: nome|driveId] o [FRUSTRA_DRIVE: nome|driveId] per modificare lo stato dei drives. PNG con pressure alta (>70) compiranno azioni drastiche.`;
+                    }
+                }
+            } catch (_) {}
+
             const systemPrompt = `Sei il NARRATORE Il tuo compito è dare vita al mondo con descrizioni evocative, dinamiche e ricche di atmosfera, mantenendo sempre una posizione neutrale e coerente. Devi coinvolgere emotivamente il giocatore, farlo sentire dentro la scena, far percepire tensione, opportunità, rischi e meraviglia.
 
 STILE:
@@ -14629,6 +14719,8 @@ ${masterTurn.prompt}
 ${directorTurn.prompt}
 
 ${criticalConditions}
+
+${combatContextDirective}${statusEffectsDirective}${secretsDirective}${tablesDirective}${timelineDirective}${drivesDirective}
 
 SCRIVI ${lengths[s.length]} di narrazione.`;
 
@@ -14982,6 +15074,142 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 memoryChanged = true;
             }
 
+            // === TAG PARSING NUOVI MODULI ===
+            // [COMBATTO: azione|bersaglio|danno|esito]
+            const combatRe = /\[COMBATTO:\s*([^\]]+)\]/gi;
+            while ((m = combatRe.exec(response)) !== null) {
+                const parts = m[1].split('|').map(p => p.trim());
+                try { if (typeof CronacheCombat !== 'undefined') CronacheCombat.load(); } catch (_) {}
+                addStoryEntry(`⚔️ ${parts.join(' · ')}`, 'mechanic');
+                uiStateChanged = true;
+            }
+            // [INIZIATIVA: nome|valore]
+            const initRe = /\[INIZIATIVA:\s*([^|\]]+)\|([^\]]+)\]/gi;
+            while ((m = initRe.exec(response)) !== null) {
+                addStoryEntry(`🎯 Iniziativa: ${m[1].trim()} (${m[2].trim()})`, 'mechanic');
+                uiStateChanged = true;
+            }
+            // [FINE_COMBATTO: esito]
+            const endCombatRe = /\[FINE_COMBATTO:\s*([^\]]+)\]/gi;
+            while ((m = endCombatRe.exec(response)) !== null) {
+                addStoryEntry(`🏁 Combattimento concluso: ${m[1].trim()}`, 'mechanic');
+                uiStateChanged = true;
+            }
+            // [STATO: nome|tipo|durata|potenza|descrizione]
+            const statoRe = /\[STATO:\s*([^\]]+)\]/gi;
+            while ((m = statoRe.exec(response)) !== null) {
+                const parts = m[1].split('|').map(p => p.trim());
+                try {
+                    if (typeof CronacheStatus !== 'undefined') {
+                        CronacheStatus.add({
+                            name: parts[0] || '',
+                            type: parts[1] || 'buff',
+                            duration: parseInt(parts[2]) || 1,
+                            potency: parseInt(parts[3]) || 1,
+                            description: parts[4] || ''
+                        });
+                        addStoryEntry(`🩹 Effetto: ${parts[0] || 'Sconosciuto'}`, 'mechanic');
+                    }
+                } catch (_) {}
+                uiStateChanged = true;
+            }
+            // [RISOLVI_STATO: nome]
+            const risolviStatoRe = /\[RISOLVI_STATO:\s*([^\]]+)\]/gi;
+            while ((m = risolviStatoRe.exec(response)) !== null) {
+                try {
+                    if (typeof CronacheStatus !== 'undefined') {
+                        CronacheStatus.remove(m[1].trim());
+                        addStoryEntry(`✨ Effetto terminato: ${m[1].trim()}`, 'mechanic');
+                    }
+                } catch (_) {}
+                uiStateChanged = true;
+            }
+            // [SEGRETO_SCOPERTO: nome|descrizione|importanza|tipo]
+            const segretoScopertoRe = /\[SEGRETO_SCOPERTO:\s*([^\]]+)\]/gi;
+            while ((m = segretoScopertoRe.exec(response)) !== null) {
+                const parts = m[1].split('|').map(p => p.trim());
+                try {
+                    if (typeof CronacheSecrets !== 'undefined') {
+                        CronacheSecrets.discover({
+                            name: parts[0] || '',
+                            description: parts[1] || '',
+                            importance: parts[2] || 'normal',
+                            type: parts[3] || 'general'
+                        });
+                        addStoryEntry(`🤫 Segreto scoperto: ${parts[0] || ''}`, 'memory-update');
+                    }
+                } catch (_) {}
+                memoryChanged = true;
+            }
+            // [INDIZIO: nome|descrizione|peso]
+            const indizioRe = /\[INDIZIO:\s*([^\]]+)\]/gi;
+            while ((m = indizioRe.exec(response)) !== null) {
+                const parts = m[1].split('|').map(p => p.trim());
+                try {
+                    if (typeof CronacheSecrets !== 'undefined') {
+                        CronacheSecrets.addHint({
+                            target: parts[0] || '',
+                            description: parts[1] || '',
+                            weight: parseInt(parts[2]) || 1
+                        });
+                    }
+                } catch (_) {}
+                memoryChanged = true;
+            }
+            // [TABELLA: nome|risultato]
+            const tabellaRe = /\[TABELLA:\s*([^|\]]+)\|([^\]]+)\]/gi;
+            while ((m = tabellaRe.exec(response)) !== null) {
+                addStoryEntry(`🎲 ${m[1].trim()}: ${m[2].trim()}`, 'mechanic');
+                uiStateChanged = true;
+            }
+            // [DRIVE_NPC: nome|drive|priorita]
+            const driveNpcRe = /\[DRIVE_NPC:\s*([^|\]]+)\|([^|\]]+)(?:\|([^\]]+))?\]/gi;
+            while ((m = driveNpcRe.exec(response)) !== null) {
+                try {
+                    if (typeof CronacheDrives !== 'undefined') {
+                        const npcName = m[1].trim();
+                        const drive = m[2].trim();
+                        const priority = parseInt(m[3]) || 5;
+                        CronacheDrives.addNPC(npcName, [{ drive, priority }]);
+                        addStoryEntry(`🎯 Drive: ${npcName} → ${drive}`, 'memory-update');
+                    }
+                } catch (_) {}
+                memoryChanged = true;
+            }
+            // [PRESSIONE_NPC: nome|+/-importo]
+            const pressioneRe = /\[PRESSIONE_NPC:\s*([^|\]]+)\|([^\]]+)\]/gi;
+            while ((m = pressioneRe.exec(response)) !== null) {
+                try {
+                    if (typeof CronacheDrives !== 'undefined') {
+                        const npcName = m[1].trim();
+                        const raw = m[2].trim();
+                        const amount = parseInt(raw.replace(/[^0-9-]/g, '')) || 0;
+                        CronacheDrives.tickPressure(npcName, amount);
+                    }
+                } catch (_) {}
+                memoryChanged = true;
+            }
+            // [RISOLVI_DRIVE: nome|driveId]
+            const risolviDriveRe = /\[RISOLVI_DRIVE:\s*([^|\]]+)\|([^\]]+)\]/gi;
+            while ((m = risolviDriveRe.exec(response)) !== null) {
+                try {
+                    if (typeof CronacheDrives !== 'undefined') {
+                        CronacheDrives.resolveDrive(m[1].trim(), m[2].trim());
+                    }
+                } catch (_) {}
+                memoryChanged = true;
+            }
+            // [FRUSTRA_DRIVE: nome|driveId]
+            const frustraDriveRe = /\[FRUSTRA_DRIVE:\s*([^|\]]+)\|([^\]]+)\]/gi;
+            while ((m = frustraDriveRe.exec(response)) !== null) {
+                try {
+                    if (typeof CronacheDrives !== 'undefined') {
+                        CronacheDrives.frustrateDrive(m[1].trim(), m[2].trim());
+                    }
+                } catch (_) {}
+                memoryChanged = true;
+            }
+
             // Extract Special Items
             const itemRe = /\[OGGETTO:\s*([^|]+)\|([^|]+)\|([^\]]+)\]/gi;
             while ((m = itemRe.exec(response)) !== null) {
@@ -15298,6 +15526,7 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 .replace(/\[MORTE_FAMILIARE:[^\]]*\]/gi, '')
                 .replace(/\[EVENTO:[^\]]*\]/gi, '')
                 .replace(/\[SCENE:[^\]]*\]/gi, '')
+                .replace(/\[(?:COMBATTO|INIZIATIVA|FINE_COMBATTO|STATO|RISOLVI_STATO|SEGRETO_SCOPERTO|INDIZIO|TABELLA|DRIVE_NPC|PRESSIONE_NPC|RISOLVI_DRIVE|FRUSTRA_DRIVE):[^\]]*\]/gi, '')
                 .replace(/\[(?:ATTESA_EVENTO|CODA_EVENTO|ESITO_STRATEGICO):[^\]]*\]/gi, '')
                 .replace(/\[CHAT:[^\]]*\]/gi, '')
                 .replace(/\[(?:ESITO_CHAT|ACCORDO_CHAT):[^\]]*\]/gi, '')
