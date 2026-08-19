@@ -182,7 +182,14 @@
                 if (name) rows.push({ domain: 'kingdom', role: 'diplomatic', subjectId, subjectName, source: { ...normalized, name }, active: normalized.status !== 'closed' });
             });
         }
-        return rows;
+
+        const deduped = new Map();
+        rows.forEach(row => {
+            const stableKey = `${row.domain}|${row.subjectId}|${keyOf(row.source?.name)}`;
+            const existing = deduped.get(stableKey);
+            if (!existing || (existing.role === 'contractor' && row.role !== 'contractor')) deduped.set(stableKey, row);
+        });
+        return [...deduped.values()];
     }
 
     function defaultStrategy(role, disposition) {
@@ -264,16 +271,17 @@
             };
             registry.agents.push(agent);
         } else {
+            const firstSyncThisTurn = number(agent.lastSeenTurn, -1) < turn;
             agent.name = name;
-            agent.role = row.role || agent.role;
+            if (agent.role === 'contractor' || row.role !== 'contractor') agent.role = row.role || agent.role;
             agent.subjectName = row.subjectName || agent.subjectName;
             agent.status = row.active ? 'active' : 'dormant';
-            agent.trust = clamp(number(agent.trust, baseline) * 0.82 + baseline * 0.18);
-            agent.influence = sourceInfluence(row.role, row.source);
-            agent.urgency = sourceUrgency(row.role, row.source);
-            agent.publicGoal = roleGoal(row.role, row.source) || agent.publicGoal;
-            agent.privateGoal = rolePrivateGoal(row.role, row.source) || agent.privateGoal;
-            agent.leverage = sourceLeverage(row.role, row.source) || agent.leverage;
+            if (firstSyncThisTurn) agent.trust = clamp(number(agent.trust, baseline) * 0.9 + baseline * 0.1);
+            agent.influence = sourceInfluence(agent.role, row.source);
+            agent.urgency = sourceUrgency(agent.role, row.source);
+            agent.publicGoal = roleGoal(agent.role, row.source) || agent.publicGoal;
+            agent.privateGoal = rolePrivateGoal(agent.role, row.source) || agent.privateGoal;
+            agent.leverage = sourceLeverage(agent.role, row.source) || agent.leverage;
             agent.personality = clean(row.source.personality || row.source.traits || agent.personality, 180);
             agent.constraints = clean(row.source.constraints || row.source.limits || agent.constraints, 220);
             agent.lastSeenTurn = turn;
@@ -668,6 +676,16 @@
         hubObserver.observe(body, { childList: true });
     }
 
+    function installUiEvents(documentRef, windowRef) {
+        if (documentRef.__managementAgentsUiInstalled) return;
+        documentRef.__managementAgentsUiInstalled = true;
+        documentRef.addEventListener('click', event => {
+            if (!event.target?.closest?.('#btn-management-hub, #btn-advance-world, #btn-simulate-timeline')) return;
+            try { syncAgents(getState()); } catch (_error) { }
+            windowRef.setTimeout(() => renderAgentPanel(documentRef), 0);
+        }, true);
+    }
+
     function install(documentRef, windowRef) {
         const state = getState();
         if (state?.worldMemory) syncAgents(state);
@@ -675,11 +693,7 @@
         if (documentRef && windowRef) {
             installStyles(documentRef);
             observeHub(documentRef, windowRef);
-            documentRef.addEventListener('click', event => {
-                if (!event.target?.closest?.('#btn-management-hub, #btn-advance-world, #btn-simulate-timeline')) return;
-                try { syncAgents(getState()); } catch (_error) { }
-                windowRef.setTimeout(() => renderAgentPanel(documentRef), 0);
-            }, true);
+            installUiEvents(documentRef, windowRef);
             renderAgentPanel(documentRef);
             documentRef.body?.classList.add('management-agents-ready');
         }
