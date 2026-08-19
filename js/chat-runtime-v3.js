@@ -23,6 +23,10 @@
         .replace(/\s+/g, ' ')
         .trim();
 
+    function escapeRegex(value) {
+        return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     function extractTextFromPayload(value, depth = 0) {
         if (depth > 6 || value == null) return '';
         if (typeof value === 'string') return clean(value, 8000);
@@ -68,8 +72,7 @@
             .replace(/\s+/g, ' ')
             .trim();
         if (speaker) {
-            const escaped = String(speaker).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            text = text.replace(new RegExp(`^\\*{0,2}${escaped}\\*{0,2}\\s*[:—-]\\s*`, 'i'), '').trim();
+            text = text.replace(new RegExp(`^\\*{0,2}${escapeRegex(speaker)}\\*{0,2}\\s*[:—-]\\s*`, 'i'), '').trim();
         }
         return text;
     }
@@ -131,15 +134,15 @@
             const full = keyOf(name);
             if (full && full.length >= 3 && (` ${text} `).includes(` ${full} `)) return true;
             const tokens = full.split(' ').filter(token => token.length >= 4 && !/^(signor|signora|conte|duca|duchessa|re|regina|lord|lady)$/.test(token));
-            return tokens.some(token => new RegExp(`(?:^|\\s)${token}(?:\\s|$)`).test(text));
+            return tokens.some(token => new RegExp(`(?:^|\\s)${escapeRegex(token)}(?:\\s|$)`).test(text));
         });
     }
 
-    function explicitCloseRequested(thread, chatApi) {
+    function explicitCloseRequested(thread) {
         const messages = asArray(thread?.messages);
         if (!messages.length) return false;
         const recent = messages.slice(-2).map(message => keyOf(message?.text)).join(' ');
-        return /\b(conclud|chiud|conversazione finita|fine della conversazione|non ho altro|non abbiamo altro|arrivederci|saluti|basta cosi|termina qui|terminiamo qui)\b/.test(recent);
+        return /\b(conclud\w*|chiud\w*|conversazione finita|fine della conversazione|non ho altro|non abbiamo altro|arrivederci|saluti|basta cosi|termina qui|terminiamo qui)\b/.test(recent);
     }
 
     function installEngine(chatApi) {
@@ -217,17 +220,16 @@
             const metrics = chatApi.conversationMetrics?.(thread) || { playerTurns: 0 };
             const lastMessage = asArray(thread.messages).slice(-1)[0];
             const lastAct = chatApi.classifyDialogueAct?.(lastMessage?.text || '') || '';
-            const shouldFinish = explicitCloseRequested(thread, chatApi) ||
+            const shouldFinish = explicitCloseRequested(thread) ||
                 (metrics.playerTurns >= 4 && lastMessage?.source !== 'player' && !['question', 'proposal'].includes(lastAct));
             if (!shouldFinish) return result;
-            result = originalCloseConversation(result.chats, threadId, {
+            return originalCloseConversation(result.chats, threadId, {
                 ...context,
                 force: true,
                 summary: context.summary || `Le parti hanno espresso una posizione finale su ${clean(thread.agenda || thread.title, 260)}.`,
                 consequence: context.consequence || clean(lastMessage?.text, 420),
                 followUp: context.followUp || 'Un nuovo confronto richiederà un fatto nuovo, una nuova proposta o un nuovo evento.'
             });
-            return result;
         };
 
         chatApi[PATCH_MARK] = PATCH_VERSION;
@@ -237,9 +239,13 @@
     let wrappedSend = null;
     function installUi(documentRef, windowRef) {
         if (!documentRef || !windowRef) return false;
-        const original = windowRef.sendWorldChatMessage;
-        if (typeof original !== 'function') return false;
-        if (!wrappedSend || wrappedSend.__original !== original) {
+        const current = windowRef.sendWorldChatMessage;
+        if (typeof current !== 'function') return false;
+
+        if (current.__chatRuntimeV3) {
+            wrappedSend = current;
+        } else {
+            const original = current;
             wrappedSend = async function chatRuntimeV3Send(...args) {
                 const button = documentRef.getElementById('btn-send-chat');
                 const input = documentRef.getElementById('chat-input');
@@ -263,6 +269,7 @@
             wrappedSend.__chatRuntimeV3 = true;
             windowRef.sendWorldChatMessage = wrappedSend;
         }
+
         const button = documentRef.getElementById('btn-send-chat');
         if (button) button.onclick = wrappedSend;
         const input = documentRef.getElementById('chat-input');
