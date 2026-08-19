@@ -49,5 +49,5 @@ assert(descriptor.includes('calculating') || descriptor.includes('guarded'));
 const prompt = continuity.buildContinuityPrompt(narrative, state);
 assert(prompt.includes('CHARACTER CONTINUITY REFERENCES'));
 assert(prompt.includes("Lorenzo de' Medici"));
-assert(prompt.includes('preserve the same identities'));
+assert(prompt.includes('identity must remain recognizable'));
 console.log('scene-continuity-v8 regression: ok');
