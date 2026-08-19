@@ -13,7 +13,15 @@ const state = {
     worldMemory: {
         turnCount: 2,
         world: { protagonistLineage: parsed },
-        portraitPhotos: { schemaVersion: 1, entries: {} }
+        portraitPhotos: { schemaVersion: 1, entries: {} },
+        chats: [{
+            participants: ["Lorenzo de' Medici", 'Andrea'],
+            messages: [
+                { speaker: "Lorenzo de' Medici", speakerType: 'npc', source: 'llm' },
+                { speaker: 'Andrea', speakerType: 'protagonista', source: 'player' }
+            ],
+            agreements: [{ parties: ['Andrea', "Lorenzo de' Medici"] }]
+        }]
     }
 };
 assert.strictEqual(lineage.applyLineage(state), true, 'un nome singolo deve ereditare il cognome esplicito della casata');
@@ -21,6 +29,9 @@ assert.strictEqual(state.character.name, "Andrea de' Medici");
 assert.strictEqual(state.character.givenName, 'Andrea');
 assert.strictEqual(state.character.house, 'Casata Medici');
 assert.strictEqual(state.character.surname, "de' Medici");
+assert.deepStrictEqual(state.worldMemory.chats[0].participants, ["Lorenzo de' Medici", "Andrea de' Medici"], 'la chat esistente deve mostrare subito il nome completo');
+assert.strictEqual(state.worldMemory.chats[0].messages[1].speaker, "Andrea de' Medici");
+assert.strictEqual(state.worldMemory.chats[0].agreements[0].parties[0], "Andrea de' Medici");
 
 const fullNameState = {
     character: { name: 'Andrea Bianchi' },
