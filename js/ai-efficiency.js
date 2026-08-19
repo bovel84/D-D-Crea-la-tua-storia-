@@ -17,6 +17,7 @@
     const MANAGEMENT_DIRECTOR_SRC = 'js/management-director.js?v=20260819-management-director-1';
     const MANAGEMENT_HUB_SRC = 'js/management-hub.js?v=20260819-management-first-1';
     const BUSINESS_SPECIALIZATIONS_SRC = 'js/business-specializations.js?v=20260819-sector-specialization-1';
+    const BUSINESS_SECTOR_EFFECTS_SRC = 'js/business-sector-effects.js?v=20260819-sector-effects-1';
     const MANAGEMENT_AUTONOMY_SRC = 'js/management-autonomy.js?v=20260819-management-autonomy-1';
     const MANAGEMENT_LAYOUT_SRC = 'js/management-layout.js?v=20260819-management-layout-1';
 
@@ -45,6 +46,7 @@
         document.write('<script src="' + MANAGEMENT_DIRECTOR_SRC + '" data-management-director="1"><\/script>');
         document.write('<script src="' + MANAGEMENT_HUB_SRC + '" data-management-hub="1"><\/script>');
         document.write('<script src="' + BUSINESS_SPECIALIZATIONS_SRC + '" data-business-specializations="1"><\/script>');
+        document.write('<script src="' + BUSINESS_SECTOR_EFFECTS_SRC + '" data-business-sector-effects="1"><\/script>');
         document.write('<script src="' + MANAGEMENT_AUTONOMY_SRC + '" data-management-autonomy="1"><\/script>');
         document.write('<script src="' + MANAGEMENT_LAYOUT_SRC + '" data-management-layout="1"><\/script>');
     } else {
@@ -67,10 +69,13 @@
                                             root.CronacheManagementHub?.install?.(document, window);
                                             appendScript(BUSINESS_SPECIALIZATIONS_SRC, 'data-business-specializations', () => {
                                                 root.CronacheBusinessSpecializations?.install?.(document);
-                                                appendScript(MANAGEMENT_AUTONOMY_SRC, 'data-management-autonomy', () => {
-                                                    root.CronacheManagementAutonomy?.install?.(document, window);
-                                                    appendScript(MANAGEMENT_LAYOUT_SRC, 'data-management-layout', () => {
-                                                        root.CronacheManagementLayout?.install?.(document);
+                                                appendScript(BUSINESS_SECTOR_EFFECTS_SRC, 'data-business-sector-effects', () => {
+                                                    root.CronacheBusinessSectorEffects?.install?.();
+                                                    appendScript(MANAGEMENT_AUTONOMY_SRC, 'data-management-autonomy', () => {
+                                                        root.CronacheManagementAutonomy?.install?.(document, window);
+                                                        appendScript(MANAGEMENT_LAYOUT_SRC, 'data-management-layout', () => {
+                                                            root.CronacheManagementLayout?.install?.(document);
+                                                        });
                                                     });
                                                 });
                                             });
