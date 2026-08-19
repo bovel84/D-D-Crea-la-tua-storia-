@@ -19,6 +19,7 @@
         ['js/management-hub.js?v=20260819-management-first-1', 'data-management-hub', 'CronacheManagementHub', 'document-window'],
         ['js/business-specializations.js?v=20260819-sector-specialization-1', 'data-business-specializations', 'CronacheBusinessSpecializations', 'document'],
         ['js/business-sector-effects.js?v=20260819-sector-effects-1', 'data-business-sector-effects', 'CronacheBusinessSectorEffects', 'none'],
+        ['js/business-narrative-recovery.js?v=20260820-business-recovery-1', 'data-business-narrative-recovery', 'CronacheBusinessNarrativeRecovery', 'none'],
         ['js/management-agents.js?v=20260819-persistent-agents-1', 'data-management-agents', 'CronacheManagementAgents', 'document-window'],
         ['js/systemic-world.js?v=20260819-systemic-world-1', 'data-systemic-world', 'CronacheSystemicWorld', 'document-window'],
         ['js/management-autonomy-v2.js?v=20260819-management-autonomy-2', 'data-management-autonomy', 'CronacheManagementAutonomy', 'document-window'],
