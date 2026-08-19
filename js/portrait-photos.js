@@ -71,6 +71,8 @@
             const selected = normalizeGender(state?.selectedGender);
             if (selected !== 'any') return selected;
         }
+        const portraitGender = inferGenderFromPortrait(input);
+        if (portraitGender !== 'any') return portraitGender;
         try {
             const resolved = portraitEngine()?.resolveGender?.(input, {
                 story: state?.currentStory,
@@ -82,7 +84,7 @@
             });
             if (resolved === 'male' || resolved === 'female') return resolved;
         } catch (_error) { }
-        return inferGenderFromPortrait(input);
+        return 'any';
     }
 
     function resolveEra(state = getState(), entity = {}) {
@@ -136,6 +138,11 @@
         return 'adult';
     }
 
+    function looksLikeOrganization(name) {
+        const value = keyOf(name);
+        return /(?:^|-)(?:societa|srl|spa|company|compagnia|corporation|inc|ltd|banca|bank|gilda|guild|lega|ordine|consiglio|casa-d-aste|forniture|cooperativa|ministero|governo|regno|repubblica|stato|partito|associazione|sindacato|bottega|officina|emporio|ristorante|hotel|locanda|taverna)(?:-|$)/.test(value);
+    }
+
     function isPersonEntity(entity, state = getState()) {
         if (!entity || typeof entity !== 'object' || !clean(entity.name, 100)) return false;
         if (isProtagonist(entity, state)) return true;
@@ -143,6 +150,7 @@
         const role = keyOf(entity.role || entity.historicalRole);
         if (/faction|fazione|kingdom|regno|company|azienda|impresa|organization|organizzazione|guild|gilda|partito/.test(kind)) return false;
         if (/faction|fazione|organizzazione|azienda|impresa|regno/.test(role)) return false;
+        if (looksLikeOrganization(entity.name) && !/persona|person|individual|npc/.test(kind)) return false;
         return true;
     }
 
@@ -388,7 +396,7 @@
         img.dataset.portraitPhotoDecorated = '1';
         img.dataset.portraitPhotoKey = entry.key;
         img.dataset.portraitPhotoUrl = entry.url;
-        img.dataset.portraitFallbackSrc = img.currentSrc || img.src || '';
+        if (!img.dataset.portraitFallbackSrc) img.dataset.portraitFallbackSrc = img.currentSrc || img.src || '';
         img.decoding = 'async';
         img.loading = img.closest?.('#topbar-protagonist-portrait, #char-portrait, #story-intro-portrait') ? 'eager' : 'lazy';
         const observer = ensureIntersectionObserver(windowRef);
@@ -408,17 +416,17 @@
 
     function resetRenderedIdentity(key, documentRef, state, windowRef) {
         documentRef.querySelectorAll(`img.portrait-image[data-portrait-photo-key="${String(key).replace(/"/g, '')}"]`).forEach(img => {
-            img.dataset.portraitPhotoDecorated = '0';
+            img.dataset.portraitPhotoDecorated = '1';
             img.dataset.portraitPhotoLoaded = '0';
             const label = labelFromImage(img, state);
             const entity = findEntity(label, state) || state?.character;
             const entry = entity ? ensurePhotoEntry(entity, state) : null;
             if (!entry) return;
             img.dataset.portraitPhotoUrl = entry.url;
+            img.dataset.portraitPhotoFallbackApplied = '0';
             img.classList.remove('portrait-photo-ready', 'portrait-photo-failed');
             loadPhoto(img);
         });
-        scanPortraits(documentRef, state, windowRef);
     }
 
     function ensureCharacterReroll(documentRef, windowRef) {
@@ -578,6 +586,7 @@
         resolveEra,
         resolveRole,
         ageDescriptor,
+        looksLikeOrganization,
         isPersonEntity,
         collectEntities,
         findEntity,
