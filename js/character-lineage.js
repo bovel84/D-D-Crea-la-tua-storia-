@@ -171,6 +171,38 @@
         };
     }
 
+    function migrateProtagonistReferences(state, oldName, newName) {
+        const memory = state?.worldMemory;
+        if (!memory || !oldName || !newName) return 0;
+        const oldKey = keyOf(oldName);
+        let changed = 0;
+        asArray(memory.chats).forEach(thread => {
+            if (Array.isArray(thread.participants)) {
+                thread.participants = thread.participants.map(name => {
+                    const key = keyOf(name);
+                    if (key === oldKey || /^(protagonista|giocatore|player)$/.test(key)) {
+                        changed++;
+                        return newName;
+                    }
+                    return name;
+                });
+            }
+            asArray(thread.messages).forEach(message => {
+                const protagonistMessage = message?.source === 'player' || message?.speakerType === 'protagonista';
+                if (!protagonistMessage) return;
+                if (keyOf(message.speaker) !== keyOf(newName)) {
+                    message.speaker = newName;
+                    changed++;
+                }
+            });
+            asArray(thread.agreements).forEach(agreement => {
+                if (!Array.isArray(agreement.parties)) return;
+                agreement.parties = agreement.parties.map(name => keyOf(name) === oldKey ? newName : name);
+            });
+        });
+        return changed;
+    }
+
     function applyLineage(state = getState(), lineage = detectLineage(state)) {
         if (!state?.character || !lineage?.surname) return false;
         const character = state.character;
@@ -191,6 +223,7 @@
         if (!fullName || fullName === currentName) return false;
         preservePortraitSeed(state, currentName, fullName);
         character.name = fullName;
+        migrateProtagonistReferences(state, currentName, fullName);
         try {
             root.dispatchEvent?.(new CustomEvent('cronache:character-lineage-updated', { detail: { oldName: currentName, newName: fullName, lineage } }));
         } catch (_error) { }
@@ -288,6 +321,7 @@
         factionLineage,
         storyLineage,
         detectLineage,
+        migrateProtagonistReferences,
         applyLineage,
         augmentBootstrapPrompt,
         patchWorldBootstrap,
