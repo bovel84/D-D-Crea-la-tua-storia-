@@ -5,8 +5,8 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 1;
-    const SCHEMA_VERSION = 1;
+    const PATCH_VERSION = 2;
+    const SCHEMA_VERSION = 2;
     const PROMPT_MARKER = 'CASATA_PROTAGONISTA_COGNOME';
 
     const asArray = value => Array.isArray(value) ? value : [];
@@ -35,7 +35,7 @@
     }
 
     function words(value) {
-        return clean(value, 160).split(/\s+/).filter(Boolean);
+        return clean(value, 180).split(/\s+/).filter(Boolean);
     }
 
     function extractSurname(fullName) {
@@ -48,16 +48,16 @@
     }
 
     function surnameFromHouseName(value) {
-        let name = clean(value, 140);
+        let name = clean(value, 160);
         if (!name) return '';
         name = name.replace(/^(?:la\s+)?(?:casata|casa|famiglia|dinastia|house|clan)\s+(?:di\s+)?/i, '').trim();
-        name = name.replace(/^(?:dei|degli|delle)\s+/i, '').trim();
+        name = name.replace(/^(?:dei|degli|delle|del|della|di)\s+/i, '').trim();
         return clean(name, 100);
     }
 
     function normalizeLineage(source, confidence = 'explicit') {
         const input = source && typeof source === 'object' ? source : {};
-        const house = clean(input.house || input.casata || input.dynasty || input.family || input.familyName, 140);
+        const house = clean(input.house || input.casata || input.dynasty || input.family || input.familyName, 160);
         const surname = clean(input.surname || input.cognome || input.formalSurname || surnameFromHouseName(house), 100);
         if (!surname) return null;
         return {
@@ -77,7 +77,38 @@
         const house = parts[4];
         const surname = parts[5];
         if (!house || !surname || /^(?:nessuna?|none|vuoto|-)$/.test(keyOf(house)) || /^(?:nessuna?|none|vuoto|-)$/.test(keyOf(surname))) return null;
-        return normalizeLineage({ house, surname, source: 'world-bootstrap' }, 'explicit');
+        return normalizeLineage({ house, surname, source: 'world-bootstrap' }, 'generated');
+    }
+
+    function storyCorpus(state) {
+        const story = state?.currentStory || {};
+        return [
+            story.title, story.name, story.desc, story.description, story.premise, story.intro,
+            story.opening, story.scenario, story.protagonist, story.protagonistDescription,
+            story.setting, story.notes
+        ].map(value => clean(value, 1200)).filter(Boolean).join(' | ');
+    }
+
+    function textualStoryLineage(state) {
+        const corpus = storyCorpus(state);
+        if (!corpus) return null;
+        const patterns = [
+            /(?:appartien\w*|membro|erede|figli\w*|discendent\w*)\s+(?:alla|della|di una|della famiglia|della casata)?\s*(?:casata|casa|famiglia|dinastia)\s+(?:dei|degli|delle|del|della|di)?\s*([A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’-]{2,}(?:\s+[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’-]{2,})?)/i,
+            /(?:casata|casa|famiglia|dinastia)\s+(?:dei|degli|delle|del|della|di)?\s*([A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’-]{2,}(?:\s+[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’-]{2,})?)/i
+        ];
+        for (const pattern of patterns) {
+            const match = corpus.match(pattern);
+            if (!match?.[1]) continue;
+            const surname = surnameFromHouseName(match[1]);
+            if (!surname || /^(?:medici|nessuno|nessuna)$/i.test(surname) && !/medici/i.test(match[0])) continue;
+            const article = /^dei\b/i.test(match[0]) ? 'dei ' : '';
+            return normalizeLineage({
+                house: `Casata ${article}${surname}`.replace(/\s+/g, ' ').trim(),
+                surname,
+                source: 'story-text'
+            }, 'story');
+        }
+        return null;
     }
 
     function familyLineage(state) {
@@ -97,7 +128,7 @@
         });
         const best = [...surnames.values()].sort((a, b) => b.count - a.count)[0];
         if (!best || best.count < 1) return null;
-        return normalizeLineage({ house: best.surname, surname: best.surname, source: 'known-family' }, best.count >= 2 ? 'strong' : 'family');
+        return normalizeLineage({ house: `Famiglia ${best.surname}`, surname: best.surname, source: 'known-family' }, best.count >= 2 ? 'strong' : 'family');
     }
 
     function factionLineage(state) {
@@ -106,10 +137,8 @@
         if (!character?.name) return null;
         const factions = [...asArray(memory?.world?.factions), ...asArray(memory.factions)];
         const relations = asArray(memory?.world?.relations);
-        const explicitHouse = clean(character.house || character.casata || character.dynasty || character.familyName, 140);
-        let candidate = explicitHouse
-            ? factions.find(item => keyOf(item?.name) === keyOf(explicitHouse))
-            : null;
+        const explicitHouse = clean(character.house || character.casata || character.dynasty || character.familyName, 160);
+        let candidate = explicitHouse ? factions.find(item => keyOf(item?.name) === keyOf(explicitHouse)) : null;
         if (!candidate) {
             const linkedNames = new Set();
             relations.forEach(relation => {
@@ -130,23 +159,30 @@
             house: story.protagonistHouse || story.house || story.casata || story.dynasty,
             surname: story.protagonistSurname || story.surname || story.cognome,
             source: 'story'
-        }, 'explicit');
-        if (explicit) return explicit;
-        return null;
+        }, 'story');
+        return explicit || textualStoryLineage(state);
+    }
+
+    function storedAutoLineage(state) {
+        return normalizeLineage(state?.worldMemory?.characterLineage || state?.worldMemory?.world?.protagonistLineage, 'generated');
     }
 
     function detectLineage(state = getState()) {
         if (!state?.character) return null;
+        const story = storyLineage(state);
+        if (story) return story;
+
         const character = state.character;
-        const explicit = normalizeLineage({
+        const current = normalizeLineage({
             house: character.house || character.casata || character.dynasty || character.familyName,
             surname: character.surname || character.cognome,
             source: 'character'
         }, 'explicit');
-        if (explicit) return explicit;
-        const worldStored = normalizeLineage(state?.worldMemory?.world?.protagonistLineage || state?.worldMemory?.characterLineage, 'explicit');
-        if (worldStored) return worldStored;
-        return storyLineage(state) || familyLineage(state) || factionLineage(state);
+        const stored = storedAutoLineage(state);
+        const currentLooksAuto = Boolean(current && stored && keyOf(current.surname) === keyOf(stored.surname) && !/player|manual/.test(keyOf(stored.source)));
+        if (current && !currentLooksAuto) return current;
+        if (stored) return stored;
+        return familyLineage(state) || factionLineage(state);
     }
 
     function preservePortraitSeed(state, oldName, newName) {
@@ -206,20 +242,28 @@
     function applyLineage(state = getState(), lineage = detectLineage(state)) {
         if (!state?.character || !lineage?.surname) return false;
         const character = state.character;
-        const currentName = clean(character.name, 140);
+        const currentName = clean(character.name, 160);
         if (!currentName) return false;
         const currentSurname = extractSurname(currentName);
-        character.house = lineage.house || character.house || lineage.surname;
+        const previousStored = storedAutoLineage(state);
+        const previousWasManaged = Boolean(currentSurname && previousStored && keyOf(currentSurname) === keyOf(previousStored.surname) && !/player|manual/.test(keyOf(previousStored.source)));
+        const givenName = clean(character.givenName || words(currentName)[0], 80);
+
+        if (currentSurname && !previousWasManaged) {
+            character.givenName = givenName;
+            return false;
+        }
+
+        const fullName = clean(`${givenName || currentName} ${lineage.surname}`, 160);
+        character.house = lineage.house || lineage.surname;
         character.casata = character.house;
         character.surname = lineage.surname;
         character.cognome = lineage.surname;
-        character.givenName = clean(character.givenName || words(currentName)[0], 80);
+        character.givenName = givenName || words(fullName)[0];
         if (state.worldMemory) {
-            state.worldMemory.characterLineage = { ...lineage, appliedAtTurn: Math.max(0, Number(state.worldMemory.turnCount) || 0) };
-            if (state.worldMemory.world) state.worldMemory.world.protagonistLineage = { ...lineage };
+            state.worldMemory.characterLineage = { ...lineage, managed: true, appliedAtTurn: Math.max(0, Number(state.worldMemory.turnCount) || 0) };
+            if (state.worldMemory.world) state.worldMemory.world.protagonistLineage = { ...lineage, managed: true };
         }
-        if (currentSurname) return false; // Un nome completo inserito dal giocatore non viene sovrascritto.
-        const fullName = clean(`${currentName} ${lineage.surname}`, 140);
         if (!fullName || fullName === currentName) return false;
         preservePortraitSeed(state, currentName, fullName);
         character.name = fullName;
@@ -233,7 +277,7 @@
     function augmentBootstrapPrompt(base) {
         const text = String(base || '');
         if (!text || text.includes(PROMPT_MARKER)) return text;
-        return `${text}\n\n${PROMPT_MARKER}: Se la premessa stabilisce che il protagonista appartiene a una casata, famiglia o dinastia, il suo cognome deve derivare da quella casata. Non inventare una casata solo per aggiungere un cognome. Estendi il tag MONDO_SETUP con due campi finali opzionali: [MONDO_SETUP: nome_mondo|premessa|conflitto_centrale|posta_in_gioco|casata_protagonista_o_vuoto|cognome_formale_del_protagonista_o_vuoto]. Se la casata non è definita usa vuoto in entrambi i campi. Il cognome deve rispettare la forma storica/culturale corretta (es. particelle come de', di, von solo quando pertinenti).`;
+        return `${text}\n\n${PROMPT_MARKER}: La casata del protagonista è un dato della STORIA e del PERSONAGGIO, non della notorietà degli NPC. Se la premessa, la descrizione del protagonista o i dati della storia nominano una casata/famiglia/dinastia, usa ESATTAMENTE quella. Non assegnare mai automaticamente Medici, Sforza, Borgia o altre famiglie famose solo perché compaiono nel mondo. Estendi il tag MONDO_SETUP con due campi finali opzionali: [MONDO_SETUP: nome_mondo|premessa|conflitto_centrale|posta_in_gioco|casata_protagonista_o_vuoto|cognome_formale_del_protagonista_o_vuoto]. Se la casata non è definita usa vuoto in entrambi i campi. Il cognome deve rispettare la forma storica/culturale della casata.`;
     }
 
     function patchWorldBootstrap() {
@@ -241,41 +285,45 @@
         if (!bootstrap) return false;
         let patched = false;
         const originalPrompt = bootstrap.buildBootstrapPrompt;
-        if (typeof originalPrompt === 'function' && !originalPrompt.__lineageWrapped) {
+        if (typeof originalPrompt === 'function' && !originalPrompt.__lineageWrappedV2) {
             const wrappedPrompt = function characterLineagePrompt(context) {
                 return augmentBootstrapPrompt(originalPrompt.call(this, context));
             };
-            wrappedPrompt.__lineageWrapped = true;
+            wrappedPrompt.__lineageWrappedV2 = true;
             wrappedPrompt.__lineageOriginal = originalPrompt;
             bootstrap.buildBootstrapPrompt = wrappedPrompt;
             patched = true;
         }
         const originalIngest = bootstrap.ingestResponse;
-        if (typeof originalIngest === 'function' && !originalIngest.__lineageWrapped) {
+        if (typeof originalIngest === 'function' && !originalIngest.__lineageWrappedV2) {
             const wrappedIngest = function characterLineageIngest(response, currentWorld, context) {
                 const result = originalIngest.call(this, response, currentWorld, context);
-                const parsed = parseBootstrapLineage(response);
-                if (parsed && result?.world) result.world.protagonistLineage = parsed;
                 const state = getState();
-                if (state?.character && result?.world) {
-                    applyLineage({ ...state, worldMemory: { ...(state.worldMemory || {}), world: result.world } }, parsed || null);
+                const authoritativeStory = state ? storyLineage(state) : null;
+                const parsed = parseBootstrapLineage(response);
+                const chosen = authoritativeStory || parsed;
+                if (chosen && result?.world) result.world.protagonistLineage = chosen;
+                if (state?.character && result?.world && chosen) {
+                    const nextState = { ...state, worldMemory: { ...(state.worldMemory || {}), world: result.world } };
+                    applyLineage(nextState, chosen);
+                    if (state.worldMemory) state.worldMemory.characterLineage = nextState.worldMemory.characterLineage;
                 }
                 return result;
             };
-            wrappedIngest.__lineageWrapped = true;
+            wrappedIngest.__lineageWrappedV2 = true;
             wrappedIngest.__lineageOriginal = originalIngest;
             bootstrap.ingestResponse = wrappedIngest;
             patched = true;
         }
         const originalProject = bootstrap.projectToMemory;
-        if (typeof originalProject === 'function' && !originalProject.__lineageWrapped) {
+        if (typeof originalProject === 'function' && !originalProject.__lineageWrappedV2) {
             const wrappedProject = function characterLineageProject(world, memory, context) {
                 const result = originalProject.call(this, world, memory, context);
                 const state = getState();
                 if (state?.character) applyLineage(state);
                 return result;
             };
-            wrappedProject.__lineageWrapped = true;
+            wrappedProject.__lineageWrappedV2 = true;
             wrappedProject.__lineageOriginal = originalProject;
             bootstrap.projectToMemory = wrappedProject;
             patched = true;
@@ -287,8 +335,8 @@
         patchWorldBootstrap();
         const state = getState();
         if (state?.character) applyLineage(state);
-        if (documentRef && !documentRef.__characterLineageInstalled) {
-            documentRef.__characterLineageInstalled = true;
+        if (documentRef && !documentRef.__characterLineageInstalledV2) {
+            documentRef.__characterLineageInstalledV2 = true;
             documentRef.addEventListener('click', event => {
                 if (!event.target?.closest?.('#btn-top-character, #btn-advance-world, #btn-simulate-timeline, #btn-world-chat')) return;
                 applyLineage(getState());
@@ -317,10 +365,13 @@
         surnameFromHouseName,
         normalizeLineage,
         parseBootstrapLineage,
+        storyCorpus,
+        textualStoryLineage,
         familyLineage,
         factionLineage,
         storyLineage,
         detectLineage,
+        storedAutoLineage,
         migrateProtagonistReferences,
         applyLineage,
         augmentBootstrapPrompt,
