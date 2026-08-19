@@ -11,6 +11,7 @@
     const VISUAL_SRC = 'js/story-visuals.js?v=20260818-story-visuals-1';
     const TIMELINE_UX_SRC = 'js/timeline-ux.js?v=20260819-timeline-order-1';
     const TIMELINE_EVENTS_SAFE_SRC = 'js/timeline-events-safe.js?v=20260819-buttons-fix-1';
+    const STRATEGIC_FRIENDLY_SRC = 'js/strategic-friendly.js?v=20260819-strategic-friendly-1';
 
     function appendScript(src, marker, onload) {
         if (document.querySelector(`script[${marker}]`)) {
@@ -31,6 +32,7 @@
         document.write('<script src="' + VISUAL_SRC + '" data-story-visuals="1"><\/script>');
         document.write('<script src="' + TIMELINE_UX_SRC + '" data-timeline-ux="1"><\/script>');
         document.write('<script src="' + TIMELINE_EVENTS_SAFE_SRC + '" data-timeline-events-safe="1"><\/script>');
+        document.write('<script src="' + STRATEGIC_FRIENDLY_SRC + '" data-strategic-friendly="1"><\/script>');
     } else {
         appendScript(CORE_SRC, 'data-ai-efficiency-core', () => {
             appendScript(VISUAL_SRC, 'data-story-visuals', () => {
@@ -39,6 +41,9 @@
                     root.CronacheTimelineUX?.install?.(document, window);
                     appendScript(TIMELINE_EVENTS_SAFE_SRC, 'data-timeline-events-safe', () => {
                         root.CronacheTimelineEventsSafe?.install?.(document, window);
+                        appendScript(STRATEGIC_FRIENDLY_SRC, 'data-strategic-friendly', () => {
+                            root.CronacheStrategicFriendly?.install?.(document, window);
+                        });
                     });
                 });
             });
