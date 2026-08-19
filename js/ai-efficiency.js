@@ -18,7 +18,7 @@
     const MANAGEMENT_HUB_SRC = 'js/management-hub.js?v=20260819-management-first-1';
     const BUSINESS_SPECIALIZATIONS_SRC = 'js/business-specializations.js?v=20260819-sector-specialization-1';
     const BUSINESS_SECTOR_EFFECTS_SRC = 'js/business-sector-effects.js?v=20260819-sector-effects-1';
-    const MANAGEMENT_AUTONOMY_SRC = 'js/management-autonomy.js?v=20260819-management-autonomy-1';
+    const MANAGEMENT_AUTONOMY_SRC = 'js/management-autonomy-v2.js?v=20260819-management-autonomy-2';
     const MANAGEMENT_LAYOUT_SRC = 'js/management-layout.js?v=20260819-management-layout-1';
 
     function appendScript(src, marker, onload) {
