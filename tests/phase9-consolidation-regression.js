@@ -8,6 +8,10 @@ assert(css.includes('#modal-timeline #timeline-agenda'));
 assert(css.includes('.management-hub-ready #game-screen .input-area'));
 assert(css.includes('#btn-top-character #topbar-protagonist-portrait'));
 assert(css.includes('object-fit: cover'));
+assert(/#modal-world-chat \.chat-modal\s*\{[\s\S]*display:\s*flex\s*!important/i.test(css), 'il modale chat deve essere un layout flex verticale');
+assert(/#modal-world-chat \.chat-modal > \.modal-body\s*\{[\s\S]*min-height:\s*0\s*!important/i.test(css), 'il body chat deve poter restringersi dentro il viewport');
+assert(/#modal-world-chat \.chat-messages\s*\{[\s\S]*max-height:\s*none\s*!important/i.test(css), 'i messaggi devono usare lo spazio residuo senza spingere fuori il composer');
+assert(/#modal-world-chat \.chat-compose\s*\{[\s\S]*visibility:\s*visible\s*!important/i.test(css), 'la barra input deve restare visibile');
 
 const loader = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-efficiency.js'), 'utf8');
 assert(loader.includes('CronacheRuntimeV9'));

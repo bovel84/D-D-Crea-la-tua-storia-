@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 1;
+    const PATCH_VERSION = 2;
     const STYLE_ID = 'cronache-ui-consolidation-v9-style';
 
     function cssText() {
@@ -79,6 +79,66 @@
                 height: 100% !important;
             }
 
+            /* Chat mobile: il modale deve avere un vero layout a colonna.
+               Prima .chat-modal aveva overflow:hidden ma il body non era vincolato:
+               con messaggi/partecipanti il composer finiva sotto il bordo del modale. */
+            #modal-world-chat .chat-modal {
+                display: flex !important;
+                flex-direction: column !important;
+                min-height: 0 !important;
+                overflow: hidden !important;
+            }
+            #modal-world-chat .chat-modal > .modal-header {
+                flex: 0 0 auto !important;
+            }
+            #modal-world-chat .chat-modal > .modal-body {
+                display: flex !important;
+                flex-direction: column !important;
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                overflow: hidden !important;
+            }
+            #modal-world-chat .chat-layout {
+                display: flex !important;
+                flex-direction: column !important;
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                overflow: hidden !important;
+            }
+            #modal-world-chat .chat-thread-list,
+            #modal-world-chat .chat-conversation-head {
+                flex: 0 0 auto !important;
+            }
+            #modal-world-chat .chat-conversation {
+                display: flex !important;
+                flex-direction: column !important;
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                overflow: hidden !important;
+            }
+            #modal-world-chat .chat-messages {
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                overflow-y: auto !important;
+                overscroll-behavior: contain;
+            }
+            #modal-world-chat .chat-compose {
+                position: relative !important;
+                bottom: auto !important;
+                flex: 0 0 auto !important;
+                display: grid !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                z-index: 5 !important;
+            }
+            #modal-world-chat #chat-input,
+            #modal-world-chat #btn-send-chat {
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+            }
+
             @media (max-width: 560px) {
                 .management-hub-ready #game-screen .input-area {
                     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -92,6 +152,13 @@
                 .management-hub-ready .bottom-command-icon {
                     width: 45px;
                     height: 45px;
+                }
+                #modal-world-chat .chat-modal {
+                    height: min(92dvh, 900px) !important;
+                    max-height: calc(100dvh - 8px) !important;
+                }
+                #modal-world-chat .chat-compose {
+                    padding-bottom: max(4px, env(safe-area-inset-bottom)) !important;
                 }
             }
             @media (max-width: 380px) {
