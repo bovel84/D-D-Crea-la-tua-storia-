@@ -14,7 +14,7 @@
         ['js/timeline-ux.js?v=20260819-timeline-order-1', 'data-timeline-ux', 'CronacheTimelineUX', 'document-window'],
         ['js/timeline-events-safe.js?v=20260819-buttons-fix-1', 'data-timeline-events-safe', 'CronacheTimelineEventsSafe', 'document-window'],
         ['js/strategic-friendly.js?v=20260819-strategic-friendly-1', 'data-strategic-friendly', 'CronacheStrategicFriendly', 'document-window'],
-        ['js/interface-cleanup.js?v=20260819-timeline-clean-2', 'data-interface-cleanup', 'CronacheInterfaceCleanup', 'document-window'],
+        ['js/ui-consolidation-v9.js?v=20260820-phase9-1', 'data-ui-consolidation-v9', 'CronacheUiConsolidationV9', 'document'],
         ['js/management-director.js?v=20260819-management-director-1', 'data-management-director', 'CronacheManagementDirector', 'none'],
         ['js/management-hub.js?v=20260819-management-first-1', 'data-management-hub', 'CronacheManagementHub', 'document-window'],
         ['js/business-specializations.js?v=20260819-sector-specialization-1', 'data-business-specializations', 'CronacheBusinessSpecializations', 'document'],
@@ -23,14 +23,12 @@
         ['js/systemic-world.js?v=20260819-systemic-world-1', 'data-systemic-world', 'CronacheSystemicWorld', 'document-window'],
         ['js/management-autonomy-v2.js?v=20260819-management-autonomy-2', 'data-management-autonomy', 'CronacheManagementAutonomy', 'document-window'],
         ['js/management-network.js?v=20260819-agent-network-1', 'data-management-network', 'CronacheManagementNetwork', 'document-window'],
-        ['js/management-layout.js?v=20260819-management-layout-1', 'data-management-layout', 'CronacheManagementLayout', 'document'],
         ['js/player-experience-v6.js?v=20260819-player-experience-1', 'data-player-experience-v6', 'CronachePlayerExperienceV6', 'document-window'],
         ['js/character-lineage.js?v=20260819-character-lineage-2', 'data-character-lineage', 'CronacheCharacterLineage', 'document-window'],
         ['js/portrait-photos.js?v=20260819-contextual-portraits-1', 'data-portrait-photos', 'CronachePortraitPhotos', 'document-window'],
         ['js/npc-identity-coherence.js?v=20260819-npc-identity-1', 'data-npc-identity-coherence', 'CronacheNpcIdentityCoherence', 'document-window'],
         ['js/npc-dossiers.js?v=20260819-npc-dossiers-1', 'data-npc-dossiers', 'CronacheNpcDossiers', 'document-window'],
         ['js/portrait-evolution.js?v=20260819-portrait-evolution-1', 'data-portrait-evolution', 'CronachePortraitEvolution', 'document-window'],
-        ['js/portrait-size-tuning.js?v=20260819-protagonist-size-2', 'data-portrait-size-tuning', 'CronachePortraitSizeTuning', 'document'],
         ['js/chat-experience-v2.js?v=20260819-chat-experience-2', 'data-chat-experience-v2', 'CronacheChatExperienceV2', 'document-window'],
         ['js/character-profile-v2.js?v=20260819-character-profile-2', 'data-character-profile-v2', 'CronacheCharacterProfileV2', 'document-window'],
         ['js/quest-manager-v7.js?v=20260820-phase7-1', 'data-quest-manager-v7', 'CronacheQuestManagerV7', 'document-window'],
@@ -40,6 +38,44 @@
         ['js/time-montage-v8.js?v=20260820-phase8-1', 'data-time-montage-v8', 'CronacheTimeMontageV8', 'document-window'],
         ['js/scene-continuity-v8.js?v=20260820-phase8-1', 'data-scene-continuity-v8', 'CronacheSceneContinuityV8', 'document-window']
     ].map(([src, marker, globalName, args]) => ({ src, marker, globalName, args }));
+
+    const runtimeState = {
+        version: 9,
+        startedAt: Date.now(),
+        dynamicLoads: [],
+        dynamicFailures: []
+    };
+
+    function runtimeSnapshot() {
+        const modules = SCRIPTS.map(item => {
+            const nodes = Array.from(document.querySelectorAll(`script[${item.marker}]`));
+            const globalReady = !item.globalName || Boolean(root[item.globalName]);
+            return {
+                src: item.src,
+                marker: item.marker,
+                globalName: item.globalName,
+                scriptCount: nodes.length,
+                globalReady,
+                ready: nodes.length === 1 && globalReady
+            };
+        });
+        return {
+            version: runtimeState.version,
+            expected: modules.length,
+            ready: modules.filter(item => item.ready).length,
+            failed: modules.filter(item => !item.ready),
+            duplicates: modules.filter(item => item.scriptCount > 1),
+            dynamicLoads: runtimeState.dynamicLoads.slice(),
+            dynamicFailures: runtimeState.dynamicFailures.slice(),
+            elapsedMs: Date.now() - runtimeState.startedAt
+        };
+    }
+
+    root.CronacheRuntimeV9 = {
+        version: 9,
+        manifest: SCRIPTS.map(item => ({ ...item })),
+        snapshot: runtimeSnapshot
+    };
 
     function installFor(item) {
         if (!item.globalName) return;
@@ -65,10 +101,12 @@
         script.async = false;
         script.setAttribute(item.marker, '1');
         script.onload = () => {
+            runtimeState.dynamicLoads.push(item.marker);
             installFor(item);
             if (onload) onload();
         };
         script.onerror = error => {
+            runtimeState.dynamicFailures.push(item.marker);
             console.error(`[RuntimeLoader] Impossibile caricare ${item.src}:`, error);
             if (onload) onload();
         };
