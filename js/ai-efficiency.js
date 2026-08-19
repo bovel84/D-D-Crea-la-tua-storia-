@@ -35,7 +35,10 @@
         ['js/character-profile-v2.js?v=20260819-character-profile-2', 'data-character-profile-v2', 'CronacheCharacterProfileV2', 'document-window'],
         ['js/quest-manager-v7.js?v=20260820-phase7-1', 'data-quest-manager-v7', 'CronacheQuestManagerV7', 'document-window'],
         ['js/offscreen-world-v7.js?v=20260820-phase7-1', 'data-offscreen-world-v7', 'CronacheOffscreenWorldV7', 'document-window'],
-        ['js/turn-resolution-v7.js?v=20260820-phase7-1', 'data-turn-resolution-v7', 'CronacheTurnResolutionV7', 'document-window']
+        ['js/turn-resolution-v7.js?v=20260820-phase7-1', 'data-turn-resolution-v7', 'CronacheTurnResolutionV7', 'document-window'],
+        ['js/world-travel-v8.js?v=20260820-phase8-1', 'data-world-travel-v8', 'CronacheWorldTravelV8', 'document-window'],
+        ['js/time-montage-v8.js?v=20260820-phase8-1', 'data-time-montage-v8', 'CronacheTimeMontageV8', 'document-window'],
+        ['js/scene-continuity-v8.js?v=20260820-phase8-1', 'data-scene-continuity-v8', 'CronacheSceneContinuityV8', 'document-window']
     ].map(([src, marker, globalName, args]) => ({ src, marker, globalName, args }));
 
     function installFor(item) {
