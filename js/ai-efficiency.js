@@ -16,6 +16,8 @@
     const INTERFACE_CLEANUP_SRC = 'js/interface-cleanup.js?v=20260819-timeline-clean-2';
     const MANAGEMENT_DIRECTOR_SRC = 'js/management-director.js?v=20260819-management-director-1';
     const MANAGEMENT_HUB_SRC = 'js/management-hub.js?v=20260819-management-first-1';
+    const BUSINESS_SPECIALIZATIONS_SRC = 'js/business-specializations.js?v=20260819-sector-specialization-1';
+    const MANAGEMENT_AUTONOMY_SRC = 'js/management-autonomy.js?v=20260819-management-autonomy-1';
     const MANAGEMENT_LAYOUT_SRC = 'js/management-layout.js?v=20260819-management-layout-1';
 
     function appendScript(src, marker, onload) {
@@ -42,6 +44,8 @@
         document.write('<script src="' + INTERFACE_CLEANUP_SRC + '" data-interface-cleanup="1"><\/script>');
         document.write('<script src="' + MANAGEMENT_DIRECTOR_SRC + '" data-management-director="1"><\/script>');
         document.write('<script src="' + MANAGEMENT_HUB_SRC + '" data-management-hub="1"><\/script>');
+        document.write('<script src="' + BUSINESS_SPECIALIZATIONS_SRC + '" data-business-specializations="1"><\/script>');
+        document.write('<script src="' + MANAGEMENT_AUTONOMY_SRC + '" data-management-autonomy="1"><\/script>');
         document.write('<script src="' + MANAGEMENT_LAYOUT_SRC + '" data-management-layout="1"><\/script>');
     } else {
         appendScript(CORE_SRC, 'data-ai-efficiency-core', () => {
@@ -61,8 +65,14 @@
                                         root.CronacheManagementDirector?.install?.();
                                         appendScript(MANAGEMENT_HUB_SRC, 'data-management-hub', () => {
                                             root.CronacheManagementHub?.install?.(document, window);
-                                            appendScript(MANAGEMENT_LAYOUT_SRC, 'data-management-layout', () => {
-                                                root.CronacheManagementLayout?.install?.(document);
+                                            appendScript(BUSINESS_SPECIALIZATIONS_SRC, 'data-business-specializations', () => {
+                                                root.CronacheBusinessSpecializations?.install?.(document);
+                                                appendScript(MANAGEMENT_AUTONOMY_SRC, 'data-management-autonomy', () => {
+                                                    root.CronacheManagementAutonomy?.install?.(document, window);
+                                                    appendScript(MANAGEMENT_LAYOUT_SRC, 'data-management-layout', () => {
+                                                        root.CronacheManagementLayout?.install?.(document);
+                                                    });
+                                                });
                                             });
                                         });
                                     });
