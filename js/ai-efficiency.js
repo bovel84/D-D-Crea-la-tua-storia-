@@ -9,7 +9,7 @@
 
     const CORE_SRC = 'js/ai-efficiency-core.js?v=20260818-story-visuals-1';
     const VISUAL_SRC = 'js/story-visuals.js?v=20260818-story-visuals-1';
-    const SUMMARY_VISUALS_SRC = 'js/summary-visuals.js?v=20260819-summary-images-1';
+    const SUMMARY_VISUALS_SRC = 'js/summary-visuals.js?v=20260819-summary-context-3';
     const TIMELINE_UX_SRC = 'js/timeline-ux.js?v=20260819-timeline-order-1';
     const TIMELINE_EVENTS_SAFE_SRC = 'js/timeline-events-safe.js?v=20260819-buttons-fix-1';
     const STRATEGIC_FRIENDLY_SRC = 'js/strategic-friendly.js?v=20260819-strategic-friendly-1';
