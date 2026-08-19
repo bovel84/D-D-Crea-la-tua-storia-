@@ -108,7 +108,8 @@
             style.id = STYLE_ID;
             documentRef.head.appendChild(style);
         }
-        if (style.textContent !== cssText()) style.textContent = cssText();
+        const nextCss = cssText();
+        if (style.textContent !== nextCss) style.textContent = nextCss;
 
         const agenda = documentRef.getElementById('timeline-agenda');
         if (agenda) {
@@ -117,6 +118,8 @@
         }
         documentRef.body?.classList.add('ui-consolidation-v9-ready', 'portrait-size-tuning-ready');
         root.__cronacheUiConsolidationV9Version = PATCH_VERSION;
+        root.__cronacheInterfaceCleanupVersion = Math.max(2, Number(root.__cronacheInterfaceCleanupVersion) || 0);
+        root.__cronachePortraitSizeTuningVersion = Math.max(2, Number(root.__cronachePortraitSizeTuningVersion) || 0);
         return true;
     }
 
