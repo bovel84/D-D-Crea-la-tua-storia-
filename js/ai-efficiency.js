@@ -19,6 +19,7 @@
     const BUSINESS_SPECIALIZATIONS_SRC = 'js/business-specializations.js?v=20260819-sector-specialization-1';
     const BUSINESS_SECTOR_EFFECTS_SRC = 'js/business-sector-effects.js?v=20260819-sector-effects-1';
     const MANAGEMENT_AGENTS_SRC = 'js/management-agents.js?v=20260819-persistent-agents-1';
+    const SYSTEMIC_WORLD_SRC = 'js/systemic-world.js?v=20260819-systemic-world-1';
     const MANAGEMENT_AUTONOMY_SRC = 'js/management-autonomy-v2.js?v=20260819-management-autonomy-2';
     const MANAGEMENT_NETWORK_SRC = 'js/management-network.js?v=20260819-agent-network-1';
     const MANAGEMENT_LAYOUT_SRC = 'js/management-layout.js?v=20260819-management-layout-1';
@@ -50,6 +51,7 @@
         document.write('<script src="' + BUSINESS_SPECIALIZATIONS_SRC + '" data-business-specializations="1"><\/script>');
         document.write('<script src="' + BUSINESS_SECTOR_EFFECTS_SRC + '" data-business-sector-effects="1"><\/script>');
         document.write('<script src="' + MANAGEMENT_AGENTS_SRC + '" data-management-agents="1"><\/script>');
+        document.write('<script src="' + SYSTEMIC_WORLD_SRC + '" data-systemic-world="1"><\/script>');
         document.write('<script src="' + MANAGEMENT_AUTONOMY_SRC + '" data-management-autonomy="1"><\/script>');
         document.write('<script src="' + MANAGEMENT_NETWORK_SRC + '" data-management-network="1"><\/script>');
         document.write('<script src="' + MANAGEMENT_LAYOUT_SRC + '" data-management-layout="1"><\/script>');
@@ -77,12 +79,15 @@
                                                     root.CronacheBusinessSectorEffects?.install?.();
                                                     appendScript(MANAGEMENT_AGENTS_SRC, 'data-management-agents', () => {
                                                         root.CronacheManagementAgents?.install?.(document, window);
-                                                        appendScript(MANAGEMENT_AUTONOMY_SRC, 'data-management-autonomy', () => {
-                                                            root.CronacheManagementAutonomy?.install?.(document, window);
-                                                            appendScript(MANAGEMENT_NETWORK_SRC, 'data-management-network', () => {
-                                                                root.CronacheManagementNetwork?.install?.(document, window);
-                                                                appendScript(MANAGEMENT_LAYOUT_SRC, 'data-management-layout', () => {
-                                                                    root.CronacheManagementLayout?.install?.(document);
+                                                        appendScript(SYSTEMIC_WORLD_SRC, 'data-systemic-world', () => {
+                                                            root.CronacheSystemicWorld?.install?.(document, window);
+                                                            appendScript(MANAGEMENT_AUTONOMY_SRC, 'data-management-autonomy', () => {
+                                                                root.CronacheManagementAutonomy?.install?.(document, window);
+                                                                appendScript(MANAGEMENT_NETWORK_SRC, 'data-management-network', () => {
+                                                                    root.CronacheManagementNetwork?.install?.(document, window);
+                                                                    appendScript(MANAGEMENT_LAYOUT_SRC, 'data-management-layout', () => {
+                                                                        root.CronacheManagementLayout?.install?.(document);
+                                                                    });
                                                                 });
                                                             });
                                                         });
