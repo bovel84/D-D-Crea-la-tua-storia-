@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 1;
+    const PATCH_VERSION = 2;
     const STYLE_ID = 'cronache-summary-visuals-style';
     const SUMMARY_RE = /(?:il mondo ha prodotto questo cambiamento|situazione attuale:|esito del piano strategico:)/i;
     const attempted = new WeakSet();
@@ -46,6 +46,14 @@
         documentRef.head.appendChild(style);
     }
 
+    function scheduleRetry(entry, delay = 65000) {
+        if (typeof window === 'undefined') return;
+        window.setTimeout(() => {
+            attempted.delete(entry);
+            if (!hasVisual(entry) && entry?.isConnected) attachSummaryImage(entry);
+        }, delay);
+    }
+
     function attachSummaryImage(entry) {
         if (!entry || attempted.has(entry) || hasVisual(entry)) return false;
         const text = clean(entry.innerText || entry.textContent, 12000);
@@ -62,9 +70,10 @@
                 figure.classList.add('summary-scene-visual');
                 figure.setAttribute('aria-label', 'Illustrazione del riassunto degli eventi');
             }
+            // Se il provider rimuove la figura dopo un errore asincrono, riprova una volta terminato il cooldown.
+            scheduleRetry(entry);
         } else {
-            // Se il provider era temporaneamente in cooldown, consenti un nuovo tentativo più avanti.
-            window.setTimeout(() => attempted.delete(entry), 65000);
+            scheduleRetry(entry);
         }
         return attached;
     }
