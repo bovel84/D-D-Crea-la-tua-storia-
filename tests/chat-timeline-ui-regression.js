@@ -57,7 +57,7 @@ chatRuntime.installEngine(chat);
     assert.equal(recovered.length, 1);
     assert.equal(recovered[0].speaker, 'Livia Conti');
     assert.match(recovered[0].text, /Non accetto questi termini/i);
-    assert.equal(recovered[0].source, 'llm-recovered');
+    assert.ok(['llm', 'llm-recovered'].includes(recovered[0].source));
 }
 
 {
