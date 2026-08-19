@@ -4,7 +4,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const chat = require('../js/timeline-chat.js');
+const chatRuntime = require('../js/chat-runtime-v3.js');
 const timeline = require('../js/timeline-simulator.js');
+
+chatRuntime.installEngine(chat);
 
 {
     const migrated = chat.migrateChats([
@@ -41,6 +44,78 @@ const timeline = require('../js/timeline-simulator.js');
 }
 
 {
+    const recovered = chat.parseChatResponse(JSON.stringify({
+        message: 'Non accetto questi termini. Posso però concedere tre giorni, non di più.'
+    }), {
+        nextSpeaker: 'Livia Conti',
+        protagonistName: 'Marco Serra',
+        threadId: 'chat-json',
+        eventTitle: 'Ultimatum',
+        target: 'Marco Serra',
+        turn: 2
+    });
+    assert.equal(recovered.length, 1);
+    assert.equal(recovered[0].speaker, 'Livia Conti');
+    assert.match(recovered[0].text, /Non accetto questi termini/i);
+    assert.equal(recovered[0].source, 'llm-recovered');
+}
+
+{
+    const migrated = chat.migrateChats([
+        {
+            id: 'duplicates',
+            title: 'Consiglio',
+            eventTitle: 'Consiglio',
+            participants: ['Marco Serra', 'Protagonista', 'Livia Conti', 'Livia Conti'],
+            messages: [
+                { id: 'p1', threadId: 'duplicates', eventTitle: 'Consiglio', speaker: 'Marco Serra', speakerType: 'protagonista', text: 'Parliamone.', source: 'player' },
+                { id: 'p1', threadId: 'duplicates', eventTitle: 'Consiglio', speaker: 'Marco Serra', speakerType: 'protagonista', text: 'Parliamone.', source: 'player' },
+                { id: 'bad-protagonist', threadId: 'duplicates', eventTitle: 'Consiglio', speaker: 'Protagonista', speakerType: 'npc', text: 'Io parlo al posto tuo.', source: 'llm' },
+                { id: 'n1', threadId: 'duplicates', eventTitle: 'Consiglio', speaker: 'Livia Conti', speakerType: 'npc', text: 'Io ascolto.', source: 'llm' }
+            ]
+        }
+    ], { protagonistName: 'Marco Serra', turn: 3, events: [] });
+    assert.deepEqual(migrated[0].participants, ['Livia Conti', 'Marco Serra']);
+    assert.equal(migrated[0].messages.filter(message => message.source === 'player').length, 1);
+    assert.equal(migrated[0].messages.some(message => message.id === 'bad-protagonist'), false);
+}
+
+{
+    const thread = chat.normalizeThread({
+        id: 'direct-address',
+        title: 'Riunione',
+        eventTitle: 'Riunione',
+        participants: ['Marco Serra', 'Livia Conti', 'Otto Bianchi'],
+        messages: [
+            { threadId: 'direct-address', eventTitle: 'Riunione', speaker: 'Marco Serra', speakerType: 'protagonista', text: 'Livia, che cosa proponi?', source: 'player' }
+        ]
+    }, { protagonistName: 'Marco Serra', turn: 1, events: [] });
+    const round = chat.chooseSpeakerRound(thread, 'Livia, che cosa proponi?', {
+        protagonistName: 'Marco Serra',
+        maxSpeakers: 2
+    });
+    assert.deepEqual(round, ['Livia Conti']);
+}
+
+{
+    const thread = chat.normalizeThread({
+        id: 'close-request',
+        title: 'Trattativa',
+        eventTitle: 'Trattativa',
+        agenda: 'definire i termini',
+        participants: ['Marco Serra', 'Livia Conti'],
+        messages: [
+            { threadId: 'close-request', eventTitle: 'Trattativa', speaker: 'Marco Serra', speakerType: 'protagonista', text: 'Va bene, chiudiamo qui.', source: 'player' },
+            { threadId: 'close-request', eventTitle: 'Trattativa', speaker: 'Livia Conti', speakerType: 'npc', text: 'Per me la conversazione termina qui.', source: 'llm' }
+        ]
+    }, { protagonistName: 'Marco Serra', turn: 5, events: [] });
+    const closed = chat.closeConversation([thread], thread.id, { protagonistName: 'Marco Serra', turn: 5 });
+    assert.equal(closed.closed, true);
+    assert.equal(closed.thread.status, 'closed');
+    assert.match(closed.thread.resolution.summary, /^Le parti hanno espresso una posizione finale/i);
+}
+
+{
     assert.ok(timeline.TIMELINE_SIMULATOR_SCHEMA_VERSION >= 10);
     [
         'normalizeEventQueue', 'createEventSeeds', 'createManualParallelSeeds',
@@ -67,6 +142,12 @@ const timeline = require('../js/timeline-simulator.js');
     assert.match(source, /Object\.assign\(previousApi, freshApi\)/);
     assert.match(source, /btn-world-chats/);
     assert.match(source, /btn-advance-world/);
+}
+
+{
+    const loader = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-efficiency.js'), 'utf8');
+    assert.match(loader, /js\/chat-runtime-v3\.js/);
+    assert.match(loader, /CronacheChatRuntimeV3/);
 }
 
 console.log('Chat/timeline UI regression tests: ok');
