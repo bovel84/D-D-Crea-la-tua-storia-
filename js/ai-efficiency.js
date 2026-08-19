@@ -24,12 +24,13 @@
     const MANAGEMENT_NETWORK_SRC = 'js/management-network.js?v=20260819-agent-network-1';
     const MANAGEMENT_LAYOUT_SRC = 'js/management-layout.js?v=20260819-management-layout-1';
     const PLAYER_EXPERIENCE_SRC = 'js/player-experience-v6.js?v=20260819-player-experience-1';
-    const CHARACTER_LINEAGE_SRC = 'js/character-lineage.js?v=20260819-character-lineage-1';
+    const CHARACTER_LINEAGE_SRC = 'js/character-lineage.js?v=20260819-character-lineage-2';
     const PORTRAIT_PHOTOS_SRC = 'js/portrait-photos.js?v=20260819-contextual-portraits-1';
     const NPC_DOSSIERS_SRC = 'js/npc-dossiers.js?v=20260819-npc-dossiers-1';
     const PORTRAIT_EVOLUTION_SRC = 'js/portrait-evolution.js?v=20260819-portrait-evolution-1';
     const PORTRAIT_SIZE_TUNING_SRC = 'js/portrait-size-tuning.js?v=20260819-protagonist-size-2';
     const CHAT_EXPERIENCE_V2_SRC = 'js/chat-experience-v2.js?v=20260819-chat-experience-2';
+    const CHARACTER_PROFILE_V2_SRC = 'js/character-profile-v2.js?v=20260819-character-profile-2';
 
     function appendScript(src, marker, onload) {
         if (document.querySelector(`script[${marker}]`)) {
@@ -69,6 +70,7 @@
         document.write('<script src="' + PORTRAIT_EVOLUTION_SRC + '" data-portrait-evolution="1"><\/script>');
         document.write('<script src="' + PORTRAIT_SIZE_TUNING_SRC + '" data-portrait-size-tuning="1"><\/script>');
         document.write('<script src="' + CHAT_EXPERIENCE_V2_SRC + '" data-chat-experience-v2="1"><\/script>');
+        document.write('<script src="' + CHARACTER_PROFILE_V2_SRC + '" data-character-profile-v2="1"><\/script>');
     } else {
         appendScript(CORE_SRC, 'data-ai-efficiency-core', () => {
             appendScript(VISUAL_SRC, 'data-story-visuals', () => {
@@ -115,6 +117,9 @@
                                                                                                 root.CronachePortraitSizeTuning?.install?.(document);
                                                                                                 appendScript(CHAT_EXPERIENCE_V2_SRC, 'data-chat-experience-v2', () => {
                                                                                                     root.CronacheChatExperienceV2?.install?.(document, window);
+                                                                                                    appendScript(CHARACTER_PROFILE_V2_SRC, 'data-character-profile-v2', () => {
+                                                                                                        root.CronacheCharacterProfileV2?.install?.(document, window);
+                                                                                                    });
                                                                                                 });
                                                                                             });
                                                                                         });
