@@ -7,146 +7,81 @@
     }
     if (!root || typeof document === 'undefined') return;
 
-    const CORE_SRC = 'js/ai-efficiency-core.js?v=20260818-story-visuals-1';
-    const VISUAL_SRC = 'js/story-visuals.js?v=20260818-story-visuals-1';
-    const SUMMARY_VISUALS_SRC = 'js/summary-visuals.js?v=20260819-summary-context-3';
-    const TIMELINE_UX_SRC = 'js/timeline-ux.js?v=20260819-timeline-order-1';
-    const TIMELINE_EVENTS_SAFE_SRC = 'js/timeline-events-safe.js?v=20260819-buttons-fix-1';
-    const STRATEGIC_FRIENDLY_SRC = 'js/strategic-friendly.js?v=20260819-strategic-friendly-1';
-    const INTERFACE_CLEANUP_SRC = 'js/interface-cleanup.js?v=20260819-timeline-clean-2';
-    const MANAGEMENT_DIRECTOR_SRC = 'js/management-director.js?v=20260819-management-director-1';
-    const MANAGEMENT_HUB_SRC = 'js/management-hub.js?v=20260819-management-first-1';
-    const BUSINESS_SPECIALIZATIONS_SRC = 'js/business-specializations.js?v=20260819-sector-specialization-1';
-    const BUSINESS_SECTOR_EFFECTS_SRC = 'js/business-sector-effects.js?v=20260819-sector-effects-1';
-    const MANAGEMENT_AGENTS_SRC = 'js/management-agents.js?v=20260819-persistent-agents-1';
-    const SYSTEMIC_WORLD_SRC = 'js/systemic-world.js?v=20260819-systemic-world-1';
-    const MANAGEMENT_AUTONOMY_SRC = 'js/management-autonomy-v2.js?v=20260819-management-autonomy-2';
-    const MANAGEMENT_NETWORK_SRC = 'js/management-network.js?v=20260819-agent-network-1';
-    const MANAGEMENT_LAYOUT_SRC = 'js/management-layout.js?v=20260819-management-layout-1';
-    const PLAYER_EXPERIENCE_SRC = 'js/player-experience-v6.js?v=20260819-player-experience-1';
-    const CHARACTER_LINEAGE_SRC = 'js/character-lineage.js?v=20260819-character-lineage-2';
-    const PORTRAIT_PHOTOS_SRC = 'js/portrait-photos.js?v=20260819-contextual-portraits-1';
-    const NPC_IDENTITY_COHERENCE_SRC = 'js/npc-identity-coherence.js?v=20260819-npc-identity-1';
-    const NPC_DOSSIERS_SRC = 'js/npc-dossiers.js?v=20260819-npc-dossiers-1';
-    const PORTRAIT_EVOLUTION_SRC = 'js/portrait-evolution.js?v=20260819-portrait-evolution-1';
-    const PORTRAIT_SIZE_TUNING_SRC = 'js/portrait-size-tuning.js?v=20260819-protagonist-size-2';
-    const CHAT_EXPERIENCE_V2_SRC = 'js/chat-experience-v2.js?v=20260819-chat-experience-2';
-    const CHARACTER_PROFILE_V2_SRC = 'js/character-profile-v2.js?v=20260819-character-profile-2';
+    const SCRIPTS = [
+        ['js/ai-efficiency-core.js?v=20260818-story-visuals-1', 'data-ai-efficiency-core', '', 'none'],
+        ['js/story-visuals.js?v=20260818-story-visuals-1', 'data-story-visuals', 'CronacheStoryVisuals', 'none'],
+        ['js/summary-visuals.js?v=20260819-summary-context-3', 'data-summary-visuals', 'CronacheSummaryVisuals', 'document-window'],
+        ['js/timeline-ux.js?v=20260819-timeline-order-1', 'data-timeline-ux', 'CronacheTimelineUX', 'document-window'],
+        ['js/timeline-events-safe.js?v=20260819-buttons-fix-1', 'data-timeline-events-safe', 'CronacheTimelineEventsSafe', 'document-window'],
+        ['js/strategic-friendly.js?v=20260819-strategic-friendly-1', 'data-strategic-friendly', 'CronacheStrategicFriendly', 'document-window'],
+        ['js/interface-cleanup.js?v=20260819-timeline-clean-2', 'data-interface-cleanup', 'CronacheInterfaceCleanup', 'document-window'],
+        ['js/management-director.js?v=20260819-management-director-1', 'data-management-director', 'CronacheManagementDirector', 'none'],
+        ['js/management-hub.js?v=20260819-management-first-1', 'data-management-hub', 'CronacheManagementHub', 'document-window'],
+        ['js/business-specializations.js?v=20260819-sector-specialization-1', 'data-business-specializations', 'CronacheBusinessSpecializations', 'document'],
+        ['js/business-sector-effects.js?v=20260819-sector-effects-1', 'data-business-sector-effects', 'CronacheBusinessSectorEffects', 'none'],
+        ['js/management-agents.js?v=20260819-persistent-agents-1', 'data-management-agents', 'CronacheManagementAgents', 'document-window'],
+        ['js/systemic-world.js?v=20260819-systemic-world-1', 'data-systemic-world', 'CronacheSystemicWorld', 'document-window'],
+        ['js/management-autonomy-v2.js?v=20260819-management-autonomy-2', 'data-management-autonomy', 'CronacheManagementAutonomy', 'document-window'],
+        ['js/management-network.js?v=20260819-agent-network-1', 'data-management-network', 'CronacheManagementNetwork', 'document-window'],
+        ['js/management-layout.js?v=20260819-management-layout-1', 'data-management-layout', 'CronacheManagementLayout', 'document'],
+        ['js/player-experience-v6.js?v=20260819-player-experience-1', 'data-player-experience-v6', 'CronachePlayerExperienceV6', 'document-window'],
+        ['js/character-lineage.js?v=20260819-character-lineage-2', 'data-character-lineage', 'CronacheCharacterLineage', 'document-window'],
+        ['js/portrait-photos.js?v=20260819-contextual-portraits-1', 'data-portrait-photos', 'CronachePortraitPhotos', 'document-window'],
+        ['js/npc-identity-coherence.js?v=20260819-npc-identity-1', 'data-npc-identity-coherence', 'CronacheNpcIdentityCoherence', 'document-window'],
+        ['js/npc-dossiers.js?v=20260819-npc-dossiers-1', 'data-npc-dossiers', 'CronacheNpcDossiers', 'document-window'],
+        ['js/portrait-evolution.js?v=20260819-portrait-evolution-1', 'data-portrait-evolution', 'CronachePortraitEvolution', 'document-window'],
+        ['js/portrait-size-tuning.js?v=20260819-protagonist-size-2', 'data-portrait-size-tuning', 'CronachePortraitSizeTuning', 'document'],
+        ['js/chat-experience-v2.js?v=20260819-chat-experience-2', 'data-chat-experience-v2', 'CronacheChatExperienceV2', 'document-window'],
+        ['js/character-profile-v2.js?v=20260819-character-profile-2', 'data-character-profile-v2', 'CronacheCharacterProfileV2', 'document-window'],
+        ['js/quest-manager-v7.js?v=20260820-phase7-1', 'data-quest-manager-v7', 'CronacheQuestManagerV7', 'document-window'],
+        ['js/offscreen-world-v7.js?v=20260820-phase7-1', 'data-offscreen-world-v7', 'CronacheOffscreenWorldV7', 'document-window'],
+        ['js/turn-resolution-v7.js?v=20260820-phase7-1', 'data-turn-resolution-v7', 'CronacheTurnResolutionV7', 'document-window']
+    ].map(([src, marker, globalName, args]) => ({ src, marker, globalName, args }));
 
-    function appendScript(src, marker, onload) {
-        if (document.querySelector(`script[${marker}]`)) {
+    function installFor(item) {
+        if (!item.globalName) return;
+        const install = root[item.globalName]?.install;
+        if (typeof install !== 'function') return;
+        try {
+            if (item.args === 'document-window') install(document, window);
+            else if (item.args === 'document') install(document);
+            else install();
+        } catch (error) {
+            console.error(`[RuntimeLoader] Installazione ${item.globalName} fallita:`, error);
+        }
+    }
+
+    function appendScript(item, onload) {
+        if (document.querySelector(`script[${item.marker}]`)) {
+            installFor(item);
             if (onload) onload();
             return;
         }
         const script = document.createElement('script');
-        script.src = src;
+        script.src = item.src;
         script.async = false;
-        script.setAttribute(marker, '1');
-        if (onload) script.onload = onload;
-        script.onerror = error => console.error(`[RuntimeLoader] Impossibile caricare ${src}:`, error);
+        script.setAttribute(item.marker, '1');
+        script.onload = () => {
+            installFor(item);
+            if (onload) onload();
+        };
+        script.onerror = error => {
+            console.error(`[RuntimeLoader] Impossibile caricare ${item.src}:`, error);
+            if (onload) onload();
+        };
         document.head.appendChild(script);
     }
 
+    function loadSequentially(index = 0) {
+        if (index >= SCRIPTS.length) return;
+        appendScript(SCRIPTS[index], () => loadSequentially(index + 1));
+    }
+
     if (document.readyState === 'loading') {
-        document.write('<script src="' + CORE_SRC + '" data-ai-efficiency-core="1"><\/script>');
-        document.write('<script src="' + VISUAL_SRC + '" data-story-visuals="1"><\/script>');
-        document.write('<script src="' + SUMMARY_VISUALS_SRC + '" data-summary-visuals="1"><\/script>');
-        document.write('<script src="' + TIMELINE_UX_SRC + '" data-timeline-ux="1"><\/script>');
-        document.write('<script src="' + TIMELINE_EVENTS_SAFE_SRC + '" data-timeline-events-safe="1"><\/script>');
-        document.write('<script src="' + STRATEGIC_FRIENDLY_SRC + '" data-strategic-friendly="1"><\/script>');
-        document.write('<script src="' + INTERFACE_CLEANUP_SRC + '" data-interface-cleanup="1"><\/script>');
-        document.write('<script src="' + MANAGEMENT_DIRECTOR_SRC + '" data-management-director="1"><\/script>');
-        document.write('<script src="' + MANAGEMENT_HUB_SRC + '" data-management-hub="1"><\/script>');
-        document.write('<script src="' + BUSINESS_SPECIALIZATIONS_SRC + '" data-business-specializations="1"><\/script>');
-        document.write('<script src="' + BUSINESS_SECTOR_EFFECTS_SRC + '" data-business-sector-effects="1"><\/script>');
-        document.write('<script src="' + MANAGEMENT_AGENTS_SRC + '" data-management-agents="1"><\/script>');
-        document.write('<script src="' + SYSTEMIC_WORLD_SRC + '" data-systemic-world="1"><\/script>');
-        document.write('<script src="' + MANAGEMENT_AUTONOMY_SRC + '" data-management-autonomy="1"><\/script>');
-        document.write('<script src="' + MANAGEMENT_NETWORK_SRC + '" data-management-network="1"><\/script>');
-        document.write('<script src="' + MANAGEMENT_LAYOUT_SRC + '" data-management-layout="1"><\/script>');
-        document.write('<script src="' + PLAYER_EXPERIENCE_SRC + '" data-player-experience-v6="1"><\/script>');
-        document.write('<script src="' + CHARACTER_LINEAGE_SRC + '" data-character-lineage="1"><\/script>');
-        document.write('<script src="' + PORTRAIT_PHOTOS_SRC + '" data-portrait-photos="1"><\/script>');
-        document.write('<script src="' + NPC_IDENTITY_COHERENCE_SRC + '" data-npc-identity-coherence="1"><\/script>');
-        document.write('<script src="' + NPC_DOSSIERS_SRC + '" data-npc-dossiers="1"><\/script>');
-        document.write('<script src="' + PORTRAIT_EVOLUTION_SRC + '" data-portrait-evolution="1"><\/script>');
-        document.write('<script src="' + PORTRAIT_SIZE_TUNING_SRC + '" data-portrait-size-tuning="1"><\/script>');
-        document.write('<script src="' + CHAT_EXPERIENCE_V2_SRC + '" data-chat-experience-v2="1"><\/script>');
-        document.write('<script src="' + CHARACTER_PROFILE_V2_SRC + '" data-character-profile-v2="1"><\/script>');
-    } else {
-        appendScript(CORE_SRC, 'data-ai-efficiency-core', () => {
-            appendScript(VISUAL_SRC, 'data-story-visuals', () => {
-                root.CronacheStoryVisuals?.install?.();
-                appendScript(SUMMARY_VISUALS_SRC, 'data-summary-visuals', () => {
-                    root.CronacheSummaryVisuals?.install?.(document, window);
-                    appendScript(TIMELINE_UX_SRC, 'data-timeline-ux', () => {
-                        root.CronacheTimelineUX?.install?.(document, window);
-                        appendScript(TIMELINE_EVENTS_SAFE_SRC, 'data-timeline-events-safe', () => {
-                            root.CronacheTimelineEventsSafe?.install?.(document, window);
-                            appendScript(STRATEGIC_FRIENDLY_SRC, 'data-strategic-friendly', () => {
-                                root.CronacheStrategicFriendly?.install?.(document, window);
-                                appendScript(INTERFACE_CLEANUP_SRC, 'data-interface-cleanup', () => {
-                                    root.CronacheInterfaceCleanup?.install?.(document, window);
-                                    appendScript(MANAGEMENT_DIRECTOR_SRC, 'data-management-director', () => {
-                                        root.CronacheManagementDirector?.install?.();
-                                        appendScript(MANAGEMENT_HUB_SRC, 'data-management-hub', () => {
-                                            root.CronacheManagementHub?.install?.(document, window);
-                                            appendScript(BUSINESS_SPECIALIZATIONS_SRC, 'data-business-specializations', () => {
-                                                root.CronacheBusinessSpecializations?.install?.(document);
-                                                appendScript(BUSINESS_SECTOR_EFFECTS_SRC, 'data-business-sector-effects', () => {
-                                                    root.CronacheBusinessSectorEffects?.install?.();
-                                                    appendScript(MANAGEMENT_AGENTS_SRC, 'data-management-agents', () => {
-                                                        root.CronacheManagementAgents?.install?.(document, window);
-                                                        appendScript(SYSTEMIC_WORLD_SRC, 'data-systemic-world', () => {
-                                                            root.CronacheSystemicWorld?.install?.(document, window);
-                                                            appendScript(MANAGEMENT_AUTONOMY_SRC, 'data-management-autonomy', () => {
-                                                                root.CronacheManagementAutonomy?.install?.(document, window);
-                                                                appendScript(MANAGEMENT_NETWORK_SRC, 'data-management-network', () => {
-                                                                    root.CronacheManagementNetwork?.install?.(document, window);
-                                                                    appendScript(MANAGEMENT_LAYOUT_SRC, 'data-management-layout', () => {
-                                                                        root.CronacheManagementLayout?.install?.(document);
-                                                                        appendScript(PLAYER_EXPERIENCE_SRC, 'data-player-experience-v6', () => {
-                                                                            root.CronachePlayerExperienceV6?.install?.(document, window);
-                                                                            appendScript(CHARACTER_LINEAGE_SRC, 'data-character-lineage', () => {
-                                                                                root.CronacheCharacterLineage?.install?.(document, window);
-                                                                                appendScript(PORTRAIT_PHOTOS_SRC, 'data-portrait-photos', () => {
-                                                                                    root.CronachePortraitPhotos?.install?.(document, window);
-                                                                                    appendScript(NPC_IDENTITY_COHERENCE_SRC, 'data-npc-identity-coherence', () => {
-                                                                                        root.CronacheNpcIdentityCoherence?.install?.(document, window);
-                                                                                        appendScript(NPC_DOSSIERS_SRC, 'data-npc-dossiers', () => {
-                                                                                            root.CronacheNpcDossiers?.install?.(document, window);
-                                                                                            appendScript(PORTRAIT_EVOLUTION_SRC, 'data-portrait-evolution', () => {
-                                                                                                root.CronachePortraitEvolution?.install?.(document, window);
-                                                                                                appendScript(PORTRAIT_SIZE_TUNING_SRC, 'data-portrait-size-tuning', () => {
-                                                                                                    root.CronachePortraitSizeTuning?.install?.(document);
-                                                                                                    appendScript(CHAT_EXPERIENCE_V2_SRC, 'data-chat-experience-v2', () => {
-                                                                                                        root.CronacheChatExperienceV2?.install?.(document, window);
-                                                                                                        appendScript(CHARACTER_PROFILE_V2_SRC, 'data-character-profile-v2', () => {
-                                                                                                            root.CronacheCharacterProfileV2?.install?.(document, window);
-                                                                                                        });
-                                                                                                    });
-                                                                                                });
-                                                                                            });
-                                                                                        });
-                                                                                    });
-                                                                                });
-                                                                            });
-                                                                        });
-                                                                    });
-                                                                });
-                                                            });
-                                                        });
-                                                    });
-                                                });
-                                            });
-                                        });
-                                    });
-                                });
-                            });
-                        });
-                    });
-                });
-            });
+        SCRIPTS.forEach(item => {
+            document.write('<script src="' + item.src + '" ' + item.marker + '="1"><\/script>');
         });
+    } else {
+        loadSequentially();
     }
 })(typeof globalThis !== 'undefined' ? globalThis : this);
