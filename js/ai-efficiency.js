@@ -31,6 +31,7 @@
         ['js/npc-dossiers.js?v=20260819-npc-dossiers-1', 'data-npc-dossiers', 'CronacheNpcDossiers', 'document-window'],
         ['js/portrait-evolution.js?v=20260819-portrait-evolution-1', 'data-portrait-evolution', 'CronachePortraitEvolution', 'document-window'],
         ['js/chat-experience-v2.js?v=20260819-chat-experience-2', 'data-chat-experience-v2', 'CronacheChatExperienceV2', 'document-window'],
+        ['js/chat-runtime-v3.js?v=20260820-chat-runtime-3', 'data-chat-runtime-v3', 'CronacheChatRuntimeV3', 'document-window'],
         ['js/character-profile-v2.js?v=20260819-character-profile-2', 'data-character-profile-v2', 'CronacheCharacterProfileV2', 'document-window'],
         ['js/quest-manager-v7.js?v=20260820-phase7-1', 'data-quest-manager-v7', 'CronacheQuestManagerV7', 'document-window'],
         ['js/offscreen-world-v7.js?v=20260820-phase7-1', 'data-offscreen-world-v7', 'CronacheOffscreenWorldV7', 'document-window'],
