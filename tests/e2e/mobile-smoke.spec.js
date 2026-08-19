@@ -107,3 +107,51 @@ test('protagonist portrait keeps the full medallion on a phone viewport', async 
   expect(geometry.imageWidth).toBeGreaterThanOrEqual(geometry.portraitWidth - 1);
   expect(geometry.radius).toMatch(/50%|999/);
 });
+
+test('world chat composer stays visible and writable with a long conversation', async ({ page }) => {
+  await page.goto('/index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => window.CronacheRuntimeV9?.snapshot?.().ready === window.CronacheRuntimeV9?.snapshot?.().expected, null, { timeout: 10_000 });
+
+  await page.evaluate(() => {
+    const modal = document.getElementById('modal-world-chat');
+    const threadList = document.getElementById('chat-thread-list');
+    const head = document.getElementById('chat-conversation-head');
+    const messages = document.getElementById('chat-messages');
+    if (!modal || !threadList || !head || !messages) throw new Error('chat markup missing');
+
+    modal.classList.add('active');
+    threadList.innerHTML = '<button class="chat-thread active"><strong>Riunione di prova</strong><small>Conversazione molto lunga</small></button>';
+    head.innerHTML = '<strong>Riunione di prova</strong><small>Tre partecipanti</small><div class="chat-participant-chips"><span>NPC A</span><span>NPC B</span><span>NPC C</span></div>';
+    messages.innerHTML = Array.from({ length: 28 }, (_, index) => (
+      `<div class="chat-message"><div class="chat-avatar"></div><div class="chat-bubble"><span class="chat-speaker">NPC ${index}</span>Messaggio di prova abbastanza lungo per riempire la conversazione e forzare lo scorrimento interno.</div></div>`
+    )).join('');
+  });
+
+  const input = page.locator('#chat-input');
+  const composer = page.locator('#modal-world-chat .chat-compose');
+  await expect(input).toBeVisible();
+  await expect(composer).toBeVisible();
+  await input.fill('Posso ancora scrivere');
+  await expect(input).toHaveValue('Posso ancora scrivere');
+
+  const geometry = await page.evaluate(() => {
+    const modal = document.querySelector('#modal-world-chat .chat-modal').getBoundingClientRect();
+    const composer = document.querySelector('#modal-world-chat .chat-compose').getBoundingClientRect();
+    const input = document.getElementById('chat-input').getBoundingClientRect();
+    return {
+      viewportHeight: window.innerHeight,
+      modalTop: modal.top,
+      modalBottom: modal.bottom,
+      composerTop: composer.top,
+      composerBottom: composer.bottom,
+      inputTop: input.top,
+      inputBottom: input.bottom
+    };
+  });
+
+  expect(geometry.composerTop).toBeGreaterThanOrEqual(geometry.modalTop - 1);
+  expect(geometry.composerBottom).toBeLessThanOrEqual(geometry.modalBottom + 1);
+  expect(geometry.inputTop).toBeGreaterThanOrEqual(geometry.modalTop - 1);
+  expect(geometry.inputBottom).toBeLessThanOrEqual(geometry.modalBottom + 1);
+  expect(geometry.inputBottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
+});
