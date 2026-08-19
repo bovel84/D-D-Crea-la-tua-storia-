@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('assert');
+global.CronachePortraits = require('../js/portrait-manager.js');
 const portraits = require('../js/portrait-photos.js');
 
 const state = {
@@ -80,6 +81,22 @@ assert.equal(rerolled.reroll, 1);
 
 assert.equal(portraits.isPersonEntity({ name: 'Lega dei Mercanti', kind: 'faction', role: 'fazione' }, state), false,
     'una fazione non deve essere trasformata in una persona casuale');
+assert.equal(portraits.isPersonEntity({ name: 'Casa d Aste Rossi', role: 'supplier' }, state), false,
+    'un fornitore che e una organizzazione non deve ricevere un volto umano inventato');
 assert.equal(portraits.isPersonEntity(npc, state), true);
+
+const femaleProtagonistState = {
+    ...state,
+    selectedGender: '',
+    character: {
+        name: 'Giulia Ferri', role: 'mercante', archetype: 'mercante',
+        portraitId: 'chronicle-merchant'
+    },
+    worldMemory: { ...state.worldMemory, portraitPhotos: undefined }
+};
+assert.equal(portraits.resolveGender(femaleProtagonistState.character, femaleProtagonistState), 'female',
+    'il ritratto scelto deve prevalere sulle euristiche del ruolo quando il genere non e salvato');
+assert.equal(portraits.stabilizeCharacterGender(femaleProtagonistState), true);
+assert.equal(femaleProtagonistState.character.gender, 'female');
 
 console.log('portrait-photos-regression: ok');
