@@ -459,6 +459,15 @@
             font-size: 1.05em;
         }
         .story-entry.narrator .story-badge { background: rgba(201,162,39,0.15); border-color: rgba(201,162,39,0.3); color: var(--gold-dark); }
+        .story-scene-img {
+            width: 100%;
+            max-height: 220px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin: 6px 0 10px;
+            opacity: 0.92;
+            border: 1px solid rgba(201,162,39,0.2);
+        }
 
         .story-entry.player {
             background: linear-gradient(135deg, rgba(30, 58, 95, 0.18), rgba(30, 58, 95, 0.08));
@@ -10845,8 +10854,15 @@
             return false;
         }
 
-        function addStoryEntry(text, type, log = true) {
+        function addStoryEntry(text, type, log = true, scenePrompt) {
             if (isInternalStoryEntry(text, type)) return;
+            // Try to extract [SCENE:] from raw text if not explicitly provided
+            if (type === 'narrator' && !scenePrompt) {
+                try {
+                    const sm = String(text || '').match(/\[SCENE:\s*([^\]]+)\]/i);
+                    if (sm) scenePrompt = sm[1].trim();
+                } catch (_) {}
+            }
             const visibleText = type === 'narrator' ? stripNarrativeProtocol(text) : String(text || '');
             if (isInternalStoryEntry(visibleText, type)) return;
             if (!visibleText) return;
@@ -10861,6 +10877,15 @@
                 .join('');
             
             if (!formatted) formatted = `<p>${visibleText.replace(/\n/g, '<br>')}</p>`;
+            
+            // Scene image for narrator entries
+            let sceneImgHtml = '';
+            if (type === 'narrator' && sceneImagesEnabled() && scenePrompt) {
+                try {
+                    const url = buildSceneImageUrl(scenePrompt, 560, 200);
+                    sceneImgHtml = `<img class="story-scene-img" src="${url}" alt="Scena" loading="lazy" onerror="this.style.display='none'"/>`;
+                } catch (_) {}
+            }
             
             const typeLabels = {
                 narrator: 'Narratore',
@@ -10888,6 +10913,7 @@
                     <span class="story-badge">${badge}</span>
                     ${timeLabel ? `<span class="story-time">${timeLabel}</span>` : ''}
                 </div>
+                ${sceneImgHtml}
                 <div class="story-entry-text">${formatted}</div>
             `;
 
@@ -15550,7 +15576,14 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 if (!isStart) notify('Il modello non ha restituito una scena narrativa: le note di lavoro sono rimaste nascoste.', 'info');
             }
 
-            if (clean) addStoryEntry(clean, 'narrator');
+            // Extract [SCENE:] prompt before cleanup for per-turn image
+            let scenePromptForEntry = '';
+            try {
+                const sceneMatch = response.match(/\[SCENE:\s*([^\]]+)\]/i);
+                if (sceneMatch) scenePromptForEntry = sceneMatch[1].trim();
+            } catch (_) {}
+
+            if (clean) addStoryEntry(clean, 'narrator', true, scenePromptForEntry);
             if (businessFeedback?.successes?.length) {
                 const activities = [...new Set(businessFeedback.successes
                     .map(message => String(message).split(':')[0].trim())
