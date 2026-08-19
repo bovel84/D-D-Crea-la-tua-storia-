@@ -5,7 +5,7 @@ const sectors = require('../js/business-specializations.js');
 const timeline = require('../js/timeline-simulator.js');
 global.CronacheBusinessSpecializations = sectors;
 global.CronacheTimelineSimulator = timeline;
-const autonomy = require('../js/management-autonomy.js');
+const autonomy = require('../js/management-autonomy-v2.js');
 
 const state = {
     character: { gold: 500 },
@@ -56,9 +56,10 @@ assert.ok(added.length >= 1);
 assert.ok(state.worldMemory.pendingTimelineEvents.length >= added.length);
 assert.ok(state.worldMemory.pendingTimelineEvents.every(item => item.kind === 'world_initiative'));
 assert.ok(state.worldMemory.managementAutonomy.lastSeeds.length >= added.length);
+assert.equal(state.worldMemory.managementAutonomy.lastInjectionTurn, 10);
 
 const second = autonomy.enqueueAutonomousSeeds(state, timeline, sectors);
-assert.equal(second.length, 0, 'lo stesso segnale non deve essere riaccodato nello stesso turno');
+assert.equal(second.length, 0, 'non deve accodare altre pressioni gestionali nello stesso turno');
 
 const kingdomCandidates = autonomy.buildKingdomCandidates(state);
 assert.ok(kingdomCandidates.some(item => /emergenza alimentare/i.test(item.title)));
