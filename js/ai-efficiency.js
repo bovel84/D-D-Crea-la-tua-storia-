@@ -9,6 +9,7 @@
 
     const CORE_SRC = 'js/ai-efficiency-core.js?v=20260818-story-visuals-1';
     const VISUAL_SRC = 'js/story-visuals.js?v=20260818-story-visuals-1';
+    const TIMELINE_UX_SRC = 'js/timeline-ux.js?v=20260819-timeline-order-1';
 
     function appendScript(src, marker, onload) {
         if (document.querySelector(`script[${marker}]`)) {
@@ -27,9 +28,13 @@
     if (document.readyState === 'loading') {
         document.write('<script src="' + CORE_SRC + '" data-ai-efficiency-core="1"><\/script>');
         document.write('<script src="' + VISUAL_SRC + '" data-story-visuals="1"><\/script>');
+        document.write('<script src="' + TIMELINE_UX_SRC + '" data-timeline-ux="1"><\/script>');
     } else {
         appendScript(CORE_SRC, 'data-ai-efficiency-core', () => {
-            appendScript(VISUAL_SRC, 'data-story-visuals', () => root.CronacheStoryVisuals?.install?.());
+            appendScript(VISUAL_SRC, 'data-story-visuals', () => {
+                root.CronacheStoryVisuals?.install?.();
+                appendScript(TIMELINE_UX_SRC, 'data-timeline-ux', () => root.CronacheTimelineUX?.install?.(document, window));
+            });
         });
     }
 })(typeof globalThis !== 'undefined' ? globalThis : this);
