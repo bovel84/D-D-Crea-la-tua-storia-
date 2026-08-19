@@ -25,6 +25,7 @@
     const MANAGEMENT_LAYOUT_SRC = 'js/management-layout.js?v=20260819-management-layout-1';
     const PLAYER_EXPERIENCE_SRC = 'js/player-experience-v6.js?v=20260819-player-experience-1';
     const PORTRAIT_PHOTOS_SRC = 'js/portrait-photos.js?v=20260819-contextual-portraits-1';
+    const NPC_DOSSIERS_SRC = 'js/npc-dossiers.js?v=20260819-npc-dossiers-1';
 
     function appendScript(src, marker, onload) {
         if (document.querySelector(`script[${marker}]`)) {
@@ -59,6 +60,7 @@
         document.write('<script src="' + MANAGEMENT_LAYOUT_SRC + '" data-management-layout="1"><\/script>');
         document.write('<script src="' + PLAYER_EXPERIENCE_SRC + '" data-player-experience-v6="1"><\/script>');
         document.write('<script src="' + PORTRAIT_PHOTOS_SRC + '" data-portrait-photos="1"><\/script>');
+        document.write('<script src="' + NPC_DOSSIERS_SRC + '" data-npc-dossiers="1"><\/script>');
     } else {
         appendScript(CORE_SRC, 'data-ai-efficiency-core', () => {
             appendScript(VISUAL_SRC, 'data-story-visuals', () => {
@@ -95,6 +97,9 @@
                                                                             root.CronachePlayerExperienceV6?.install?.(document, window);
                                                                             appendScript(PORTRAIT_PHOTOS_SRC, 'data-portrait-photos', () => {
                                                                                 root.CronachePortraitPhotos?.install?.(document, window);
+                                                                                appendScript(NPC_DOSSIERS_SRC, 'data-npc-dossiers', () => {
+                                                                                    root.CronacheNpcDossiers?.install?.(document, window);
+                                                                                });
                                                                             });
                                                                         });
                                                                     });
