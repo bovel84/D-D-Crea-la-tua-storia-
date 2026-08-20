@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 1;
+    const PATCH_VERSION = 2;
     const STYLE_ID = 'cronache-world-map-v11-levels-style';
     const runtime = {
         level: 'world',
@@ -14,7 +14,8 @@
         interiorParentId: '',
         worldMarkup: '',
         observer: null,
-        refreshing: false
+        refreshing: false,
+        refreshQueued: false
     };
 
     const asArray = value => Array.isArray(value) ? value : [];
@@ -130,14 +131,17 @@
         const matches = locationsForScope(model, level, value, anchor);
         const ids = new Set(matches.map(item => item.id));
         doc.querySelectorAll('#modal-world-map .world-map-node').forEach(node => {
-            node.classList.toggle('map-v11-level-hidden', level !== 'world' && !ids.has(node.dataset.mapLocationId));
+            const hidden = level !== 'world' && !ids.has(node.dataset.mapLocationId);
+            if (node.classList.contains('map-v11-level-hidden') !== hidden) node.classList.toggle('map-v11-level-hidden', hidden);
         });
         const box = scopeBox(model, matches, level);
-        svg.setAttribute('viewBox', `${Math.round(box.x)} ${Math.round(box.y)} ${Math.round(box.width)} ${Math.round(box.height)}`);
+        const nextViewBox = `${Math.round(box.x)} ${Math.round(box.y)} ${Math.round(box.width)} ${Math.round(box.height)}`;
+        if (svg.getAttribute('viewBox') !== nextViewBox) svg.setAttribute('viewBox', nextViewBox);
         const modal = doc.getElementById('modal-world-map');
         if (modal) {
-            modal.dataset.mapLevel = level;
-            modal.classList.toggle('map-v11-scoped', level !== 'world');
+            if (modal.dataset.mapLevel !== level) modal.dataset.mapLevel = level;
+            const scoped = level !== 'world';
+            if (modal.classList.contains('map-v11-scoped') !== scoped) modal.classList.toggle('map-v11-scoped', scoped);
         }
     }
 
@@ -247,9 +251,13 @@
     function decorateInteriorDetail(doc, parent, room) {
         const detail = doc?.getElementById('world-map-detail');
         if (!detail || !parent) return;
-        detail.querySelector('.map-v11-room-detail')?.remove();
+        const signature = `${parent.id}|${room?.id || room?.name || ''}|${room?.current ? 1 : 0}`;
+        const existing = detail.querySelector('.map-v11-room-detail');
+        if (existing?.dataset.signature === signature) return;
+        existing?.remove();
         const box = doc.createElement('div');
         box.className = 'map-v11-room-detail';
+        box.dataset.signature = signature;
         box.innerHTML = `<b>${escapeHtml(room?.name || parent.currentInteriorName || 'Interni')}</b><span>Dentro ${escapeHtml(parent.name)}</span>` +
             (room && !room.current ? `<button type="button" data-map-v11-move-room="${escapeHtml(room.name)}">Vai qui</button>` : '<em>Posizione attuale</em>');
         detail.prepend(box);
@@ -264,8 +272,17 @@
         if (!model || !detail) return;
         const id = detail.dataset.mapV10Location || runtime.selectedLocationId || model.currentLocationId;
         const location = locationById(model, id) || selectedLocation(model);
-        detail.querySelector('[data-map-v11-enter-interior]')?.remove();
-        if (!location || !asArray(location.subLocations).length) return;
+        const existing = detail.querySelector('[data-map-v11-enter-interior]');
+        if (!location || !asArray(location.subLocations).length) {
+            existing?.remove();
+            return;
+        }
+        if (existing?.dataset.mapV11EnterInterior === location.id) {
+            const label = `⌂ Interni (${location.subLocations.length})`;
+            if (existing.textContent !== label) existing.textContent = label;
+            return;
+        }
+        existing?.remove();
         let actions = detail.querySelector('.world-map-v10-actions');
         if (!actions) {
             actions = doc.createElement('div');
@@ -309,7 +326,12 @@
             const model = modelNow();
             const overlay = ensureOverlay(doc);
             if (!model || !overlay) return;
-            overlay.innerHTML = `<div class="map-v11-breadcrumb">${breadcrumbMarkup(model)}</div>`;
+            const markup = `<div class="map-v11-breadcrumb">${breadcrumbMarkup(model)}</div>`;
+            const signature = `${runtime.level}|${runtime.scopeName}|${runtime.selectedLocationId}|${runtime.interiorParentId}`;
+            if (overlay.dataset.signature !== signature || overlay.innerHTML !== markup) {
+                overlay.dataset.signature = signature;
+                overlay.innerHTML = markup;
+            }
             ensureStructureAction(doc);
         } finally {
             runtime.refreshing = false;
@@ -363,11 +385,8 @@
             const mapNode = event.target.closest?.('#modal-world-map .world-map-node');
             if (mapNode) {
                 runtime.selectedLocationId = mapNode.dataset.mapLocationId || '';
-                const location = locationById(modelNow(), runtime.selectedLocationId);
-                if (location && runtime.level === 'world') {
-                    runtime.scopeName = '';
-                }
-                setTimeout(() => refreshOverlay(doc), 0);
+                if (runtime.level === 'world') runtime.scopeName = '';
+                queueRefresh(doc);
                 return;
             }
             const regionButton = event.target.closest?.('[data-map-region]');
@@ -419,7 +438,7 @@
   .map-v11-interior .world-map-body{grid-template-areas:'status' 'map'!important;grid-template-rows:auto minmax(0,1fr)!important}
   .map-v11-interior #world-map-viewport{grid-area:map!important}
   .map-v11-interior .world-map-status>.world-map-v10-layerbar{display:none!important}
-  .world-map-local-svg{min-width:650px;min-height:100%}
+  .world-map-local-svg{min-width:560px;min-height:100%}
 }
 @media(max-width:430px){
   .map-v11-crumb{font-size:.46rem;padding:3px 5px}
@@ -446,11 +465,26 @@
         refreshOverlay(doc);
     }
 
+    function queueRefresh(doc) {
+        if (runtime.refreshQueued) return;
+        runtime.refreshQueued = true;
+        setTimeout(() => {
+            runtime.refreshQueued = false;
+            refresh(doc);
+        }, 0);
+    }
+
     function observe(doc) {
         if (!doc || runtime.observer || typeof MutationObserver === 'undefined') return;
-        runtime.observer = new MutationObserver(() => {
+        runtime.observer = new MutationObserver(mutations => {
             if (runtime.refreshing) return;
-            setTimeout(() => refresh(doc), 0);
+            const relevant = mutations.some(mutation => {
+                if (mutation.type === 'attributes') return true;
+                const target = mutation.target;
+                if (target?.closest?.('.map-v11-level-overlay,.map-v11-room-detail')) return false;
+                return true;
+            });
+            if (relevant) queueRefresh(doc);
         });
         runtime.observer.observe(doc.documentElement || doc.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'data-map-v10-location'] });
     }
