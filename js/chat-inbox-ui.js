@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 1;
+    const PATCH_VERSION = 2;
     const STYLE_ID = 'cronache-chat-inbox-ui-style';
     let observer = null;
     let scheduled = false;
@@ -285,7 +285,8 @@
                 const open = !modal?.classList.contains('chat-inbox-actions-open');
                 modal?.classList.toggle('chat-inbox-actions-open', open);
                 actions.setAttribute('aria-expanded', open ? 'true' : 'false');
-                actions.textContent = open ? '✕ Azioni' : '⚙ Azioni';
+                const nextText = open ? '✕ Azioni' : '⚙ Azioni';
+                if (actions.textContent !== nextText) actions.textContent = nextText;
             });
 
             controls.append(archive, actions);
@@ -301,7 +302,8 @@
         if (!archive) return;
         archive.hidden = count === 0;
         const open = list.classList.contains('chat-archive-open');
-        archive.textContent = count === 0 ? 'Nessun archivio' : (open ? `▴ Nascondi archivio (${count})` : `▾ Archivio precedente (${count})`);
+        const nextText = count === 0 ? 'Nessun archivio' : (open ? `▴ Nascondi archivio (${count})` : `▾ Archivio precedente (${count})`);
+        if (archive.textContent !== nextText) archive.textContent = nextText;
         archive.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 
@@ -345,8 +347,10 @@
             const delta = recencyOf(b.thread) - recencyOf(a.thread);
             return delta || a.index - b.index;
         });
-        if (newestInfo?.card) list.appendChild(newestInfo.card);
-        archived.forEach(info => list.appendChild(info.card));
+        const desiredOrder = [newestInfo, ...archived].filter(Boolean).map(info => info.card);
+        const currentOrder = Array.from(list.querySelectorAll('.chat-thread'));
+        const orderChanged = desiredOrder.length === currentOrder.length && desiredOrder.some((card, index) => currentOrder[index] !== card);
+        if (orderChanged) desiredOrder.forEach(card => list.appendChild(card));
 
         ensureFlowLabel(documentRef, list, 'available', 'Chat disponibile');
         const controls = ensureControls(documentRef, list);
