@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 3;
+    const PATCH_VERSION = 4;
     const STYLE_ID = 'cronache-ollama-cloud-power-v3-style';
     const POWER_STORAGE_KEY = 'cronache_ollama_power_mode_v3';
     const OFFICIAL_API = 'https://ollama.com/api';
@@ -156,7 +156,8 @@
         const profile = capabilityProfile(apiId, task);
         const power = config.powerMode !== undefined ? Boolean(config.powerMode) : isPowerEnabled();
         const preferredThink = power ? profile.think : false;
-        const outputBudget = Math.max(64, Number(maxTokens || config.maxTokens) || (power ? profile.minOutput : 1500));
+        const requestedOutput = Number(maxTokens || config.maxTokens) || 0;
+        const outputBudget = Math.max(64, requestedOutput, power ? profile.minOutput : (requestedOutput || 1500));
         const temperature = Number.isFinite(Number(config.temperature)) ? Number(config.temperature) : profile.temperature;
         const topP = Number.isFinite(Number(config.topP)) ? Number(config.topP) : profile.topP;
         const topK = Number.isFinite(Number(config.topK)) ? Number(config.topK) : profile.topK;
