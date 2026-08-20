@@ -40,11 +40,12 @@
         ['js/turn-resolution-v7.js?v=20260820-phase7-1', 'data-turn-resolution-v7', 'CronacheTurnResolutionV7', 'document-window'],
         ['js/world-travel-v8.js?v=20260820-phase8-1', 'data-world-travel-v8', 'CronacheWorldTravelV8', 'document-window'],
         ['js/world-map-v10.js?v=20260820-world-map-v10-1', 'data-world-map-v10', 'CronacheWorldMapV10', 'document'],
+        ['js/world-map-v12-story-svg.js?v=20260820-world-map-story-svg-1', 'data-world-map-v12-story-svg', 'CronacheWorldMapV12StorySvg', 'document'],
         ['js/world-map-v10-mobile-fix.js?v=20260820-world-map-mobile-fix-1', 'data-world-map-v10-mobile-fix', 'CronacheWorldMapV10MobileFix', 'document'],
         ['js/world-map-v10-mobile-layout.js?v=20260820-world-map-mobile-layout-1', 'data-world-map-v10-mobile-layout', 'CronacheWorldMapV10MobileLayout', 'document'],
         ['js/world-map-v10-local-places.js?v=20260820-world-map-local-places-2', 'data-world-map-v10-local-places', 'CronacheWorldMapV10LocalPlaces', 'document'],
         ['js/world-map-v11-levels.js?v=20260820-world-map-levels-2', 'data-world-map-v11-levels', 'CronacheWorldMapV11Levels', 'document'],
-        ['js/world-map-v11-gestures-safe.js?v=20260820-world-map-gestures-safe-1', 'data-world-map-v11-gestures-safe', 'CronacheWorldMapV11GesturesSafe', 'document'],
+        ['js/world-map-v11-gestures-persistent.js?v=20260820-world-map-gestures-persistent-1', 'data-world-map-v11-gestures-persistent', 'CronacheWorldMapV11GesturesPersistent', 'document'],
         ['js/time-montage-v8.js?v=20260820-phase8-1', 'data-time-montage-v8', 'CronacheTimeMontageV8', 'document-window'],
         ['js/scene-continuity-v8.js?v=20260820-phase8-1', 'data-scene-continuity-v8', 'CronacheSceneContinuityV8', 'document-window']
     ].map(([src, marker, globalName, args]) => ({ src, marker, globalName, args }));
