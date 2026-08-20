@@ -17,6 +17,7 @@
         ['js/ui-consolidation-v9.js?v=20260820-phase9-1', 'data-ui-consolidation-v9', 'CronacheUiConsolidationV9', 'document'],
         ['js/management-director.js?v=20260819-management-director-1', 'data-management-director', 'CronacheManagementDirector', 'none'],
         ['js/management-hub.js?v=20260819-management-first-1', 'data-management-hub', 'CronacheManagementHub', 'document-window'],
+        ['js/kingdom-focus-ui.js?v=20260820-kingdom-focus-1', 'data-kingdom-focus-ui', 'CronacheKingdomFocusUI', 'document'],
         ['js/business-specializations.js?v=20260819-sector-specialization-1', 'data-business-specializations', 'CronacheBusinessSpecializations', 'document'],
         ['js/business-sector-effects.js?v=20260819-sector-effects-1', 'data-business-sector-effects', 'CronacheBusinessSectorEffects', 'none'],
         ['js/business-narrative-recovery.js?v=20260820-business-recovery-2', 'data-business-narrative-recovery', 'CronacheBusinessNarrativeRecovery', 'none'],
