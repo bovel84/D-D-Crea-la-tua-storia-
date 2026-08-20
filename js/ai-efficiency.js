@@ -11,7 +11,7 @@
         ['js/ai-efficiency-core.js?v=20260818-story-visuals-1', 'data-ai-efficiency-core', '', 'none'],
         ['js/ollama-cloud-catalog-v2.js?v=20260820-ollama-cloud-catalog-3', 'data-ollama-cloud-catalog-v2', 'CronacheOllamaCloudCatalogV2', 'document'],
         ['js/ollama-cloud-power-v3.js?v=20260820-ollama-cloud-power-2', 'data-ollama-cloud-power-v3', 'CronacheOllamaCloudPowerV3', 'document'],
-        ['js/ollama-cloud-startup-guard.js?v=20260820-ollama-startup-2', 'data-ollama-cloud-startup-guard', 'CronacheOllamaCloudStartupGuard', 'none'],
+        ['js/ollama-cloud-startup-guard.js?v=20260820-ollama-startup-3', 'data-ollama-cloud-startup-guard', 'CronacheOllamaCloudStartupGuard', 'none'],
         ['js/story-visuals.js?v=20260818-story-visuals-1', 'data-story-visuals', 'CronacheStoryVisuals', 'none'],
         ['js/summary-visuals.js?v=20260819-summary-context-3', 'data-summary-visuals', 'CronacheSummaryVisuals', 'document-window'],
         ['js/timeline-ux.js?v=20260819-timeline-order-1', 'data-timeline-ux', 'CronacheTimelineUX', 'document-window'],
