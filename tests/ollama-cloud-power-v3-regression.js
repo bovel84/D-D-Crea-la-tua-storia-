@@ -52,7 +52,7 @@ assert(power.structuredInstruction('json').includes('JSON valido'));
     assert.strictEqual(calls[0].body.think, 'max');
     assert(!Object.prototype.hasOwnProperty.call(calls[0].body, 'format'));
     assert(!Object.prototype.hasOwnProperty.call(calls[0].body.options, 'num_ctx'));
-    assert(calls[0].body.options.num_predict >= 1200);
+    assert(calls[0].body.options.num_predict >= 4096);
     assert(calls[0].body.messages.some(message => /JSON valido/.test(message.content)));
 
     const metrics = power.testMetrics({ eval_count: 40, eval_duration: 2e9 }, 1250);
@@ -60,7 +60,7 @@ assert(power.structuredInstruction('json').includes('JSON valido'));
     assert.strictEqual(metrics.elapsedMs, 1250);
 
     const loader = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-efficiency.js'), 'utf8');
-    assert(loader.includes('js/ollama-cloud-power-v3.js?v=20260820-ollama-cloud-power-1'));
+    assert(loader.includes('js/ollama-cloud-power-v3.js?v=20260820-ollama-cloud-power-2'));
     assert(loader.includes('CronacheOllamaCloudPowerV3'));
 
     console.log('ollama cloud power v3 regression: ok');
