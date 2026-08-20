@@ -5,12 +5,12 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
   'use strict';
 
-  const PATCH_VERSION = 1;
+  const PATCH_VERSION = 2;
   const STYLE_ID = 'cronache-world-context-v13-style';
-  const GENERIC_NAMES = new Set(['andrea rossi','elena bianchi','lorenzo conti','giulia ferri','matteo ricci','sara moretti','davide galli','chiara neri']);
   const clean = (v, max = 4000) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
   const key = v => clean(v, 500).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const arr = v => Array.isArray(v) ? v : [];
+  const promptText = messages => arr(messages).map(m => String(m?.content == null ? '' : m.content)).join('\n').slice(0, 80000);
 
   function storyText(context = {}) {
     const story = context.story || context.currentStory || {};
@@ -22,8 +22,7 @@
   }
 
   function phaseNumber(messages) {
-    const text = arr(messages).map(m => clean(m?.content)).join('\n');
-    const match = text.match(/FASE\s*([1-6])\s*\/\s*6/i);
+    const match = promptText(messages).match(/FASE\s*([1-6])\s*\/\s*6/i);
     return match ? Number(match[1]) : 0;
   }
 
@@ -40,7 +39,7 @@
   }
 
   function pipeNames(text) {
-    return [...new Set(text.split(/\r?\n/).map(line => clean(line)).filter(Boolean).map(line => line.includes(' | ') ? line.split(' | ')[0] : '').filter(Boolean))];
+    return [...new Set(String(text || '').split(/\r?\n/).map(line => clean(line)).filter(Boolean).map(line => line.includes(' | ') ? line.split(' | ')[0] : '').filter(Boolean))];
   }
 
   function themeFromText(text) {
@@ -59,7 +58,7 @@
   }
 
   function contextualFallbackNpcJson(messages) {
-    const text = arr(messages).map(m => clean(m?.content, 50000)).join('\n');
+    const text = promptText(messages);
     const places = pipeNames(section(text, 'LUOGHI:', ['FAZIONI:', '=== GEOGRAFIA', 'Restituisci:']));
     const factions = pipeNames(section(text, 'FAZIONI:', ['=== GEOGRAFIA', 'Restituisci:']));
     const theme = themeFromText(text);
@@ -124,18 +123,19 @@
       const body = { model: apiId, messages, stream: false, think: false, format: 'json', options: { temperature: 0.42, top_p: 0.9, top_k: 40, num_predict: budget } };
       if (fetchImpl && clean(config.apiKey)) {
         for (const base of endpoints) {
+          let timer = null;
           try {
             const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-            const timer = controller ? setTimeout(() => controller.abort(), 65000) : null;
+            timer = controller ? setTimeout(() => controller.abort(), 65000) : null;
             const response = await fetchImpl(`${base}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8', Authorization: `Bearer ${clean(config.apiKey)}` }, body: JSON.stringify(body), signal: controller?.signal });
-            if (timer) clearTimeout(timer);
             const data = await response.json().catch(() => ({}));
-            const content = clean(data?.message?.content ?? data?.response ?? data?.choices?.[0]?.message?.content, 60000);
+            const content = String(data?.message?.content ?? data?.response ?? data?.choices?.[0]?.message?.content ?? '').trim();
             if (response.ok && isJsonComplete(content)) {
               const parsed = JSON.parse(content.slice(content.indexOf('{'), content.lastIndexOf('}') + 1));
               if (Array.isArray(parsed.npcs) && parsed.npcs.length >= 6) return { content, model: apiId, apiId, endpoint: `${base}/chat`, data, attemptedModels: [apiId], power: { enabled: false, phase: 4, structured: true, context: 'story-context-v13' } };
             }
           } catch (_e) { }
+          finally { if (timer) clearTimeout(timer); }
         }
       }
       return { content: contextualFallbackNpcJson(messages), model: apiId, apiId, endpoint: 'local-contextual-recovery', data: {}, attemptedModels: [apiId], power: { enabled: false, phase: 4, recovered: true, contextual: true, context: 'story-context-v13' } };
@@ -195,6 +195,7 @@
       model.regionLabels = arr(model.regionLabels).filter(r => regions.has(key(r.name)));
       model.regionZones = arr(model.regionZones).filter(r => regions.has(key(r.name || r.region)));
       model.routeEdges = arr(model.routeEdges).filter(e => keep.has(e.from) && keep.has(e.to));
+      model.edges = arr(model.edges).filter(e => keep.has(e.from) && keep.has(e.to));
       model.liveSignals = arr(model.liveSignals).filter(s => !s.locationId || keep.has(s.locationId));
       model.hostileMarkers = arr(model.hostileMarkers).filter(s => !s.locationId || keep.has(s.locationId));
       model.storyFocus = focus;
@@ -208,7 +209,7 @@
     const previous = map.buildMapModel;
     const wrapped = function(...args) {
       const model = previous.apply(this, args);
-      const context = args[2] || root.CronacheWorldMapV10?.runtime?.lastContext?.context || {};
+      const context = args[1] || root.CronacheWorldMapV10?.runtime?.lastContext?.context || {};
       return model ? focusModel(model, context) : model;
     };
     wrapped.__worldContextV13 = true;
