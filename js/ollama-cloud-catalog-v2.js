@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 3;
+    const PATCH_VERSION = 4;
     const OFFICIAL_API = 'https://ollama.com/api';
     const DEFAULT_CONTEXT = 65536;
     const RETRYABLE = new Set([400, 404, 408, 409, 425, 429, 500, 502, 503, 504]);
@@ -94,14 +94,14 @@
             id: apiId,
             apiId,
             displayName: /·\s*Cloud$/i.test(title) ? title : `${title}${parameterSize ? ` · ${parameterSize}` : ''} · Cloud`,
-            localCloudId: rawId || cloudTagFor(apiId),
-            cloudTag: rawId || cloudTagFor(apiId),
+            localCloudId: raw.localCloudId || raw.cloudTag || rawId || cloudTagFor(apiId),
+            cloudTag: raw.cloudTag || raw.localCloudId || rawId || cloudTagFor(apiId),
             contextSize,
             temperature: Number.isFinite(Number(raw.temperature)) ? Number(raw.temperature) : 0.7,
             topP: Number.isFinite(Number(raw.topP)) ? Number(raw.topP) : 0.9,
             topK: Number.isFinite(Number(raw.topK)) ? Number(raw.topK) : 40,
             notes: raw.notes || (family ? `Disponibile per questa API key · famiglia ${family}.` : 'Disponibile per questa API key Ollama Cloud.'),
-            discovered: true
+            discovered: Boolean(raw.discovered || raw.name || raw.model)
         };
     }
 
@@ -188,7 +188,9 @@
                     if (response.status === 401 || response.status === 403) break;
                     continue;
                 }
-                return (Array.isArray(data.models) ? data.models : []).map(modelFromRaw).filter(Boolean);
+                const models = (Array.isArray(data.models) ? data.models : []).map(modelFromRaw).filter(Boolean);
+                if (models.length) return models;
+                failures.push('Catalogo vuoto');
             } catch (error) {
                 failures.push(error?.message || String(error));
             }
@@ -254,7 +256,7 @@
         const proto = ollama.OllamaCloudClient?.prototype;
         if (proto?.request && !proto.request.__cloudCatalogV2Wrapped) {
             const originalRequest = proto.request;
-            const wrappedRequest = function requestWithNormalizedCloudId(model, messages, config, maxTokens) {
+            const wrappedRequest = async function requestWithNormalizedCloudId(model, messages, config, maxTokens) {
                 const normalized = getModel(model?.apiId || model?.id, config?.discoveredModels);
                 const safeModel = {
                     ...(model || {}),
@@ -262,7 +264,13 @@
                     id: normalized?.id || normalizeCloudApiId(model?.id),
                     apiId: normalized?.apiId || normalizeCloudApiId(model?.apiId || model?.id)
                 };
-                return originalRequest.call(this, safeModel, messages, config, maxTokens);
+                try {
+                    return await originalRequest.call(this, safeModel, messages, config, maxTokens);
+                } catch (error) {
+                    const canTryOfficial = !String(config?.nativeProxy || '').trim() && [400, 404, 502, 503, 504].includes(Number(error?.status));
+                    if (!canTryOfficial) throw error;
+                    return originalRequest.call(this, safeModel, messages, { ...(config || {}), nativeProxy: OFFICIAL_API }, maxTokens);
+                }
             };
             wrappedRequest.__cloudCatalogV2Wrapped = true;
             wrappedRequest.__cloudCatalogV2Original = originalRequest;
