@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 1;
+    const PATCH_VERSION = 2;
     const APP_PROXY = 'https://storia-app.vercel.app/api/ollama';
     const OFFICIAL_API = 'https://ollama.com/api';
     const STARTUP_RE = /(?:FASE\s*[1-6]\s*\/\s*6|CANONE,?\s*EPOCA|GEOGRAFIA\s+E\s+LUOGHI|ISTITUZIONI,?\s*ECONOMIA|NPC\s+E\s+RETI|RELAZIONI\s+E\s+FORZE|AUDIT\s+STRUTTURALE|Definisco canone ed epoca|Ricostruisco luoghi e città)/i;
@@ -34,9 +34,12 @@
 
     function phaseBudget(messages, requested) {
         const phase = phaseNumber(messages);
-        const caps = { 1: 1800, 2: 3000, 3: 2400, 4: 3200, 5: 2200, 6: 1800 };
+        // Le fasi centrali producono strutture JSON molto più grandi della fase 1.
+        // Tagliare la Fase 4 a 3200 token troncava spesso l'array NPC: il parser
+        // falliva e il world-builder ricadeva sul generatore legacy, ripartendo da capo.
+        const caps = { 1: 1800, 2: 4200, 3: 3400, 4: 5600, 5: 3800, 6: 2200 };
         const wanted = Math.max(700, Number(requested) || 1800);
-        return Math.min(wanted, caps[phase] || 2400);
+        return Math.min(wanted, caps[phase] || 3200);
     }
 
     function endpointBases(config = {}) {
@@ -82,8 +85,11 @@
         if (!fetchImpl) throw new Error('Fetch API non disponibile.');
 
         const failures = [];
+        const phase = phaseNumber(messages);
         const budget = phaseBudget(messages, Number(maxTokens || config.maxTokens));
-        const timeoutMs = Math.min(60000, Math.max(15000, Number(config.startupTimeoutMs || config.timeoutMs || client?.timeoutMs || 45000)));
+        const baseTimeout = Number(config.startupTimeoutMs || config.timeoutMs || client?.timeoutMs || 45000);
+        const phaseTimeout = phase >= 4 && phase <= 5 ? Math.max(baseTimeout, 55000) : baseTimeout;
+        const timeoutMs = Math.min(65000, Math.max(15000, phaseTimeout));
         const temperature = Number.isFinite(Number(config.temperature)) ? Number(config.temperature) : Number(model?.temperature ?? 0.55);
         const topP = Number.isFinite(Number(config.topP)) ? Number(config.topP) : Number(model?.topP ?? 0.9);
         const topK = Number.isFinite(Number(config.topK)) ? Number(config.topK) : Number(model?.topK ?? 40);
@@ -92,7 +98,7 @@
             messages: preparedMessages(messages, config.format),
             stream: false,
             // Il bootstrap deve essere deterministico e rapido. Il reasoning pesante
-            // resta disponibile durante il gioco, ma non può bloccare la Fase 1.
+            // resta disponibile durante il gioco, ma non può bloccare la generazione iniziale.
             think: false,
             options: {
                 temperature,
@@ -139,7 +145,7 @@
                     power: {
                         enabled: false,
                         startupGuard: true,
-                        phase: phaseNumber(messages),
+                        phase,
                         think: false,
                         outputBudget: budget,
                         context: 'cloud-default'
