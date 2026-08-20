@@ -5,10 +5,35 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 2;
+    const PATCH_VERSION = 3;
     const OFFICIAL_API = 'https://ollama.com/api';
     const DEFAULT_CONTEXT = 65536;
     const RETRYABLE = new Set([400, 404, 408, 409, 425, 429, 500, 502, 503, 504]);
+    const ALIASES = Object.freeze({
+        'kimi-k2.7': 'kimi-k2.7-code',
+        'kimi-k2.7-cloud': 'kimi-k2.7-code',
+        'kimi-k2.7:cloud': 'kimi-k2.7-code'
+    });
+
+    function validId(value) {
+        return /^[a-zA-Z0-9._:@/-]+$/.test(String(value || '').trim());
+    }
+
+    function normalizeCloudApiId(value) {
+        let id = String(value || '').trim();
+        if (!id) return '';
+        id = id.replace(/:cloud$/i, '').replace(/-cloud$/i, '');
+        if (ALIASES[id]) id = ALIASES[id];
+        return validId(id) ? id : '';
+    }
+
+    function cloudTagFor(value) {
+        const id = normalizeCloudApiId(value) || String(value || '').trim();
+        if (!id) return '';
+        const colon = id.lastIndexOf(':');
+        if (colon > 0) return `${id}-cloud`;
+        return `${id}:cloud`;
+    }
 
     const CURRENT_MODELS = Object.freeze([
         ['glm-5.2', 'GLM 5.2', 999424, 0.65],
@@ -45,32 +70,6 @@
         topK: 40,
         notes: 'Modello Ollama Cloud. Il catalogo del tuo account ha priorità su questo elenco.'
     }))));
-
-    const ALIASES = Object.freeze({
-        'kimi-k2.7': 'kimi-k2.7-code',
-        'kimi-k2.7-cloud': 'kimi-k2.7-code',
-        'kimi-k2.7:cloud': 'kimi-k2.7-code'
-    });
-
-    function validId(value) {
-        return /^[a-zA-Z0-9._:@/-]+$/.test(String(value || '').trim());
-    }
-
-    function normalizeCloudApiId(value) {
-        let id = String(value || '').trim();
-        if (!id) return '';
-        id = id.replace(/:cloud$/i, '').replace(/-cloud$/i, '');
-        if (ALIASES[id]) id = ALIASES[id];
-        return validId(id) ? id : '';
-    }
-
-    function cloudTagFor(value) {
-        const id = normalizeCloudApiId(value) || String(value || '').trim();
-        if (!id) return '';
-        const colon = id.lastIndexOf(':');
-        if (colon > 0) return `${id}-cloud`;
-        return `${id}:cloud`;
-    }
 
     function cleanNumber(value, fallback) {
         const number = Number(value);
