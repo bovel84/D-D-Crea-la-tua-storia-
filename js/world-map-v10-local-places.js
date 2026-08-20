@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 1;
+    const PATCH_VERSION = 2;
     const STYLE_ID = 'cronache-world-map-v10-local-places-style';
     let observer = null;
 
@@ -68,14 +68,12 @@
         return out;
     }
 
-    function rebuildLayers(model, world, memory, context) {
+    function rebuildStaticLayers(model, world) {
         const v10 = root.CronacheWorldMapV10;
         if (typeof v10?.buildPoliticalZones === 'function') model.politicalZones = v10.buildPoliticalZones(model, world);
         if (typeof v10?.buildRegionLabels === 'function') model.regionLabels = v10.buildRegionLabels(model);
-        if (typeof v10?.buildLiveSignals === 'function') model.liveSignals = v10.buildLiveSignals(model, memory, context);
         const mobile = root.CronacheWorldMapV10MobileLayout;
         if (typeof mobile?.buildRegionZones === 'function') model.regionZones = mobile.buildRegionZones(model);
-        if (typeof mobile?.buildHostileMarkers === 'function') model.hostileMarkers = mobile.buildHostileMarkers(model, world);
         return model;
     }
 
@@ -126,7 +124,7 @@
             marker.y = Number(parent.y) - 34;
         });
 
-        rebuildLayers(model, world, memory, context);
+        rebuildStaticLayers(model, world);
         const runtime = root.CronacheWorldMapV10?.runtime;
         if (runtime) runtime.lastModel = model;
         return model;
