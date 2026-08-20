@@ -14,11 +14,11 @@ const phase1 = [
 ];
 const phase4 = [
     { role: 'system', content: 'FASE 4/6 — NPC E RETI SOCIALI' },
-    { role: 'user', content: 'Crea 8-16 NPC e restituisci JSON completo.' }
+    { role: 'user', content: 'LUOGHI:\nRoma | Lazio | Italia | city | centro\nFirenze | Toscana | Italia | city | centro\nFAZIONI:\nMercanti | tipo=corporation | base=Roma\nAutorità | tipo=republic | base=Firenze\nCrea 8-16 NPC e restituisci JSON completo.' }
 ];
 const phase5 = [
     { role: 'system', content: 'FASE 5/6 — RELAZIONI E FORZE IN MOVIMENTO' },
-    { role: 'user', content: 'Crea relazioni e forze e restituisci JSON completo.' }
+    { role: 'user', content: 'FAZIONI:\nMercanti | tipo=corporation\nNPC:\nAndrea Rossi | ruolo=Mercante\nElena Bianchi | ruolo=Funzionario\nCrea relazioni e forze e restituisci JSON completo.' }
 ];
 
 assert.strictEqual(guard.isWorldBootstrap(phase1), true);
@@ -27,6 +27,10 @@ assert.strictEqual(guard.phaseBudget(phase1, 4096), 1800);
 assert.strictEqual(guard.phaseNumber(phase4), 4);
 assert.strictEqual(guard.phaseBudget(phase4, 5600), 5600, 'la fase NPC non deve essere troncata a 3200 token');
 assert.strictEqual(guard.phaseBudget(phase5, 3800), 3800, 'la fase relazioni non deve essere troncata a 2200 token');
+assert.strictEqual(guard.completeJson('{"npcs":[]}'), true);
+assert.strictEqual(guard.completeJson('{"npcs":['), false);
+assert.strictEqual(JSON.parse(guard.fallbackNpcJson(phase4)).npcs.length, 8);
+assert(Array.isArray(JSON.parse(guard.fallbackDynamicsJson(phase5)).relations));
 assert.strictEqual(guard.isWorldBootstrap([{ role: 'user', content: 'Parla con il mercante.' }]), false);
 assert.deepStrictEqual(guard.endpointBases({}), [guard.APP_PROXY, guard.OFFICIAL_API]);
 
@@ -88,8 +92,27 @@ assert.deepStrictEqual(guard.endpointBases({}), [guard.APP_PROXY, guard.OFFICIAL
     assert.strictEqual(npcCalls[0].body.options.num_predict, 5600);
     assert.strictEqual(npcResult.power.phase, 4);
 
+    const brokenClient = {
+        timeoutMs: 1000,
+        fetch: async () => ({
+            ok: true,
+            status: 200,
+            json: async () => ({ message: { content: '{"npcs":[' } })
+        })
+    };
+    const recoveredNpc = await guard.startupRequest(
+        ollama,
+        brokenClient,
+        ollama.getModel('deepseek-v4-flash'),
+        phase4,
+        { apiKey: 'test-key', format: 'json', timeoutMs: 1000 },
+        5600
+    );
+    assert.strictEqual(recoveredNpc.power.recovered, true, 'JSON NPC troncato deve usare recovery locale invece di far ripartire il mondo');
+    assert.strictEqual(JSON.parse(recoveredNpc.content).npcs.length, 8);
+
     const loader = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-efficiency.js'), 'utf8');
-    assert(loader.includes('js/ollama-cloud-startup-guard.js?v=20260820-ollama-startup-2'));
+    assert(loader.includes('js/ollama-cloud-startup-guard.js?v=20260820-ollama-startup-3'));
     assert(loader.indexOf('ollama-cloud-startup-guard.js') > loader.indexOf('ollama-cloud-power-v3.js'));
 
     console.log('ollama cloud startup resilience regression: ok');
