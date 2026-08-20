@@ -52,7 +52,7 @@ assert(base.OllamaCloudClient.prototype.request.__cloudCatalogV2Wrapped);
     assert(calls[0].endsWith('/tags'));
 
     const loader = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-efficiency.js'), 'utf8');
-    assert(loader.includes('js/ollama-cloud-catalog-v2.js?v=20260820-ollama-cloud-catalog-2'));
+    assert(loader.includes('js/ollama-cloud-catalog-v2.js?v=20260820-ollama-cloud-catalog-3'));
     assert(loader.includes('CronacheOllamaCloudCatalogV2'));
     console.log('ollama cloud catalog v2 regression: ok');
 })().catch(error => {
