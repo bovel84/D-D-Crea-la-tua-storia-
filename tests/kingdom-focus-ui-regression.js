@@ -43,9 +43,11 @@ assert.strictEqual(crisis.alert.tone, 'critical');
 assert(crisis.alert.text.includes('Carestia nel nord'));
 assert.strictEqual(crisis.activeCrises, 1);
 assert.strictEqual(crisis.hostileFactions, 1);
+assert(focus.cssText().includes('kingdom-focus-summary'));
+assert(focus.cssText().includes('kingdom-focus-collapsible'));
 
 const loader = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-efficiency.js'), 'utf8');
-assert(loader.includes('js/kingdom-focus-ui.js?v=20260820-kingdom-focus-1'));
+assert(loader.includes('js/kingdom-focus-ui.js?v=20260820-kingdom-focus-2'));
 assert(loader.includes('CronacheKingdomFocusUI'));
 assert(loader.includes('data-kingdom-focus-ui'));
 
