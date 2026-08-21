@@ -52,7 +52,8 @@
         ['js/world-map-v11-gestures-persistent.js?v=20260820-world-map-gestures-persistent-1', 'data-world-map-v11-gestures-persistent', 'CronacheWorldMapV11GesturesPersistent', 'document'],
         ['js/time-montage-v8.js?v=20260820-phase8-1', 'data-time-montage-v8', 'CronacheTimeMontageV8', 'document-window'],
         ['js/scene-continuity-v8.js?v=20260820-phase8-1', 'data-scene-continuity-v8', 'CronacheSceneContinuityV8', 'document-window'],
-        ['js/runtime-fixes-v14.js?v=20260821-mobile-map-management-1', 'data-runtime-fixes-v14', 'CronacheRuntimeFixesV14', 'document']
+        ['js/runtime-fixes-v14.js?v=20260821-mobile-map-management-1', 'data-runtime-fixes-v14', 'CronacheRuntimeFixesV14', 'document'],
+        ['js/runtime-map-hierarchy-v15.js?v=20260821-map-hierarchy-1', 'data-runtime-map-hierarchy-v15', 'CronacheRuntimeMapHierarchyV15', 'document']
     ].map(([src, marker, globalName, args]) => ({ src, marker, globalName, args }));
 
     const runtimeState = {
