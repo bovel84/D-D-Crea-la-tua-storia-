@@ -136,7 +136,7 @@
 
     if (document.readyState === 'loading') {
         SCRIPTS.forEach(item => {
-            document.write('<script src="' + item.src + '" ' + item.marker + '="1"><\\/script>');
+            document.write('<script src="' + item.src + '" ' + item.marker + '="1"><\/script>');
         });
     } else {
         loadSequentially();
