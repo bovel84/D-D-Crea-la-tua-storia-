@@ -4037,6 +4037,9 @@
     <script src="js/ai-efficiency.js?v=20260818-ui-clean-2"></script>
     <script src="js/ollama-cloud.js?v=20260818-ui-clean-2"></script>
     <script src="js/experience-v7.js?v=20260818-ui-clean-2"></script>
+    <script src="js/biome-engine-v21.js?v=20260821-biome-2"></script>
+    <script src="js/emblem-svg-v21.js?v=20260821-emblem-1"></script>
+    <script src="js/azgaar-integration-v21.js?v=20260821-integration-1"></script>
     <script>
         // ==================== GAME STATE ====================
         const TASK_MODEL_LABELS = Object.freeze({
@@ -16348,8 +16351,54 @@ ${businessTagDirective}${pendingBusinessDirective}${kingdomTagDirective}`;
                 button.onclick = () => applyWorldMapFilter(button.dataset.mapFilter);
             });
             if ($('btn-map-refresh')) $('btn-map-refresh').onclick = () => { renderWorldMap(); centerWorldMapOnPlayer(); };
-            if ($('btn-map-zoom-in')) $('btn-map-zoom-in').onclick = () => { worldMapZoom = Math.min(1.5, worldMapZoom + 0.15); applyWorldMapZoom(); };
-            if ($('btn-map-zoom-out')) $('btn-map-zoom-out').onclick = () => { worldMapZoom = Math.max(0.7, worldMapZoom - 0.15); applyWorldMapZoom(); };
+            if ($('btn-map-zoom-in')) $('btn-map-zoom-in').onclick = () => { worldMapZoom = Math.min(2.5, worldMapZoom + 0.15); applyWorldMapZoom(); };
+            if ($('btn-map-zoom-out')) $('btn-map-zoom-out').onclick = () => { worldMapZoom = Math.max(0.5, worldMapZoom - 0.15); applyWorldMapZoom(); };
+            (function setupMapPan() {
+                const vp = $('world-map-viewport');
+                if (!vp || vp.dataset.panBound) return;
+                vp.dataset.panBound = '1';
+                let panning = false, startX = 0, startY = 0, scrollLeft = 0, scrollTop = 0;
+                vp.addEventListener('mousedown', function(e) {
+                    if (e.target.closest('.world-map-node, .map-v11-level-overlay, .world-map-tools, button, [data-map-v11-back]')) return;
+                    panning = true;
+                    startX = e.pageX - vp.offsetLeft;
+                    startY = e.pageY - vp.offsetTop;
+                    scrollLeft = vp.scrollLeft;
+                    scrollTop = vp.scrollTop;
+                    vp.style.cursor = 'grabbing';
+                    e.preventDefault();
+                });
+                vp.addEventListener('mouseleave', function() { panning = false; vp.style.cursor = ''; });
+                vp.addEventListener('mouseup', function() { panning = false; vp.style.cursor = ''; });
+                vp.addEventListener('mousemove', function(e) {
+                    if (!panning) return;
+                    e.preventDefault();
+                    vp.scrollLeft = scrollLeft - (e.pageX - vp.offsetLeft - startX);
+                    vp.scrollTop = scrollTop - (e.pageY - vp.offsetTop - startY);
+                });
+                let touchStartX = 0, touchStartY = 0, touchScrollLeft = 0, touchScrollTop = 0, touchPanning = false;
+                vp.addEventListener('touchstart', function(e) {
+                    if (e.target.closest('.world-map-node, .map-v11-level-overlay, button, [data-map-v11-back]')) return;
+                    if (e.touches.length !== 1) return;
+                    touchPanning = true;
+                    touchStartX = e.touches[0].pageX - vp.offsetLeft;
+                    touchStartY = e.touches[0].pageY - vp.offsetTop;
+                    touchScrollLeft = vp.scrollLeft;
+                    touchScrollTop = vp.scrollTop;
+                }, { passive: true });
+                vp.addEventListener('touchmove', function(e) {
+                    if (!touchPanning || e.touches.length !== 1) return;
+                    vp.scrollLeft = touchScrollLeft - (e.touches[0].pageX - vp.offsetLeft - touchStartX);
+                    vp.scrollTop = touchScrollTop - (e.touches[0].pageY - vp.offsetTop - touchStartY);
+                }, { passive: true });
+                vp.addEventListener('touchend', function() { touchPanning = false; });
+                vp.addEventListener('wheel', function(e) {
+                    if (!e.ctrlKey) return;
+                    e.preventDefault();
+                    worldMapZoom = Math.max(0.5, Math.min(2.5, worldMapZoom + (e.deltaY < 0 ? 0.1 : -0.1)));
+                    applyWorldMapZoom();
+                }, { passive: false });
+            })();
             if ($('btn-map-dice')) $('btn-map-dice').onclick = () => { closeModal('modal-world-map'); openModal('modal-dice'); };
             if ($('btn-map-images')) { $('btn-map-images').classList.toggle('img-active', mapImagesEnabled()); $('btn-map-images').onclick = toggleMapImages; }
             if ($('btn-simulate-timeline')) $('btn-simulate-timeline').onclick = simulateTimelineEventsSequentialLegacy;

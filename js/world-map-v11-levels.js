@@ -170,18 +170,126 @@
     function roomIcon(room) {
         const corpus = keyOf(`${room?.name || ''} ${room?.type || ''}`);
         if (/cappell|chiesa|santuar/.test(corpus)) return '✞';
-        if (/prigion|sotterr|cantin/.test(corpus)) return '◆';
+        if (/prigion|sotterr|cantin|cript|tomba|sepolt/.test(corpus)) return '◆';
         if (/bibliotec|studio|archiv/.test(corpus)) return '▤';
-        if (/cortil|giardin/.test(corpus)) return '❦';
+        if (/cortil|giardin|chiost/.test(corpus)) return '❦';
         if (/scuderi/.test(corpus)) return '♞';
         if (/cucin/.test(corpus)) return '♨';
-        if (/torre|mastio/.test(corpus)) return '▲';
-        if (/sala|salone/.test(corpus)) return '♜';
+        if (/torre|mastio|campanil/.test(corpus)) return '▲';
+        if (/sala|salone|atrio|navat/.test(corpus)) return '♜';
+        if (/porta|ingresso|cancin|cancel/.test(corpus)) return '⌂';
+        if (/strada|vi|piazza|merc/.test(corpus)) return '◐';
+        if (/lagh|fium|pont|molo/.test(corpus)) return '≈';
         return '●';
     }
 
+    function generateSubLocations(location) {
+        const existing = asArray(location.subLocations);
+        if (existing.length) return existing;
+        const k = keyOf(`${location.name}|${location.type}|${location.kind}`);
+        const seed = hashNumber(k);
+        const rng = mulberry32(seed);
+        const name = location.name || 'Luogo';
+        const templates = pickTemplates(location);
+        const count = 3 + Math.floor(rng() * (templates.length > 4 ? 3 : 2));
+        const rooms = [];
+        const used = new Set();
+        for (let i = 0; i < count && i < templates.length; i++) {
+            const idx = Math.floor(rng() * templates.length);
+            const tpl = templates[idx];
+            if (used.has(tpl.name)) continue;
+            used.add(tpl.name);
+            rooms.push({
+                id: `auto-${location.id || k}-${i}`,
+                name: tpl.name,
+                type: tpl.type || 'ambiente',
+                description: tpl.desc || '',
+                current: i === 0
+            });
+        }
+        return rooms;
+    }
+
+    function mulberry32(a) {
+        return function() {
+            a |= 0; a = (a + 0x6D2B79F5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    function pickTemplates(location) {
+        const k = keyOf(`${location.name}|${location.type}|${location.kind}|${location.icon || ''}`);
+        const all = {
+            cimitero: [
+                { name: "Cancello d'Ingresso", type: 'ingresso', desc: 'Il cancello arrugginito scricchiola nel vento.' },
+                { name: 'Tombe Antiche', type: 'sepolture', desc: 'File di lapidi consumate dalle intemperie.' },
+                { name: 'Cripta di Pietra', type: 'cripta', desc: 'Una cripta semisommersa tra radici e muschio.' },
+                { name: 'Cappella dei Defunti', type: 'cappella', desc: 'Una piccola cappella con altare consunto.' },
+                { name: 'Sentiero delle Tombe', type: 'sentiero', desc: 'Un sentiero lastricato tra le sepolture.' },
+                { name: 'Mausoleo di Famiglia', type: 'mausoleo', desc: 'Un mausoleo imponente con stemma sbiadito.' }
+            ],
+            fortezza: [
+                { name: 'Portone Principale', type: 'ingresso', desc: 'Il portone di legno rinforzato con bande di ferro.' },
+                { name: 'Cortile Interno', type: 'cortile', desc: "Un cortile con pozzo e rastrelliere d'armi." },
+                { name: 'Sala del Trono', type: 'sala', desc: 'Una sala spaziosa con un modesto scranno.' },
+                { name: 'Torre di Guardia', type: 'torre', desc: 'La torre più alta, con vista sulla vallata.' },
+                { name: 'Segrete', type: 'prigione', desc: 'Celle umide sotto la fortezza.' },
+                { name: 'Armeria', type: 'armeria', desc: 'Armadi con spade e scudi polverosi.' },
+                { name: 'Cucine', type: 'cucina', desc: 'Fuochi spenti e calderoni arrugginiti.' }
+            ],
+            mercato: [
+                { name: 'Piazza del Mercato', type: 'piazza', desc: 'Bancarelle colorate e voci di mercanti.' },
+                { name: "Bottega dell'Erborista", type: 'bottega', desc: 'Aromi di essenze e spezie rare.' },
+                { name: 'Fonderia', type: 'fucina', desc: "Il calore della forgia illumina l'ambiente." },
+                { name: 'Taverna del Portico', type: 'taverna', desc: 'Un luogo di incontro e pettegolezzi.' },
+                { name: 'Magazzino Merci', type: 'magazzino', desc: 'Casse e barili impilati.' },
+                { name: 'Stallaggio', type: 'stalla', desc: 'I cavalli riposano sotto la tettoia.' }
+            ],
+            villaggio: [
+                { name: 'Piazza del Villaggio', type: 'piazza', desc: 'Il cuore della vita comunitaria.' },
+                { name: 'Locanda', type: 'locanda', desc: 'Un luogo caldo con camino e birra.' },
+                { name: 'Pozzo', type: 'pozzo', desc: 'Il pozzo comune dove si incontrano gli abitanti.' },
+                { name: 'Casa del Capo', type: 'abitazione', desc: "L'abitazione più grande del villaggio." },
+                { name: 'Fucina del Fabbro', type: 'fucina', desc: 'Martellio e scintille.' },
+                { name: 'Orto Comune', type: 'orto', desc: 'Coltivazioni curate dagli abitanti.' }
+            ],
+            bosco: [
+                { name: 'Radura tra gli Alberi', type: 'radura', desc: 'Una radura soleggiata nel cuore del bosco.' },
+                { name: 'Sentiero Ombroso', type: 'sentiero', desc: 'Un sentiero coperto di foglie e radici.' },
+                { name: 'Ruscello Nascosto', type: 'ruscello', desc: 'Acque limpide scorrono tra le rocce.' },
+                { name: 'Antica Quercia', type: 'albero', desc: 'Una quercia secolare con tronco scavato.' },
+                { name: 'Tana dei Lupi', type: 'tana', desc: 'Una buca nel terreno con ossa sparse.' },
+                { name: 'Capanna del Boscaiolo', type: 'capanna', desc: 'Una capanna di legno abbandonata.' }
+            ],
+            locanda: [
+                { name: 'Sala Comune', type: 'sala', desc: 'Tavoli di legno e aria di fumo.' },
+                { name: 'Cucina', type: 'cucina', desc: 'Profumo di stufato e pane fresco.' },
+                { name: 'Camere', type: 'camera', desc: 'Stanzette con giacigli di paglia.' },
+                { name: 'Cantina', type: 'cantina', desc: 'Botti di vino e birra.' },
+                { name: 'Stalla', type: 'stalla', desc: 'Posti per i cavalli dei viaggiatori.' }
+            ],
+            default: [
+                { name: 'Ingresso', type: 'ingresso', desc: "L'ingresso principale dell'area." },
+                { name: 'Area Centrale', type: 'area', desc: 'Il cuore di questo luogo.' },
+                { name: 'Zona Laterale', type: 'area', desc: 'Una sezione secondaria.' },
+                { name: 'Punto di Osservazione', type: 'vista', desc: 'Un punto strategico per osservare.' },
+                { name: 'Recesso Nascosto', type: 'nascondiglio', desc: 'Un angolo meno visibile.' }
+            ]
+        };
+        if (/cimiter|necrop|tombe|sepolt/.test(k)) return all.cimitero;
+        if (/fortez|castel|rocc|forti/.test(k)) return all.fortezza;
+        if (/mercat|bazar|botteg/.test(k)) return all.mercato;
+        if (/villag|paes|borgh|insedi/.test(k)) return all.villaggio;
+        if (/bosco|forest|selv|radur/.test(k)) return all.bosco;
+        if (/locand|tavern|oster/.test(k)) return all.locanda;
+        return all.default;
+    }
+
     function buildInteriorModel(parent) {
-        const rooms = asArray(parent?.subLocations).map((room, index) => ({
+        const sourceRooms = generateSubLocations(parent);
+        const rooms = sourceRooms.map((room, index) => ({
             ...room,
             id: clean(room.id, 160) || `room-${hashNumber(`${parent?.id}|${room?.name}|${index}`).toString(36)}`,
             name: clean(room.name, 140) || `Ambiente ${index + 1}`,
@@ -219,12 +327,15 @@
             const label = escapeHtml(room.name.length > 28 ? `${room.name.slice(0, 27)}…` : room.name);
             return `<g class="map-v11-room${room.current ? ' current' : ''}" data-map-v11-room-id="${escapeHtml(room.id)}" data-map-v11-room-name="${escapeHtml(room.name)}" transform="translate(${room.x} ${room.y})" role="button" tabindex="0"><rect x="-82" y="-38" width="164" height="76" rx="16"/><text class="map-v11-room-icon" y="-8" text-anchor="middle">${escapeHtml(room.icon)}</text><text class="map-v11-room-label" y="20" text-anchor="middle">${label}</text>${room.current ? '<circle class="map-v11-room-current" r="48"/>' : ''}</g>`;
         }).join('');
-        return `<div class="map-v11-interior-shell"><svg class="world-map-local-svg" viewBox="0 0 ${model.width} ${model.height}" xmlns="http://www.w3.org/2000/svg" aria-label="Interni di ${escapeHtml(parent.name)}"><rect class="map-v11-floor" x="8" y="8" width="${model.width - 16}" height="${model.height - 16}" rx="28"/>${edges}${rooms}<text class="map-v11-interior-title" x="28" y="38">${escapeHtml(parent.name)}</text></svg></div>`;
+        const parentDesc = clean(parent.description || parent.type || '', 200);
+        return `<div class="map-v11-interior-shell"><button type="button" class="map-v11-back-btn" data-map-v11-back="">← Torna alla mappa</button><svg class="world-map-local-svg" viewBox="0 0 ${model.width} ${model.height}" xmlns="http://www.w3.org/2000/svg" aria-label="Interni di ${escapeHtml(parent.name)}"><rect class="map-v11-floor" x="8" y="8" width="${model.width - 16}" height="${model.height - 16}" rx="28"/>${edges}${rooms}<text class="map-v11-interior-title" x="28" y="38">${escapeHtml(parent.name)}</text>${parentDesc ? `<text class="map-v11-interior-desc" x="28" y="${model.height - 28}">${escapeHtml(parentDesc.slice(0, 80))}</text>` : ''}</svg></div>`;
     }
 
     function enterInterior(doc, parent) {
         const canvas = doc?.getElementById('world-map-canvas');
-        if (!canvas || !parent || !asArray(parent.subLocations).length) return false;
+        if (!canvas || !parent) return false;
+        const rooms = generateSubLocations(parent);
+        if (!rooms.length) return false;
         if (runtime.level !== 'interior') runtime.worldMarkup = canvas.innerHTML;
         runtime.level = 'interior';
         runtime.selectedLocationId = parent.id;
@@ -234,7 +345,7 @@
         const viewport = doc.getElementById('world-map-viewport');
         if (viewport) viewport.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
         refreshOverlay(doc);
-        decorateInteriorDetail(doc, parent, asArray(parent.subLocations).find(room => room.current || keyOf(room.name) === keyOf(parent.currentInteriorName)) || null);
+        decorateInteriorDetail(doc, parent, rooms.find(room => room.current || keyOf(room.name) === keyOf(parent.currentInteriorName)) || null);
         return true;
     }
 
@@ -273,12 +384,13 @@
         const id = detail.dataset.mapV10Location || runtime.selectedLocationId || model.currentLocationId;
         const location = locationById(model, id) || selectedLocation(model);
         const existing = detail.querySelector('[data-map-v11-enter-interior]');
-        if (!location || !asArray(location.subLocations).length) {
+        const rooms = generateSubLocations(location);
+        if (!location || !rooms.length) {
             existing?.remove();
             return;
         }
         if (existing?.dataset.mapV11EnterInterior === location.id) {
-            const label = `⌂ Interni (${location.subLocations.length})`;
+            const label = `⌂ Interni (${rooms.length})`;
             if (existing.textContent !== label) existing.textContent = label;
             return;
         }
@@ -293,7 +405,7 @@
         button.type = 'button';
         button.className = 'world-map-v10-action map-v11-enter';
         button.dataset.mapV11EnterInterior = location.id;
-        button.textContent = `⌂ Interni (${location.subLocations.length})`;
+        button.textContent = `⌂ Interni (${rooms.length})`;
         actions.prepend(button);
     }
 
@@ -378,11 +490,31 @@
             if (roomNode) {
                 const model = modelNow();
                 const parent = locationById(model, runtime.interiorParentId || runtime.selectedLocationId);
-                const room = asArray(parent?.subLocations).find(item => item.id === roomNode.dataset.mapV11RoomId || keyOf(item.name) === keyOf(roomNode.dataset.mapV11RoomName));
-                if (parent) decorateInteriorDetail(doc, parent, room || { name: roomNode.dataset.mapV11RoomName });
-                return;
+            const rooms = generateSubLocations(parent);
+            const room = rooms.find(item => item.id === roomNode.dataset.mapV11RoomId || keyOf(item.name) === keyOf(roomNode.dataset.mapV11RoomName));
+            if (parent) decorateInteriorDetail(doc, parent, room || { name: roomNode.dataset.mapV11RoomName });
+            return;
+        }
+        const backButton = event.target.closest?.('[data-map-v11-back]');
+        if (backButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            resetWorldMarkup(doc);
+            runtime.level = 'world';
+            runtime.scopeName = '';
+            runtime.selectedLocationId = '';
+            runtime.interiorParentId = '';
+            const model = modelNow();
+            if (model) {
+                const svg = doc.querySelector('#world-map-canvas .world-map-svg');
+                if (svg) svg.setAttribute('viewBox', `0 0 ${model.width || 960} ${model.height || 620}`);
+                doc.querySelectorAll('#modal-world-map .world-map-node').forEach(node => node.classList.remove('map-v11-level-hidden'));
             }
-            const mapNode = event.target.closest?.('#modal-world-map .world-map-node');
+            doc.getElementById('modal-world-map')?.classList.remove('map-v11-interior');
+            refreshOverlay(doc);
+            return;
+        }
+        const mapNode = event.target.closest?.('#modal-world-map .world-map-node');
             if (mapNode) {
                 runtime.selectedLocationId = mapNode.dataset.mapLocationId || '';
                 if (runtime.level === 'world') runtime.scopeName = '';
@@ -425,6 +557,10 @@
 .map-v11-room-current{fill:none;stroke:#b91f2d;stroke-width:5;opacity:.68;animation:mapV11RoomPulse 1.8s ease-out infinite}
 @keyframes mapV11RoomPulse{0%{r:42;opacity:.75}100%{r:62;opacity:0}}
 .map-v11-interior-title{fill:#60462f;font:italic 700 18px Georgia,serif}
+.map-v11-interior-desc{fill:#7a6248;font:400 11px Georgia,serif;opacity:.7}
+.map-v11-back-btn{display:flex;align-items:center;gap:6px;min-height:38px;padding:8px 14px;border:1px solid #792a31;border-radius:10px;background:#792a31;color:#fff7dd;font:700 .65rem 'Cinzel',serif;cursor:pointer;margin:0 0 8px;box-shadow:0 3px 10px rgba(39,26,14,.18);transition:background .15s}
+.map-v11-back-btn:hover{background:#9b3540}
+.map-v11-back-btn:active{transform:scale(.97)}
 .map-v11-room-detail{margin:4px 0 8px;padding:9px;border-radius:11px;background:rgba(255,255,255,.52);border-left:3px solid #852b32;color:#5d4938}
 .map-v11-room-detail b{display:block;font:700 .7rem 'Cinzel',serif;color:#3f2c1e}
 .map-v11-room-detail span{display:block;margin-top:2px;font-size:.68rem}
