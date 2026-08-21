@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 1;
+    const PATCH_VERSION = 2;
     const MIN_NARRATION = 40;
     const RELEASE_DELAY_MS = 1400;
     let startupPromise = null;
@@ -25,6 +25,23 @@
             if (typeof G !== 'undefined') return G;
         } catch (_error) { }
         return root.G || null;
+    }
+
+    // Più moduli runtime avvolgono le stesse funzioni (valuta, tempo, startup).
+    // I loro installer vengono ritentati dopo il caricamento. Controllare soltanto
+    // il wrapper esterno faceva quindi creare più StartupFreezeGuard annidati.
+    // Nel caso startNewGame il wrapper esterno impostava lastNewGameAt e quello
+    // interno interpretava la STESSA chiamata come un doppio tap, fermando l'avvio.
+    function chainHasMarker(fn, marker, seen = new Set()) {
+        if (typeof fn !== 'function' || seen.has(fn)) return false;
+        if (fn[marker]) return true;
+        seen.add(fn);
+        for (const name of Object.keys(fn)) {
+            if (!/Original$/i.test(name)) continue;
+            const inner = fn[name];
+            if (typeof inner === 'function' && chainHasMarker(inner, marker, seen)) return true;
+        }
+        return false;
     }
 
     function storyNarratorText(state = getGameState()) {
@@ -47,8 +64,6 @@
 
     function sanitizeNarratorText(value) {
         let text = String(value == null ? '' : value);
-        // Se il provider viene troncato durante un tag, il protocollo tecnico non deve
-        // finire nella prosa visibile (es. "[LOOT: Strumenti da Disegno" senza ]).
         text = text
             .replace(/\[(?:MECCANICA|LOOT|LOOT_PROPRIETA|TEMPO|SCENE|ATTIVITA_NEGOZIO|CATALOGO_NEGOZIO|FORNITORE_NEGOZIO|CLIENTE_NEGOZIO|DIPENDENTE_NEGOZIO|CONTRATTO_NEGOZIO):[^\]]*\]/gi, '')
             .replace(/(?:\r?\n|^)[ \t]*\[(?:MECCANICA|LOOT|LOOT_PROPRIETA|TEMPO|SCENE|ATTIVITA_NEGOZIO|CATALOGO_NEGOZIO|FORNITORE_NEGOZIO|CLIENTE_NEGOZIO|DIPENDENTE_NEGOZIO|CONTRATTO_NEGOZIO):[^\]\r\n]*$/gi, '')
@@ -121,7 +136,7 @@
     function wrapRequestConfiguredAI() {
         const original = root.requestConfiguredAI;
         if (typeof original !== 'function') return false;
-        if (original.__startupFreezeGuardV16Wrapped) return true;
+        if (chainHasMarker(original, '__startupFreezeGuardV16Wrapped')) return true;
         const wrapped = function guardedConfiguredAI(messages, options = {}) {
             const state = getGameState();
             const task = String(options?.task || '').toLowerCase();
@@ -143,7 +158,7 @@
     function wrapGenerateAI() {
         const original = root.generateAI;
         if (typeof original !== 'function') return false;
-        if (original.__startupFreezeGuardV16Wrapped) return true;
+        if (chainHasMarker(original, '__startupFreezeGuardV16Wrapped')) return true;
         const wrapped = function guardedGenerateAI(action, isStart = false) {
             if (!isStart) return original.apply(this, arguments);
             const state = getGameState();
@@ -175,14 +190,23 @@
     function wrapStartNewGame() {
         const original = root.startNewGame;
         if (typeof original !== 'function') return false;
-        if (original.__startupFreezeGuardV16Wrapped) return true;
+        if (chainHasMarker(original, '__startupFreezeGuardV16Wrapped')) return true;
         const wrapped = function guardedStartNewGame() {
+            // Protezione re-entrante: anche se un vecchio runtime avesse già lasciato
+            // un guard annidato, la chiamata interna non deve essere scambiata per un doppio tap.
+            const depth = Math.max(0, Number(root.__cronacheStartGuardDepth) || 0);
+            if (depth > 0) return original.apply(this, arguments);
+
             const now = Date.now();
-            // Su mobile un doppio tap sul pulsante Start poteva avviare due pipeline mondo+scena.
             if (now - lastNewGameAt < 2500) return;
             lastNewGameAt = now;
             startupPromise = null;
-            return original.apply(this, arguments);
+            root.__cronacheStartGuardDepth = depth + 1;
+            try {
+                return original.apply(this, arguments);
+            } finally {
+                root.__cronacheStartGuardDepth = depth;
+            }
         };
         wrapped.__startupFreezeGuardV16Wrapped = true;
         wrapped.__startupFreezeGuardV16Original = original;
@@ -193,7 +217,7 @@
     function wrapAddStoryEntry() {
         const original = root.addStoryEntry;
         if (typeof original !== 'function') return false;
-        if (original.__startupFreezeGuardV16Wrapped) return true;
+        if (chainHasMarker(original, '__startupFreezeGuardV16Wrapped')) return true;
         const wrapped = function guardedAddStoryEntry(text, type) {
             const args = Array.from(arguments);
             if (type === 'narrator') args[0] = sanitizeNarratorText(text);
@@ -242,6 +266,7 @@
     return {
         PATCH_VERSION,
         MIN_NARRATION,
+        chainHasMarker,
         storyNarratorText,
         visibleNarratorText,
         existingNarration,
