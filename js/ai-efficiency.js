@@ -55,7 +55,8 @@
         ['js/runtime-fixes-v14.js?v=20260821-mobile-map-management-1', 'data-runtime-fixes-v14', 'CronacheRuntimeFixesV14', 'document'],
         ['js/runtime-map-hierarchy-v15.js?v=20260821-map-hierarchy-1', 'data-runtime-map-hierarchy-v15', 'CronacheRuntimeMapHierarchyV15', 'document'],
         ['js/startup-freeze-guard-v16.js?v=20260821-startup-freeze-1', 'data-startup-freeze-guard-v16', 'CronacheStartupFreezeGuardV16', 'document'],
-        ['js/currency-coherence-v17.js?v=20260821-currency-coherence-1', 'data-currency-coherence-v17', 'CronacheCurrencyCoherenceV17', 'document']
+        ['js/currency-coherence-v17.js?v=20260821-currency-coherence-1', 'data-currency-coherence-v17', 'CronacheCurrencyCoherenceV17', 'document'],
+        ['js/temporal-coherence-v18.js?v=20260821-temporal-coherence-1', 'data-temporal-coherence-v18', 'CronacheTemporalCoherenceV18', 'document']
     ].map(([src, marker, globalName, args]) => ({ src, marker, globalName, args }));
 
     const runtimeState = {
