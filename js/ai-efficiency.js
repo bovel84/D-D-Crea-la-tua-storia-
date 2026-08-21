@@ -57,7 +57,8 @@
         ['js/startup-freeze-guard-v16.js?v=20260821-startup-freeze-2', 'data-startup-freeze-guard-v16', 'CronacheStartupFreezeGuardV16', 'document'],
         ['js/currency-coherence-v17.js?v=20260821-currency-coherence-1', 'data-currency-coherence-v17', 'CronacheCurrencyCoherenceV17', 'document'],
         ['js/temporal-coherence-v18.js?v=20260821-temporal-coherence-1', 'data-temporal-coherence-v18', 'CronacheTemporalCoherenceV18', 'document'],
-        ['js/runtime-map-cartography-v19.js?v=20260821-map-cartography-3', 'data-runtime-map-cartography-v19', 'CronacheRuntimeMapCartographyV19', 'document']
+        ['js/runtime-map-cartography-v19.js?v=20260821-map-cartography-3', 'data-runtime-map-cartography-v19', 'CronacheRuntimeMapCartographyV19', 'document'],
+        ['js/npc-name-coherence-v20.js?v=20260821-npc-name-canon-1', 'data-npc-name-coherence-v20', 'CronacheNpcNameCoherenceV20', 'none']
     ].map(([src, marker, globalName, args]) => ({ src, marker, globalName, args }));
 
     const runtimeState = {
