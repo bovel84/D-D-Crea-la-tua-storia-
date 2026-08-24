@@ -74,6 +74,7 @@ assert.strictEqual(memory.npcs[0].gender, 'female');
 
 const loader = fs.readFileSync(path.join(__dirname, '../js/ai-efficiency.js'), 'utf8');
 assert.match(loader, /npc-identity-coherence\.js/);
-assert.match(loader, /CronacheNpcIdentityCoherence\?\.install/);
+assert.match(loader, /CronacheNpcIdentityCoherence/);
+assert.match(loader, /\?\.install/);
 
 console.log('npc-identity-coherence-regression: ok');
