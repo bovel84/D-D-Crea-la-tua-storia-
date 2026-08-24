@@ -11,6 +11,7 @@
     const VERSION = 24;
     const PATCH_MARK = '__cronacheCredentialRecoveryV24';
     const STORAGE_KEY = 'dnd_v4';
+    const STORY_SCRIPT = 'js/story-generation-v26.js?v=20260824-story-generation-v26-1';
     const installState = { preSynced: false, intervalId: null, attempts: 0 };
 
     const clean = value => String(value == null ? '' : value).trim();
@@ -159,11 +160,30 @@
         return true;
     }
 
+    function ensureStoryGenerationV26(doc = root.document) {
+        if (!doc) return false;
+        if (root.CronacheStoryGenerationV26?.install) {
+            root.CronacheStoryGenerationV26.install(doc, root);
+            return true;
+        }
+        if (doc.querySelector('script[data-story-generation-v26]')) return false;
+        const script = doc.createElement('script');
+        script.src = STORY_SCRIPT;
+        script.async = false;
+        script.dataset.storyGenerationV26 = '1';
+        script.onload = () => root.CronacheStoryGenerationV26?.install?.(doc, root);
+        script.onerror = error => console.error('[CredentialRecoveryV24] Impossibile caricare StoryGenerationV26:', error);
+        (doc.head || doc.documentElement).appendChild(script);
+        return true;
+    }
+
     function install(doc = root.document, win = root) {
+        ensureStoryGenerationV26(doc);
         const run = () => {
             installState.attempts++;
             const patched = patchRequestConfiguredAI();
-            if (patched && installState.intervalId && installState.attempts >= 3) {
+            ensureStoryGenerationV26(doc);
+            if (patched && root.CronacheStoryGenerationV26 && installState.intervalId && installState.attempts >= 4) {
                 try { win.clearInterval(installState.intervalId); } catch (_error) { }
                 installState.intervalId = null;
             }
@@ -191,12 +211,14 @@
     return {
         VERSION,
         STORAGE_KEY,
+        STORY_SCRIPT,
         missingCredentialError,
         readSavedSettings,
         providerCredential,
         hydrateProviderFields,
         syncSettingsFromUi,
         patchRequestConfiguredAI,
+        ensureStoryGenerationV26,
         install
     };
 });
