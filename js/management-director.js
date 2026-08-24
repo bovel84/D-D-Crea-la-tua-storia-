@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 2;
+    const PATCH_VERSION = 3;
     const asArray = value => Array.isArray(value) ? value : [];
     const clean = (value, max = 300) => String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
     const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -107,8 +107,14 @@
     function detectNarrativeMode(action, context = {}) {
         const text = clean(action, 900).toLowerCase();
         const memory = context?.memory || {};
-        const explicitIntent = managementIntent(action, '');
+        const personalScene = /\b(parl|chied|domand|dico|salut|incontr|entro|esco|vado|cammin|corr|cavalc|viaggi|guard|osserv|cerc|indag|combat|attacc|difend|mang|dorm|ripos|prend|apr|legg|segu|visito)\w*/.test(text);
+        const managementCommand = /\b(ordino|ordine|approv|decid|stabilisc|eman|aument|riduc|abbass|alz|tagli|stanz|finanzi|riform|costruisc|avvio|lancio|nomino|assegn|reclut|sovvenzion|assum|licenz|invest|compro|vend|fiss|modific|pianific|negozi|tratt|firm)\w*/.test(text);
 
+        // A noun from the management domain must not steal an otherwise personal scene.
+        // “Parlo con il ministro” is RPG; “ordino al ministro di alzare le tasse” is government.
+        if (personalScene && !managementCommand) return MANAGEMENT_MODE.CHARACTER;
+
+        const explicitIntent = managementIntent(action, '');
         if (explicitIntent === 'governo') return MANAGEMENT_MODE.KINGDOM;
         if (explicitIntent === 'economia') return MANAGEMENT_MODE.BUSINESS;
 
