@@ -10,6 +10,7 @@
     const SCRIPTS = [
         ['js/ai-efficiency-core.js?v=20260818-story-visuals-1', 'data-ai-efficiency-core', '', 'none'],
         ['js/story-generation-v22.js?v=20260824-story-generation-1', 'data-story-generation-v22', 'CronacheStoryGenerationV22', 'document-window'],
+        ['js/ai-credential-recovery-v23.js?v=20260824-credential-recovery-1', 'data-ai-credential-recovery-v23', 'CronacheAICredentialRecoveryV23', 'document-window'],
         ['js/ollama-cloud-catalog-v2.js?v=20260820-ollama-cloud-catalog-3', 'data-ollama-cloud-catalog-v2', 'CronacheOllamaCloudCatalogV2', 'document'],
         ['js/ollama-cloud-power-v3.js?v=20260820-ollama-cloud-power-2', 'data-ollama-cloud-power-v3', 'CronacheOllamaCloudPowerV3', 'document'],
         ['js/ollama-cloud-startup-guard.js?v=20260820-ollama-startup-3', 'data-ollama-cloud-startup-guard', 'CronacheOllamaCloudStartupGuard', 'none'],
@@ -27,7 +28,7 @@
         ['js/business-narrative-recovery.js?v=20260820-business-recovery-2', 'data-business-narrative-recovery', 'CronacheBusinessNarrativeRecovery', 'none'],
         ['js/management-agents.js?v=20260819-persistent-agents-1', 'data-management-agents', 'CronacheManagementAgents', 'document-window'],
         ['js/systemic-world.js?v=20260819-systemic-world-1', 'data-systemic-world', 'CronacheSystemicWorld', 'document-window'],
-        ['js/management-autonomy-v2.js?v=20260819-management-autonomy-2', 'data-management-autonomy', 'CronacheManagementAutonomy', 'document-window'],
+        ['js/management-autonomy-v2.js?v=20260819-management-autonomy-2', 'data-management-autonomy', 'CronacheManagementAutonomyV2', 'document-window'],
         ['js/management-network.js?v=20260819-agent-network-1', 'data-management-network', 'CronacheManagementNetwork', 'document-window'],
         ['js/player-experience-v6.js?v=20260819-player-experience-1', 'data-player-experience-v6', 'CronachePlayerExperienceV6', 'document-window'],
         ['js/character-lineage.js?v=20260819-character-lineage-2', 'data-character-lineage', 'CronacheCharacterLineage', 'document-window'],
