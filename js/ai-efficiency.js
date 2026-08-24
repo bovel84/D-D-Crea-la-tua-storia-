@@ -20,7 +20,7 @@
         ['js/timeline-events-safe.js?v=20260819-buttons-fix-1', 'data-timeline-events-safe', 'CronacheTimelineEventsSafe', 'document-window'],
         ['js/strategic-friendly.js?v=20260819-strategic-friendly-1', 'data-strategic-friendly', 'CronacheStrategicFriendly', 'document-window'],
         ['js/ui-consolidation-v9.js?v=20260820-phase9-1', 'data-ui-consolidation-v9', 'CronacheUiConsolidationV9', 'document'],
-        ['js/management-director.js?v=20260824-narrative-mode-2', 'data-management-director', 'CronacheManagementDirector', 'none'],
+        ['js/management-director.js?v=20260824-narrative-mode-3', 'data-management-director', 'CronacheManagementDirector', 'none'],
         ['js/management-hub.js?v=20260819-management-first-1', 'data-management-hub', 'CronacheManagementHub', 'document-window'],
         ['js/kingdom-focus-ui.js?v=20260820-kingdom-focus-2', 'data-kingdom-focus-ui', 'CronacheKingdomFocusUI', 'document'],
         ['js/business-specializations.js?v=20260819-sector-specialization-1', 'data-business-specializations', 'CronacheBusinessSpecializations', 'document'],
