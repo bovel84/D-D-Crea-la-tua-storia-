@@ -9,6 +9,7 @@
 
     const SCRIPTS = [
         ['js/ai-efficiency-core.js?v=20260818-story-visuals-1', 'data-ai-efficiency-core', '', 'none'],
+        ['js/story-generation-v22.js?v=20260824-story-generation-1', 'data-story-generation-v22', 'CronacheStoryGenerationV22', 'document-window'],
         ['js/ollama-cloud-catalog-v2.js?v=20260820-ollama-cloud-catalog-3', 'data-ollama-cloud-catalog-v2', 'CronacheOllamaCloudCatalogV2', 'document'],
         ['js/ollama-cloud-power-v3.js?v=20260820-ollama-cloud-power-2', 'data-ollama-cloud-power-v3', 'CronacheOllamaCloudPowerV3', 'document'],
         ['js/ollama-cloud-startup-guard.js?v=20260820-ollama-startup-3', 'data-ollama-cloud-startup-guard', 'CronacheOllamaCloudStartupGuard', 'none'],
@@ -49,7 +50,7 @@
         ['js/world-map-v10-local-places.js?v=20260820-world-map-local-places-2', 'data-world-map-v10-local-places', 'CronacheWorldMapV10LocalPlaces', 'document'],
         ['js/world-map-v11-levels.js?v=20260820-world-map-levels-2', 'data-world-map-v11-levels', 'CronacheWorldMapV11Levels', 'document'],
         ['js/world-context-coherence-v13.js?v=20260820-world-context-2', 'data-world-context-coherence-v13', 'CronacheWorldContextV13', 'none'],
-        ['js/world-map-v11-gestures-persistent.js?v=20260820-world-map-gestures-persistent-1', 'data-world-map-v11-gestures-persistent', 'CronacheWorldMapV11GesturesPersistent', 'document'],
+        ['js/world-map-v11-gestures-persistent.js?v=20260820-world-map-gestures-persistent-1', 'data-world-map-gestures-persistent', 'CronacheWorldMapV11GesturesPersistent', 'document'],
         ['js/time-montage-v8.js?v=20260820-phase8-1', 'data-time-montage-v8', 'CronacheTimeMontageV8', 'document-window'],
         ['js/scene-continuity-v8.js?v=20260820-phase8-1', 'data-scene-continuity-v8', 'CronacheSceneContinuityV8', 'document-window'],
         ['js/runtime-fixes-v14.js?v=20260821-mobile-map-management-1', 'data-runtime-fixes-v14', 'CronacheRuntimeFixesV14', 'document'],
