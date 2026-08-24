@@ -110,7 +110,7 @@ test('protagonist portrait keeps the full medallion on a phone viewport', async 
   });
 
   expect(geometry.portraitWidth).toBeGreaterThan(55);
-  expect(geometry.imageWidth).toBeGreaterThanOrEqual(geometry.portraitWidth - 1);
+  expect(geometry.imageWidth).toBeGreaterThanOrEqual(geometry.portraitWidth - 5); // 2px border each side
   expect(geometry.radius).toMatch(/50%|999/);
 });
 
