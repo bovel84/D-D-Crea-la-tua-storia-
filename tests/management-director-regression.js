@@ -59,6 +59,27 @@ assert.equal(
     'una scena personale deve restare RPG anche se il personaggio possiede regno o attività'
 );
 
+assert.equal(
+    managementDirector.detectNarrativeMode('Parlo con il ministro della sua famiglia', { memory }),
+    'personaggio',
+    'citare un ministro non deve trasformare un dialogo personale in gestione del regno'
+);
+assert.equal(
+    managementDirector.detectNarrativeMode('Entro nell’officina e saluto i dipendenti', { memory }),
+    'personaggio',
+    'entrare fisicamente nell’attività e interagire come personaggio deve restare RPG'
+);
+assert.equal(
+    managementDirector.detectNarrativeMode('Parlo con il fornitore e negozio un prezzo migliore', { memory }),
+    'attivita',
+    'una negoziazione economica deve restare gestione dell’attività anche se avviene in dialogo'
+);
+assert.equal(
+    managementDirector.detectNarrativeMode('Ordino al ministro di aumentare le tasse', { memory }),
+    'regno',
+    'un ordine politico esplicito deve avere priorità sulla forma dialogica'
+);
+
 const gameDirector = new director.GameDirector();
 const plan = gameDirector.planTurn('Abbasso il prezzo dei ricambi', {
     memory,
