@@ -107,11 +107,13 @@
     function detectNarrativeMode(action, context = {}) {
         const text = clean(action, 900).toLowerCase();
         const memory = context?.memory || {};
-        const personalScene = /\b(parl|chied|domand|dico|salut|incontr|entro|esco|vado|cammin|corr|cavalc|viaggi|guard|osserv|cerc|indag|combat|attacc|difend|mang|dorm|ripos|prend|apr|legg|segu|visito)\w*/.test(text);
+        const hasKingdom = memory?.kingdom?.active === true;
+        const hasBusiness = asArray(memory?.management?.businesses).some(item => item?.status !== 'closed');
+        const personalScene = /\b(parl|chied|domand|dico|salut|incontr|entro|esco|vado|cammin|corr|cavalc|viaggi|guard|osserv|cerc|indag|combat|attacc|difend|mang|dorm|ripos|prend|apr|legg|segu|visito|passegg|nuot|scal|sedut|sdrai|bev|cucin|lav|indoss|vest|spogli)\w*/.test(text);
         const managementCommand = /\b(ordino|ordine|approv|decid|stabilisc|eman|aument|riduc|abbass|alz|tagli|stanz|finanzi|riform|costruisc|avvio|lancio|nomino|assegn|reclut|sovvenzion|assum|licenz|invest|compro|vend|fiss|modific|pianific|negozi|tratt|firm)\w*/.test(text);
 
         // A noun from the management domain must not steal an otherwise personal scene.
-        // “Parlo con il ministro” is RPG; “ordino al ministro di alzare le tasse” is government.
+        // "Parlo con il ministro" is RPG; "ordino al ministro di alzare le tasse" is government.
         if (personalScene && !managementCommand) return MANAGEMENT_MODE.CHARACTER;
 
         const explicitIntent = managementIntent(action, '');
@@ -120,8 +122,8 @@
 
         const kingdomDomain = /\b(acquedott|strad|porto|fortific|caserm|ospedal|scuol|granaio|raccolt|carest|rivolt|nobilt|clero|borghes|contadin|province|ducat|contea|governator|ministro)\w*/;
         const businessDomain = /\b(officin|fabbrica|bottega|taverna come attivit|ristorant|locanda come attivit|deposito|capannone|catena|franchising|turni di lavoro|stipendi|buste paga)\w*/;
-        if (memory?.kingdom?.active && kingdomDomain.test(text)) return MANAGEMENT_MODE.KINGDOM;
-        if (asArray(memory?.management?.businesses).some(item => item?.status !== 'closed') && businessDomain.test(text)) return MANAGEMENT_MODE.BUSINESS;
+        if (hasKingdom && kingdomDomain.test(text)) return MANAGEMENT_MODE.KINGDOM;
+        if (hasBusiness && businessDomain.test(text)) return MANAGEMENT_MODE.BUSINESS;
 
         const previousIntent = clean(
             context?.director?.currentIntent ||
@@ -135,6 +137,18 @@
             if (previousIntent === 'governo') return MANAGEMENT_MODE.KINGDOM;
             if (previousIntent === 'economia') return MANAGEMENT_MODE.BUSINESS;
         }
+
+        // Default: when the protagonist is a ruler or business owner, generic actions
+        // ("aspetto notizie", "controllo i rapporti", "penso alla situazione")
+        // should default to management mode — not RPG — unless a personal verb
+        // explicitly placed the scene in CHARACTER mode above.
+        if (hasKingdom && hasBusiness) {
+            // If both are active, pick the one with higher pressure.
+            const pressure = deriveManagementPressure(memory);
+            return pressure.kingdomLevel >= pressure.businessLevel ? MANAGEMENT_MODE.KINGDOM : MANAGEMENT_MODE.BUSINESS;
+        }
+        if (hasKingdom) return MANAGEMENT_MODE.KINGDOM;
+        if (hasBusiness) return MANAGEMENT_MODE.BUSINESS;
 
         return MANAGEMENT_MODE.CHARACTER;
     }
