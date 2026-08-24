@@ -22,7 +22,7 @@ assert(montage.beats.length >= 3);
 assert(montage.beats.some(beat => beat.includes('Banco Torrigiani')));
 assert(montage.beats.some(beat => beat.includes('Marco Torrigiani')) || montage.beats.some(beat => beat.includes('Rinegoziare i crediti')));
 assert(montageApi.buildDirective(montage).includes('Non reintrodurre fame o sonno'));
-assert(montageApi.buildSummary(montage).includes('10 giorno'));
+assert(montageApi.buildSummary(montage).includes('settimana'));
 
 const committed = montageApi.commitMontage(state, [{ title: 'La corporazione convoca il banco' }]);
 assert(committed);

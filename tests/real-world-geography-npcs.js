@@ -31,7 +31,7 @@ realWorld.install();
     assert.match(prompt, /Firenze \(Toscana\)/);
     assert.match(prompt, /Perugia \(Umbria\)/);
     assert.match(prompt, /Ancona \(Marche\)/);
-    assert.match(prompt, /non deve rinominare la geografia reale/i);
+    assert.match(prompt, /non rinomina la geografia reale/i);
     assert.ok(prompt.lastIndexOf('GEOGRAFIA REALE AUTORITATIVA') > prompt.lastIndexOf('IDENTITÀ UNICA DELLA NUOVA PARTITA'));
 
     const npcPrompt = worldGenerator.buildNpcPrompt({
@@ -48,7 +48,7 @@ realWorld.install();
     }, story, { story });
     assert.match(npcPrompt, /NPC REALI\/PLAUSIBILI/);
     assert.match(npcPrompt, /persone private fittizie ma plausibili/i);
-    assert.match(npcPrompt, /città reale/i);
+    assert.match(npcPrompt, /luoghi reali già generati/i);
 }
 
 {

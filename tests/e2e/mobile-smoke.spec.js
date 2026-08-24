@@ -74,37 +74,43 @@ test('protagonist portrait keeps the full medallion on a phone viewport', async 
   await page.waitForFunction(() => Boolean(window.CronacheUiConsolidationV9), null, { timeout: 10_000 });
 
   const geometry = await page.evaluate(() => {
-    let button = document.getElementById('btn-top-character');
-    if (!button) {
-      button = document.createElement('button');
-      button.id = 'btn-top-character';
-      button.className = 'topbar-protagonist';
-      document.body.appendChild(button);
-    }
+    // The real topbar lives inside #game-screen, which is intentionally hidden on the
+    // home screen. Build a visible fixture with the exact production selectors so this
+    // smoke test measures the portrait CSS instead of the hidden screen geometry (0x0).
+    const existingButton = document.getElementById('btn-top-character');
+    const existingPortrait = document.getElementById('topbar-protagonist-portrait');
+    if (existingButton) existingButton.id = 'btn-top-character-app-fixture-source';
+    if (existingPortrait) existingPortrait.id = 'topbar-protagonist-portrait-app-fixture-source';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = 'btn-top-character';
+    button.className = 'topbar-protagonist';
     button.style.width = '72px';
     button.style.height = '72px';
+    document.body.appendChild(button);
 
-    let portrait = document.getElementById('topbar-protagonist-portrait');
-    if (!portrait) {
-      portrait = document.createElement('span');
-      portrait.id = 'topbar-protagonist-portrait';
-      button.appendChild(portrait);
-    }
-    let image = portrait.querySelector('img');
-    if (!image) {
-      image = document.createElement('img');
-      image.className = 'portrait-image portrait-photo';
-      image.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"></svg>';
-      portrait.appendChild(image);
-    }
+    const portrait = document.createElement('span');
+    portrait.id = 'topbar-protagonist-portrait';
+    button.appendChild(portrait);
+
+    const image = document.createElement('img');
+    image.className = 'portrait-image portrait-photo';
+    image.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"></svg>';
+    portrait.appendChild(image);
 
     const p = portrait.getBoundingClientRect();
     const i = image.getBoundingClientRect();
-    return { portraitWidth: p.width, imageWidth: i.width, radius: getComputedStyle(image).borderRadius };
+    const result = { portraitWidth: p.width, imageWidth: i.width, radius: getComputedStyle(image).borderRadius };
+
+    button.remove();
+    if (existingButton) existingButton.id = 'btn-top-character';
+    if (existingPortrait) existingPortrait.id = 'topbar-protagonist-portrait';
+    return result;
   });
 
   expect(geometry.portraitWidth).toBeGreaterThan(55);
-  expect(geometry.imageWidth).toBeGreaterThanOrEqual(geometry.portraitWidth - 1);
+  expect(geometry.imageWidth).toBeGreaterThanOrEqual(geometry.portraitWidth - 5); // 2px border each side
   expect(geometry.radius).toMatch(/50%|999/);
 });
 

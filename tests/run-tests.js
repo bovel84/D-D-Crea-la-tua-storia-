@@ -1852,7 +1852,7 @@ test('applica a Ollama il profilo di temperatura del compito', async () => {
 
 test('instrada tutte le chiamate del gioco attraverso il gestore LLM efficiente', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/ai-efficiency\.js\?v=20260814-llm-efficiency-4"/);
+    assert.match(html, /src="js\/ai-efficiency\.js\?v=20260818-ui-clean-2"/);
     assert.match(html, /const aiRequestManager = CronacheAI\.createRequestManager\(\)/);
     assert.match(html, /async function requestConfiguredAI/);
     assert.match(html, /CronacheAI\.compactMessages/);
@@ -3043,7 +3043,7 @@ test('espone accessi visibili alla gestione del negozio', () => {
 
 test('mantiene il calendario ma rimuove fame, metabolismo e attesa tecnica', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/time-energy\.js\?v=20260815-no-metabolism-1"/);
+    assert.match(html, /src="js\/time-energy\.js\?v=20260818-ui-clean-2"/);
     assert.match(html, /CronacheTimeEnergy\.normalizeMinutes/);
     assert.match(html, /CronacheTimeEnergy\.parseTimeExpression/);
     assert.match(html, /\[A-ZÀ-Ü_\]\+_REGNO/);
@@ -3060,7 +3060,7 @@ test('mostra l’anno e recupera il canone senza bloccare i browser con asset pr
     assert.match(html, /time-date'\)\.textContent = `\$\{G\.time\.dayName\} \$\{G\.time\.day\} \$\{MONTHS\[G\.time\.month - 1\]\.name\} \$\{G\.time\.year\}/);
     assert.match(html, /typeof CronacheMemory\.inferCanonicalYear === 'function'/);
     assert.doesNotMatch(html, /memoryManager\.inferCanonicalYear/);
-    assert.match(html, /src="js\/memory-manager\.js\?v=20260811-continuity-3"/);
+    assert.match(html, /src="js\/memory-manager\.js\?v=20260818-ui-clean-2"/);
     assert.match(html, /CronacheMemory\.recordContinuity\(wm/);
     assert.doesNotMatch(html, /memoryManager\.(?:inferCanonicalYear|recordContinuity|buildContinuityContext)/);
 });
@@ -3106,7 +3106,7 @@ test('apre il primo capitolo con un caricamento cinematografico invece della cro
     assert.match(html, /id="story-intro-portrait"/);
     assert.match(html, /function showStoryIntro\(\)/);
     assert.match(html, /function finishStoryIntro\(failed = false\)/);
-    assert.match(html, /showStoryIntro\(\);\s*window\.setTimeout\(\(\) => generateAI\('L\\'avventura inizia\.\.\.', true\), 60\)/);
+    assert.match(html, /showStoryIntro\(\);\s*window\.setTimeout\(\(\) => generateGameWorld\(\)/);
     assert.match(html, /if \(isStart\) finishStoryIntro\(startGenerationFailed\);/);
     assert.match(html, /if \(isStart && !hasOpening && G\.currentStory\?\.prologue\)/);
     assert.match(html, /portraitEngine\.imageSrc\(portrait\)/);
@@ -3117,7 +3117,7 @@ test('apre il primo capitolo con un caricamento cinematografico invece della cro
 
 test('nasconde controlli, ragionamenti e messaggi tecnici dalla cronaca', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    const aiSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-efficiency.js'), 'utf8');
+    const aiSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'ai-efficiency-core.js'), 'utf8');
     assert.match(html, /function stripHiddenWorkBlocks/);
     assert.match(html, /function isInternalStoryEntry/);
     assert.match(html, /if \(type === 'analysis' \|\| type === 'mechanic'\) return true/);
@@ -3126,7 +3126,7 @@ test('nasconde controlli, ragionamenti e messaggi tecnici dalla cronaca', () => 
     assert.doesNotMatch(html, /content = message\.reasoning/);
     assert.match(aiSource, /if \(!content && message\.reasoning\)/);
     assert.match(aiSource, /RISPOSTA FINALE\|FINAL ANSWER/);
-    assert.match(html, /if \(clean\) addStoryEntry\(clean, 'narrator'\)/);
+    assert.match(html, /if \(clean\) addStoryEntry\(clean, 'narrator'/);
 });
 
 test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migrazione incompleta', () => {
@@ -3146,17 +3146,17 @@ test('l’avvio protegge i dati legacy e collega i pulsanti anche dopo una migra
 
 test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia mobile', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260815-map-genre-1"/);
-    assert.match(html, /src="js\/timeline-chat\.js\?v=20260815-root-fix-1"/);
-    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260815-root-fix-1"/);
-    assert.match(html, /src="js\/portrait-manager\.js\?v=20260815-root-fix-1"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260818-ui-clean-2"/);
+    assert.match(html, /src="js\/timeline-chat\.js\?v=20260818-ui-clean-2"/);
+    assert.match(html, /src="js\/timeline-simulator\.js\?v=20260818-ui-clean-2"/);
+    assert.match(html, /src="js\/portrait-manager\.js\?v=20260818-ui-clean-2"/);
     assert.match(html, /id="btn-advance-world"/);
     assert.match(html, /id="btn-reopen-last-event"/);
     assert.match(html, /id="modal-timeline"/);
     assert.match(html, /id="btn-simulate-timeline"/);
     assert.match(html, /Avanza il turno/);
     assert.doesNotMatch(html, /id="timeline-step"/);
-    assert.match(html, /id="timeline-pending-events"/);
+    assert.match(html, /timeline-pending-summary/);
     assert.match(html, /id="modal-event-screen"/);
     assert.match(html, /id="modal-world-chat"/);
     assert.match(html, /id="chat-thread-list"/);
@@ -3212,7 +3212,7 @@ test('integra avanzamento, schermate evento e chat del mondo nell’interfaccia 
 
 test('integra analisi strategica per argomenti, selezione multipla e risoluzione nella timeline', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260815-root-fix-1"/);
+    assert.match(html, /src="js\/strategic-advisor\.js\?v=20260818-ui-clean-2"/);
     assert.match(html, /id="btn-strategic-actions"/);
     assert.match(html, /id="modal-strategic-actions"/);
     assert.match(html, /id="btn-strategic-analyze"/);
@@ -3242,7 +3242,7 @@ test('integra analisi strategica per argomenti, selezione multipla e risoluzione
 
 test('integra la creazione iniziale del mondo con narrazione, timeline e chat', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260815-map-genre-1"/);
+    assert.match(html, /src="js\/world-bootstrap\.js\?v=20260818-ui-clean-2"/);
     assert.match(html, /worldBootstrapEngine\.buildBootstrapPrompt/);
     assert.match(html, /worldBootstrapEngine\.ingestResponse/);
     assert.match(html, /worldBootstrapEngine\.projectToMemory/);
@@ -3327,7 +3327,7 @@ test('porta obiettivi e filtri strategici direttamente sulla mappa', () => {
 test('integra la mappa mobile con posizione, dettagli e controlli di gioco', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'experience-v7.css'), 'utf8');
-    assert.match(html, /src="js\/world-map\.js\?v=20260815-map-genre-1"/);
+    assert.match(html, /src="js\/world-map\.js\?v=20260818-ui-clean-2"/);
     assert.match(html, /id="modal-world-map"/);
     assert.match(html, /id="world-map-current-location"/);
     assert.match(html, /id="btn-map-center"/);
@@ -3457,11 +3457,11 @@ test('integra la scelta del volto e i ritratti persistenti nell’interfaccia', 
     assert.match(css, /\.event-screen-cast/);
 });
 
-test('espone coerentemente la versione applicativa 2.0', () => {
+test('espone coerentemente la versione applicativa 3.0', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.equal(packageMetadata.version, '2.0.0');
-    assert.match(html, /<title>🐉 Cronache del Destino v2\.0<\/title>/);
-    assert.match(html, /Un'avventura narrata dall'IA • v2\.0/);
+    assert.equal(packageMetadata.version, '3.0.0');
+    assert.match(html, /<title>🐉 Cronache del Destino v3\.0<\/title>/);
+    assert.match(html, /Un'avventura narrata dall'IA • v3\.0/);
 });
 
 test('inizializza e migra un regno senza confonderne il tesoro con altre finanze', () => {
@@ -4060,7 +4060,7 @@ test('il prompt del generatore richiede una campagna giocabile e JSON puro', () 
 
 test('integra il generatore nella schermata Crea storia', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    assert.match(html, /src="js\/story-generator\.js\?v=20260811-calendar-2"/);
+    assert.match(html, /src="js\/story-generator\.js\?v=20260818-ui-clean-2"/);
     assert.match(html, /id="edit-story-idea"/);
     assert.match(html, /id="btn-generate-story"/);
     assert.match(html, /function generateStoryFromEditor/);

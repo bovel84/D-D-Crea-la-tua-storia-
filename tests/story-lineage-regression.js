@@ -57,6 +57,6 @@ assert.strictEqual(manualName.character.name, 'Andrea Bianchi');
 
 const prompt = lineage.augmentBootstrapPrompt('BASE');
 assert.match(prompt, /dato della STORIA e del PERSONAGGIO/i);
-assert.match(prompt, /Non assegnare mai automaticamente Medici/i);
+assert.match(prompt, /non assegnare automaticamente Medici/i);
 
 console.log('story-lineage-regression: ok');

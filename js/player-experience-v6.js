@@ -98,7 +98,7 @@
         if (mode === 'chat') return 'I personaggi stanno formulando la loro risposta…';
         if (mode === 'management') return 'Aggiorno attività, regno e relazioni…';
         if (mode === 'action') return 'Il Master interpreta la tua azione e aggiorna il mondo…';
-        if (pending > 0) return `Il mondo sta reagendo: ${pending} sviluppo${pending === 1 ? '' : 'i'} in attesa…`;
+        if (pending > 0) return `Il mondo sta reagendo: ${pending} svilupp${pending === 1 ? 'o' : 'i'} in attesa…`;
         return turn > 0 ? 'Simulo il prossimo sviluppo del mondo…' : 'Il mondo sta prendendo forma…';
     }
 

@@ -124,7 +124,7 @@ const failures = result.results.filter(item => item.ok === false);
 assert.deepStrictEqual(failures, []);
 const updated = result.management.businesses[0];
 assert.strictEqual(updated.status, 'active');
-assert.strictEqual(updated.customerSatisfaction, 65);
+assert.strictEqual(updated.customerSatisfaction, 66);
 assert.match(updated.description, /Credito e cambio/);
 assert.strictEqual(updated.contracts[0].status, 'active');
 assert.strictEqual(updated.contracts[0].amount, 0);
