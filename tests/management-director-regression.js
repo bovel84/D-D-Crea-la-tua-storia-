@@ -195,4 +195,60 @@ assert.equal(
     'un verbo personale deve restare RPG anche con regno attivo'
 );
 
+// —— Strategic Assessment ——
+const criticalKingdomMemory = {
+    kingdom: { active: true, name: 'Valdoria', treasury: -50, food: 0, stability: 30, legitimacy: 40, prosperity: 25,
+        people: { approval: 25, unrest: 65, health: 30, foodSecurity: 15, employment: 50 },
+        army: { readiness: 25, morale: 30, levies: 100, professionals: 20, cavalry: 5, navy: 0, upkeep: 10 },
+        crises: [{ name: 'Carestia', status: 'active', severity: 80 }] },
+    management: { businesses: [] }
+};
+const kingdomAssessment = managementDirector.buildStrategicAssessment('regno', criticalKingdomMemory);
+assert.ok(kingdomAssessment.includes('ANALISI STRATEGICA DEL REGNO'), 'assessment regno ha titolo');
+assert.ok(kingdomAssessment.includes('CRITICO'), 'regno in crisi ha livello CRITICO');
+assert.ok(kingdomAssessment.includes('carestia'), 'regno segnala carestia');
+assert.ok(kingdomAssessment.includes('Priorità'), 'regno ha priorità');
+assert.ok(kingdomAssessment.includes('Prossima decisione attesa'), 'regno indica prossima decisione');
+
+const healthyKingdomMemory = {
+    kingdom: { active: true, name: 'Valdoria', treasury: 500, food: 200, stability: 75, legitimacy: 80, prosperity: 65,
+        people: { approval: 60, unrest: 15, health: 70, foodSecurity: 75, employment: 80 }, crises: [] },
+    management: { businesses: [] }
+};
+const healthyAssessment = managementDirector.buildStrategicAssessment('regno', healthyKingdomMemory);
+assert.ok(healthyAssessment.includes('BASSO'), 'regno sano ha livello BASSO');
+assert.ok(healthyAssessment.includes('Opportunità'), 'regno sano mostra opportunità');
+
+const criticalBusinessMemory = {
+    kingdom: { active: false },
+    management: { businesses: [{ id: 'b1', name: 'Officina Rossa', status: 'active', cash: -80, customerSatisfaction: 25, reputation: 30,
+        lastReport: { netProfit: -120, revenue: 50, margin: -240 },
+        products: [{ name: 'Ricambio', active: true, stock: 0, reorderPoint: 5 }],
+        pendingOrders: [{ status: 'pending' }, { status: 'pending' }, { status: 'pending' }, { status: 'pending' }] }] }
+};
+const businessAssessment = managementDirector.buildStrategicAssessment('attivita', criticalBusinessMemory);
+assert.ok(businessAssessment.includes('ANALISI STRATEGICA — Officina Rossa'), 'assessment attività ha titolo con nome');
+assert.ok(businessAssessment.includes('CRITICO'), 'attività in crisi ha livello CRITICO');
+assert.ok(businessAssessment.includes('cassa negativa'), 'attività segnala cassa negativa');
+assert.ok(businessAssessment.includes('Prossima decisione attesa'), 'attività indica prossima decisione');
+
+const characterAssessment = managementDirector.buildStrategicAssessment('personaggio', criticalKingdomMemory);
+assert.equal(characterAssessment, '', 'modalità personaggio non produce assessment strategico');
+
+// —— augmentPlan includes strategic assessment in prompt ——
+const augmentedPlan = managementDirector.augmentPlan(
+    { prompt: 'Base prompt', pressure: { level: 20 }, intent: 'esplorazione', state: {} },
+    'controllo i rapporti',
+    { memory: criticalKingdomMemory }
+);
+assert.ok(augmentedPlan.prompt.includes('ANALISI STRATEGICA'), 'augmentPlan inietta assessment strategico');
+assert.ok(augmentedPlan.prompt.includes('SINTESI STRATEGICA'), 'augmentPlan inietta istruzione sintesi strategica');
+
+const augmentedDecision = managementDirector.augmentNarrativeDecision(
+    { prompt: 'Base decision', decision: { focus: 'narrativa' }, compass: { currentFocus: 'narrativa' } },
+    'controllo i rapporti',
+    { memory: criticalKingdomMemory }
+);
+assert.ok(augmentedDecision.prompt.includes('ANALISI STRATEGICA'), 'augmentNarrativeDecision inietta assessment strategico');
+
 console.log('management director regression: ok');

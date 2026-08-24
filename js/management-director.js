@@ -5,7 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const PATCH_VERSION = 3;
+    const PATCH_VERSION = 4;
     const asArray = value => Array.isArray(value) ? value : [];
     const clean = (value, max = 300) => String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
     const number = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -153,7 +153,178 @@
         return MANAGEMENT_MODE.CHARACTER;
     }
 
-    function buildNarrativeModeInstruction(mode, management) {
+    function buildStrategicAssessment(mode, memory) {
+        if (mode === MANAGEMENT_MODE.KINGDOM) {
+            const kingdom = memory?.kingdom || {};
+            const people = kingdom.people || {};
+            const army = kingdom.army || {};
+            const crises = asArray(kingdom.crises).filter(c => c?.status === 'active');
+            const stability = number(kingdom.stability, 50);
+            const approval = number(people.approval, 50);
+            const unrest = number(people.unrest, 20);
+            const health = number(people.health, 50);
+            const foodSecurity = number(people.foodSecurity, 50);
+            const employment = number(people.employment, 60);
+            const treasury = number(kingdom.treasury, 0);
+            const food = number(kingdom.food, 0);
+            const prosperity = number(kingdom.prosperity, 50);
+            const legitimacy = number(kingdom.legitimacy, 50);
+
+            const kpis = [
+                `Stabilità ${Math.round(stability)}/100`,
+                `Legittimità ${Math.round(legitimacy)}/100`,
+                `Prosperità ${Math.round(prosperity)}/100`,
+                `Consenso ${Math.round(approval)}/100`,
+                `Disordini ${Math.round(unrest)}/100`,
+                `Salute pubblica ${Math.round(health)}/100`,
+                `Sicurezza alimentare ${Math.round(foodSecurity)}/100`,
+                `Occupazione ${Math.round(employment)}/100`,
+                `Tesoro ${Math.round(treasury)}`,
+                `Viveri ${Math.round(food)}`
+            ];
+
+            const risks = [];
+            const opportunities = [];
+            const priorities = [];
+
+            if (food <= 0 || foodSecurity < 35) {
+                risks.push('carestia imminente');
+                priorities.push('Garantire approvvigionamento alimentare e aiuti ai territori colpiti');
+            }
+            if (unrest >= 50) {
+                risks.push('rivolta popolare');
+                priorities.push('Ridurre la pressione fiscale e ascolare le rivendicazioni');
+            }
+            if (treasury < 0) {
+                risks.push('tesoro negativo');
+                priorities.push('Riequilibrare il bilancio senza comprimere servizi essenziali');
+            }
+            if (health < 35) {
+                risks.push('emergenza sanitaria');
+                priorities.push('Investire in infrastrutture sanitarie e igiene pubblica');
+            }
+            if (employment < 60) {
+                risks.push('disoccupazione elevata');
+                priorities.push('Creare posti di lavoro compatibili con le qualifiche disponibili');
+            }
+            if (stability < 40) {
+                risks.push('governo fragile');
+                priorities.push('Rafforzare legittimità con riforme e consultazione del consiglio');
+            }
+            if (crises.length) {
+                risks.push(`${crises.length} crisi attiva/e: ${crises.map(c => clean(c.name || c.title || 'crisi', 60)).join(', ')}`);
+                priorities.push(`Gestire la crisi più grave: ${clean(crises[0].name || crises[0].title || 'crisi', 80)}`);
+            }
+            if (army?.readiness != null && number(army.readiness, 50) < 40) {
+                risks.push('esercito impreparato');
+                priorities.push('Addestrare e riequipaggiare le forze armate');
+            }
+
+            if (stability >= 65 && approval >= 55) opportunities.push('capitale politico per riforme ambiziose');
+            if (prosperity >= 60 && treasury > 200) opportunities.push('risorse per investimenti infrastrutturali');
+            if (food > 100 && foodSecurity >= 60) opportunities.push('surplus agricolo commerciabile');
+            if (employment >= 75) opportunities.push('base produttiva e fiscale solida');
+
+            if (!priorities.length) priorities.push('Consolidare crescita, servizi e coesione sociale');
+            if (!opportunities.length) opportunities.push('nessuna opportunità strategica evidente al momento');
+
+            const threatLevel = risks.length >= 4 ? 'CRITICO' : risks.length >= 2 ? 'ELEVATO' : risks.length >= 1 ? 'MODERATO' : 'BASSO';
+
+            return [
+                'ANALISI STRATEGICA DEL REGNO',
+                `Livello minaccia: ${threatLevel}`,
+                `KPI: ${kpis.join(' | ')}`,
+                `Rischi: ${risks.length ? risks.join('; ') : 'nessuno rilevante'}`,
+                `Opportunità: ${opportunities.join('; ')}`,
+                `Priorità d'azione: ${priorities.join('; ')}`,
+                `Prossima decisione attesa: il giocatore deve affrontare ${priorities[0].toLowerCase()}.`
+            ].join('\n');
+        }
+
+        if (mode === MANAGEMENT_MODE.BUSINESS) {
+            const businesses = asArray(memory?.management?.businesses).filter(b => b?.status !== 'closed');
+            if (!businesses.length) return '';
+
+            const assessments = businesses.map(business => {
+                const name = clean(business.name || business.propertyName || 'Attività', 80);
+                const cash = number(business.cash, 0);
+                const satisfaction = number(business.customerSatisfaction, 60);
+                const reputation = number(business.reputation, 50);
+                const report = business.lastReport || {};
+                const profit = number(report.netProfit);
+                const revenue = number(report.revenue);
+                const margin = number(report.margin);
+                const lowStock = asArray(report.lowStock).length ||
+                    asArray(business.products).filter(p => p?.active !== false && number(p.stock) <= Math.max(0, number(p.reorderPoint))).length;
+                const pendingOrders = asArray(business.pendingOrders).filter(o => o?.status === 'pending').length;
+
+                const kpis = [
+                    `Cassa ${Math.round(cash)}`,
+                    `Reputazione ${Math.round(reputation)}/100`,
+                    `Soddisfazione clienti ${Math.round(satisfaction)}/100`,
+                    profit !== 0 ? `Utile ultimo periodo ${Math.round(profit)}` : '',
+                    margin !== 0 ? `Margine ${Math.round(margin)}%` : '',
+                    lowStock > 0 ? `Sotto scorta: ${lowStock} prodotti` : '',
+                    pendingOrders > 0 ? `Ordini pendenti: ${pendingOrders}` : ''
+                ].filter(Boolean);
+
+                const risks = [];
+                const opportunities = [];
+                const priorities = [];
+
+                if (cash < 0) {
+                    risks.push('cassa negativa');
+                    priorities.push('Coprire il deficit con credito o riduzione dei costi');
+                }
+                if (profit < 0) {
+                    risks.push('perdita nel periodo');
+                    priorities.push('Rivedere prezzi, costi o mix prodotti');
+                }
+                if (lowStock > 0) {
+                    risks.push(`${lowStock} prodotti sotto scorta`);
+                    priorities.push(`Riordinare i prodotti in esaurimento`);
+                }
+                if (satisfaction < 40) {
+                    risks.push('clienti insoddisfatti');
+                    priorities.push('Migliorare qualità del servizio e ascoltare i reclami');
+                }
+                if (reputation < 40) {
+                    risks.push('reputazione debole');
+                    priorities.push('Investire in marketing e relazioni pubbliche');
+                }
+                if (pendingOrders > 3) {
+                    risks.push('troppi ordini in sospeso');
+                    priorities.push('Sbloccare la filiera fornitori');
+                }
+
+                if (cash > 300 && profit >= 0) opportunities.push('risorse per espandere o diversificare');
+                if (satisfaction >= 70) opportunities.push('base clienti fedele da valorizzare');
+                if (reputation >= 65) opportunities.push('brand forte per partnership o nuove filiali');
+                if (profit > 100 && margin > 20) opportunities.push('margine sano per reinvestire');
+
+                if (!priorities.length) priorities.push('Consolidare posizione di mercato e ottimizzare operazioni');
+                if (!opportunities.length) opportunities.push('nessuna opportunità evidente al momento');
+
+                const threatLevel = risks.length >= 4 ? 'CRITICO' : risks.length >= 2 ? 'ELEVATO' : risks.length >= 1 ? 'MODERATO' : 'BASSO';
+
+                return [
+                    `ANALISI STRATEGICA — ${name}`,
+                    `Livello minaccia: ${threatLevel}`,
+                    `KPI: ${kpis.join(' | ')}`,
+                    `Rischi: ${risks.length ? risks.join('; ') : 'nessuno rilevante'}`,
+                    `Opportunità: ${opportunities.join('; ')}`,
+                    `Priorità d'azione: ${priorities.join('; ')}`,
+                    `Prossima decisione attesa: il giocatore deve affrontare ${priorities[0].toLowerCase()}.`
+                ].join('\n');
+            });
+
+            return assessments.join('\n\n');
+        }
+
+        return '';
+    }
+
+    function buildNarrativeModeInstruction(mode, management, memory) {
         if (mode === MANAGEMENT_MODE.KINGDOM) {
             return [
                 'MODALITÀ NARRATIVA: GESTIONE DEL REGNO — PRIORITÀ STRATEGICA',
@@ -163,7 +334,9 @@
                 '- Se una misura richiede tempo, NON trattarla come completata all’istante: distingui ordine, implementazione e risultati nel tempo.',
                 '- Fai reagire ministri, nobili, popolo, categorie economiche, territori e potenze esterne quando pertinenti.',
                 '- Usa scene RPG dettagliate solo se il giocatore entra personalmente in un incontro, viaggio, duello, ispezione o dialogo decisivo.',
-                '- Evita riempitivi tipo “attraversi il corridoio / osservi la stanza” quando il cuore dell’azione è amministrativo.',
+                '- Evita riempitivi tipo "attraversi il corridoio / osservi la stanza" quando il cuore dell\'azione è amministrativo.',
+                '- Apri il turno con una SINTESI STRATEGICA concisa (2-4 righe) che valuta la situazione attuale: KPI principali, rischi, opportunità e priorità. Non elencare tutti i numeri: scegli i 3-4 più rilevanti e spiega perché contano ora.',
+                '- Dopo la sintesi strategica, procedi con la narrazione del turno (decisione -> attuazione -> reazioni -> effetti).',
                 `- Pressione gestionale osservata: ${management?.kingdomLevel ?? 0}/100. Segnali: ${management?.kingdomSignals?.join(' · ') || 'nessun segnale critico'}.`
             ].join('\n');
         }
@@ -177,7 +350,9 @@
                 '- Se la decisione produce effetti differiti, separa l’ordine dal risultato e fai avanzare il tempo in modo credibile.',
                 '- Non inventare numeri precisi senza base: usa dati persistenti, variazioni motivate o stime esplicitamente presentate come tali.',
                 '- Usa la narrazione RPG ravvicinata solo per trattative, sopralluoghi o interazioni personali davvero decisive.',
-                '- Evita di trasformare una scelta aziendale in una quest o in una scena d’avventura se non nasce logicamente dalla situazione.',
+                "- Evita di trasformare una scelta aziendale in una quest o in una scena d'avventura se non nasce logicamente dalla situazione.",
+                '- Apri il turno con una SINTESI STRATEGICA concisa (2-4 righe) che valuta la situazione attuale: KPI principali (cassa, utili, soddisfazione, scorte), rischi, opportunità e priorità. Non elencare tutti i numeri: scegli i 3-4 più rilevanti e spiega perché contano ora.',
+                '- Dopo la sintesi strategica, procedi con la narrazione del turno (dato/problema -> decisione -> esecuzione -> reazioni -> impatto).',
                 `- Pressione gestionale osservata: ${management?.businessLevel ?? 0}/100. Segnali: ${management?.businessSignals?.join(' · ') || 'nessun segnale critico'}.`
             ].join('\n');
         }
@@ -220,7 +395,9 @@
                 ? 'Operazioni, cassa, costi, ricavi, scorte, contratti e reazioni di clienti, dipendenti, fornitori e concorrenti'
                 : basePlan?.sceneFocus;
         const managementInstruction = `\n\nGESTIONE PERSISTENTE:\n- Pressione gestionale: ${management.level}/100 (${management.type}).\n- Segnali reali: ${management.summary}.\n- Se questi segnali sono rilevanti per il turno, trasformali in reazioni osservabili di clienti, dipendenti, fornitori, concorrenti, popolo, fazioni, istituzioni o potenze.\n- Non limitarti a cambiare numeri in silenzio e non inventare una crisi gestionale quando i segnali sono assenti.`;
-        const modeInstruction = buildNarrativeModeInstruction(mode, management);
+        const modeInstruction = buildNarrativeModeInstruction(mode, management, memory);
+        const strategicAssessment = buildStrategicAssessment(mode, memory);
+        const strategicBlock = strategicAssessment ? `\n\n${strategicAssessment}` : '';
         const state = basePlan?.state && typeof basePlan.state === 'object' ? {
             ...basePlan.state,
             currentIntent: intent,
@@ -254,7 +431,7 @@
                     : basePlan?.pressure?.description
             },
             state,
-            prompt: `${basePlan?.prompt || ''}${managementInstruction}\n\n${modeInstruction}`
+            prompt: `${basePlan?.prompt || ''}${managementInstruction}${strategicBlock}\n\n${modeInstruction}`
         };
     }
 
@@ -285,12 +462,14 @@
             }
             : baseDecision.decision;
 
+        const strategicAssessment = buildStrategicAssessment(mode, memory);
+        const strategicBlock = strategicAssessment ? `\n\n${strategicAssessment}` : '';
         return {
             ...baseDecision,
             compass,
             decision,
             narrativeMode: mode,
-            prompt: `${baseDecision.prompt || ''}\n\n${buildNarrativeModeInstruction(mode, management)}`
+            prompt: `${baseDecision.prompt || ''}${strategicBlock}\n\n${buildNarrativeModeInstruction(mode, management, memory)}`
         };
     }
 
@@ -351,6 +530,7 @@
         managementIntent,
         detectNarrativeMode,
         buildNarrativeModeInstruction,
+        buildStrategicAssessment,
         augmentPlan,
         augmentNarrativeDecision,
         install,
