@@ -2,9 +2,10 @@
 
 const assert = require('assert');
 const director = require('../js/game-director.js');
+const narrative = require('../js/narrative-master.js');
 const managementDirector = require('../js/management-director.js');
 
-assert.equal(managementDirector.install(), true, 'il patch deve installarsi sul Game Director');
+assert.equal(managementDirector.install(), true, 'il patch deve installarsi sul Game Director e sul Narrative Master');
 
 const memory = {
     turnCount: 4,
@@ -42,6 +43,22 @@ assert(/Officina Rossa/.test(pressure.summary));
 assert.equal(managementDirector.managementIntent('Abbasso il prezzo dei ricambi e tratto con il fornitore'), 'economia');
 assert.equal(managementDirector.managementIntent('Aumento le tasse e convoco il consiglio'), 'governo');
 
+assert.equal(
+    managementDirector.detectNarrativeMode('Aumento le tasse e convoco il consiglio', { memory }),
+    'regno',
+    'le decisioni pubbliche devono usare la scala di regno'
+);
+assert.equal(
+    managementDirector.detectNarrativeMode('Abbasso il prezzo e assumo due dipendenti', { memory }),
+    'attivita',
+    'le decisioni aziendali devono usare la scala attività'
+);
+assert.equal(
+    managementDirector.detectNarrativeMode('Entro nella taverna e parlo con l’oste', { memory }),
+    'personaggio',
+    'una scena personale deve restare RPG anche se il personaggio possiede regno o attività'
+);
+
 const gameDirector = new director.GameDirector();
 const plan = gameDirector.planTurn('Abbasso il prezzo dei ricambi', {
     memory,
@@ -50,11 +67,56 @@ const plan = gameDirector.planTurn('Abbasso il prezzo dei ricambi', {
 });
 
 assert.equal(plan.intent, 'economia');
+assert.equal(plan.narrativeMode, 'attivita');
 assert(plan.pressure.level > 20, 'la pressione gestionale deve alzare la tensione del turno');
 assert.equal(plan.pressure.management.type, 'attivita');
 assert(/GESTIONE PERSISTENTE/.test(plan.prompt));
+assert(/GESTIONE DELL’ATTIVITÀ/.test(plan.prompt));
 assert(/clienti, dipendenti, fornitori, concorrenti/.test(plan.prompt));
 assert(/Officina Rossa/.test(plan.prompt));
 assert.equal(plan.state.lastPlan.managementType, 'attivita');
+assert.equal(plan.state.lastPlan.narrativeMode, 'attivita');
+
+const kingdomPlan = gameDirector.planTurn('Aumento le tasse e convoco il consiglio', {
+    memory,
+    character: { health: { cur: 10, max: 10 }, stamina: { cur: 10, max: 10 } },
+    currentLocation: 'Palazzo Reale'
+});
+assert.equal(kingdomPlan.intent, 'governo');
+assert.equal(kingdomPlan.narrativeMode, 'regno');
+assert(/GESTIONE DEL REGNO/.test(kingdomPlan.prompt));
+assert(/attuazione/.test(kingdomPlan.prompt));
+assert(/classi sociali/.test(kingdomPlan.prompt));
+assert.equal(kingdomPlan.state.lastPlan.narrativeMode, 'regno');
+
+const personalPlan = gameDirector.planTurn('Entro nella taverna e parlo con l’oste', {
+    memory,
+    character: { health: { cur: 10, max: 10 }, stamina: { cur: 10, max: 10 } },
+    currentLocation: 'Taverna'
+});
+assert.equal(personalPlan.narrativeMode, 'personaggio');
+assert(/PERSONAGGIO \/ RPG/.test(personalPlan.prompt));
+
+const narrativeMaster = new narrative.NarrativeMasterEngine();
+const kingdomNarrative = narrativeMaster.decide('Aumento le tasse e convoco il consiglio', {
+    memory,
+    character: { health: { cur: 10, max: 10 }, stamina: { cur: 10, max: 10 }, gold: 20 },
+    currentLocation: 'Palazzo Reale',
+    story: {}
+});
+assert.equal(kingdomNarrative.narrativeMode, 'regno');
+assert.equal(kingdomNarrative.decision.focus, 'governo');
+assert(/GESTIONE DEL REGNO/.test(kingdomNarrative.prompt));
+assert(/reazione sistemica/.test(kingdomNarrative.decision.proactiveBeat));
+
+const personalNarrative = narrativeMaster.decide('Entro nella taverna e parlo con l’oste', {
+    memory,
+    character: { health: { cur: 10, max: 10 }, stamina: { cur: 10, max: 10 }, gold: 20 },
+    currentLocation: 'Taverna',
+    story: {}
+});
+assert.equal(personalNarrative.narrativeMode, 'personaggio');
+assert.notEqual(personalNarrative.decision.focus, 'governo');
+assert(/PERSONAGGIO \/ RPG/.test(personalNarrative.prompt));
 
 console.log('management director regression: ok');
