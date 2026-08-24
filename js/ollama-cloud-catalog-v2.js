@@ -69,7 +69,7 @@
         topP: 0.9,
         topK: 40,
         notes: 'Modello Ollama Cloud. Il catalogo del tuo account ha priorità su questo elenco.'
-    })));
+    })))
 
     function cleanNumber(value, fallback) {
         const number = Number(value);
