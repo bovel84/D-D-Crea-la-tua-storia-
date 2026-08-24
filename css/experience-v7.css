@@ -898,6 +898,7 @@
 .top-menu-time { margin:0; text-align:center; font:700 1.05rem 'Cinzel',serif; color:var(--ink); }.top-menu-time small { font:400 .75rem system-ui,sans-serif; }
 .portrait-topbar ~ .topbar-row { display:none !important; }
 .topbar-protagonist .portrait-image-host { overflow: hidden; background:#322033; }
+.topbar-protagonist .portrait-image { width: 100%; height: 100%; }
 @media (min-width: 701px) { .portrait-topbar { min-height:100px; } }
 .portrait-image {
     display: block;
