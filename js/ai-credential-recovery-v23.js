@@ -1,34 +1,114 @@
 (function (root, factory) {
     const api = factory(root || {});
     if (typeof module === 'object' && module.exports) module.exports = api;
-    if (root) root.CronacheAICredentialRecoveryV23 = api;
+    if (root) {
+        root.CronacheAICredentialRecoveryV23 = api;
+        root.CronacheAICredentialRecoveryV24 = api;
+    }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
     'use strict';
 
-    const VERSION = 23;
-    const PATCH_MARK = '__cronacheCredentialRecoveryV23';
+    const VERSION = 24;
+    const PATCH_MARK = '__cronacheCredentialRecoveryV24';
+    const STORAGE_KEY = 'dnd_v4';
+    const installState = { preSynced: false, intervalId: null, attempts: 0 };
 
     const clean = value => String(value == null ? '' : value).trim();
 
     function missingCredentialError(error) {
         const message = clean(error?.message || error).toLowerCase();
-        return /api key/.test(message) && /(non configurat|mancant|inserisc|configura)/.test(message);
+        return /api key|chiave api/.test(message) && /(non configurat|mancant|inserisc|configura|assente|missing)/.test(message);
     }
 
-    function providerCredential(doc) {
-        const provider = clean(doc?.getElementById('set-model')?.value || 'groq');
-        const ids = provider === 'ollama-cloud' ? ['set-ollama-key']
-            : provider === 'openrouter' || provider === 'openrouter-free' ? ['set-openrouter-key']
-                : provider === 'deepseek' ? ['set-kimera-key', 'set-openrouter-key']
-                    : ['set-groq-key'];
-        const input = ids.map(id => doc?.getElementById(id)).find(node => clean(node?.value));
-        return { provider, input, apiKeyPresent: Boolean(input && clean(input.value)) };
+    function readSavedSettings(storage = root.localStorage) {
+        try {
+            const raw = storage?.getItem?.(STORAGE_KEY);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return parsed?.settings && typeof parsed.settings === 'object' ? parsed.settings : {};
+        } catch (_error) {
+            return {};
+        }
     }
 
-    async function syncSettingsFromUi(doc = root.document) {
+    function credentialIds(provider) {
+        if (provider === 'ollama-cloud') return ['set-ollama-key'];
+        if (provider === 'openrouter' || provider === 'openrouter-free') return ['set-openrouter-key'];
+        if (provider === 'deepseek') return ['set-kimera-key', 'set-openrouter-key'];
+        return ['set-groq-key'];
+    }
+
+    function savedCredential(settings, provider) {
+        if (provider === 'ollama-cloud') return clean(settings?.ollama?.apiKey);
+        if (provider === 'openrouter' || provider === 'openrouter-free') return clean(settings?.openrouterKey);
+        if (provider === 'deepseek') return clean(settings?.kimeraKey || settings?.openrouterKey);
+        return clean(settings?.groqKey);
+    }
+
+    function providerCredential(doc = root.document, storage = root.localStorage) {
+        const saved = readSavedSettings(storage);
+        const select = doc?.getElementById('set-model');
+        const domProvider = clean(select?.value);
+        const savedProvider = clean(saved?.model);
+        const providerCandidates = [domProvider, savedProvider, 'ollama-cloud', 'openrouter', 'deepseek', 'groq']
+            .filter((value, index, list) => value && list.indexOf(value) === index);
+
+        for (const provider of providerCandidates) {
+            const ids = credentialIds(provider);
+            const inputs = ids.map(id => doc?.getElementById(id)).filter(Boolean);
+            const populatedInput = inputs.find(node => clean(node?.value));
+            const uiKey = clean(populatedInput?.value);
+            const storedKey = savedCredential(saved, provider);
+            const apiKey = uiKey || storedKey;
+            if (!apiKey) continue;
+            return {
+                provider,
+                select,
+                input: populatedInput || inputs[0] || null,
+                apiKey,
+                apiKeyPresent: true,
+                source: uiKey ? 'ui' : 'storage',
+                saved
+            };
+        }
+
+        return {
+            provider: domProvider || savedProvider || 'groq',
+            select,
+            input: null,
+            apiKey: '',
+            apiKeyPresent: false,
+            source: 'none',
+            saved
+        };
+    }
+
+    function hydrateProviderFields(doc, credential) {
+        if (!doc || !credential?.apiKeyPresent) return false;
+        const provider = credential.provider;
+        const select = credential.select || doc.getElementById('set-model');
+        if (select && provider && select.value !== provider) {
+            select.value = provider;
+            try { select.dispatchEvent(new Event('change', { bubbles: true })); } catch (_error) { }
+        }
+
+        const ids = credentialIds(provider);
+        const input = credential.input || ids.map(id => doc.getElementById(id)).find(Boolean);
+        if (input && !clean(input.value)) input.value = credential.apiKey;
+
+        if (provider === 'ollama-cloud') {
+            const model = doc.getElementById('set-ollama-model');
+            const storedModel = clean(credential.saved?.ollama?.primaryModel);
+            if (model && !clean(model.value) && storedModel) model.value = storedModel;
+        }
+        return true;
+    }
+
+    async function syncSettingsFromUi(doc = root.document, storage = root.localStorage) {
         if (!doc) return false;
-        const credential = providerCredential(doc);
+        const credential = providerCredential(doc, storage);
         if (!credential.apiKeyPresent) return false;
+        hydrateProviderFields(doc, credential);
 
         const saveButton = doc.getElementById('btn-save-settings');
         if (!saveButton) return false;
@@ -42,10 +122,12 @@
 
         if (typeof saveButton.onclick === 'function') {
             await Promise.resolve(saveButton.onclick.call(saveButton, event));
+            installState.preSynced = true;
             return true;
         }
         if (typeof saveButton.click === 'function') {
             saveButton.click();
+            installState.preSynced = true;
             return true;
         }
         return false;
@@ -57,13 +139,17 @@
         if (current[PATCH_MARK]) return true;
 
         const wrapped = async function credentialRecoveringRequest(...args) {
+            if (!installState.preSynced) {
+                try { await syncSettingsFromUi(root.document, root.localStorage); } catch (_error) { }
+            }
             try {
                 return await current.apply(this, args);
             } catch (error) {
                 if (!missingCredentialError(error)) throw error;
-                const synced = await syncSettingsFromUi(root.document);
+                installState.preSynced = false;
+                const synced = await syncSettingsFromUi(root.document, root.localStorage);
                 if (!synced) throw error;
-                console.info('[CredentialRecoveryV23] Credenziali sincronizzate dall’interfaccia; ripeto la richiesta AI.');
+                console.info('[CredentialRecoveryV24] Credenziali recuperate e sincronizzate; ripeto la richiesta AI.');
                 return current.apply(this, args);
             }
         };
@@ -74,21 +160,41 @@
     }
 
     function install(doc = root.document, win = root) {
-        const run = () => patchRequestConfiguredAI();
+        const run = () => {
+            installState.attempts++;
+            const patched = patchRequestConfiguredAI();
+            if (patched && installState.intervalId && installState.attempts >= 3) {
+                try { win.clearInterval(installState.intervalId); } catch (_error) { }
+                installState.intervalId = null;
+            }
+            return patched;
+        };
+
         run();
         if (doc?.readyState === 'loading') doc.addEventListener('DOMContentLoaded', run, { once: true });
         if (typeof win?.setTimeout === 'function') {
-            win.setTimeout(run, 0);
-            win.setTimeout(run, 250);
-            win.setTimeout(run, 1000);
+            [0, 250, 1000, 2500].forEach(delay => win.setTimeout(run, delay));
+        }
+        if (typeof win?.setInterval === 'function' && !installState.intervalId) {
+            installState.intervalId = win.setInterval(() => {
+                if (installState.attempts >= 30) {
+                    try { win.clearInterval(installState.intervalId); } catch (_error) { }
+                    installState.intervalId = null;
+                    return;
+                }
+                run();
+            }, 500);
         }
         return true;
     }
 
     return {
         VERSION,
+        STORAGE_KEY,
         missingCredentialError,
+        readSavedSettings,
         providerCredential,
+        hydrateProviderFields,
         syncSettingsFromUi,
         patchRequestConfiguredAI,
         install
