@@ -140,4 +140,59 @@ assert.equal(personalNarrative.narrativeMode, 'personaggio');
 assert.notEqual(personalNarrative.decision.focus, 'governo');
 assert(/PERSONAGGIO \/ RPG/.test(personalNarrative.prompt));
 
+// —— Default management mode when protagonist is ruler or business owner ——
+// Generic actions (no personal verb, no explicit management command) should
+// default to management mode, not RPG, when the protagonist holds a role.
+// With the test memory, business pressure (67) > kingdom pressure (0), so attivita wins.
+assert.equal(
+    managementDirector.detectNarrativeMode('aspetto notizie', { memory }),
+    'attivita',
+    'un\'azione generica con regno e attività attivi deve defaultare alla gestione con pressione maggiore'
+);
+assert.equal(
+    managementDirector.detectNarrativeMode('controllo i rapporti', { memory }),
+    'attivita',
+    'un\'azione generica con regno e attività attivi deve defaultare alla gestione con pressione maggiore'
+);
+
+const onlyBusinessMemory = { ...memory, kingdom: { active: false } };
+assert.equal(
+    managementDirector.detectNarrativeMode('aspetto notizie', { memory: onlyBusinessMemory }),
+    'attivita',
+    'un\'azione generica con solo attività attiva deve defaultare a gestione attività'
+);
+
+const onlyKingdomMemory = { ...memory, management: { businesses: [] } };
+assert.equal(
+    managementDirector.detectNarrativeMode('penso alla situazione', { memory: onlyKingdomMemory }),
+    'regno',
+    'un\'azione generica con solo regno attivo deve defaultare a gestione del regno'
+);
+
+// When kingdom has higher pressure than business, generic actions default to regno
+const kingdomPressureMemory = {
+    ...memory,
+    management: { businesses: [{ id: 'b2', name: 'Bottega', status: 'active', cash: 500, customerSatisfaction: 80 }] },
+    kingdom: { active: true, name: 'Valdoria', treasury: -50, food: 0, stability: 30, people: { unrest: 60, health: 30 }, crises: [{ name: 'Carestia', status: 'active', severity: 80 }] }
+};
+assert.equal(
+    managementDirector.detectNarrativeMode('aspetto notizie', { memory: kingdomPressureMemory }),
+    'regno',
+    'quando la pressione del regno supera quella dell\'attività, il default è regno'
+);
+
+const noManagementMemory = { ...memory, kingdom: { active: false }, management: { businesses: [] } };
+assert.equal(
+    managementDirector.detectNarrativeMode('aspetto notizie', { memory: noManagementMemory }),
+    'personaggio',
+    'senza regno né attività, il default resta RPG'
+);
+
+// Personal verbs must still override to CHARACTER even with management active
+assert.equal(
+    managementDirector.detectNarrativeMode('passeggio nel giardino', { memory }),
+    'personaggio',
+    'un verbo personale deve restare RPG anche con regno attivo'
+);
+
 console.log('management director regression: ok');
